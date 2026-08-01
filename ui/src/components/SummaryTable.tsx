@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api, type QueryResult, type QueryRow, type QuerySource, type QuerySpec } from "../api";
 import { fmtNum, fmtRate } from "../format";
 import { defaultPanel, type PanelDef } from "../dashboards/model";
+import type { EntityColors } from "../colors";
 
 interface Column {
   metric: string;
@@ -47,6 +48,7 @@ interface Props {
   onToggleDamageShields: (exclude: boolean) => void;
   petRollup: boolean;
   onOpenInBuilder?: (seed: PanelDef) => void;
+  colors: EntityColors;
 }
 
 /**
@@ -61,6 +63,7 @@ export function SummaryTable({
   onToggleDamageShields,
   petRollup,
   onOpenInBuilder,
+  colors,
 }: Props) {
   const [source, setSource] = useState<QuerySource>("damage");
   const [rowsBy, setRowsBy] = useState<"player" | "target">("player");
@@ -105,11 +108,26 @@ export function SummaryTable({
 
   const columns = COLUMNS[source];
 
+  // Meter-style row tint: the same entity color the charts use, at low alpha,
+  // sized by the row's share of the top total.
+  const maxTotal = result?.rows.reduce((max, r) => Math.max(max, r.metrics.total ?? 0), 0) ?? 0;
+
   const renderRow = (row: QueryRow, depth: number, path: string): JSX.Element[] => {
     const hasChildren = (row.children?.length ?? 0) > 0;
     const isExpanded = expanded.has(path);
+    let rowStyle: React.CSSProperties | undefined;
+    let chip: JSX.Element | null = null;
+    if (depth === 0 && maxTotal > 0) {
+      const color = rowsBy === "player" ? colors.claim(row.key) : colors.lookup(row.key);
+      const pct = ((row.metrics.total ?? 0) / maxTotal) * 100;
+      rowStyle = {
+        background: `linear-gradient(to right, ${color}2e ${pct.toFixed(1)}%, transparent ${pct.toFixed(1)}%)`,
+      };
+      chip = <span className="color-chip" style={{ background: color }} />;
+    }
+
     const out: JSX.Element[] = [
-      <tr key={path} className={depth > 0 ? "child-row" : undefined}>
+      <tr key={path} className={depth > 0 ? "child-row" : undefined} style={rowStyle}>
         <td style={{ paddingLeft: depth * 18 + 8 }}>
           {hasChildren ? (
             <button
@@ -129,6 +147,7 @@ export function SummaryTable({
           ) : (
             <span className="expander-spacer" />
           )}
+          {chip}
           {row.label}
         </td>
         {columns.map((c) => (

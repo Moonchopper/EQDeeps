@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import * as echarts from "echarts";
 import { api, type QueryResult, type QueryRow } from "../api";
-import { fmtNum, fmtRate, OTHER_COLOR, SERIES_COLORS } from "../format";
+import { fmtNum, fmtRate, OTHER_COLOR } from "../format";
+import type { EntityColors } from "../colors";
 
 interface Props {
   sessionId: string;
@@ -9,6 +10,7 @@ interface Props {
   refreshKey: number;
   character: string;
   petRollup: boolean;
+  colors: EntityColors;
 }
 
 const BAR_COLOR = "#3987e5";
@@ -28,7 +30,7 @@ const MAX_STACK_ATTACKERS = 8;
  * and a legend carries identity. Flat mode stays single-hue — there the
  * category axis already names each bar.
  */
-export function AbilityChart({ sessionId, fightIds, refreshKey, character, petRollup }: Props) {
+export function AbilityChart({ sessionId, fightIds, refreshKey, character, petRollup, colors }: Props) {
   const divRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<echarts.ECharts | null>(null);
   const [players, setPlayers] = useState<QueryResult | null>(null);
@@ -172,14 +174,14 @@ export function AbilityChart({ sessionId, fightIds, refreshKey, character, petRo
           ),
         );
 
-      series = stackKeys.map((key, i) => ({
+      series = stackKeys.map((key) => ({
         name: key,
         type: "bar",
         stack: "dmg",
         barWidth: 13,
         data: segment(key),
         itemStyle: {
-          color: SERIES_COLORS[i % SERIES_COLORS.length],
+          color: colors.claim(key),
           borderColor: SURFACE,
           borderWidth: 1,
         },
@@ -279,7 +281,7 @@ export function AbilityChart({ sessionId, fightIds, refreshKey, character, petRo
       },
       { replaceMerge: ["series"] },
     );
-  }, [abilities, players, player, mode, splitActive]);
+  }, [abilities, players, player, mode, splitActive, colors]);
 
   return (
     <div className="panel chart-panel">

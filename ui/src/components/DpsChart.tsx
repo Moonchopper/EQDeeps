@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import * as echarts from "echarts";
 import { api, type QueryResult, type QueryRow } from "../api";
-import { fmtNum, OTHER_COLOR, SERIES_COLORS } from "../format";
+import { fmtNum, OTHER_COLOR } from "../format";
+import type { EntityColors } from "../colors";
 
 interface Props {
   sessionId: string;
@@ -9,6 +10,7 @@ interface Props {
   refreshKey: number;
   followLive: boolean;
   petRollup: boolean;
+  colors: EntityColors;
 }
 
 const WINDOW_CHOICES = [1, 3, 5, 10, 30, 60];
@@ -33,10 +35,9 @@ const BREAK_MS = 30_000;
  * breaks it. Top 8 players by total with the rest folded into "Other";
  * colors follow the entity for the life of the selection, never its rank.
  */
-export function DpsChart({ sessionId, fightIds, refreshKey, followLive, petRollup }: Props) {
+export function DpsChart({ sessionId, fightIds, refreshKey, followLive, petRollup, colors }: Props) {
   const divRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<echarts.ECharts | null>(null);
-  const colorMapRef = useRef<Map<string, string>>(new Map());
   const [windowSec, setWindowSec] = useState(5);
   const [span, setSpan] = useState<number | "fit">("fit");
   const [scopeMode, setScopeMode] = useState<"selection" | "recent">("selection");
@@ -66,11 +67,6 @@ export function DpsChart({ sessionId, fightIds, refreshKey, followLive, petRollu
       chartRef.current = null;
     };
   }, []);
-
-  // New selection = new chart context: reset the entity→color assignment.
-  useEffect(() => {
-    colorMapRef.current = new Map();
-  }, [selectionKey]);
 
   useEffect(() => {
     if (scopeMode === "selection" && fightIds.length === 0) {
@@ -112,13 +108,6 @@ export function DpsChart({ sessionId, fightIds, refreshKey, followLive, petRollu
     );
     const top = ranked.slice(0, 8);
     const rest = ranked.slice(8);
-
-    const colors = colorMapRef.current;
-    for (const row of top) {
-      if (!colors.has(row.key)) {
-        colors.set(row.key, SERIES_COLORS[colors.size % SERIES_COLORS.length]);
-      }
-    }
 
     const secondsOf = (rows: QueryRow[]) => {
       const bySecond = new Map<number, number>();
@@ -176,8 +165,7 @@ export function DpsChart({ sessionId, fightIds, refreshKey, followLive, petRollu
       type: "line",
       showSymbol: false,
       lineStyle: { width: 2 },
-      itemStyle: { color: colors.get(row.key) },
-      color: colors.get(row.key),
+      color: colors.claim(row.key),
       data: smoothed(secondsOf([row])),
       connectNulls: false,
     }));
@@ -243,7 +231,7 @@ export function DpsChart({ sessionId, fightIds, refreshKey, followLive, petRollu
       },
       { replaceMerge: ["series"] },
     );
-  }, [result, windowSec, span, scopeMode, effectiveSpan]);
+  }, [result, windowSec, span, scopeMode, effectiveSpan, colors]);
 
   return (
     <div className="panel chart-panel">

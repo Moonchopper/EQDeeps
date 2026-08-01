@@ -352,8 +352,18 @@ td {
   color: var(--ink-2);
 }
 
+/* Translucent so entity row tints stay visible under the hover wash. */
 tbody tr:hover td {
-  background: var(--surface-2);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.color-chip {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  margin-right: 7px;
+  vertical-align: baseline;
 }
 
 td.num,

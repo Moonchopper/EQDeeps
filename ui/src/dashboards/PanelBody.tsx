@@ -3,12 +3,14 @@ import * as echarts from "echarts";
 import { api, type QueryResult, type QueryRow } from "../api";
 import { fmtNum, fmtRate, OTHER_COLOR, SERIES_COLORS } from "../format";
 import { buildSpec, METRIC_LABELS, RATE_METRICS, type PanelDef } from "./model";
+import type { EntityColors } from "../colors";
 
 export interface PanelContext {
   sessionId: string;
   fightIds: number[];
   refreshKey: number;
   petRollup: boolean;
+  colors: EntityColors;
 }
 
 function fmtMetric(metric: string, value: number): string {
@@ -65,11 +67,28 @@ function TablePanel({ panel, ctx }: { panel: PanelDef; ctx: PanelContext }) {
   if (result === "no-selection") return <div className="empty">Select a fight</div>;
   if (!result) return <div className="empty">Loading…</div>;
 
+  const barMetric = panel.viz === "table" && panel.metrics.includes("total") ? "total" : null;
+  const maxBar = barMetric
+    ? result.rows.reduce((max, r) => Math.max(max, r.metrics[barMetric] ?? 0), 0)
+    : 0;
+  const playerRows = panel.groupBy[0] === "player";
+
   const renderRow = (row: QueryRow, depth: number, path: string): JSX.Element[] => {
     const hasChildren = (row.children?.length ?? 0) > 0;
     const isOpen = expanded.has(path);
+    let rowStyle: React.CSSProperties | undefined;
+    let chip: JSX.Element | null = null;
+    if (depth === 0 && barMetric && maxBar > 0) {
+      const color = playerRows ? ctx.colors.claim(row.key) : ctx.colors.lookup(row.key);
+      const pct = ((row.metrics[barMetric] ?? 0) / maxBar) * 100;
+      rowStyle = {
+        background: `linear-gradient(to right, ${color}2e ${pct.toFixed(1)}%, transparent ${pct.toFixed(1)}%)`,
+      };
+      chip = <span className="color-chip" style={{ background: color }} />;
+    }
+
     const out = [
-      <tr key={path} className={depth > 0 ? "child-row" : undefined}>
+      <tr key={path} className={depth > 0 ? "child-row" : undefined} style={rowStyle}>
         <td style={{ paddingLeft: depth * 16 + 8 }}>
           {hasChildren ? (
             <button
@@ -89,6 +108,7 @@ function TablePanel({ panel, ctx }: { panel: PanelDef; ctx: PanelContext }) {
           ) : (
             <span className="expander-spacer" />
           )}
+          {chip}
           {row.label}
         </td>
         {panel.metrics.map((m) => (
@@ -203,12 +223,12 @@ function LinePanel({ panel, ctx }: { panel: PanelDef; ctx: PanelContext }) {
       return points;
     };
 
-    const series: echarts.SeriesOption[] = top.map((row, i) => ({
+    const series: echarts.SeriesOption[] = top.map((row) => ({
       name: row.label,
       type: "line",
       showSymbol: false,
       lineStyle: { width: 2 },
-      color: SERIES_COLORS[i % SERIES_COLORS.length],
+      color: ctx.colors.claim(row.key),
       data: smoothed([row]),
       connectNulls: false,
     }));

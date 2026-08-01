@@ -1,6 +1,6 @@
 import type { QueryRow } from "../api";
 import type { TickEvent } from "../live";
-import { fmtNum, fmtRate, SERIES_COLORS } from "../format";
+import { fmtNum, fmtRate } from "../format";
 
 interface Props {
   tick: TickEvent | null;
@@ -55,17 +55,4 @@ export function LiveMeter({ tick, colorFor, petRollup }: Props) {
       )}
     </div>
   );
-}
-
-/** Stable entity→slot assignment shared by meter renders. */
-export function makeColorAssigner(): (key: string) => string {
-  const assigned = new Map<string, string>();
-  return (key: string) => {
-    let color = assigned.get(key);
-    if (!color) {
-      color = SERIES_COLORS[assigned.size % SERIES_COLORS.length];
-      assigned.set(key, color);
-    }
-    return color;
-  };
 }

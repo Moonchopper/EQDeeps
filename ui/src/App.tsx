@@ -5,7 +5,8 @@ import { describeAge, SessionBar } from "./components/SessionBar";
 import { FightList } from "./components/FightList";
 import { SummaryTable } from "./components/SummaryTable";
 import { DpsChart } from "./components/DpsChart";
-import { LiveMeter, makeColorAssigner } from "./components/LiveMeter";
+import { LiveMeter } from "./components/LiveMeter";
+import { createEntityColors } from "./colors";
 import { DeathLog } from "./components/DeathLog";
 import { SelectionStats } from "./components/SelectionStats";
 import { AbilityChart } from "./components/AbilityChart";
@@ -148,7 +149,9 @@ export default function App() {
   activeIdRef.current = activeId;
   const followRef = useRef(followLive);
   followRef.current = followLive;
-  const colorFor = useMemo(() => makeColorAssigner(), [activeId]);
+  // One entity→color registry per session: charts, meter, and table tints all
+  // read the same assignment, so "orange" means the same player everywhere.
+  const entityColors = useMemo(() => createEntityColors(), [activeId]);
 
   const live = useMemo(
     () =>
@@ -359,9 +362,10 @@ export default function App() {
                     onToggleDamageShields={setExcludeDs}
                     petRollup={petRollup}
                     onOpenInBuilder={openInBuilder}
+                    colors={entityColors}
                   />
                   <div className="panel-stack">
-                    <LiveMeter tick={tick} colorFor={colorFor} petRollup={petRollup} />
+                    <LiveMeter tick={tick} colorFor={entityColors.claim} petRollup={petRollup} />
                     <DeathLog sessionId={activeId} fightIds={selected} refreshKey={refreshKey} />
                   </div>
                 </div>
@@ -372,6 +376,7 @@ export default function App() {
                     refreshKey={refreshKey}
                     followLive={followLive}
                     petRollup={petRollup}
+                    colors={entityColors}
                   />
                   <AbilityChart
                     sessionId={activeId}
@@ -379,6 +384,7 @@ export default function App() {
                     refreshKey={refreshKey}
                     character={sessions.find((s) => s.id === activeId)?.character ?? ""}
                     petRollup={petRollup}
+                    colors={entityColors}
                   />
                 </div>
               </div>
@@ -388,7 +394,7 @@ export default function App() {
                 return dashboard ? (
                   <DashboardView
                     dashboard={dashboard}
-                    ctx={{ sessionId: activeId, fightIds: selected, refreshKey, petRollup }}
+                    ctx={{ sessionId: activeId, fightIds: selected, refreshKey, petRollup, colors: entityColors }}
                     onChange={(next) =>
                       updateDashboards(dashboards.map((d) => (d.id === next.id ? next : d)))
                     }

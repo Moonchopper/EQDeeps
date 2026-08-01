@@ -9,6 +9,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\EQDeeps.Core\EQDeeps.Core.csproj" />
+    <ProjectReference Include="..\EQDeeps.TestSupport\EQDeeps.TestSupport.csproj" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Fixtures\**\*.json" CopyToOutputDirectory="PreserveNewest" />

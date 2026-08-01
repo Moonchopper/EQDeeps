@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <Description>Shared test/bench support: synthetic log generation, virtual clocks.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\EQDeeps.Core\EQDeeps.Core.csproj" />
+  </ItemGroup>
+</Project>

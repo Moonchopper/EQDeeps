@@ -1,0 +1,14 @@
+[
+  { "line": "Goodurden has captured liquid shadow's attention!", "expect": { "type": "taunt", "taunter": "Goodurden", "target": "Liquid shadow", "success": true, "improved": false } },
+  { "line": "You capture a slithering adder's attention!", "expect": { "type": "taunt", "taunter": "TestPlayer", "target": "A slithering adder", "success": true } },
+  { "line": "Foob failed to taunt Doomshade.", "expect": { "type": "taunt", "taunter": "Foob", "target": "Doomshade", "success": false } },
+  { "line": "A war beast is focused on attacking Rorcal due to an improved taunt.", "expect": { "type": "taunt", "taunter": "Rorcal", "target": "A war beast", "success": true, "improved": true } },
+
+  { "line": "LOADING, PLEASE WAIT...", "expect": { "type": "zone", "zoneName": null } },
+  { "line": "Welcome to EverQuest!", "expect": { "type": "zone", "zoneName": null } },
+  { "line": "You have entered Plane of Knowledge.", "expect": { "type": "zone", "zoneName": "Plane of Knowledge" } },
+  { "line": "You have entered an area where levitation effects do not function.", "expect": { "type": "none" } },
+
+  { "line": "Your target resisted the Mind Coil spell.", "expect": { "type": "resist", "caster": "TestPlayer", "resister": null, "spell": "Mind Coil" } },
+  { "line": "A gnoll resisted your Slow!", "expect": { "type": "resist", "caster": "TestPlayer", "resister": "A gnoll", "spell": "Slow" } }
+]

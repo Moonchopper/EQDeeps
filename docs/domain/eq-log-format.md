@@ -50,7 +50,7 @@ Channel grammars (sender first token; "You" for self; the `, in an unknown tongu
 | tell-window echo | `Test -> Test2: hello` |
 
 Notes:
-- Senders can be cross-server: `Name.Server` (e.g., `Bob.Firiona tells you, ...`). Normalize/display accordingly.
+- Senders can be cross-server: `Server.Name` (e.g., `Firiona.Bob tells you, ...` — the character name is the part **after** the dot; the reference parser extracts the post-dot segment as the player name, and its tests assert `Test.test2 tells you` → sender `test2`). Normalize/display accordingly.
 - NPC speech uses the same `says, '...'` grammar; `Test says 'My leader is hello'` (no comma) is a **pet leader** line, not chat — see §5.
 - Chat lines terminate processing — never fall through to combat parsing.
 

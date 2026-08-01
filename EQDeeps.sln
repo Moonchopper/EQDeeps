@@ -1,0 +1,36 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{1F82BD91-D499-47ED-B15E-22191D97B431}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EQDeeps.Core", "src\EQDeeps.Core\EQDeeps.Core.csproj", "{33FD967E-598B-49B2-8108-B0A8F91D42F1}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{62367A9C-69C1-43E8-9D6D-AB4431A0F925}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EQDeeps.Core.Tests", "tests\EQDeeps.Core.Tests\EQDeeps.Core.Tests.csproj", "{C7E27475-4AC1-4318-A887-47795A0DD75A}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{33FD967E-598B-49B2-8108-B0A8F91D42F1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{33FD967E-598B-49B2-8108-B0A8F91D42F1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{33FD967E-598B-49B2-8108-B0A8F91D42F1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{33FD967E-598B-49B2-8108-B0A8F91D42F1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C7E27475-4AC1-4318-A887-47795A0DD75A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C7E27475-4AC1-4318-A887-47795A0DD75A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C7E27475-4AC1-4318-A887-47795A0DD75A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C7E27475-4AC1-4318-A887-47795A0DD75A}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{33FD967E-598B-49B2-8108-B0A8F91D42F1} = {1F82BD91-D499-47ED-B15E-22191D97B431}
+		{C7E27475-4AC1-4318-A887-47795A0DD75A} = {62367A9C-69C1-43E8-9D6D-AB4431A0F925}
+	EndGlobalSection
+EndGlobal

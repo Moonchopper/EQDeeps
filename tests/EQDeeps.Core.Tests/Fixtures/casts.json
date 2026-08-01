@@ -1,0 +1,10 @@
+[
+  { "line": "Tolzol begins casting Ardent Elixir Rk. II.", "expect": { "type": "cast", "caster": "Tolzol", "spell": "Ardent Elixir Rk. II", "kind": "begin", "song": false } },
+  { "line": "You begin casting Burst of Flames.", "expect": { "type": "cast", "caster": "TestPlayer", "spell": "Burst of Flames", "kind": "begin" } },
+  { "line": "Sonozen begins singing Aria of Absolution.", "expect": { "type": "cast", "caster": "Sonozen", "spell": "Aria of Absolution", "kind": "begin", "song": true } },
+  { "line": "Foob begins to cast a spell. Complete Heal", "expect": { "type": "cast", "caster": "Foob", "spell": "Complete Heal", "kind": "begin" } },
+  { "line": "Your Burst of Flames spell is interrupted.", "expect": { "type": "cast", "caster": "TestPlayer", "spell": "Burst of Flames", "kind": "interrupted" } },
+  { "line": "Sonozen's casting is interrupted!", "expect": { "type": "cast", "caster": "Sonozen", "spell": null, "kind": "interrupted" } },
+  { "line": "Soandso's spell fizzles!", "expect": { "type": "cast", "caster": "Soandso", "spell": null, "kind": "fizzle" } },
+  { "line": "Your spell fizzles!", "expect": { "type": "cast", "caster": "TestPlayer", "spell": null, "kind": "fizzle" } }
+]

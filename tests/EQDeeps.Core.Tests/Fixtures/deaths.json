@@ -1,0 +1,9 @@
+[
+  { "line": "You have slain a rockborn!", "expect": { "type": "death", "victim": "A rockborn", "killer": "TestPlayer" } },
+  { "line": "Kzerk has been slain by Strangle`s pet!", "expect": { "type": "death", "victim": "Kzerk", "killer": "Strangle`s pet" } },
+  { "line": "An armed flyer has been slain by Renewingx!", "expect": { "type": "death", "victim": "An armed flyer", "killer": "Renewingx" } },
+  { "line": "You have been slain by an armed flyer!", "expect": { "type": "death", "victim": "TestPlayer", "killer": "An armed flyer" } },
+  { "line": "Kizante`s pet was slain by a rockborn!", "expect": { "type": "death", "victim": "Kizante`s pet", "killer": "A rockborn" } },
+  { "line": "Strangle`s pet has been slain by Kzerk!", "expect": { "type": "death", "victim": "Strangle`s pet", "killer": "Kzerk" } },
+  { "line": "An ice giant died.", "expect": { "type": "death", "victim": "An ice giant", "killer": null } }
+]

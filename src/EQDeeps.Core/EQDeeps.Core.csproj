@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>EQDeeps.Core</RootNamespace>
+    <Description>EQDeeps domain core: log-line parsing and typed game events.</Description>
+  </PropertyGroup>
+</Project>

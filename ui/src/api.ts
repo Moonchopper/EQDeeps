@@ -115,4 +115,19 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(spec),
     }).then((r) => json(r)),
+
+  getStore: async <T>(key: string): Promise<T | null> => {
+    const response = await fetch(`/api/store/${key}`);
+    if (response.status === 204 || !response.ok) {
+      return null;
+    }
+    return (await response.json()) as T;
+  },
+
+  putStore: (key: string, document: unknown): Promise<void> =>
+    fetch(`/api/store/${key}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(document),
+    }).then(() => undefined),
 };

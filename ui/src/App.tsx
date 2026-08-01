@@ -9,6 +9,8 @@ import { LiveMeter, makeColorAssigner } from "./components/LiveMeter";
 import { DeathLog } from "./components/DeathLog";
 import { SelectionStats } from "./components/SelectionStats";
 import { AbilityChart } from "./components/AbilityChart";
+import { DashboardView } from "./dashboards/DashboardView";
+import { defaultPanel, newDashboard, newId, type DashboardDef } from "./dashboards/model";
 
 /**
  * The default dashboard (feature F7): fight list + summary + DPS chart + live
@@ -27,10 +29,96 @@ export default function App() {
   const [petRollup, setPetRollup] = useState(() => localStorage.getItem("eqdeeps.petRollup") !== "off");
   const [discovered, setDiscovered] = useState<DiscoveredLog[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [dashboards, setDashboards] = useState<DashboardDef[]>([]);
+  const [view, setView] = useState<string>("overview"); // "overview" | dashboard id
 
   function togglePetRollup(on: boolean) {
     setPetRollup(on);
     localStorage.setItem("eqdeeps.petRollup", on ? "on" : "off");
+  }
+
+  // ---- dashboards: load once, save debounced -------------------------------
+  const saveTimer = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    api
+      .getStore<{ dashboards: DashboardDef[] }>("dashboards")
+      .then((doc) => doc?.dashboards && setDashboards(doc.dashboards))
+      .catch(() => undefined);
+  }, []);
+
+  function updateDashboards(next: DashboardDef[]) {
+    setDashboards(next);
+    window.clearTimeout(saveTimer.current);
+    saveTimer.current = window.setTimeout(() => {
+      api.putStore("dashboards", { dashboards: next }).catch(() => undefined);
+    }, 800);
+  }
+
+  function addDashboard() {
+    const name = window.prompt("Dashboard name", `Dashboard ${dashboards.length + 1}`);
+    if (!name) return;
+    const dashboard = newDashboard(name);
+    updateDashboards([...dashboards, dashboard]);
+    setView(dashboard.id);
+  }
+
+  function renameDashboard(id: string) {
+    const current = dashboards.find((d) => d.id === id);
+    const name = window.prompt("Rename dashboard", current?.name ?? "");
+    if (!name || !current) return;
+    updateDashboards(dashboards.map((d) => (d.id === id ? { ...d, name } : d)));
+  }
+
+  function deleteDashboard(id: string) {
+    const current = dashboards.find((d) => d.id === id);
+    if (!current || !window.confirm(`Delete dashboard "${current.name}"?`)) return;
+    updateDashboards(dashboards.filter((d) => d.id !== id));
+    setView("overview");
+  }
+
+  function exportDashboard(id: string) {
+    const dashboard = dashboards.find((d) => d.id === id);
+    if (!dashboard) return;
+    const blob = new Blob([JSON.stringify({ eqdeepsDashboard: dashboard }, null, 2)], {
+      type: "application/json",
+    });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `${dashboard.name.replace(/[^\w-]+/g, "_")}.eqdeeps.json`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  function importDashboard(file: File) {
+    file.text().then((text) => {
+      try {
+        const parsed = JSON.parse(text) as { eqdeepsDashboard?: DashboardDef };
+        const dashboard = parsed.eqdeepsDashboard;
+        if (!dashboard?.panels || !dashboard.name) {
+          setError("Not an EQDeeps dashboard file");
+          return;
+        }
+        const imported = { ...dashboard, id: newId("d") };
+        updateDashboards([...dashboards, imported]);
+        setView(imported.id);
+      } catch {
+        setError("Not an EQDeeps dashboard file");
+      }
+    });
+  }
+
+  /** "Edit this view" on canned panels: seed a panel in a dashboard (F4/F6). */
+  function openInBuilder(seed: ReturnType<typeof defaultPanel>) {
+    let target = dashboards.find((d) => d.name === "My panels");
+    let next = dashboards;
+    if (!target) {
+      target = newDashboard("My panels");
+      next = [...dashboards, target];
+    }
+    updateDashboards(
+      next.map((d) => (d.id === target!.id ? { ...d, panels: [...d.panels, seed] } : d)),
+    );
+    setView(target.id);
   }
 
   const activeIdRef = useRef(activeId);
@@ -169,54 +257,119 @@ export default function App() {
         error={error}
       />
       {activeId ? (
-        <main className="dashboard">
-          <FightList
-            fights={fights}
-            selected={selected}
-            followLive={followLive}
-            onSelect={setSelected}
-            onFollowLive={setFollowLive}
-          />
-          <div className="dashboard-main">
-            <SelectionStats
-              sessionId={activeId}
-              character={sessions.find((s) => s.id === activeId)?.character ?? ""}
-              fightIds={selected}
-              refreshKey={refreshKey}
-              petRollup={petRollup}
+        <>
+          <nav className="view-tabs">
+            <button
+              className={"view-tab" + (view === "overview" ? " on" : "")}
+              onClick={() => setView("overview")}
+            >
+              Overview
+            </button>
+            {dashboards.map((d) => (
+              <button
+                key={d.id}
+                className={"view-tab" + (view === d.id ? " on" : "")}
+                onClick={() => setView(d.id)}
+                onDoubleClick={() => renameDashboard(d.id)}
+                title="Double-click to rename"
+              >
+                {d.name}
+              </button>
+            ))}
+            <button className="view-tab add" onClick={addDashboard} title="New dashboard">
+              +
+            </button>
+            {view !== "overview" && (
+              <span className="view-tab-actions">
+                <button className="mini-btn" onClick={() => exportDashboard(view)}>
+                  export
+                </button>
+                <label className="mini-btn" title="Import a dashboard JSON">
+                  import
+                  <input
+                    type="file"
+                    accept=".json"
+                    style={{ display: "none" }}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) importDashboard(file);
+                      e.target.value = "";
+                    }}
+                  />
+                </label>
+                <button className="mini-btn" onClick={() => deleteDashboard(view)}>
+                  delete
+                </button>
+              </span>
+            )}
+          </nav>
+          <main className="dashboard">
+            <FightList
+              fights={fights}
+              selected={selected}
+              followLive={followLive}
+              onSelect={setSelected}
+              onFollowLive={setFollowLive}
             />
-            <div className="dashboard-row">
-              <SummaryTable
-                sessionId={activeId}
-                fightIds={selected}
-                refreshKey={refreshKey}
-                excludeDamageShields={excludeDs}
-                onToggleDamageShields={setExcludeDs}
-                petRollup={petRollup}
-              />
-              <div className="panel-stack">
-                <LiveMeter tick={tick} colorFor={colorFor} petRollup={petRollup} />
-                <DeathLog sessionId={activeId} fightIds={selected} refreshKey={refreshKey} />
+            {view === "overview" ? (
+              <div className="dashboard-main">
+                <SelectionStats
+                  sessionId={activeId}
+                  character={sessions.find((s) => s.id === activeId)?.character ?? ""}
+                  fightIds={selected}
+                  refreshKey={refreshKey}
+                  petRollup={petRollup}
+                />
+                <div className="dashboard-row">
+                  <SummaryTable
+                    sessionId={activeId}
+                    fightIds={selected}
+                    refreshKey={refreshKey}
+                    excludeDamageShields={excludeDs}
+                    onToggleDamageShields={setExcludeDs}
+                    petRollup={petRollup}
+                    onOpenInBuilder={openInBuilder}
+                  />
+                  <div className="panel-stack">
+                    <LiveMeter tick={tick} colorFor={colorFor} petRollup={petRollup} />
+                    <DeathLog sessionId={activeId} fightIds={selected} refreshKey={refreshKey} />
+                  </div>
+                </div>
+                <div className="dashboard-row halves">
+                  <DpsChart
+                    sessionId={activeId}
+                    fightIds={selected}
+                    refreshKey={refreshKey}
+                    followLive={followLive}
+                    petRollup={petRollup}
+                  />
+                  <AbilityChart
+                    sessionId={activeId}
+                    fightIds={selected}
+                    refreshKey={refreshKey}
+                    character={sessions.find((s) => s.id === activeId)?.character ?? ""}
+                    petRollup={petRollup}
+                  />
+                </div>
               </div>
-            </div>
-            <div className="dashboard-row halves">
-              <DpsChart
-                sessionId={activeId}
-                fightIds={selected}
-                refreshKey={refreshKey}
-                followLive={followLive}
-                petRollup={petRollup}
-              />
-              <AbilityChart
-                sessionId={activeId}
-                fightIds={selected}
-                refreshKey={refreshKey}
-                character={sessions.find((s) => s.id === activeId)?.character ?? ""}
-                petRollup={petRollup}
-              />
-            </div>
-          </div>
-        </main>
+            ) : (
+              (() => {
+                const dashboard = dashboards.find((d) => d.id === view);
+                return dashboard ? (
+                  <DashboardView
+                    dashboard={dashboard}
+                    ctx={{ sessionId: activeId, fightIds: selected, refreshKey, petRollup }}
+                    onChange={(next) =>
+                      updateDashboards(dashboards.map((d) => (d.id === next.id ? next : d)))
+                    }
+                  />
+                ) : (
+                  <div className="empty">Dashboard not found</div>
+                );
+              })()
+            )}
+          </main>
+        </>
       ) : (
         <main className="welcome">
           <h1>No log open</h1>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, type QueryResult, type QueryRow, type QuerySource, type QuerySpec } from "../api";
 import { fmtNum, fmtRate } from "../format";
+import { defaultPanel, type PanelDef } from "../dashboards/model";
 
 interface Column {
   metric: string;
@@ -45,6 +46,7 @@ interface Props {
   excludeDamageShields: boolean;
   onToggleDamageShields: (exclude: boolean) => void;
   petRollup: boolean;
+  onOpenInBuilder?: (seed: PanelDef) => void;
 }
 
 /**
@@ -58,6 +60,7 @@ export function SummaryTable({
   excludeDamageShields,
   onToggleDamageShields,
   petRollup,
+  onOpenInBuilder,
 }: Props) {
   const [source, setSource] = useState<QuerySource>("damage");
   const [rowsBy, setRowsBy] = useState<"player" | "target">("player");
@@ -183,6 +186,24 @@ export function SummaryTable({
               />
               exclude DS
             </label>
+          )}
+          {onOpenInBuilder && (
+            <button
+              className="mini-btn"
+              title="This view is a query — open a copy in the dashboard builder"
+              onClick={() =>
+                onOpenInBuilder({
+                  ...defaultPanel(),
+                  title: `${source[0].toUpperCase() + source.slice(1)} summary`,
+                  source,
+                  groupBy: rowsBy === "player" ? ["player", "spell"] : ["target", "player"],
+                  excludeFlags:
+                    source === "damage" && excludeDamageShields ? ["damageShield"] : [],
+                })
+              }
+            >
+              edit as panel
+            </button>
           )}
         </span>
       </div>

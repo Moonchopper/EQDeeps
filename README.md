@@ -2,7 +2,7 @@
 
 A modern, real-time EverQuest combat-log analytics app — a clean-room successor to [EQLogParser](https://github.com/kauffman12/EQLogParser) built around composable queries and dashboards instead of fixed views.
 
-**Status: working MVP.** Parser core, ingestion (≈1 GB/s backfill, sub-250 ms live latency), fight/session state, the composable query engine, a localhost REST + SignalR backend, and the React dashboard (fight list, damage/healing/tanking summaries, DPS chart, live meter, deaths) are implemented and tested. Next: query-builder UI, custom dashboards, packaging.
+**Status: working app.** Parser core, ingestion (≈1 GB/s backfill, sub-250 ms live latency), fight/session state, the composable query engine, a localhost REST + SignalR backend, the React overview dashboard (fight list, summaries, DPS chart with rolling windows, live meter, ability breakdowns, deaths), and custom dashboards with a full query-builder UI (drag/resize panels, export/import as JSON). Next: packaging, spell DB (class detection, bane), real-log validation.
 
 ## Run it
 

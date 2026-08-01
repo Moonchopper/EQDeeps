@@ -523,6 +523,219 @@ th.num {
   font-size: 12px;
 }
 
+/* ---- view tabs ---- */
+.view-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 14px 0;
+}
+
+.view-tab {
+  padding: 4px 12px;
+  border-radius: 6px 6px 0 0;
+  color: var(--muted);
+  font-weight: 600;
+  border: 1px solid transparent;
+  border-bottom: none;
+}
+
+.view-tab.on {
+  background: var(--surface);
+  color: var(--ink);
+  border-color: var(--border);
+}
+
+.view-tab.add {
+  color: var(--accent);
+  font-size: 15px;
+}
+
+.view-tab-actions {
+  display: flex;
+  gap: 6px;
+  margin-left: 8px;
+}
+
+.view-tab-actions label.mini-btn {
+  cursor: pointer;
+}
+
+/* ---- custom dashboards ---- */
+.dashboard-custom {
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.dash-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 2px 8px;
+}
+
+.grid-panel {
+  overflow: hidden;
+}
+
+.panel-drag {
+  cursor: grab;
+  user-select: none;
+}
+
+.panel-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.panel-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.react-grid-item.react-grid-placeholder {
+  background: var(--accent);
+  opacity: 0.15;
+  border-radius: 8px;
+}
+
+.tile-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+}
+
+.tile-value {
+  color: var(--ink);
+  font-size: 34px;
+  font-weight: 700;
+}
+
+.tile-label {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* ---- modal / query builder ---- */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 40;
+}
+
+.modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px 18px;
+  width: min(680px, 92vw);
+  max-height: 86vh;
+  overflow-y: auto;
+}
+
+.modal-title {
+  color: var(--ink);
+  font-weight: 700;
+  font-size: 15px;
+  margin-bottom: 12px;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  gap: 10px 12px;
+  align-items: center;
+}
+
+.form-grid > label {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.form-grid input[type="text"],
+.form-grid input:not([type]),
+.form-grid select {
+  background: var(--page);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--ink);
+  padding: 5px 8px;
+  font: inherit;
+  width: 100%;
+}
+
+.radio-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  color: var(--ink-2);
+}
+
+.radio-row label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.num-input {
+  width: 64px;
+  background: var(--page);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--ink);
+  padding: 3px 6px;
+  font: inherit;
+}
+
+.check-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 4px 10px;
+  color: var(--ink-2);
+}
+
+.check-grid label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.btn {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 14px;
+  color: var(--ink-2);
+  font-weight: 600;
+}
+
+.btn:hover {
+  color: var(--ink);
+}
+
+.btn.primary {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
 /* ---- welcome ---- */
 .welcome {
   max-width: 620px;

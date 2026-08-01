@@ -32,6 +32,7 @@ public static class ServerApp
         builder.Services.ConfigureHttpJsonOptions(o => ConfigureJson(o.SerializerOptions));
         builder.Services.AddSignalR().AddJsonProtocol(o => ConfigureJson(o.PayloadSerializerOptions));
         builder.Services.AddSingleton<SessionManager>();
+        builder.Services.AddSingleton<DocumentStore>();
 
         var app = builder.Build();
 
@@ -46,6 +47,24 @@ public static class ServerApp
         app.MapGet("/api/health", () => Results.Ok(new { status = "ok" }));
 
         app.MapGet("/api/logs/discovered", () => Results.Ok(LogDiscovery.Discover()));
+
+        app.MapGet("/api/store/{key}", (string key, DocumentStore store) =>
+            !DocumentStore.IsValidKey(key)
+                ? Results.NotFound()
+                : store.Read(key) is { } doc
+                    ? Results.Ok(doc)
+                    : Results.NoContent());
+
+        app.MapPut("/api/store/{key}", (string key, System.Text.Json.JsonElement body, DocumentStore store) =>
+        {
+            if (!DocumentStore.IsValidKey(key))
+            {
+                return Results.NotFound();
+            }
+
+            store.Write(key, body);
+            return Results.NoContent();
+        });
 
         app.MapGet("/api/sessions", (SessionManager manager) => Results.Ok(manager.List()));
 

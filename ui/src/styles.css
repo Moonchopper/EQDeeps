@@ -452,6 +452,16 @@ th.num {
   font-weight: 400;
 }
 
+.panel-select {
+  background: var(--page);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--ink-2);
+  padding: 2px 6px;
+  font: inherit;
+  font-size: 12px;
+}
+
 /* ---- chart ---- */
 .chart-panel {
   min-height: 220px;

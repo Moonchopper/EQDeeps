@@ -7,9 +7,19 @@ interface Props {
   sessionId: string;
   fightIds: number[];
   refreshKey: number;
+  followLive: boolean;
 }
 
 const WINDOW_CHOICES = [1, 3, 5, 10, 30, 60];
+
+/** Viewport span in seconds; "fit" shows the whole selection. */
+const SPAN_CHOICES: { value: number | "fit"; label: string }[] = [
+  { value: "fit", label: "fit" },
+  { value: 30, label: "30s" },
+  { value: 60, label: "1m" },
+  { value: 120, label: "2m" },
+  { value: 300, label: "5m" },
+];
 
 /** Gaps longer than this are dead time between pulls — the line breaks. */
 const BREAK_MS = 30_000;
@@ -22,13 +32,20 @@ const BREAK_MS = 30_000;
  * breaks it. Top 8 players by total with the rest folded into "Other";
  * colors follow the entity for the life of the selection, never its rank.
  */
-export function DpsChart({ sessionId, fightIds, refreshKey }: Props) {
+export function DpsChart({ sessionId, fightIds, refreshKey, followLive }: Props) {
   const divRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<echarts.ECharts | null>(null);
   const colorMapRef = useRef<Map<string, string>>(new Map());
   const [windowSec, setWindowSec] = useState(5);
+  const [span, setSpan] = useState<number | "fit">("fit");
   const [result, setResult] = useState<QueryResult | null>(null);
   const selectionKey = fightIds.join(",");
+
+  // Live play wants a stable sliding viewport; reviewing history wants the
+  // whole selection. Track the mode switch, but let the user override after.
+  useEffect(() => {
+    setSpan(followLive ? 60 : "fit");
+  }, [followLive]);
 
   useEffect(() => {
     if (!divRef.current) return;
@@ -163,6 +180,16 @@ export function DpsChart({ sessionId, fightIds, refreshKey }: Props) {
       });
     }
 
+    // A fixed span pins the axis to [latest − span, latest]: constant width,
+    // sliding right edge — no rescaling as points arrive. The right edge is
+    // the newest data second (not wall clock), so replayed logs behave too.
+    let axisMin: number | undefined;
+    let axisMax: number | undefined;
+    if (span !== "fit" && segments.length > 0) {
+      axisMax = segments[segments.length - 1][1];
+      axisMin = axisMax - span * 1000;
+    }
+
     chartRef.current.setOption(
       {
         backgroundColor: "transparent",
@@ -184,6 +211,8 @@ export function DpsChart({ sessionId, fightIds, refreshKey }: Props) {
         },
         xAxis: {
           type: "time",
+          min: axisMin,
+          max: axisMax,
           axisLine: { lineStyle: { color: "#383835" } },
           axisLabel: { color: "#898781", fontSize: 11 },
           splitLine: { show: false },
@@ -201,26 +230,45 @@ export function DpsChart({ sessionId, fightIds, refreshKey }: Props) {
       },
       { replaceMerge: ["series"] },
     );
-  }, [result, windowSec]);
+  }, [result, windowSec, span]);
 
   return (
     <div className="panel chart-panel">
       <div className="panel-title">
         <span>Damage per second</span>
-        <label className="toggle" title="Rolling average window — 1 s is raw landed damage">
-          window
-          <select
-            className="panel-select"
-            value={windowSec}
-            onChange={(e) => setWindowSec(Number(e.target.value))}
+        <span className="title-controls">
+          <label className="toggle" title="Rolling average window — 1 s is raw landed damage">
+            window
+            <select
+              className="panel-select"
+              value={windowSec}
+              onChange={(e) => setWindowSec(Number(e.target.value))}
+            >
+              {WINDOW_CHOICES.map((w) => (
+                <option key={w} value={w}>
+                  {w === 1 ? "raw (1s)" : `${w}s`}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label
+            className="toggle"
+            title="Time viewport — a fixed span slides with the fight instead of rescaling"
           >
-            {WINDOW_CHOICES.map((w) => (
-              <option key={w} value={w}>
-                {w === 1 ? "raw (1s)" : `${w}s`}
-              </option>
-            ))}
-          </select>
-        </label>
+            span
+            <select
+              className="panel-select"
+              value={String(span)}
+              onChange={(e) => setSpan(e.target.value === "fit" ? "fit" : Number(e.target.value))}
+            >
+              {SPAN_CHOICES.map((s) => (
+                <option key={String(s.value)} value={String(s.value)}>
+                  {s.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </span>
       </div>
       {fightIds.length === 0 && <div className="empty">Select a fight</div>}
       <div ref={divRef} className="chart" />

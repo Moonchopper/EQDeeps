@@ -190,7 +190,12 @@ export default function App() {
               </div>
             </div>
             <div className="dashboard-row halves">
-              <DpsChart sessionId={activeId} fightIds={selected} refreshKey={refreshKey} />
+              <DpsChart
+                sessionId={activeId}
+                fightIds={selected}
+                refreshKey={refreshKey}
+                followLive={followLive}
+              />
               <AbilityChart
                 sessionId={activeId}
                 fightIds={selected}

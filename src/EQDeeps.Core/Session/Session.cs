@@ -55,6 +55,13 @@ public sealed class Session
 
     public LogFileIngestion Ingestion { get; }
 
+    /// <summary>
+    /// Serializes state mutation against readers: batch processing takes this
+    /// lock, and anything reading session state from another thread (query
+    /// execution, DTO building) must too.
+    /// </summary>
+    public object Gate { get; } = new();
+
     /// <summary>Lines no grammar recognized (measured, logged, never thrown).</summary>
     public long UnrecognizedLines { get; private set; }
 
@@ -72,14 +79,17 @@ public sealed class Session
         var run = Ingestion.RunAsync(cancellationToken);
         await foreach (var batch in Ingestion.Batches.ReadAllAsync(cancellationToken).ConfigureAwait(false))
         {
-            foreach (var entry in batch.Entries)
+            lock (Gate)
             {
-                ProcessEntry(entry);
-            }
+                foreach (var entry in batch.Entries)
+                {
+                    ProcessEntry(entry);
+                }
 
-            if (batch.Phase == IngestPhase.BackfillComplete)
-            {
-                BackfillComplete = true;
+                if (batch.Phase == IngestPhase.BackfillComplete)
+                {
+                    BackfillComplete = true;
+                }
             }
 
             BatchProcessed?.Invoke(batch);

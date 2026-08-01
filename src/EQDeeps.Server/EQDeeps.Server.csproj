@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <RootNamespace>EQDeeps.Server</RootNamespace>
+    <Description>EQDeeps local backend: sessions REST API + SignalR realtime channel.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\EQDeeps.Core\EQDeeps.Core.csproj" />
+  </ItemGroup>
+</Project>

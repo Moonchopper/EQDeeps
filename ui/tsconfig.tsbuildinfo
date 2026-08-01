@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/api.ts","./src/format.ts","./src/live.ts","./src/main.tsx","./src/components/deathlog.tsx","./src/components/dpschart.tsx","./src/components/fightlist.tsx","./src/components/livemeter.tsx","./src/components/sessionbar.tsx","./src/components/summarytable.tsx"],"version":"5.9.3"}

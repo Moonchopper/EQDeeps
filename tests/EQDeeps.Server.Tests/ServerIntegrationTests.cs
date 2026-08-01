@@ -207,8 +207,17 @@ public sealed class ServerIntegrationTests : IAsyncLifetime
         await using var writer = new StreamWriter(appendStream, Encoding.Latin1) { AutoFlush = true };
         writer.WriteLine(Line(60, "Raider01 crushes a shadow drake for 500 points of damage."));
 
-        Assert.True(fightsPushes.TryTake(out var push, TimeSpan.FromSeconds(5)), "no fights push arrived");
-        var fights = push.GetProperty("fights").EnumerateArray().ToList();
-        Assert.Contains(fights, f => f.GetProperty("name").GetString() == "A shadow drake");
+        // The very first push after subscribing may predate the append (e.g. the
+        // initial empty snapshot) — consume pushes until the new fight shows up.
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        var found = false;
+        while (!found && DateTime.UtcNow < deadline &&
+               fightsPushes.TryTake(out var push, TimeSpan.FromSeconds(5)))
+        {
+            found = push.GetProperty("fights").EnumerateArray()
+                .Any(f => f.GetProperty("name").GetString() == "A shadow drake");
+        }
+
+        Assert.True(found, "no fights push contained the new fight");
     }
 }

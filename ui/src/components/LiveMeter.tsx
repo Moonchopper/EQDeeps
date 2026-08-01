@@ -1,0 +1,60 @@
+import type { TickEvent } from "../live";
+import { fmtNum, fmtRate, SERIES_COLORS } from "../format";
+
+interface Props {
+  tick: TickEvent | null;
+  colorFor: (key: string) => string;
+}
+
+/**
+ * The live meter: horizontal bars per player over the current fight(s), fed by
+ * hub ticks. Text stays in ink tokens; the colored bar carries identity.
+ */
+export function LiveMeter({ tick, colorFor }: Props) {
+  const rows = tick?.result.rows ?? [];
+  const max = rows.length > 0 ? Math.max(...rows.map((r) => r.metrics.total ?? 0)) : 0;
+
+  return (
+    <div className="panel live-meter">
+      <div className="panel-title">
+        <span>Live meter</span>
+        {tick && <span className="subtle">fight #{tick.fightIds.join(", #")}</span>}
+      </div>
+      {rows.length === 0 ? (
+        <div className="empty">Waiting for combat…</div>
+      ) : (
+        <div className="meter-rows">
+          {rows.map((row) => (
+            <div key={row.key} className="meter-row">
+              <div
+                className="meter-bar"
+                style={{
+                  width: max > 0 ? `${((row.metrics.total ?? 0) / max) * 100}%` : "0%",
+                  background: colorFor(row.key),
+                }}
+              />
+              <span className="meter-name">{row.label}</span>
+              <span className="meter-nums">
+                {fmtNum(row.metrics.total ?? 0)} · {fmtNum(row.metrics.dps ?? 0)} dps ·{" "}
+                {fmtRate(row.metrics.percentOfTotal ?? 0)}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Stable entity→slot assignment shared by meter renders. */
+export function makeColorAssigner(): (key: string) => string {
+  const assigned = new Map<string, string>();
+  return (key: string) => {
+    let color = assigned.get(key);
+    if (!color) {
+      color = SERIES_COLORS[assigned.size % SERIES_COLORS.length];
+      assigned.set(key, color);
+    }
+    return color;
+  };
+}

@@ -1,0 +1,400 @@
+/* Dark-first surfaces and ink from the validated reference palette (ADR-006). */
+:root {
+  color-scheme: dark;
+  --page: #0d0d0d;
+  --surface: #1a1a19;
+  --surface-2: #232322;
+  --ink: #ffffff;
+  --ink-2: #c3c2b7;
+  --muted: #898781;
+  --grid: #2c2c2a;
+  --baseline: #383835;
+  --border: rgba(255, 255, 255, 0.1);
+  --accent: #3987e5;
+  --danger: #e66767;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--ink-2);
+  font: 13px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+/* ---- top bar ---- */
+.session-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 14px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.brand {
+  font-weight: 700;
+  color: var(--ink);
+  letter-spacing: 0.3px;
+}
+
+.session-tabs {
+  display: flex;
+  gap: 6px;
+}
+
+.session-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+}
+
+.session-tab.on {
+  background: var(--surface-2);
+  border-color: var(--accent);
+}
+
+.session-name {
+  color: var(--ink);
+}
+
+.session-close {
+  color: var(--muted);
+  padding: 0 2px;
+}
+
+.session-close:hover {
+  color: var(--danger);
+}
+
+.open-form {
+  display: flex;
+  gap: 6px;
+  flex: 1;
+  min-width: 280px;
+  max-width: 560px;
+}
+
+.open-form input {
+  flex: 1;
+  background: var(--page);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--ink);
+  padding: 5px 9px;
+  font: inherit;
+}
+
+.open-form button {
+  background: var(--accent);
+  color: #fff;
+  border-radius: 6px;
+  padding: 5px 12px;
+  font-weight: 600;
+}
+
+.backfill {
+  color: var(--accent);
+}
+
+.error {
+  color: var(--danger);
+  padding: 4px 8px;
+}
+
+.subtle {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+/* ---- dashboard grid ---- */
+.dashboard {
+  display: grid;
+  grid-template-columns: 290px 1fr;
+  gap: 10px;
+  padding: 10px;
+  flex: 1;
+  min-height: 0;
+}
+
+.dashboard-main {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  min-height: 0;
+}
+
+.dashboard-row {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 10px;
+  flex: 1;
+  min-height: 0;
+}
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.panel-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  color: var(--ink);
+  font-weight: 600;
+  border-bottom: 1px solid var(--border);
+}
+
+.empty {
+  color: var(--muted);
+  padding: 18px;
+  text-align: center;
+}
+
+/* ---- fight list ---- */
+.fight-list {
+  min-height: 0;
+}
+
+.follow-live {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--ink-2);
+  font-weight: 400;
+}
+
+.fight-scroll {
+  overflow-y: auto;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.fight-group {
+  color: var(--muted);
+  font-size: 11px;
+  padding: 6px 4px 2px;
+  text-align: left;
+}
+
+.fight-group:hover {
+  color: var(--ink-2);
+}
+
+.fight-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+  padding: 5px 8px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+}
+
+.fight-row:hover {
+  background: var(--surface-2);
+}
+
+.fight-row.selected {
+  background: var(--surface-2);
+  border-color: var(--accent);
+}
+
+.fight-row.active .fight-name {
+  color: var(--accent);
+}
+
+.fight-name {
+  color: var(--ink);
+}
+
+.fight-meta {
+  color: var(--muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- tables ---- */
+.table-scroll {
+  overflow: auto;
+  min-height: 0;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  padding: 4px 10px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+th {
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 11px;
+  border-bottom: 1px solid var(--grid);
+}
+
+td {
+  border-bottom: 1px solid var(--grid);
+  color: var(--ink-2);
+}
+
+tbody tr:hover td {
+  background: var(--surface-2);
+}
+
+td.num,
+th.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.child-row td {
+  color: var(--muted);
+}
+
+.expander {
+  color: var(--muted);
+  width: 16px;
+  display: inline-block;
+}
+
+.expander-spacer {
+  display: inline-block;
+  width: 16px;
+}
+
+/* ---- summary tabs ---- */
+.tabs {
+  display: flex;
+  gap: 2px;
+}
+
+.tab {
+  padding: 3px 10px;
+  border-radius: 6px;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.tab.on {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--ink-2);
+  font-weight: 400;
+}
+
+/* ---- chart ---- */
+.chart-panel {
+  min-height: 220px;
+}
+
+.chart {
+  flex: 1;
+  min-height: 180px;
+}
+
+/* ---- live meter ---- */
+.meter-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  overflow-y: auto;
+}
+
+.meter-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.meter-bar {
+  position: absolute;
+  inset: 0 auto 0 0;
+  opacity: 0.28;
+  border-radius: 4px;
+}
+
+.meter-name {
+  position: relative;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.meter-nums {
+  position: relative;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+}
+
+/* ---- welcome ---- */
+.welcome {
+  max-width: 620px;
+  margin: 80px auto;
+  color: var(--ink-2);
+}
+
+.welcome h1 {
+  color: var(--ink);
+}
+
+.welcome code {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 5px;
+}

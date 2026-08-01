@@ -5,3 +5,5 @@ obj/
 .idea/
 TestResults/
 artifacts/
+node_modules/
+src/EQDeeps.Server/wwwroot/

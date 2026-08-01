@@ -2,7 +2,24 @@
 
 A modern, real-time EverQuest combat-log analytics app — a clean-room successor to [EQLogParser](https://github.com/kauffman12/EQLogParser) built around composable queries and dashboards instead of fixed views.
 
-**Status: documentation phase.** No code yet; this repo currently holds the product/domain/architecture docs that an implementing agent (or human) builds from.
+**Status: working MVP.** Parser core, ingestion (≈1 GB/s backfill, sub-250 ms live latency), fight/session state, the composable query engine, a localhost REST + SignalR backend, and the React dashboard (fight list, damage/healing/tanking summaries, DPS chart, live meter, deaths) are implemented and tested. Next: query-builder UI, custom dashboards, packaging.
+
+## Run it
+
+```
+cd ui && npm install && npm run build && cd ..   # build the SPA into the backend
+dotnet run --project src/EQDeeps.Server          # http://127.0.0.1:5487
+```
+
+Open the app in a browser and point it at an `eqlog_<Character>_<server>.txt`
+file. No EverQuest needed to try it — generate a realistic raid log with:
+
+```
+dotnet run -c Release --project tools/EQDeeps.Bench -- gen %TEMP%\eqlog_Test_server.txt 5
+```
+
+Tests: `dotnet test` · Benchmarks: `dotnet run -c Release --project tools/EQDeeps.Bench -- all`
+UI dev loop: `dotnet run --project src/EQDeeps.Server` + `cd ui && npm run dev`.
 
 | Doc | Purpose |
 |---|---|

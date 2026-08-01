@@ -35,6 +35,14 @@ public static class ServerApp
 
         var app = builder.Build();
 
+        // Serve the built SPA when present (ui/ builds into wwwroot).
+        var hasSpa = File.Exists(Path.Combine(app.Environment.WebRootPath ?? "wwwroot", "index.html"));
+        if (hasSpa)
+        {
+            app.UseDefaultFiles();
+            app.UseStaticFiles();
+        }
+
         app.MapGet("/api/health", () => Results.Ok(new { status = "ok" }));
 
         app.MapGet("/api/sessions", (SessionManager manager) => Results.Ok(manager.List()));
@@ -65,6 +73,11 @@ public static class ServerApp
             manager.Get(id) is { } host ? Results.Ok(host.Execute(spec)) : Results.NotFound());
 
         app.MapHub<LiveHub>("/hubs/live");
+
+        if (hasSpa)
+        {
+            app.MapFallbackToFile("index.html");
+        }
 
         return app;
     }

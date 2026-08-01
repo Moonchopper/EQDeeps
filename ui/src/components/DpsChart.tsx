@@ -38,14 +38,20 @@ export function DpsChart({ sessionId, fightIds, refreshKey, followLive }: Props)
   const colorMapRef = useRef<Map<string, string>>(new Map());
   const [windowSec, setWindowSec] = useState(5);
   const [span, setSpan] = useState<number | "fit">("fit");
+  const [scopeMode, setScopeMode] = useState<"selection" | "recent">("selection");
   const [result, setResult] = useState<QueryResult | null>(null);
   const selectionKey = fightIds.join(",");
 
-  // Live play wants a stable sliding viewport; reviewing history wants the
-  // whole selection. Track the mode switch, but let the user override after.
+  // Live play wants "my output right now" — a trailing window over the record
+  // stream, no fight entries involved — with a stable sliding viewport.
+  // Reviewing history wants the fight selection, fitted. Track the mode
+  // switch, but let the user override either choice afterwards.
   useEffect(() => {
+    setScopeMode(followLive ? "recent" : "selection");
     setSpan(followLive ? 60 : "fit");
   }, [followLive]);
+
+  const effectiveSpan = span === "fit" ? 60 : span;
 
   useEffect(() => {
     if (!divRef.current) return;
@@ -66,7 +72,7 @@ export function DpsChart({ sessionId, fightIds, refreshKey, followLive }: Props)
   }, [selectionKey]);
 
   useEffect(() => {
-    if (fightIds.length === 0) {
+    if (scopeMode === "selection" && fightIds.length === 0) {
       setResult(null);
       chartRef.current?.clear();
       return;
@@ -75,7 +81,12 @@ export function DpsChart({ sessionId, fightIds, refreshKey, followLive }: Props)
     api
       .query(sessionId, {
         source: "damage",
-        scope: { fightIds },
+        scope:
+          scopeMode === "recent"
+            ? // Extra windowSec of lookback warms up the rolling mean so the
+              // left edge of the viewport is already smoothed.
+              { lastSeconds: effectiveSpan + windowSec }
+            : { fightIds },
         groupBy: ["player"],
         metrics: ["total"],
         bucketSeconds: 1,
@@ -85,7 +96,7 @@ export function DpsChart({ sessionId, fightIds, refreshKey, followLive }: Props)
     return () => {
       cancelled = true;
     };
-  }, [sessionId, selectionKey, refreshKey]);
+  }, [sessionId, selectionKey, refreshKey, scopeMode, effectiveSpan, windowSec]);
 
   useEffect(() => {
     if (!chartRef.current) return;
@@ -185,9 +196,9 @@ export function DpsChart({ sessionId, fightIds, refreshKey, followLive }: Props)
     // the newest data second (not wall clock), so replayed logs behave too.
     let axisMin: number | undefined;
     let axisMax: number | undefined;
-    if (span !== "fit" && segments.length > 0) {
+    if ((span !== "fit" || scopeMode === "recent") && segments.length > 0) {
       axisMax = segments[segments.length - 1][1];
-      axisMin = axisMax - span * 1000;
+      axisMin = axisMax - effectiveSpan * 1000;
     }
 
     chartRef.current.setOption(
@@ -230,13 +241,34 @@ export function DpsChart({ sessionId, fightIds, refreshKey, followLive }: Props)
       },
       { replaceMerge: ["series"] },
     );
-  }, [result, windowSec, span]);
+  }, [result, windowSec, span, scopeMode, effectiveSpan]);
 
   return (
     <div className="panel chart-panel">
       <div className="panel-title">
         <span>Damage per second</span>
         <span className="title-controls">
+          <span className="tabs">
+            <button
+              className={"tab small" + (scopeMode === "selection" ? " on" : "")}
+              onClick={() => setScopeMode("selection")}
+              title="The selected fight(s)"
+            >
+              selection
+            </button>
+            <button
+              className={"tab small" + (scopeMode === "recent" ? " on" : "")}
+              onClick={() => {
+                setScopeMode("recent");
+                if (span === "fit") {
+                  setSpan(60);
+                }
+              }}
+              title="Everything in the last span — not tied to any fight or mob"
+            >
+              recent
+            </button>
+          </span>
           <label className="toggle" title="Rolling average window — 1 s is raw landed damage">
             window
             <select
@@ -258,10 +290,10 @@ export function DpsChart({ sessionId, fightIds, refreshKey, followLive }: Props)
             span
             <select
               className="panel-select"
-              value={String(span)}
+              value={scopeMode === "recent" && span === "fit" ? "60" : String(span)}
               onChange={(e) => setSpan(e.target.value === "fit" ? "fit" : Number(e.target.value))}
             >
-              {SPAN_CHOICES.map((s) => (
+              {SPAN_CHOICES.filter((s) => scopeMode !== "recent" || s.value !== "fit").map((s) => (
                 <option key={String(s.value)} value={String(s.value)}>
                   {s.label}
                 </option>
@@ -270,7 +302,9 @@ export function DpsChart({ sessionId, fightIds, refreshKey, followLive }: Props)
           </label>
         </span>
       </div>
-      {fightIds.length === 0 && <div className="empty">Select a fight</div>}
+      {scopeMode === "selection" && fightIds.length === 0 && (
+        <div className="empty">Select a fight</div>
+      )}
       <div ref={divRef} className="chart" />
     </div>
   );

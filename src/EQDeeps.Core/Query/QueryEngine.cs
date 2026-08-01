@@ -74,6 +74,18 @@ public sealed class QueryEngine
     private List<ScopeUnit> ResolveScope(QueryScope scope, QuerySource source)
     {
         var units = new List<ScopeUnit>();
+        if (scope.LastSeconds is > 0 and var lastSeconds)
+        {
+            if (_records.Count == 0)
+            {
+                return units;
+            }
+
+            var latest = _records[_records.Count - 1].Timestamp;
+            units.Add(new ScopeUnit(new TimeRange(latest.AddSeconds(-(lastSeconds - 1)), latest), null));
+            return units;
+        }
+
         if (scope.TimeRanges is { Count: > 0 } explicitRanges)
         {
             foreach (var range in explicitRanges)
@@ -378,9 +390,13 @@ public sealed class QueryEngine
             return damage.Defender == unit.FightName;
         }
 
-        // Raw time-range scope: fall back to identity — the defender must be on
-        // the NPC side and the attacker must not be.
-        return IsNpcSide(damage.Defender) && !IsNpcSide(damage.Attacker);
+        // Raw time-range scope has no fight key to classify sides, so mirror the
+        // fight tracker's assumption rules: the defender must not be on the
+        // players' side, and the attacker must not be a known NPC — unknown
+        // defenders (swarm adds, un-killed nameds) still count.
+        return !_identity.IsPlayerSide(damage.Defender) &&
+               !IsNpcSide(damage.Attacker) &&
+               !damage.AttackerIsSpell;
     }
 
     private bool IsNpcSide(string? name) =>

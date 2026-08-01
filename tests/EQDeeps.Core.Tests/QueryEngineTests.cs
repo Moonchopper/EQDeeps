@@ -242,6 +242,42 @@ public class QueryEngineTests
     }
 
     [Fact]
+    public void LastSecondsScopeIsFightAgnostic()
+    {
+        // Trailing window anchored to the newest record (t8): lastSeconds=3
+        // covers [t6..t8] — DD 50 + heal + dodge + DS 25 + melee 300 + death.
+        var result = _engine.Execute(new QuerySpec
+        {
+            Scope = new QueryScope { LastSeconds = 3 },
+            Metrics = ["total", "dps", "hits"],
+        });
+
+        Assert.Equal(375, result.Totals["total"]);
+        Assert.Equal(325, Row(result, "Raider01").Metrics["total"]);
+        Assert.Equal(50, Row(result, "Raider02").Metrics["total"]);
+        Assert.Equal(3, result.RaidSeconds);
+
+        // Damage against an unclassified single-word mob still counts — the
+        // fight tracker's NPC assumption applies to raw ranges too.
+        Add(9, new DamageEvent("Raider01", "Swarmling", 40, DamageKind.Melee, "Crushes"));
+        var withUnknown = _engine.Execute(new QuerySpec
+        {
+            Scope = new QueryScope { LastSeconds = 2 },
+            Metrics = ["total"],
+        });
+        Assert.Equal(340, Row(withUnknown, "Raider01").Metrics["total"]); // 300 @t8 + 40 @t9
+
+        // Player-on-player damage stays out.
+        Add(10, new DamageEvent("Raider01", "Raider02", 999, DamageKind.DamageShield, null));
+        var pvp = _engine.Execute(new QuerySpec
+        {
+            Scope = new QueryScope { LastSeconds = 1 },
+            Metrics = ["total"],
+        });
+        Assert.Empty(pvp.Rows);
+    }
+
+    [Fact]
     public void TrimNarrowsTheSelectionTimeline()
     {
         // Fight window [t2..t8]; skip the first 3 s → [t5..t8].

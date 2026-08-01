@@ -40,6 +40,8 @@ export interface QuerySpec {
   source: QuerySource;
   scope: {
     fightIds?: number[];
+    timeRanges?: { begin: string; end: string }[];
+    lastSeconds?: number;
     skipFirstSeconds?: number;
     maxSeconds?: number;
   };

@@ -63,6 +63,14 @@ public sealed record QueryScope
     /// <summary>Explicit ranges instead of fights (healing between pulls, chat archives…).</summary>
     public IReadOnlyList<TimeRange>? TimeRanges { get; init; }
 
+    /// <summary>
+    /// The trailing N seconds of the record stream, regardless of fights — the
+    /// "what's my DPS right now" scope. Anchored to the newest record's
+    /// timestamp (not wall clock), so replays behave identically. Takes
+    /// precedence over <see cref="FightIds"/>/<see cref="TimeRanges"/>.
+    /// </summary>
+    public int? LastSeconds { get; init; }
+
     public int SkipFirstSeconds { get; init; }
 
     public int? MaxSeconds { get; init; }

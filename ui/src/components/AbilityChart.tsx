@@ -24,7 +24,9 @@ export function AbilityChart({ sessionId, fightIds, refreshKey, character }: Pro
   const divRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<echarts.ECharts | null>(null);
   const [players, setPlayers] = useState<QueryResult | null>(null);
-  const [player, setPlayer] = useState<string>(character);
+  // null = not chosen yet (auto-default to the log owner); "" = explicitly
+  // "everyone" — an explicit choice must survive live refreshes.
+  const [player, setPlayer] = useState<string | null>(null);
   const [mode, setMode] = useState<"dps" | "total">("dps");
   const [abilities, setAbilities] = useState<QueryResult | null>(null);
   const selectionKey = fightIds.join(",");
@@ -61,7 +63,8 @@ export function AbilityChart({ sessionId, fightIds, refreshKey, character }: Pro
         if (cancelled) return;
         setPlayers(r);
         setPlayer((current) => {
-          if (current && r.rows.some((row) => row.key === current)) return current;
+          if (current === "") return current; // "everyone" is an explicit choice
+          if (current !== null && r.rows.some((row) => row.key === current)) return current;
           return r.rows.some((row) => row.key === character) ? character : "";
         });
       })
@@ -194,7 +197,7 @@ export function AbilityChart({ sessionId, fightIds, refreshKey, character }: Pro
         <span className="title-controls">
           <select
             className="panel-select"
-            value={player}
+            value={player ?? ""}
             onChange={(e) => setPlayer(e.target.value)}
             title="Whose abilities to break down"
           >

@@ -7,6 +7,7 @@ interface Props {
   character: string;
   fightIds: number[];
   refreshKey: number;
+  petRollup: boolean;
 }
 
 function fmtSeconds(total: number): string {
@@ -26,7 +27,7 @@ function fmtSeconds(total: number): string {
  * dilutes the number). Averages across mixed content are knowingly unadjusted
  * for mob level/mitigation (feature F21 tracks normalizing that).
  */
-export function SelectionStats({ sessionId, character, fightIds, refreshKey }: Props) {
+export function SelectionStats({ sessionId, character, fightIds, refreshKey, petRollup }: Props) {
   const [result, setResult] = useState<QueryResult | null>(null);
 
   useEffect(() => {
@@ -41,13 +42,14 @@ export function SelectionStats({ sessionId, character, fightIds, refreshKey }: P
         scope: { fightIds },
         groupBy: ["player"],
         metrics: ["total", "dps", "sdps", "activeSeconds"],
+        petRollup,
       })
       .then((r) => !cancelled && setResult(r))
       .catch(() => undefined);
     return () => {
       cancelled = true;
     };
-  }, [sessionId, fightIds.join(","), refreshKey]);
+  }, [sessionId, fightIds.join(","), refreshKey, petRollup]);
 
   if (fightIds.length === 0 || !result) {
     return null;

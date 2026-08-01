@@ -8,6 +8,7 @@ interface Props {
   fightIds: number[];
   refreshKey: number;
   character: string;
+  petRollup: boolean;
 }
 
 const BAR_COLOR = "#3987e5";
@@ -27,7 +28,7 @@ const MAX_STACK_ATTACKERS = 8;
  * and a legend carries identity. Flat mode stays single-hue — there the
  * category axis already names each bar.
  */
-export function AbilityChart({ sessionId, fightIds, refreshKey, character }: Props) {
+export function AbilityChart({ sessionId, fightIds, refreshKey, character, petRollup }: Props) {
   const divRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<echarts.ECharts | null>(null);
   const [players, setPlayers] = useState<QueryResult | null>(null);
@@ -66,7 +67,7 @@ export function AbilityChart({ sessionId, fightIds, refreshKey, character }: Pro
         scope: { fightIds },
         groupBy: ["player"],
         metrics: ["total", "dps", "activeSeconds"],
-        petRollup: false,
+        petRollup,
       })
       .then((r) => {
         if (cancelled) return;
@@ -81,7 +82,7 @@ export function AbilityChart({ sessionId, fightIds, refreshKey, character }: Pro
     return () => {
       cancelled = true;
     };
-  }, [sessionId, selectionKey, refreshKey, character]);
+  }, [sessionId, selectionKey, refreshKey, character, petRollup]);
 
   useEffect(() => {
     if (fightIds.length === 0) {
@@ -97,14 +98,14 @@ export function AbilityChart({ sessionId, fightIds, refreshKey, character }: Pro
         groupBy: splitActive ? ["spell", "player"] : ["spell"],
         metrics: ["total", "hits"],
         filters: player ? [{ dim: "player", values: [player] }] : [],
-        petRollup: false,
+        petRollup,
       })
       .then((r) => !cancelled && setAbilities(r))
       .catch(() => undefined);
     return () => {
       cancelled = true;
     };
-  }, [sessionId, selectionKey, refreshKey, player, splitActive]);
+  }, [sessionId, selectionKey, refreshKey, player, splitActive, petRollup]);
 
   useEffect(() => {
     if (!chartRef.current) return;
@@ -294,7 +295,7 @@ export function AbilityChart({ sessionId, fightIds, refreshKey, character }: Pro
             <option value="">everyone</option>
             {players?.rows.map((r) => (
               <option key={r.key} value={r.key}>
-                {r.key}
+                {r.label}
               </option>
             ))}
           </select>

@@ -8,6 +8,7 @@ interface Props {
   fightIds: number[];
   refreshKey: number;
   followLive: boolean;
+  petRollup: boolean;
 }
 
 const WINDOW_CHOICES = [1, 3, 5, 10, 30, 60];
@@ -32,7 +33,7 @@ const BREAK_MS = 30_000;
  * breaks it. Top 8 players by total with the rest folded into "Other";
  * colors follow the entity for the life of the selection, never its rank.
  */
-export function DpsChart({ sessionId, fightIds, refreshKey, followLive }: Props) {
+export function DpsChart({ sessionId, fightIds, refreshKey, followLive, petRollup }: Props) {
   const divRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<echarts.ECharts | null>(null);
   const colorMapRef = useRef<Map<string, string>>(new Map());
@@ -90,13 +91,14 @@ export function DpsChart({ sessionId, fightIds, refreshKey, followLive }: Props)
         groupBy: ["player"],
         metrics: ["total"],
         bucketSeconds: 1,
+        petRollup,
       })
       .then((r) => !cancelled && setResult(r))
       .catch(() => undefined);
     return () => {
       cancelled = true;
     };
-  }, [sessionId, selectionKey, refreshKey, scopeMode, effectiveSpan, windowSec]);
+  }, [sessionId, selectionKey, refreshKey, scopeMode, effectiveSpan, windowSec, petRollup]);
 
   useEffect(() => {
     if (!chartRef.current) return;

@@ -7,6 +7,8 @@ interface Props {
   activeId: string | null;
   backfill: BackfillEvent | null;
   discovered: DiscoveredLog[];
+  petRollup: boolean;
+  onTogglePetRollup: (on: boolean) => void;
   onOpen: (path: string) => void;
   onRefreshDiscovered: () => void;
   onActivate: (id: string) => void;
@@ -30,6 +32,8 @@ export function SessionBar({
   activeId,
   backfill,
   discovered,
+  petRollup,
+  onTogglePetRollup,
   onOpen,
   onRefreshDiscovered,
   onActivate,
@@ -95,6 +99,17 @@ export function SessionBar({
         />
         <button type="submit">Open log</button>
       </form>
+      <label
+        className="toggle"
+        title="Merge each pet's damage and healing into its owner's rows everywhere — a query-time switch, nothing reparses"
+      >
+        <input
+          type="checkbox"
+          checked={petRollup}
+          onChange={(e) => onTogglePetRollup(e.target.checked)}
+        />
+        pets → owners
+      </label>
       {backfill && !backfill.complete && backfill.totalBytes > 0 && (
         <span className="backfill">
           loading {Math.round((backfill.bytesProcessed / backfill.totalBytes) * 100)}%

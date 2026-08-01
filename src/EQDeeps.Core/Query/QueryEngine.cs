@@ -449,6 +449,14 @@ public sealed class QueryEngine
         else if (filter.Dim is { } dim && filter.Values is { Count: > 0 })
         {
             var key = DimensionKey(dim, evt, actor);
+
+            // With pet rollup on, a player filter means the owner AND their
+            // pets — matching raw actor names would silently drop pet damage.
+            if (dim == Dimension.Player && spec.PetRollup && _identity.OwnerOf(key) is { } owner)
+            {
+                key = owner;
+            }
+
             matches = filter.Values.Contains(key, StringComparer.Ordinal);
         }
         else

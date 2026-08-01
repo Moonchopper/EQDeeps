@@ -24,8 +24,14 @@ export default function App() {
   const [backfill, setBackfill] = useState<BackfillEvent | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [excludeDs, setExcludeDs] = useState(false);
+  const [petRollup, setPetRollup] = useState(() => localStorage.getItem("eqdeeps.petRollup") !== "off");
   const [discovered, setDiscovered] = useState<DiscoveredLog[]>([]);
   const [error, setError] = useState<string | null>(null);
+
+  function togglePetRollup(on: boolean) {
+    setPetRollup(on);
+    localStorage.setItem("eqdeeps.petRollup", on ? "on" : "off");
+  }
 
   const activeIdRef = useRef(activeId);
   activeIdRef.current = activeId;
@@ -154,6 +160,8 @@ export default function App() {
         activeId={activeId}
         backfill={backfill}
         discovered={discovered}
+        petRollup={petRollup}
+        onTogglePetRollup={togglePetRollup}
         onOpen={openLog}
         onRefreshDiscovered={refreshDiscovered}
         onActivate={activate}
@@ -175,6 +183,7 @@ export default function App() {
               character={sessions.find((s) => s.id === activeId)?.character ?? ""}
               fightIds={selected}
               refreshKey={refreshKey}
+              petRollup={petRollup}
             />
             <div className="dashboard-row">
               <SummaryTable
@@ -183,9 +192,10 @@ export default function App() {
                 refreshKey={refreshKey}
                 excludeDamageShields={excludeDs}
                 onToggleDamageShields={setExcludeDs}
+                petRollup={petRollup}
               />
               <div className="panel-stack">
-                <LiveMeter tick={tick} colorFor={colorFor} />
+                <LiveMeter tick={tick} colorFor={colorFor} petRollup={petRollup} />
                 <DeathLog sessionId={activeId} fightIds={selected} refreshKey={refreshKey} />
               </div>
             </div>
@@ -195,12 +205,14 @@ export default function App() {
                 fightIds={selected}
                 refreshKey={refreshKey}
                 followLive={followLive}
+                petRollup={petRollup}
               />
               <AbilityChart
                 sessionId={activeId}
                 fightIds={selected}
                 refreshKey={refreshKey}
                 character={sessions.find((s) => s.id === activeId)?.character ?? ""}
+                petRollup={petRollup}
               />
             </div>
           </div>

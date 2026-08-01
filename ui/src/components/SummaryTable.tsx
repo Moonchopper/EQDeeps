@@ -44,6 +44,7 @@ interface Props {
   refreshKey: number;
   excludeDamageShields: boolean;
   onToggleDamageShields: (exclude: boolean) => void;
+  petRollup: boolean;
 }
 
 /**
@@ -56,6 +57,7 @@ export function SummaryTable({
   refreshKey,
   excludeDamageShields,
   onToggleDamageShields,
+  petRollup,
 }: Props) {
   const [source, setSource] = useState<QuerySource>("damage");
   const [rowsBy, setRowsBy] = useState<"player" | "target">("player");
@@ -81,6 +83,7 @@ export function SummaryTable({
         source === "damage" && excludeDamageShields
           ? [{ flag: "damageShield", exclude: true }]
           : [],
+      petRollup,
     };
     let cancelled = false;
     api
@@ -95,7 +98,7 @@ export function SummaryTable({
     return () => {
       cancelled = true;
     };
-  }, [sessionId, source, rowsBy, fightIds.join(","), refreshKey, excludeDamageShields]);
+  }, [sessionId, source, rowsBy, fightIds.join(","), refreshKey, excludeDamageShields, petRollup]);
 
   const columns = COLUMNS[source];
 

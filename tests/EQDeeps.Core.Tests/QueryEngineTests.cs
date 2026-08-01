@@ -216,6 +216,28 @@ public class QueryEngineTests
         Assert.Equal("Raider02", Row(split, "Raider02").Label);
     }
 
+    [Fact]
+    public void PlayerFilterFollowsPetRollup()
+    {
+        _identity.MapPetToOwner("Xobatik", "Raider02");
+        Add(9, new DamageEvent("Xobatik", "An ice giant", 60, DamageKind.Melee, "Bites"));
+
+        // Rollup on: "Raider02" means owner + pets.
+        var rolled = _engine.Execute(new QuerySpec
+        {
+            Filters = [new QueryFilter { Dim = Dimension.Player, Values = ["Raider02"] }],
+        });
+        Assert.Equal(160, rolled.Totals["total"]);
+
+        // Rollup off: raw actor names only.
+        var raw = _engine.Execute(new QuerySpec
+        {
+            PetRollup = false,
+            Filters = [new QueryFilter { Dim = Dimension.Player, Values = ["Raider02"] }],
+        });
+        Assert.Equal(100, raw.Totals["total"]);
+    }
+
     // ---- scope: fights, trim, buckets --------------------------------------
 
     [Fact]

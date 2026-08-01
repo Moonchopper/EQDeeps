@@ -58,6 +58,7 @@ export function SummaryTable({
   onToggleDamageShields,
 }: Props) {
   const [source, setSource] = useState<QuerySource>("damage");
+  const [rowsBy, setRowsBy] = useState<"player" | "target">("player");
   const [result, setResult] = useState<QueryResult | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
@@ -70,7 +71,9 @@ export function SummaryTable({
     const spec: QuerySpec = {
       source,
       scope: { fightIds },
-      groupBy: ["player", "spell"],
+      // By-target rows show how the numbers differ per mob across an
+      // aggregate selection; drill-down inverts (target → player).
+      groupBy: rowsBy === "player" ? ["player", "spell"] : ["target", "player"],
       metrics: [
         ...new Set([...COLUMNS[source].map((c) => c.metric), "total", "activeSeconds"]),
       ],
@@ -92,7 +95,7 @@ export function SummaryTable({
     return () => {
       cancelled = true;
     };
-  }, [sessionId, source, fightIds.join(","), refreshKey, excludeDamageShields]);
+  }, [sessionId, source, rowsBy, fightIds.join(","), refreshKey, excludeDamageShields]);
 
   const columns = COLUMNS[source];
 
@@ -151,16 +154,34 @@ export function SummaryTable({
             </button>
           ))}
         </span>
-        {source === "damage" && (
-          <label className="toggle">
-            <input
-              type="checkbox"
-              checked={excludeDamageShields}
-              onChange={(e) => onToggleDamageShields(e.target.checked)}
-            />
-            exclude DS
-          </label>
-        )}
+        <span className="title-controls">
+          <span className="tabs">
+            <button
+              className={"tab small" + (rowsBy === "player" ? " on" : "")}
+              onClick={() => setRowsBy("player")}
+              title="Rows are players; expand for spells"
+            >
+              by player
+            </button>
+            <button
+              className={"tab small" + (rowsBy === "target" ? " on" : "")}
+              onClick={() => setRowsBy("target")}
+              title="Rows are mobs; expand for who did what to them"
+            >
+              by target
+            </button>
+          </span>
+          {source === "damage" && (
+            <label className="toggle">
+              <input
+                type="checkbox"
+                checked={excludeDamageShields}
+                onChange={(e) => onToggleDamageShields(e.target.checked)}
+              />
+              exclude DS
+            </label>
+          )}
+        </span>
       </div>
       {error && <div className="error">{error}</div>}
       {fightIds.length === 0 ? (

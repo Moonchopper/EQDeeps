@@ -7,6 +7,7 @@ import { SummaryTable } from "./components/SummaryTable";
 import { DpsChart } from "./components/DpsChart";
 import { LiveMeter, makeColorAssigner } from "./components/LiveMeter";
 import { DeathLog } from "./components/DeathLog";
+import { SelectionStats } from "./components/SelectionStats";
 
 /**
  * The default dashboard (feature F7): fight list + summary + DPS chart + live
@@ -168,6 +169,12 @@ export default function App() {
             onFollowLive={setFollowLive}
           />
           <div className="dashboard-main">
+            <SelectionStats
+              sessionId={activeId}
+              character={sessions.find((s) => s.id === activeId)?.character ?? ""}
+              fightIds={selected}
+              refreshKey={refreshKey}
+            />
             <div className="dashboard-row">
               <SummaryTable
                 sessionId={activeId}

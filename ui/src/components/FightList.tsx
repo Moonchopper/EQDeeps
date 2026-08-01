@@ -76,18 +76,33 @@ export function FightList({ fights, selected, followLive, onSelect, onFollowLive
     );
   }
 
+  const selectAll = () => {
+    onFollowLive(false);
+    onSelect(fights.map((f) => f.id));
+  };
+
   return (
     <div className="panel fight-list">
       <div className="panel-title">
         <span>Fights</span>
-        <label className="follow-live">
-          <input
-            type="checkbox"
-            checked={followLive}
-            onChange={(e) => onFollowLive(e.target.checked)}
-          />
-          follow live
-        </label>
+        <span className="fight-actions">
+          <button
+            className="mini-btn"
+            onClick={selectAll}
+            title="Aggregate every fight in the log"
+            disabled={fights.length === 0}
+          >
+            select all
+          </button>
+          <label className="follow-live">
+            <input
+              type="checkbox"
+              checked={followLive}
+              onChange={(e) => onFollowLive(e.target.checked)}
+            />
+            follow live
+          </label>
+        </span>
       </div>
       <div className="fight-scroll">
         {rows.length > 0 ? <Fragment>{rows}</Fragment> : <div className="empty">No fights yet</div>}

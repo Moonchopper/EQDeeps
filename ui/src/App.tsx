@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { api, type DiscoveredLog, type FightInfo, type SessionInfo } from "./api";
+import { api, type DiscoveredLog, type FightInfo, type SessionInfo, type VersionInfo } from "./api";
 import { createLiveConnection, type BackfillEvent, type TickEvent } from "./live";
 import { describeAge, SessionBar } from "./components/SessionBar";
 import { FightList } from "./components/FightList";
@@ -30,6 +30,7 @@ export default function App() {
   const [excludeDs, setExcludeDs] = useState(false);
   const [petRollup, setPetRollup] = useState(() => localStorage.getItem("eqdeeps.petRollup") !== "off");
   const [discovered, setDiscovered] = useState<DiscoveredLog[]>([]);
+  const [version, setVersion] = useState<VersionInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [dashboards, setDashboards] = useState<DashboardDef[]>([]);
   const [hiddenPresets, setHiddenPresets] = useState<string[]>([]);
@@ -208,6 +209,13 @@ export default function App() {
       })
       .catch((e) => setError(String(e)));
     refreshDiscovered();
+    // Update-check results land a moment after startup; poll twice.
+    api.getVersion().then(setVersion).catch(() => undefined);
+    const versionTimer = window.setTimeout(
+      () => api.getVersion().then(setVersion).catch(() => undefined),
+      15_000,
+    );
+    return () => window.clearTimeout(versionTimer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -274,6 +282,7 @@ export default function App() {
         activeId={activeId}
         backfill={backfill}
         discovered={discovered}
+        version={version}
         petRollup={petRollup}
         onTogglePetRollup={togglePetRollup}
         onOpen={openLog}

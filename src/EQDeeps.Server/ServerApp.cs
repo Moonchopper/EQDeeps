@@ -33,18 +33,22 @@ public static class ServerApp
         builder.Services.AddSignalR().AddJsonProtocol(o => ConfigureJson(o.PayloadSerializerOptions));
         builder.Services.AddSingleton<SessionManager>();
         builder.Services.AddSingleton<DocumentStore>();
+        builder.Services.AddSingleton<UpdateChecker>();
 
         var app = builder.Build();
 
-        // Serve the built SPA when present (ui/ builds into wwwroot).
-        var hasSpa = File.Exists(Path.Combine(app.Environment.WebRootPath ?? "wwwroot", "index.html"));
-        if (hasSpa)
+        // Serve the built SPA: the physical wwwroot in dev, the copy embedded
+        // into this assembly in published builds (single-file exe, no loose files).
+        var spa = ResolveSpaProvider(app.Environment.ContentRootPath);
+        if (spa is not null)
         {
-            app.UseDefaultFiles();
-            app.UseStaticFiles();
+            app.UseDefaultFiles(new DefaultFilesOptions { FileProvider = spa });
+            app.UseStaticFiles(new StaticFileOptions { FileProvider = spa });
         }
 
         app.MapGet("/api/health", () => Results.Ok(new { status = "ok" }));
+
+        app.MapGet("/api/version", (UpdateChecker updates) => Results.Ok(updates.Info));
 
         app.MapGet("/api/logs/discovered", () => Results.Ok(LogDiscovery.Discover()));
 
@@ -95,11 +99,36 @@ public static class ServerApp
 
         app.MapHub<LiveHub>("/hubs/live");
 
-        if (hasSpa)
+        if (spa is not null)
         {
-            app.MapFallbackToFile("index.html");
+            app.MapFallback(() => Results.Stream(
+                spa.GetFileInfo("index.html").CreateReadStream(), "text/html"));
         }
 
         return app;
+    }
+
+    private static Microsoft.Extensions.FileProviders.IFileProvider? ResolveSpaProvider(string contentRoot)
+    {
+        var physical = Path.Combine(contentRoot, "wwwroot");
+        if (File.Exists(Path.Combine(physical, "index.html")))
+        {
+            return new Microsoft.Extensions.FileProviders.PhysicalFileProvider(physical);
+        }
+
+        try
+        {
+            var embedded = new Microsoft.Extensions.FileProviders.ManifestEmbeddedFileProvider(
+                typeof(ServerApp).Assembly, "wwwroot");
+            return embedded.GetFileInfo("index.html").Exists ? embedded : null;
+        }
+        catch (InvalidOperationException)
+        {
+            return null; // built without a wwwroot (UI not built yet): API-only
+        }
+        catch (FileNotFoundException)
+        {
+            return null;
+        }
     }
 }

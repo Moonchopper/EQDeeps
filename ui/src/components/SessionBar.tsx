@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { DiscoveredLog, SessionInfo } from "../api";
+import type { DiscoveredLog, SessionInfo, VersionInfo } from "../api";
 import type { BackfillEvent } from "../live";
 
 interface Props {
@@ -7,6 +7,7 @@ interface Props {
   activeId: string | null;
   backfill: BackfillEvent | null;
   discovered: DiscoveredLog[];
+  version: VersionInfo | null;
   petRollup: boolean;
   onTogglePetRollup: (on: boolean) => void;
   onOpen: (path: string) => void;
@@ -32,6 +33,7 @@ export function SessionBar({
   activeId,
   backfill,
   discovered,
+  version,
   petRollup,
   onTogglePetRollup,
   onOpen,
@@ -116,6 +118,19 @@ export function SessionBar({
         </span>
       )}
       {error && <span className="error">{error}</span>}
+      {version && (
+        <span className="version">
+          v{version.version}
+          {version.updateAvailable && version.releaseUrl && (
+            <>
+              {" · "}
+              <a href={version.releaseUrl} target="_blank" rel="noreferrer">
+                v{version.latestVersion} available ↗
+              </a>
+            </>
+          )}
+        </span>
+      )}
     </header>
   );
 }

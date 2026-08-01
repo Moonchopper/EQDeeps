@@ -88,8 +88,17 @@ export interface DiscoveredLog {
   source: string;
 }
 
+export interface VersionInfo {
+  version: string;
+  updateAvailable: boolean;
+  latestVersion?: string;
+  releaseUrl?: string;
+}
+
 export const api = {
   listSessions: (): Promise<SessionInfo[]> => fetch("/api/sessions").then((r) => json(r)),
+
+  getVersion: (): Promise<VersionInfo> => fetch("/api/version").then((r) => json(r)),
 
   discoverLogs: (): Promise<DiscoveredLog[]> => fetch("/api/logs/discovered").then((r) => json(r)),
 

@@ -2,9 +2,20 @@
   <PropertyGroup>
     <RootNamespace>EQDeeps.Server</RootNamespace>
     <Description>EQDeeps local backend: sessions REST API + SignalR realtime channel.</Description>
+    <Version Condition="'$(Version)' == ''">0.1.0</Version>
+    <!-- The built SPA is embedded into the assembly so the published output is
+         one self-contained exe; dev builds serve the physical wwwroot instead. -->
+    <GenerateEmbeddedFilesManifest>true</GenerateEmbeddedFilesManifest>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\EQDeeps.Core\EQDeeps.Core.csproj" />
     <PackageReference Include="Microsoft.Win32.Registry" Version="5.0.0" />
+    <PackageReference Include="Microsoft.Extensions.FileProviders.Embedded" Version="8.0.8" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="wwwroot\**" />
+    <!-- Don't also copy wwwroot beside the exe on publish; it ships embedded. -->
+    <Content Remove="wwwroot\**" />
+    <None Include="wwwroot\**" CopyToOutputDirectory="Never" />
   </ItemGroup>
 </Project>

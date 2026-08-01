@@ -6,10 +6,21 @@ A modern, real-time EverQuest combat-log analytics app — a clean-room successo
 
 ## Run it
 
+**From a release**: download the zip, run `EQDeeps.Server.exe` — it starts the
+local server and opens your browser. No .NET or install required. (`--no-browser`
+and `--no-update-check` flags available; running it again focuses the existing
+instance.)
+
+**From source**:
+
 ```
 cd ui && npm install && npm run build && cd ..   # build the SPA into the backend
 dotnet run --project src/EQDeeps.Server          # http://127.0.0.1:5487
 ```
+
+**Package it yourself**: `powershell -File scripts/publish.ps1` → a single
+self-contained `artifacts/win-x64/EQDeeps.Server.exe` with the SPA embedded.
+Tagged pushes (`v*`) build and attach the zip to a GitHub release via CI.
 
 Open the app in a browser and point it at an `eqlog_<Character>_<server>.txt`
 file. No EverQuest needed to try it — generate a realistic raid log with:

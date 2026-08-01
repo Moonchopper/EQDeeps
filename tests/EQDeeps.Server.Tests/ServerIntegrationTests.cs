@@ -85,6 +85,12 @@ public sealed class ServerIntegrationTests : IAsyncLifetime
         var health = await _http.GetFromJsonAsync<JsonElement>("/api/health");
         Assert.Equal("ok", health.GetProperty("status").GetString());
 
+        // Version endpoint reports the assembly version; no update check has
+        // run in tests, so no update is claimed.
+        var version = await _http.GetFromJsonAsync<JsonElement>("/api/version");
+        Assert.False(string.IsNullOrEmpty(version.GetProperty("version").GetString()));
+        Assert.False(version.GetProperty("updateAvailable").GetBoolean());
+
         var path = WriteLog(
             Line(0, "Raider01 crushes an ice giant for 100 points of damage."),
             Line(1, "An ice giant died."));

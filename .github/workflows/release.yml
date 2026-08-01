@@ -1,0 +1,54 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+
+      - name: Version from tag
+        id: version
+        shell: pwsh
+        run: '"version=$($env:GITHUB_REF_NAME.TrimStart(''v''))" >> $env:GITHUB_OUTPUT'
+
+      - name: Build SPA
+        run: |
+          npm --prefix ui ci
+          npm --prefix ui run build
+
+      - name: Test
+        run: dotnet test -c Release
+
+      - name: Publish win-x64
+        shell: pwsh
+        run: >
+          dotnet publish src/EQDeeps.Server -c Release -r win-x64 --self-contained
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:Version=${{ steps.version.outputs.version }}
+          -o artifacts/win-x64
+
+      - name: Zip artifact
+        shell: pwsh
+        run: Compress-Archive -Path artifacts/win-x64/* -DestinationPath "EQDeeps-${{ steps.version.outputs.version }}-win-x64.zip"
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: EQDeeps-*.zip
+          generate_release_notes: true

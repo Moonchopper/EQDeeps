@@ -52,6 +52,8 @@ public enum HitModifiers
 /// (environmental damage, ownerless damage shields). <see cref="SubType"/> is the
 /// melee skill in display form ("Crushes") or the spell name; null means the line
 /// carried no more specific subtype than its <see cref="Kind"/>.
+/// <see cref="School"/> is the spell-damage school word (fire/cold/magic/...)
+/// when the line carried one; null for melee and unschooled lines.
 /// </summary>
 public sealed record DamageEvent(
     string? Attacker,
@@ -62,7 +64,8 @@ public sealed record DamageEvent(
     HitModifiers Modifiers = HitModifiers.None,
     bool AttackerIsSpell = false,
     string? AttackerOwner = null,
-    string? DefenderOwner = null) : GameEvent;
+    string? DefenderOwner = null,
+    string? School = null) : GameEvent;
 
 /// <summary>
 /// A heal record. <see cref="Potential"/> equals <see cref="Landed"/> when the line

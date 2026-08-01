@@ -476,7 +476,8 @@ public static class DamageParser
             amount,
             DamageKind.DirectDamage,
             spell,
-            modifiers);
+            modifiers,
+            School: school);
     }
 
     private static DamageEvent? ParseMelee(

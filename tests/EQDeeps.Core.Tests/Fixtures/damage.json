@@ -35,9 +35,9 @@
     "expect": { "type": "damage", "attacker": "Nniki", "defender": "An ice giant", "amount": 148792, "kind": "melee", "subType": "Crushes", "modifiers": ["Critical", "Lucky"] } },
 
   { "line": "Sonozen hit Jortreva the Crusader for 38948 points of fire damage by Burst of Flames. (Lucky Critical Twincast)",
-    "expect": { "type": "damage", "attacker": "Sonozen", "defender": "Jortreva the Crusader", "amount": 38948, "kind": "dd", "subType": "Burst of Flames", "modifiers": ["Critical", "Lucky", "Twincast"] } },
+    "expect": { "type": "damage", "attacker": "Sonozen", "defender": "Jortreva the Crusader", "amount": 38948, "kind": "dd", "subType": "Burst of Flames", "school": "fire", "modifiers": ["Critical", "Lucky", "Twincast"] } },
   { "line": "Piemastaj hit Boss for 176000 points of unresistable damage by Elemental Conversion VI.",
-    "expect": { "type": "damage", "attacker": "Piemastaj", "defender": "Boss", "amount": 176000, "kind": "dd", "subType": "Elemental Conversion VI" } },
+    "expect": { "type": "damage", "attacker": "Piemastaj", "defender": "Boss", "amount": 176000, "kind": "dd", "subType": "Elemental Conversion VI", "school": "unresistable" } },
   { "line": "You hit a treant for 1633489 points of magic damage by Chromospheric Vortex Rk. II. (Lucky Critical)",
     "expect": { "type": "damage", "attacker": "TestPlayer", "defender": "A treant", "amount": 1633489, "kind": "dd", "subType": "Chromospheric Vortex Rk. II", "modifiers": ["Critical", "Lucky"] } },
   { "line": "Hacket hit an ice giant for 303431 points of magic damage by Crush of the Crying Seas X Rk. II. (Lucky Critical)",

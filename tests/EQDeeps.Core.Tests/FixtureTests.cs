@@ -141,6 +141,7 @@ public class FixtureTests
         AssertString(expect, "subType", evt.SubType, context);
         AssertString(expect, "attackerOwner", evt.AttackerOwner, context);
         AssertString(expect, "defenderOwner", evt.DefenderOwner, context);
+        AssertString(expect, "school", evt.School, context);
         AssertEnum<DamageKind>(expect, "kind", evt.Kind, context);
         AssertBool(expect, "attackerIsSpell", evt.AttackerIsSpell, context);
 

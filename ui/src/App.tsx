@@ -11,6 +11,7 @@ import { SelectionStats } from "./components/SelectionStats";
 import { AbilityChart } from "./components/AbilityChart";
 import { DashboardView } from "./dashboards/DashboardView";
 import { defaultPanel, newDashboard, newId, type DashboardDef } from "./dashboards/model";
+import { presetDashboards } from "./dashboards/presets";
 
 /**
  * The default dashboard (feature F7): fight list + summary + DPS chart + live
@@ -42,9 +43,23 @@ export default function App() {
   useEffect(() => {
     api
       .getStore<{ dashboards: DashboardDef[] }>("dashboards")
-      .then((doc) => doc?.dashboards && setDashboards(doc.dashboards))
+      .then((doc) => {
+        if (doc?.dashboards) {
+          setDashboards(doc.dashboards);
+        } else {
+          // First run: seed the community-standard presets. Deleting them
+          // sticks — an empty stored list is never re-seeded.
+          const seeded = presetDashboards();
+          setDashboards(seeded);
+          api.putStore("dashboards", { dashboards: seeded }).catch(() => undefined);
+        }
+      })
       .catch(() => undefined);
   }, []);
+
+  function addPresets() {
+    updateDashboards([...dashboards, ...presetDashboards()]);
+  }
 
   function updateDashboards(next: DashboardDef[]) {
     setDashboards(next);
@@ -278,6 +293,13 @@ export default function App() {
             ))}
             <button className="view-tab add" onClick={addDashboard} title="New dashboard">
               +
+            </button>
+            <button
+              className="mini-btn"
+              onClick={addPresets}
+              title="Add the built-in Raid DPS / Healing / Tanking / Right now dashboards"
+            >
+              presets
             </button>
             {view !== "overview" && (
               <span className="view-tab-actions">

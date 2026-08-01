@@ -158,6 +158,9 @@ function LinePanel({ panel, ctx }: { panel: PanelDef; ctx: PanelContext }) {
     if (!divRef.current) return;
     const chart = echarts.init(divRef.current);
     chartRef.current = chart;
+    chart.getZr().on("dblclick", () => {
+      chart.dispatchAction({ type: "dataZoom", start: 0, end: 100 });
+    });
     const observer = new ResizeObserver(() => chart.resize());
     observer.observe(divRef.current);
     return () => {
@@ -249,6 +252,16 @@ function LinePanel({ panel, ctx }: { panel: PanelDef; ctx: PanelContext }) {
         backgroundColor: "transparent",
         animation: false,
         grid: { left: 48, right: 10, top: 26, bottom: 24 },
+        toolbox: { show: false, feature: { dataZoom: { yAxisIndex: "none", filterMode: "none" } } },
+        dataZoom: [
+          {
+            type: "inside",
+            xAxisIndex: 0,
+            filterMode: "none",
+            zoomOnMouseWheel: true,
+            moveOnMouseMove: false,
+          },
+        ],
         legend: {
           type: "scroll",
           top: 0,
@@ -277,10 +290,22 @@ function LinePanel({ panel, ctx }: { panel: PanelDef; ctx: PanelContext }) {
       },
       { replaceMerge: ["series"] },
     );
+
+    chartRef.current.dispatchAction({
+      type: "takeGlobalCursor",
+      key: "dataZoomSelect",
+      dataZoomSelectActive: true,
+    });
   }, [result, panel.windowSec, panel.bucketSeconds]);
 
   if (result === "no-selection") return <div className="empty">Select a fight</div>;
-  return <div ref={divRef} className="chart" />;
+  return (
+    <div
+      ref={divRef}
+      className="chart"
+      title="Drag to zoom a time range · scroll to zoom · double-click to reset"
+    />
+  );
 }
 
 // ---- bar -------------------------------------------------------------------

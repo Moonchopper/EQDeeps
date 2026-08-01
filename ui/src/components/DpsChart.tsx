@@ -55,10 +55,27 @@ export function DpsChart({ sessionId, fightIds, refreshKey, followLive, petRollu
 
   const effectiveSpan = span === "fit" ? 60 : span;
 
+  // Drag-to-zoom: while the user is zoomed, the sliding span viewport pauses
+  // (it would yank the axis out from under the selection); double-click zooms
+  // back out and the next refresh resumes following.
+  const zoomedRef = useRef(false);
+  const suppressZoomEventRef = useRef(false);
+
   useEffect(() => {
     if (!divRef.current) return;
     const chart = echarts.init(divRef.current);
     chartRef.current = chart;
+    chart.on("datazoom", () => {
+      if (!suppressZoomEventRef.current) {
+        zoomedRef.current = true;
+      }
+    });
+    chart.getZr().on("dblclick", () => {
+      suppressZoomEventRef.current = true;
+      chart.dispatchAction({ type: "dataZoom", start: 0, end: 100 });
+      suppressZoomEventRef.current = false;
+      zoomedRef.current = false;
+    });
     const onResize = () => chart.resize();
     window.addEventListener("resize", onResize);
     return () => {
@@ -67,6 +84,10 @@ export function DpsChart({ sessionId, fightIds, refreshKey, followLive, petRollu
       chartRef.current = null;
     };
   }, []);
+
+  useEffect(() => {
+    zoomedRef.current = false; // new selection or mode: fresh viewport
+  }, [selectionKey, scopeMode]);
 
   useEffect(() => {
     if (scopeMode === "selection" && fightIds.length === 0) {
@@ -184,9 +205,9 @@ export function DpsChart({ sessionId, fightIds, refreshKey, followLive, petRollu
     // A fixed span pins the axis to [latest − span, latest]: constant width,
     // sliding right edge — no rescaling as points arrive. The right edge is
     // the newest data second (not wall clock), so replayed logs behave too.
-    let axisMin: number | undefined;
-    let axisMax: number | undefined;
-    if ((span !== "fit" || scopeMode === "recent") && segments.length > 0) {
+    let axisMin: number | null = null;
+    let axisMax: number | null = null;
+    if ((span !== "fit" || scopeMode === "recent") && segments.length > 0 && !zoomedRef.current) {
       axisMax = segments[segments.length - 1][1];
       axisMin = axisMax - effectiveSpan * 1000;
     }
@@ -196,6 +217,18 @@ export function DpsChart({ sessionId, fightIds, refreshKey, followLive, petRollu
         backgroundColor: "transparent",
         animation: false,
         grid: { left: 52, right: 12, top: 30, bottom: 40 },
+        // Hidden toolbox hosts the brush; the cursor is activated below so a
+        // plain click-drag selects a time range to zoom into.
+        toolbox: { show: false, feature: { dataZoom: { yAxisIndex: "none", filterMode: "none" } } },
+        dataZoom: [
+          {
+            type: "inside",
+            xAxisIndex: 0,
+            filterMode: "none",
+            zoomOnMouseWheel: true,
+            moveOnMouseMove: false,
+          },
+        ],
         legend: {
           type: "scroll",
           top: 0,
@@ -231,6 +264,12 @@ export function DpsChart({ sessionId, fightIds, refreshKey, followLive, petRollu
       },
       { replaceMerge: ["series"] },
     );
+
+    chartRef.current.dispatchAction({
+      type: "takeGlobalCursor",
+      key: "dataZoomSelect",
+      dataZoomSelectActive: true,
+    });
   }, [result, windowSec, span, scopeMode, effectiveSpan, colors]);
 
   return (
@@ -295,7 +334,11 @@ export function DpsChart({ sessionId, fightIds, refreshKey, followLive, petRollu
       {scopeMode === "selection" && fightIds.length === 0 && (
         <div className="empty">Select a fight</div>
       )}
-      <div ref={divRef} className="chart" />
+      <div
+        ref={divRef}
+        className="chart"
+        title="Drag to zoom a time range · scroll to zoom · double-click to reset"
+      />
     </div>
   );
 }

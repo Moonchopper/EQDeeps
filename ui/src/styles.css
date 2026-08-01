@@ -119,6 +119,67 @@ button {
   color: var(--accent);
 }
 
+.detected-select {
+  background: var(--page);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--ink-2);
+  padding: 5px 8px;
+  font: inherit;
+  max-width: 300px;
+}
+
+.detect-refresh {
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 8px;
+}
+
+.detect-refresh:hover {
+  color: var(--ink);
+}
+
+.discovered-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 14px 0;
+}
+
+.discovered-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  text-align: left;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 14px;
+}
+
+.discovered-row:hover {
+  border-color: var(--accent);
+}
+
+.discovered-name {
+  color: var(--ink);
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.discovered-meta {
+  color: var(--ink-2);
+  font-size: 12px;
+}
+
+.discovered-path {
+  color: var(--muted);
+  font-size: 11px;
+  font-family: ui-monospace, Consolas, monospace;
+}
+
 .error {
   color: var(--danger);
   padding: 4px 8px;

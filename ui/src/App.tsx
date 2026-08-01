@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { api, type FightInfo, type SessionInfo } from "./api";
+import { api, type DiscoveredLog, type FightInfo, type SessionInfo } from "./api";
 import { createLiveConnection, type BackfillEvent, type TickEvent } from "./live";
-import { SessionBar } from "./components/SessionBar";
+import { describeAge, SessionBar } from "./components/SessionBar";
 import { FightList } from "./components/FightList";
 import { SummaryTable } from "./components/SummaryTable";
 import { DpsChart } from "./components/DpsChart";
@@ -22,6 +22,7 @@ export default function App() {
   const [backfill, setBackfill] = useState<BackfillEvent | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [excludeDs, setExcludeDs] = useState(false);
+  const [discovered, setDiscovered] = useState<DiscoveredLog[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const activeIdRef = useRef(activeId);
@@ -84,8 +85,16 @@ export default function App() {
         }
       })
       .catch((e) => setError(String(e)));
+    refreshDiscovered();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  function refreshDiscovered() {
+    api
+      .discoverLogs()
+      .then(setDiscovered)
+      .catch(() => setDiscovered([]));
+  }
 
   async function refreshFights(id: string) {
     try {
@@ -142,7 +151,9 @@ export default function App() {
         sessions={sessions}
         activeId={activeId}
         backfill={backfill}
+        discovered={discovered}
         onOpen={openLog}
+        onRefreshDiscovered={refreshDiscovered}
         onActivate={activate}
         onClose={closeSession}
         error={error}
@@ -176,11 +187,35 @@ export default function App() {
       ) : (
         <main className="welcome">
           <h1>No log open</h1>
-          <p>
-            Open your EverQuest log file above (for example{" "}
-            <code>C:\EverQuest\Logs\eqlog_Yourname_server.txt</code>). Historical fights load
-            immediately; while the game runs, everything updates live.
-          </p>
+          {discovered.length > 0 ? (
+            <>
+              <p>Found these EverQuest logs on this machine — click one to start:</p>
+              <div className="discovered-list">
+                {discovered.map((d) => (
+                  <button key={d.path} className="discovered-row" onClick={() => openLog(d.path)}>
+                    <span className="discovered-name">
+                      {d.character} <span className="subtle">@{d.server}</span>
+                    </span>
+                    <span className="discovered-meta">
+                      last written {describeAge(d.lastWriteTime)} · {(d.sizeBytes / 1048576).toFixed(1)} MB ·{" "}
+                      {d.source}
+                    </span>
+                    <span className="discovered-path">{d.path}</span>
+                  </button>
+                ))}
+              </div>
+              <p className="subtle">
+                Logging must be on in game (<code>/log</code>). You can also paste any log path above.
+              </p>
+            </>
+          ) : (
+            <p>
+              Open your EverQuest log file above (for example{" "}
+              <code>C:\EverQuest\Logs\eqlog_Yourname_server.txt</code>). Historical fights load
+              immediately; while the game runs, everything updates live. If EverQuest is running,
+              press ↻ to re-scan for its log files.
+            </p>
+          )}
         </main>
       )}
     </div>

@@ -1,20 +1,44 @@
 import { useState } from "react";
-import type { SessionInfo } from "../api";
+import type { DiscoveredLog, SessionInfo } from "../api";
 import type { BackfillEvent } from "../live";
 
 interface Props {
   sessions: SessionInfo[];
   activeId: string | null;
   backfill: BackfillEvent | null;
+  discovered: DiscoveredLog[];
   onOpen: (path: string) => void;
+  onRefreshDiscovered: () => void;
   onActivate: (id: string) => void;
   onClose: (id: string) => void;
   error: string | null;
 }
 
-/** Top bar: open a log by path, switch between monitored characters. */
-export function SessionBar({ sessions, activeId, backfill, onOpen, onActivate, onClose, error }: Props) {
+export function describeAge(iso: string): string {
+  const ms = Date.now() - new Date(iso).getTime();
+  const minutes = Math.floor(ms / 60000);
+  if (minutes < 2) return "just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 48) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
+
+/** Top bar: open a log by path or pick a detected one, switch characters. */
+export function SessionBar({
+  sessions,
+  activeId,
+  backfill,
+  discovered,
+  onOpen,
+  onRefreshDiscovered,
+  onActivate,
+  onClose,
+  error,
+}: Props) {
   const [path, setPath] = useState("");
+  const openPaths = new Set(sessions.map((s) => s.path.toLowerCase()));
+  const available = discovered.filter((d) => !openPaths.has(d.path.toLowerCase()));
 
   return (
     <header className="session-bar">
@@ -31,6 +55,28 @@ export function SessionBar({ sessions, activeId, backfill, onOpen, onActivate, o
           </span>
         ))}
       </div>
+      {available.length > 0 && (
+        <select
+          className="detected-select"
+          value=""
+          onChange={(e) => {
+            if (e.target.value) {
+              onOpen(e.target.value);
+            }
+          }}
+          title="Log files found from the running game and standard install locations"
+        >
+          <option value="">Detected logs ({available.length})…</option>
+          {available.map((d) => (
+            <option key={d.path} value={d.path}>
+              {d.character} @{d.server} — {describeAge(d.lastWriteTime)} ({d.source})
+            </option>
+          ))}
+        </select>
+      )}
+      <button className="detect-refresh" title="Re-scan for log files" onClick={onRefreshDiscovered}>
+        ↻
+      </button>
       <form
         className="open-form"
         onSubmit={(e) => {

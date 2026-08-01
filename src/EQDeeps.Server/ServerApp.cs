@@ -45,6 +45,8 @@ public static class ServerApp
 
         app.MapGet("/api/health", () => Results.Ok(new { status = "ok" }));
 
+        app.MapGet("/api/logs/discovered", () => Results.Ok(LogDiscovery.Discover()));
+
         app.MapGet("/api/sessions", (SessionManager manager) => Results.Ok(manager.List()));
 
         app.MapPost("/api/sessions", (OpenSessionRequest request, SessionManager manager) =>

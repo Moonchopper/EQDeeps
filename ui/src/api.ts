@@ -77,8 +77,19 @@ async function json<T>(response: Response): Promise<T> {
   return (await response.json()) as T;
 }
 
+export interface DiscoveredLog {
+  path: string;
+  character: string;
+  server: string;
+  lastWriteTime: string;
+  sizeBytes: number;
+  source: string;
+}
+
 export const api = {
   listSessions: (): Promise<SessionInfo[]> => fetch("/api/sessions").then((r) => json(r)),
+
+  discoverLogs: (): Promise<DiscoveredLog[]> => fetch("/api/logs/discovered").then((r) => json(r)),
 
   openSession: (path: string): Promise<SessionInfo> =>
     fetch("/api/sessions", {

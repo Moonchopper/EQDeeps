@@ -1,40 +1,82 @@
-import {
-  defaultPanel,
-  newId,
-  type DashboardDef,
-  type LayoutRect,
-  type PanelDef,
-} from "./model";
+import { defaultPanel, type DashboardDef, type LayoutRect, type PanelDef } from "./model";
 
 /**
  * Preset dashboards covering the breakdowns the parsing community actually
  * argues about: damage rankings, healing with overheal, tanking with the
- * defensive rates, and a fight-agnostic "right now" view. These are ordinary
- * dashboards — every panel opens in the builder and can be reshaped or
- * deleted; the pack can be re-added from the tab bar at any time.
+ * defensive rates, and a fight-agnostic "right now" view.
+ *
+ * Presets are provisioned, not added: they carry STABLE ids, and
+ * `reconcilePresets` runs at every load — presets missing from the store
+ * appear automatically, an edited preset keeps the user's version (same id),
+ * and a deleted preset stays deleted via the hidden list. "Restore presets"
+ * rewrites them to this pristine definition, which is idempotent.
  */
 export function presetDashboards(): DashboardDef[] {
   return [raidDps(), healing(), tanking(), rightNow()];
 }
 
-function panel(overrides: Partial<PanelDef>): PanelDef {
-  return { ...defaultPanel(), ...overrides, id: newId("p") };
+export const PRESET_IDS = new Set(presetDashboards().map((d) => d.id));
+
+export interface ReconcileResult {
+  dashboards: DashboardDef[];
+  changed: boolean;
 }
 
-function build(name: string, entries: [Partial<PanelDef>, Omit<LayoutRect, "i">][]): DashboardDef {
-  const panels: PanelDef[] = [];
-  const layout: LayoutRect[] = [];
-  for (const [def, rect] of entries) {
-    const p = panel(def);
-    panels.push(p);
-    layout.push({ i: p.id, ...rect });
+export function reconcilePresets(stored: DashboardDef[], hidden: string[]): ReconcileResult {
+  const presets = presetDashboards();
+  let changed = false;
+  let dashboards = [...stored];
+
+  // Migration: the old "add presets" button cloned packs under random ids.
+  // Collapse them — the first dashboard named like a preset adopts the stable
+  // id (keeping any customization); later same-named copies are dropped.
+  for (const preset of presets) {
+    if (dashboards.some((d) => d.id === preset.id)) {
+      continue;
+    }
+
+    const twins = dashboards.filter((d) => d.name === preset.name);
+    if (twins.length > 0) {
+      changed = true;
+      const keeper = { ...twins[0], id: preset.id };
+      dashboards = dashboards.filter((d) => d.name !== preset.name);
+      dashboards.push(keeper);
+    }
   }
 
-  return { id: newId("d"), name, panels, layout };
+  // Provision presets that are neither stored nor deliberately hidden.
+  for (const preset of presets) {
+    if (!hidden.includes(preset.id) && !dashboards.some((d) => d.id === preset.id)) {
+      dashboards.push(preset);
+      changed = true;
+    }
+  }
+
+  return { dashboards, changed };
+}
+
+function panel(id: string, overrides: Partial<PanelDef>): PanelDef {
+  return { ...defaultPanel(), ...overrides, id };
+}
+
+function build(
+  id: string,
+  name: string,
+  entries: [Partial<PanelDef>, Omit<LayoutRect, "i">][],
+): DashboardDef {
+  const panels: PanelDef[] = [];
+  const layout: LayoutRect[] = [];
+  entries.forEach(([def, rect], index) => {
+    const p = panel(`${id}-p${index}`, def);
+    panels.push(p);
+    layout.push({ i: p.id, ...rect });
+  });
+
+  return { id, name, panels, layout };
 }
 
 function raidDps(): DashboardDef {
-  return build("Raid DPS", [
+  return build("preset-raid-dps", "Raid DPS", [
     [
       {
         title: "Damage rankings",
@@ -101,7 +143,7 @@ function raidDps(): DashboardDef {
 }
 
 function healing(): DashboardDef {
-  return build("Healing", [
+  return build("preset-healing", "Healing", [
     [
       {
         title: "Healer rankings",
@@ -147,7 +189,7 @@ function healing(): DashboardDef {
 }
 
 function tanking(): DashboardDef {
-  return build("Tanking", [
+  return build("preset-tanking", "Tanking", [
     [
       {
         title: "Damage taken",
@@ -203,7 +245,7 @@ function tanking(): DashboardDef {
 }
 
 function rightNow(): DashboardDef {
-  return build("Right now", [
+  return build("preset-right-now", "Right now", [
     [
       {
         title: "Rolling DPS — last 2 minutes",

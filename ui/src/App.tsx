@@ -11,7 +11,7 @@ import { SelectionStats } from "./components/SelectionStats";
 import { AbilityChart } from "./components/AbilityChart";
 import { DashboardView } from "./dashboards/DashboardView";
 import { defaultPanel, newDashboard, newId, type DashboardDef } from "./dashboards/model";
-import { presetDashboards } from "./dashboards/presets";
+import { PRESET_IDS, presetDashboards, reconcilePresets } from "./dashboards/presets";
 
 /**
  * The default dashboard (feature F7): fight list + summary + DPS chart + live
@@ -31,6 +31,7 @@ export default function App() {
   const [discovered, setDiscovered] = useState<DiscoveredLog[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [dashboards, setDashboards] = useState<DashboardDef[]>([]);
+  const [hiddenPresets, setHiddenPresets] = useState<string[]>([]);
   const [view, setView] = useState<string>("overview"); // "overview" | dashboard id
 
   function togglePetRollup(on: boolean) {
@@ -38,34 +39,38 @@ export default function App() {
     localStorage.setItem("eqdeeps.petRollup", on ? "on" : "off");
   }
 
-  // ---- dashboards: load once, save debounced -------------------------------
+  // ---- dashboards: load + reconcile presets once, save debounced -----------
   const saveTimer = useRef<number | undefined>(undefined);
   useEffect(() => {
     api
-      .getStore<{ dashboards: DashboardDef[] }>("dashboards")
+      .getStore<{ dashboards?: DashboardDef[]; hiddenPresets?: string[] }>("dashboards")
       .then((doc) => {
-        if (doc?.dashboards) {
-          setDashboards(doc.dashboards);
-        } else {
-          // First run: seed the community-standard presets. Deleting them
-          // sticks — an empty stored list is never re-seeded.
-          const seeded = presetDashboards();
-          setDashboards(seeded);
-          api.putStore("dashboards", { dashboards: seeded }).catch(() => undefined);
+        const hidden = doc?.hiddenPresets ?? [];
+        const { dashboards: reconciled, changed } = reconcilePresets(doc?.dashboards ?? [], hidden);
+        setHiddenPresets(hidden);
+        setDashboards(reconciled);
+        if (changed) {
+          api.putStore("dashboards", { dashboards: reconciled, hiddenPresets: hidden })
+            .catch(() => undefined);
         }
       })
       .catch(() => undefined);
   }, []);
 
-  function addPresets() {
-    updateDashboards([...dashboards, ...presetDashboards()]);
+  /** Reset the built-in dashboards to pristine and unhide any deleted ones. Idempotent. */
+  function restorePresets() {
+    const pristine = presetDashboards();
+    const withoutPresets = dashboards.filter((d) => !PRESET_IDS.has(d.id));
+    updateDashboards([...pristine, ...withoutPresets], []);
   }
 
-  function updateDashboards(next: DashboardDef[]) {
+  function updateDashboards(next: DashboardDef[], nextHidden: string[] = hiddenPresets) {
     setDashboards(next);
+    setHiddenPresets(nextHidden);
     window.clearTimeout(saveTimer.current);
     saveTimer.current = window.setTimeout(() => {
-      api.putStore("dashboards", { dashboards: next }).catch(() => undefined);
+      api.putStore("dashboards", { dashboards: next, hiddenPresets: nextHidden })
+        .catch(() => undefined);
     }, 800);
   }
 
@@ -87,7 +92,10 @@ export default function App() {
   function deleteDashboard(id: string) {
     const current = dashboards.find((d) => d.id === id);
     if (!current || !window.confirm(`Delete dashboard "${current.name}"?`)) return;
-    updateDashboards(dashboards.filter((d) => d.id !== id));
+    // A deleted preset is remembered as hidden so it stays deleted across
+    // restarts instead of being re-provisioned.
+    const nextHidden = PRESET_IDS.has(id) ? [...hiddenPresets, id] : hiddenPresets;
+    updateDashboards(dashboards.filter((d) => d.id !== id), nextHidden);
     setView("overview");
   }
 
@@ -296,10 +304,10 @@ export default function App() {
             </button>
             <button
               className="mini-btn"
-              onClick={addPresets}
-              title="Add the built-in Raid DPS / Healing / Tanking / Right now dashboards"
+              onClick={restorePresets}
+              title="Reset the built-in Raid DPS / Healing / Tanking / Right now dashboards to their defaults"
             >
-              presets
+              restore presets
             </button>
             {view !== "overview" && (
               <span className="view-tab-actions">

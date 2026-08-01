@@ -8,6 +8,7 @@ import { DpsChart } from "./components/DpsChart";
 import { LiveMeter, makeColorAssigner } from "./components/LiveMeter";
 import { DeathLog } from "./components/DeathLog";
 import { SelectionStats } from "./components/SelectionStats";
+import { AbilityChart } from "./components/AbilityChart";
 
 /**
  * The default dashboard (feature F7): fight list + summary + DPS chart + live
@@ -183,11 +184,19 @@ export default function App() {
                 excludeDamageShields={excludeDs}
                 onToggleDamageShields={setExcludeDs}
               />
-              <LiveMeter tick={tick} colorFor={colorFor} />
+              <div className="panel-stack">
+                <LiveMeter tick={tick} colorFor={colorFor} />
+                <DeathLog sessionId={activeId} fightIds={selected} refreshKey={refreshKey} />
+              </div>
             </div>
-            <div className="dashboard-row">
+            <div className="dashboard-row halves">
               <DpsChart sessionId={activeId} fightIds={selected} refreshKey={refreshKey} />
-              <DeathLog sessionId={activeId} fightIds={selected} refreshKey={refreshKey} />
+              <AbilityChart
+                sessionId={activeId}
+                fightIds={selected}
+                refreshKey={refreshKey}
+                character={sessions.find((s) => s.id === activeId)?.character ?? ""}
+              />
             </div>
           </div>
         </main>

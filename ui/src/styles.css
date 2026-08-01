@@ -216,6 +216,17 @@ button {
   min-height: 0;
 }
 
+.dashboard-row.halves {
+  grid-template-columns: 1fr 1fr;
+}
+
+.panel-stack {
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  gap: 10px;
+  min-height: 0;
+}
+
 .panel {
   background: var(--surface);
   border: 1px solid var(--border);

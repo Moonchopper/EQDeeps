@@ -2,12 +2,94 @@ using EQDeeps.Core.Events;
 
 namespace EQDeeps.Core.Parsing;
 
-/// <summary>Taunts, zone transitions, and spell resists.</summary>
+/// <summary>Taunts, zone transitions, spell resists, membership, and /who lines.</summary>
 public static class MiscParser
 {
     public static GameEvent? Parse(string action, ParserOptions options)
     {
-        return ParseTaunt(action, options) ?? ParseZone(action) ?? ParseResist(action, options);
+        return ParseTaunt(action, options)
+            ?? ParseZone(action)
+            ?? ParseResist(action, options)
+            ?? ParseMembership(action, options)
+            ?? ParseWho(action);
+    }
+
+    private static GameEvent? ParseMembership(string action, ParserOptions options)
+    {
+        foreach (var (pattern, raid, joined) in MembershipPatterns)
+        {
+            if (action.StartsWith("You have", StringComparison.Ordinal) &&
+                action == "You have" + pattern)
+            {
+                return new MembershipEvent(options.PlayerName, raid, joined);
+            }
+
+            var i = action.IndexOf(" has" + pattern, StringComparison.Ordinal);
+            if (i > 0)
+            {
+                return new MembershipEvent(action[..i], raid, joined);
+            }
+        }
+
+        var leader = action.IndexOf(" is now the leader of your raid.", StringComparison.Ordinal);
+        if (leader > 0)
+        {
+            return new MembershipEvent(action[..leader], Raid: true, Joined: true);
+        }
+
+        return null;
+    }
+
+    private static readonly (string Pattern, bool Raid, bool Joined)[] MembershipPatterns =
+    [
+        (" joined the raid.", true, true),
+        (" joined the group.", false, true),
+        (" left the raid.", true, false),
+        (" left the group.", false, false),
+    ];
+
+    private static GameEvent? ParseWho(string action)
+    {
+        if (action.Length < 6 || action[0] != '[')
+        {
+            return null;
+        }
+
+        var close = action.IndexOf("] ", StringComparison.Ordinal);
+        if (close < 2)
+        {
+            return null;
+        }
+
+        var inside = action[1..close];
+        var rest = action.AsSpan(close + 2);
+        var nameEnd = rest.IndexOf(' ');
+        var name = (nameEnd < 0 ? rest : rest[..nameEnd]).ToString();
+        if (name.Length < 3 || !char.IsAsciiLetterUpper(name[0]))
+        {
+            return null;
+        }
+
+        foreach (var c in name)
+        {
+            if (!char.IsAsciiLetter(c))
+            {
+                return null;
+            }
+        }
+
+        if (inside == "ANONYMOUS")
+        {
+            return new WhoEvent(name, null, null);
+        }
+
+        var space = inside.IndexOf(' ');
+        if (space <= 0 || !int.TryParse(inside.AsSpan(0, space), out var level))
+        {
+            return null;
+        }
+
+        return new WhoEvent(name, level, inside[(space + 1)..]);
     }
 
     private static GameEvent? ParseTaunt(string action, ParserOptions options)

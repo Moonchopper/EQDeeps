@@ -10,5 +10,14 @@
   { "line": "You have entered an area where levitation effects do not function.", "expect": { "type": "none" } },
 
   { "line": "Your target resisted the Mind Coil spell.", "expect": { "type": "resist", "caster": "TestPlayer", "resister": null, "spell": "Mind Coil" } },
-  { "line": "A gnoll resisted your Slow!", "expect": { "type": "resist", "caster": "TestPlayer", "resister": "A gnoll", "spell": "Slow" } }
+  { "line": "A gnoll resisted your Slow!", "expect": { "type": "resist", "caster": "TestPlayer", "resister": "A gnoll", "spell": "Slow" } },
+
+  { "line": "Soandso has joined the raid.", "expect": { "type": "membership", "player": "Soandso", "raid": true, "joined": true } },
+  { "line": "You have joined the group.", "expect": { "type": "membership", "player": "TestPlayer", "raid": false, "joined": true } },
+  { "line": "Soandso has left the raid.", "expect": { "type": "membership", "player": "Soandso", "raid": true, "joined": false } },
+  { "line": "Soandso is now the leader of your raid.", "expect": { "type": "membership", "player": "Soandso", "raid": true, "joined": true } },
+
+  { "line": "[60 High Priest] Soandso (High Elf) <Guild Name>", "expect": { "type": "who", "player": "Soandso", "level": 60, "classText": "High Priest" } },
+  { "line": "[ANONYMOUS] Soandso", "expect": { "type": "who", "player": "Soandso", "level": null, "classText": null } },
+  { "line": "[125 Stone Fist (Monk)] Kizant (Human) <Raiders>", "expect": { "type": "who", "player": "Kizant", "level": 125, "classText": "Stone Fist (Monk)" } }
 ]

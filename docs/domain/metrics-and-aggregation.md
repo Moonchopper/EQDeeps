@@ -8,7 +8,7 @@ How parsed records become fights, and fights become the numbers players argue ab
 - Validity: exactly one side must be an NPC. Player↔player records (duels, DS between players) and NPC↔NPC records don't create fights. Identity rules are in `eq-log-format.md` §5; also track spells recently cast by players (~5 min window) so "spell as attacker" lines attribute to the caster's side.
 - A fight **ends** when: the NPC dies (`died.`/`slain by` — mark dead, close immediately), or no combat activity references it for **30 seconds** (60 s hard cap regardless of trailing non-damage activity). Same NPC name pulled again later = a **new** fight (never merge).
 - Fights record for each side: begin/last damage times, running totals and hit counts (damage dealt to the NPC = "damage"; damage dealt by the NPC = "tanking"), taunt events, and per-second buckets (§3).
-- **Inactivity grouping:** consecutive fights whose gaps are below a threshold group into a "pull chain"; a gap ≥ the group timeout inserts a break ("Break Time" divider in the reference UI). Groups let users select "that whole event" in one click.
+- **Inactivity grouping:** consecutive fights whose gaps are below a threshold group into a "pull chain"; a gap ≥ the group timeout (**120 s** in the reference) inserts a break ("Break Time" divider in the reference UI). Groups let users select "that whole event" in one click.
 - **Player-turned-NPC correction:** if a fight's key later becomes a verified player, delete the fight (it was a misclassification).
 - **Selection semantics:** the user selects fights (or groups); analysis scope = the union of the selected fights' time ranges. All summary stats are computed over that union.
 

@@ -111,6 +111,23 @@ public class FixtureTests
                 AssertString(expect, "resister", resist.Resister, context);
                 AssertString(expect, "spell", resist.Spell, context);
                 break;
+            case "membership":
+                var membership = Assert.IsType<MembershipEvent>(evt);
+                AssertString(expect, "player", membership.Player, context);
+                AssertBool(expect, "raid", membership.Raid, context);
+                AssertBool(expect, "joined", membership.Joined, context);
+                break;
+            case "who":
+                var who = Assert.IsType<WhoEvent>(evt);
+                AssertString(expect, "player", who.Player, context);
+                AssertString(expect, "classText", who.ClassText, context);
+                if (expect.TryGetProperty("level", out var level))
+                {
+                    var expectedLevel = level.ValueKind == JsonValueKind.Null ? (int?)null : level.GetInt32();
+                    Assert.True(expectedLevel == who.Level, $"{context} — level expected {expectedLevel} got {who.Level}");
+                }
+
+                break;
             default:
                 Assert.Fail($"{context} — unknown expectation type '{type}'");
                 break;

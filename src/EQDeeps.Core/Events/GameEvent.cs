@@ -119,5 +119,19 @@ public sealed record ChatEvent(
 /// <summary>Zone entry; a null <see cref="ZoneName"/> marks a transition line (LOADING / Welcome).</summary>
 public sealed record ZoneEvent(string? ZoneName) : GameEvent;
 
+/// <summary>
+/// Raid/group membership signal ("X has joined the raid.") — a definitive
+/// player-verification source for the identity registry.
+/// </summary>
+public sealed record MembershipEvent(string Player, bool Raid, bool Joined) : GameEvent;
+
+/// <summary>
+/// One /who output line: "[60 High Priest] Soandso (High Elf) &lt;Guild&gt;" or
+/// "[ANONYMOUS] Soandso". Level/class are null for anonymous players;
+/// <see cref="ClassText"/> is the raw bracket text after the level (titles
+/// included — resolution against the class list comes with the spell DB).
+/// </summary>
+public sealed record WhoEvent(string Player, int? Level, string? ClassText) : GameEvent;
+
 /// <summary>A spell resist. Caster perspective is always the log owner in current grammars.</summary>
 public sealed record ResistEvent(string Caster, string? Resister, string Spell) : GameEvent;

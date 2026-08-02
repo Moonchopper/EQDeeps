@@ -52,10 +52,22 @@ export function attachMiddleScrub(
   const zr = chart.getZr();
   let lastX: number | null = null;
 
+  const armBrush = (active: boolean) =>
+    chart.dispatchAction({
+      type: "takeGlobalCursor",
+      key: "dataZoomSelect",
+      dataZoomSelectActive: active,
+    });
+
   const onDown = (e: ZrMouseEvent) => {
     if (e.event?.button === 1) {
       lastX = e.offsetX;
       e.event.preventDefault?.(); // stop the browser's middle-click autoscroll
+      // The zoom brush doesn't filter by button and would draw a selection box
+      // during the scrub — disarm it for the duration of the drag. This handler
+      // registers before the toolbox brush mounts, so the disarm wins the race
+      // on the same mousedown.
+      armBrush(false);
     }
   };
 
@@ -89,7 +101,10 @@ export function attachMiddleScrub(
   };
 
   const onUp = () => {
-    lastX = null;
+    if (lastX !== null) {
+      lastX = null;
+      armBrush(true); // scrub finished: left-drag zoom works again
+    }
   };
 
   zr.on("mousedown", onDown);

@@ -47,7 +47,8 @@ if (-not $endpoints.ContainsKey($Region)) {
     throw "Region '$Region' is not an Artifact Signing region. Pick one of: $($endpoints.Keys -join ', ')"
 }
 
-$account = az account show 2>$null | ConvertFrom-Json
+$account = $null
+try { $account = az account show 2>$null | ConvertFrom-Json } catch { $account = $null }
 if (-not $account) { throw "Not logged in. Run 'az login' first." }
 Write-Host "Subscription: $($account.name) ($($account.id)) as $($account.user.name)"
 
@@ -81,16 +82,19 @@ if ($IdentityValidationId) {
 # subscriptions, tenants, or resource groups, so a mismatch means tearing it all
 # down and revalidating from scratch.
 Write-Host "== Checking billing account =="
-$billing = az billing account list --only-show-errors 2>$null | ConvertFrom-Json
+$billing = $null
+try { $billing = az billing account list --only-show-errors 2>$null | ConvertFrom-Json } catch { $billing = $null }
 if ($billing) {
     foreach ($b in $billing) {
         Write-Host "  $($b.displayName) — account type: $($b.accountType)"
         if ($b.accountType -ne "Individual") {
             Write-Warning "Account type is '$($b.accountType)', not 'Individual'. Individual identity validation needs an Individual billing account; this subscription can only do Organization validation (which requires 3+ years of verifiable business history)."
         }
-        $region = $b.soldTo.region
-        if ($region -and $region -cne $region.ToUpper()) {
-            Write-Warning "Billing address region '$region' is not upper-case — it lands in the certificate subject verbatim. Fix it before validating."
+        # NOT $region — PowerShell variables are case-insensitive, so that would
+        # clobber the $Region parameter with the billing address's state code.
+        $soldToRegion = $b.soldTo.region
+        if ($soldToRegion -and $soldToRegion -cne $soldToRegion.ToUpper()) {
+            Write-Warning "Billing address region '$soldToRegion' is not upper-case — it lands in the certificate subject verbatim. Fix it before validating."
         }
     }
 } else {
@@ -111,7 +115,11 @@ $appId = az ad app list --display-name $appName --query "[0].appId" -o tsv
 if (-not $appId) {
     $appId = az ad app create --display-name $appName --query appId -o tsv
 }
-$sp = az ad sp show --id $appId 2>$null
+# try/catch, not just 2>$null: Windows PowerShell wraps a native command's stderr
+# in ErrorRecords that $ErrorActionPreference='Stop' makes terminating, and this
+# probe is *expected* to fail the first time through.
+$sp = $null
+try { $sp = az ad sp show --id $appId 2>$null } catch { $sp = $null }
 if (-not $sp) {
     az ad sp create --id $appId | Out-Null
 }
@@ -133,20 +141,31 @@ if ($existing -eq "0") {
     Remove-Item $fedFile
 }
 
+# Scoped Microsoft.Authorization calls can fail with MissingSubscription on a
+# freshly created subscription — role *definition* lookups included, so it isn't
+# the scope string; it clears once RBAC propagates. Non-fatal either way:
+# everything else here still needs to run, and the grants can be made by hand.
+function Grant-Role($assignee, $roleName, $scope, $portalHint) {
+    az role assignment create --assignee $assignee --role $roleName `
+        --scope $scope --only-show-errors 2>&1 | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        Write-Warning "Could not assign '$roleName'. $portalHint"
+    }
+}
+
 Write-Host "== Role assignment: CI signs with the account, nothing more =="
-az role assignment create --assignee $appId `
-    --role "Artifact Signing Certificate Profile Signer" `
-    --scope $accountId --only-show-errors | Out-Null
+Grant-Role $appId "Artifact Signing Certificate Profile Signer" $accountId `
+    "In the portal: $AccountName -> Access control (IAM) -> Add role assignment -> assign it to the '$appName' app registration."
 
 # Subscription Owner is NOT enough to create an identity validation — without
-# these two the portal's "New identity" button stays greyed out. The Identity
+# this the portal's "New identity" button stays greyed out. The Identity
 # Verifier role requires at least Reader at subscription scope alongside it.
 Write-Host "== Role assignment: you can create identity validations =="
 $me = az ad signed-in-user show --query id -o tsv
-az role assignment create --assignee $me --role "Reader" `
-    --scope "/subscriptions/$($account.id)" --only-show-errors | Out-Null
-az role assignment create --assignee $me --role "Artifact Signing Identity Verifier" `
-    --scope $accountId --only-show-errors | Out-Null
+Grant-Role $me "Reader" "/subscriptions/$($account.id)" `
+    "Owner already implies read access, so this one is usually safe to skip."
+Grant-Role $me "Artifact Signing Identity Verifier" $accountId `
+    "In the portal: $AccountName -> Access control (IAM) -> Add role assignment -> assign it to yourself, then sign out and back in."
 
 Write-Host "== GitHub repo secrets/variables =="
 gh secret set AZURE_TENANT_ID --repo $Repo --body $account.tenantId

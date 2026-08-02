@@ -87,11 +87,11 @@ account (East US), a GitHub OIDC app registration federated to this repo's
 the role assignments, and the repo secrets/variables CI will use. It's
 idempotent, so it's safe to run against resources you already made by hand.
 
-> Role assignment from the CLI currently fails on this subscription with
-> `MissingSubscription` — every scoped `Microsoft.Authorization` call does,
-> including plain role-definition lookups. It's a quirk of the preview resource
-> type. Assign roles in the portal (Access control (IAM) → Add role assignment)
-> until it clears.
+> On a freshly created subscription, scoped `Microsoft.Authorization` calls can
+> fail with `MissingSubscription` for a while — role *definition* lookups
+> included, so it isn't the scope string. It clears once RBAC finishes
+> propagating. Phase 1 treats these as non-fatal and prints the portal fallback
+> (Access control (IAM) → Add role assignment) if a grant doesn't stick.
 
 ### Step 3 — Identity validation (manual, ~15 min)
 

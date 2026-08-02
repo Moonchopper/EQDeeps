@@ -58,9 +58,10 @@ Windows Authenticode check.
 Beside the version number, **⚙** opens update preferences (ask each time /
 automatic / never check) and **⟳** checks on demand. A manual check overrides
 every standing "no", including automatic mode — it always asks before installing,
-so it's the way back if you've chosen "don't ask again". Long-running sessions
-re-check every couple of hours on their own, so you don't have to restart to
-find out a release exists.
+so it's the way back if you've chosen "don't ask again". EQDeeps also re-checks
+every few minutes on its own, so you never have to restart to find out a release
+exists. That won't nag: declining a release is remembered, so a shorter interval
+only changes how quickly an update is noticed.
 
 Prefer no network calls at all? `--no-update-check` disables the whole thing for
 a run, and the in-app setting has a "never check" mode.

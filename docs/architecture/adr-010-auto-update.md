@@ -90,10 +90,19 @@ must also shut the app down. Omitting that shipped once — the script waited it
 two minutes and gave up, making "restart to update" look inert. `UpdateApplyTests`
 now pins it.
 
-A long-running session re-checks every **two hours**. EQDeeps is commonly left
-open for days, so that loop is the only thing that tells such a session a
-release exists; six hours was long enough for a whole raid night to pass. The
-request is a ~2 KB app cast fetch, so checking more often costs nothing.
+A long-running session re-checks every **five minutes**. EQDeeps is commonly
+left open for days, so that loop is the only thing that tells such a session a
+release exists; the original six hours meant a whole raid night could pass
+without noticing.
+
+Five minutes is cheap because installed builds fetch a ~2 KB app cast from a
+release asset — CDN-served, no API rate limit — so it is roughly 24 KB an hour.
+It also cannot become nagging: a declined release is remembered for the run and
+auto mode stages a given release once, so a shorter interval changes only how
+quickly a release is noticed, not how often the user is asked. The exception is
+the portable/source fallback, which uses the REST API (60 requests/hour per IP);
+12/hour per instance leaves room, but several portable copies on one machine
+would start to consume it.
 
 Because Inno Setup cannot replace a running exe, `UpdateInstaller` writes a
 throwaway batch script that waits for our PID to exit, runs the installer

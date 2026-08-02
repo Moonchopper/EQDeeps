@@ -69,12 +69,22 @@ public sealed class UpdateService : IDisposable
 
     /// <summary>
     /// How often a long-running session re-checks. EQDeeps is commonly left
-    /// open for days, so this is the only thing that tells such a session a
-    /// release exists — six hours was long enough that a whole raid night
-    /// could pass without noticing. The request is a ~2 KB app cast fetch, so
-    /// the cost of checking more often is negligible.
+    /// open for days, so this loop is the only thing that tells such a session
+    /// a release exists.
+    ///
+    /// Five minutes looks aggressive and isn't: installed builds fetch a ~2 KB
+    /// app cast from a release asset, which is CDN-served and carries no API
+    /// rate limit, so this is ~24 KB an hour. Frequent checking also cannot
+    /// turn into nagging — a declined release is remembered for the run, and
+    /// auto mode stages a given release once — so the only thing that changes
+    /// is how quickly a new release is noticed.
+    ///
+    /// The one shape with a ceiling is the portable/source fallback, which uses
+    /// the GitHub REST API (60 requests/hour per IP unauthenticated). At this
+    /// interval that is 12/hour per instance; several portable copies on one
+    /// machine would start to eat into it, and a failed check is silent anyway.
     /// </summary>
-    private static readonly TimeSpan CheckInterval = TimeSpan.FromHours(2);
+    private static readonly TimeSpan CheckInterval = TimeSpan.FromMinutes(5);
 
     private readonly UpdatePreferenceStore _preferences;
     private readonly PendingUpdateStore _pending;

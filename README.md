@@ -20,9 +20,10 @@ seconds later — backgrounded or slept tabs do **not** stop it. Flags:
 `--no-browser` (headless, no UI), `--no-update-check`, `--stay-alive` (keep
 parsing with no UI open), `--urls http://127.0.0.1:PORT`.
 
-> **First run:** the exe is unsigned, so Windows SmartScreen shows
-> "Windows protected your PC". Click **More info → Run anyway** — that's
-> expected for a small unsigned app and only happens once.
+> **First run:** releases are signed, but Windows SmartScreen builds reputation
+> per file hash, so a brand-new release can still show "Windows protected your
+> PC" until enough people have run it. Click **More info → Run anyway**; the
+> prompt stops appearing as a release circulates.
 
 **From source**:
 

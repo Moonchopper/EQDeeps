@@ -3,6 +3,7 @@ import * as echarts from "echarts";
 import { api, type QueryResult, type QueryRow } from "../api";
 import { fmtNum, OTHER_COLOR } from "../format";
 import type { EntityColors } from "../colors";
+import { attachMiddleScrub, offsetTooltip } from "../chartInteractions";
 
 interface Props {
   sessionId: string;
@@ -82,10 +83,12 @@ export function DpsChart({ sessionId, fightIds, refreshKey, followLive, petRollu
       }
     });
     chart.getZr().on("dblclick", resetZoom);
+    const detachScrub = attachMiddleScrub(chart, { left: 52, right: 12 });
     const onResize = () => chart.resize();
     window.addEventListener("resize", onResize);
     return () => {
       window.removeEventListener("resize", onResize);
+      detachScrub();
       chart.dispose();
       chartRef.current = null;
     };
@@ -250,6 +253,7 @@ export function DpsChart({ sessionId, fightIds, refreshKey, followLive, petRollu
         tooltip: {
           trigger: "axis",
           axisPointer: { type: "line", lineStyle: { color: "#52514e" } },
+          position: offsetTooltip,
           backgroundColor: "#232322",
           borderColor: "rgba(255,255,255,0.10)",
           textStyle: { color: "#ffffff", fontSize: 12 },
@@ -350,7 +354,7 @@ export function DpsChart({ sessionId, fightIds, refreshKey, followLive, petRollu
         <div
           ref={divRef}
           className="chart"
-          title="Drag to zoom a time range · scroll to zoom · double-click to reset"
+          title="Drag to zoom a time range · scroll to zoom · hold middle mouse to scrub · double-click to reset"
         />
         {isZoomed && (
           <button

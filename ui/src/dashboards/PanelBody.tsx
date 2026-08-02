@@ -4,6 +4,7 @@ import { api, type QueryResult, type QueryRow } from "../api";
 import { fmtNum, fmtRate, OTHER_COLOR, SERIES_COLORS } from "../format";
 import { buildSpec, METRIC_LABELS, RATE_METRICS, type PanelDef } from "./model";
 import type { EntityColors } from "../colors";
+import { attachMiddleScrub, offsetTooltip } from "../chartInteractions";
 
 export interface PanelContext {
   sessionId: string;
@@ -176,10 +177,12 @@ function LinePanel({ panel, ctx }: { panel: PanelDef; ctx: PanelContext }) {
       }
     });
     chart.getZr().on("dblclick", resetZoom);
+    const detachScrub = attachMiddleScrub(chart, { left: 48, right: 10 });
     const observer = new ResizeObserver(() => chart.resize());
     observer.observe(divRef.current);
     return () => {
       observer.disconnect();
+      detachScrub();
       chart.dispose();
       chartRef.current = null;
     };
@@ -291,6 +294,7 @@ function LinePanel({ panel, ctx }: { panel: PanelDef; ctx: PanelContext }) {
         },
         tooltip: {
           trigger: "axis",
+          position: offsetTooltip,
           backgroundColor: "#232322",
           borderColor: "rgba(255,255,255,0.10)",
           textStyle: { color: "#ffffff", fontSize: 12 },
@@ -325,7 +329,7 @@ function LinePanel({ panel, ctx }: { panel: PanelDef; ctx: PanelContext }) {
       <div
         ref={divRef}
         className="chart"
-        title="Drag to zoom a time range · scroll to zoom · double-click to reset"
+        title="Drag to zoom a time range · scroll to zoom · hold middle mouse to scrub · double-click to reset"
       />
       {isZoomed && (
         <button
@@ -378,6 +382,7 @@ function BarPanel({ panel, ctx }: { panel: PanelDef; ctx: PanelContext }) {
         animation: false,
         grid: { left: 8, right: 56, top: 6, bottom: 6, containLabel: true },
         tooltip: {
+          position: offsetTooltip,
           backgroundColor: "#232322",
           borderColor: "rgba(255,255,255,0.10)",
           textStyle: { color: "#ffffff", fontSize: 12 },

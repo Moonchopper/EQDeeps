@@ -3,6 +3,7 @@ import * as echarts from "echarts";
 import { api, type QueryResult, type QueryRow } from "../api";
 import { fmtNum, fmtRate, OTHER_COLOR } from "../format";
 import type { EntityColors } from "../colors";
+import { offsetTooltip } from "../chartInteractions";
 
 interface Props {
   sessionId: string;
@@ -234,6 +235,7 @@ export function AbilityChart({ sessionId, fightIds, refreshKey, character, petRo
             }
           : { show: false },
         tooltip: {
+          position: offsetTooltip,
           backgroundColor: "#232322",
           borderColor: "rgba(255,255,255,0.10)",
           textStyle: { color: "#ffffff", fontSize: 12 },

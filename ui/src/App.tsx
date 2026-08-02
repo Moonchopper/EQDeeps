@@ -26,7 +26,9 @@ import {
   cloneForCustomizing,
   standardViews,
   stripStandardViews,
+  summaryTrendPanels,
 } from "./dashboards/standardViews";
+import { PanelBody, type PanelContext } from "./dashboards/PanelBody";
 import { DEFAULT_CHART_SETTINGS, type ChartSettings } from "./timeControls";
 import { DEFAULT_LABEL_PX } from "./fightOverlay";
 import {
@@ -90,6 +92,7 @@ export default function App() {
     () => localStorage.getItem("eqdeeps.stdView") ?? SUMMARY_VIEW,
   );
   const standard = useMemo(() => standardViews(), []);
+  const summaryTrends = useMemo(() => summaryTrendPanels(), []);
 
   function selectStdView(id: string) {
     setStdView(id);
@@ -559,6 +562,19 @@ export default function App() {
               ))}
             </nav>
           )}
+          {(() => {
+            // Every panel on this screen shares one context; building it once
+            // keeps the three call sites from drifting apart.
+            const panelCtx: PanelContext = {
+              sessionId: activeId,
+              frame,
+              fights,
+              fightLabelPx,
+              refreshKey,
+              petRollup,
+              colors: entityColors,
+            };
+            return (
           <main className="dashboard">
             <FightList
               fights={fights}
@@ -575,7 +591,7 @@ export default function App() {
                 return std ? (
                   <DashboardView
                     dashboard={std}
-                    ctx={{ sessionId: activeId, frame, fights, fightLabelPx, refreshKey, petRollup, colors: entityColors }}
+                    ctx={panelCtx}
                     chartDefaults={chartDefaults}
                     onChange={() => undefined}
                     readOnly
@@ -595,48 +611,64 @@ export default function App() {
                   refreshKey={refreshKey}
                   petRollup={petRollup}
                 />
-                <div className="dashboard-row">
-                  <SummaryTable
-                    sessionId={activeId}
-                    frame={frame}
-                    refreshKey={refreshKey}
-                    excludeDamageShields={excludeDs}
-                    onToggleDamageShields={setExcludeDs}
-                    petRollup={petRollup}
-                    onOpenInBuilder={openInBuilder}
-                    colors={entityColors}
-                  />
-                  <div className="panel-stack">
+                {/* Charts own the wide column and stack; tables live in a
+                    narrow rail. Trends are time-series, so width is
+                    resolution — and a rail keeps a one-row damage table from
+                    claiming half the page the way an equal-height row did. */}
+                <div className="summary-body">
+                  <div className="summary-charts">
+                    <DpsChart
+                      sessionId={activeId}
+                      frame={frame}
+                      fights={fights}
+                      fightLabelPx={fightLabelPx}
+                      refreshKey={refreshKey}
+                      petRollup={petRollup}
+                      colors={entityColors}
+                      chartDefaults={chartDefaults}
+                    />
+                    <AbilityChart
+                      sessionId={activeId}
+                      frame={frame}
+                      refreshKey={refreshKey}
+                      petRollup={petRollup}
+                      colors={entityColors}
+                    />
+                    {summaryTrends.map((p) => (
+                      <div key={p.id} className="panel chart-panel">
+                        <div className="panel-title">
+                          <span className="panel-name">{p.title}</span>
+                        </div>
+                        <PanelBody
+                          panel={p}
+                          ctx={panelCtx}
+                          settings={chartDefaults}
+                        />
+                      </div>
+                    ))}
+                    <TimelineChart
+                      sessionId={activeId}
+                      frame={frame}
+                      refreshKey={refreshKey}
+                      character={sessions.find((s) => s.id === activeId)?.character ?? ""}
+                      fights={fights}
+                    />
+                  </div>
+                  <div className="summary-rail">
+                    <SummaryTable
+                      sessionId={activeId}
+                      frame={frame}
+                      refreshKey={refreshKey}
+                      excludeDamageShields={excludeDs}
+                      onToggleDamageShields={setExcludeDs}
+                      petRollup={petRollup}
+                      onOpenInBuilder={openInBuilder}
+                      colors={entityColors}
+                    />
                     <LiveMeter tick={tick} colorFor={entityColors.claim} petRollup={petRollup} />
                     <DeathLog sessionId={activeId} frame={frame} refreshKey={refreshKey} />
                   </div>
                 </div>
-                <div className="dashboard-row halves">
-                  <DpsChart
-                    sessionId={activeId}
-                    frame={frame}
-                    fights={fights}
-                    fightLabelPx={fightLabelPx}
-                    refreshKey={refreshKey}
-                    petRollup={petRollup}
-                    colors={entityColors}
-                    chartDefaults={chartDefaults}
-                  />
-                  <AbilityChart
-                    sessionId={activeId}
-                    frame={frame}
-                    refreshKey={refreshKey}
-                    petRollup={petRollup}
-                    colors={entityColors}
-                  />
-                </div>
-                <TimelineChart
-                  sessionId={activeId}
-                  frame={frame}
-                  refreshKey={refreshKey}
-                  character={sessions.find((s) => s.id === activeId)?.character ?? ""}
-                  fights={fights}
-                />
               </div>
             ) : (
               (() => {
@@ -644,7 +676,7 @@ export default function App() {
                 return dashboard ? (
                   <DashboardView
                     dashboard={dashboard}
-                    ctx={{ sessionId: activeId, frame, fights, fightLabelPx, refreshKey, petRollup, colors: entityColors }}
+                    ctx={panelCtx}
                     chartDefaults={chartDefaults}
                     onChange={(next) =>
                       updateDashboards(dashboards.map((d) => (d.id === next.id ? next : d)))
@@ -656,6 +688,8 @@ export default function App() {
               })()
             )}
           </main>
+            );
+          })()}
         </>
       ) : (
         <main className="welcome">

@@ -74,12 +74,13 @@ export function SelectionStats({
   ];
 
   return (
-    <div className="stats-strip">
-      {tiles.map((t) => (
-        <div key={t.label} className="stat-tile">
+    <div className="stats-line">
+      {tiles.map((t, i) => (
+        <span key={t.label} className="stat">
+          {i > 0 && <span className="stat-sep">·</span>}
           <span className="stat-value">{t.value}</span>
           <span className="stat-label">{t.label}</span>
-        </div>
+        </span>
       ))}
     </div>
   );

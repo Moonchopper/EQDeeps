@@ -68,6 +68,35 @@ export function cloneForCustomizing(view: DashboardDef): DashboardDef {
   };
 }
 
+/**
+ * Progression trends the Summary page borrows. They are panel definitions
+ * rather than bespoke components so they run the same query path, get the same
+ * fight bands and honour the same time frame as everything else — Summary just
+ * renders them next to the combat charts.
+ */
+export function summaryTrendPanels(): PanelDef[] {
+  return [
+    panel("summary-faction", {
+      title: "Faction standing over time",
+      viz: "line",
+      source: "faction",
+      scopeMode: "all",
+      groupBy: ["player"],
+      primaryMetric: "factionNet",
+      bucketSeconds: 60,
+    }),
+    panel("summary-loot", {
+      title: "Coin over time",
+      viz: "line",
+      source: "loot",
+      scopeMode: "all",
+      groupBy: ["character"],
+      primaryMetric: "platinum",
+      bucketSeconds: 60,
+    }),
+  ];
+}
+
 function panel(id: string, overrides: Partial<PanelDef>): PanelDef {
   return { ...defaultPanel(), ...overrides, id };
 }

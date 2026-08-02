@@ -591,23 +591,40 @@ button.update-pill {
   min-height: 0;
 }
 
-.dashboard-row {
+/* Summary: charts in a wide scrolling column, tables in a narrow rail.
+   Both scroll independently, so a raid-sized damage table never squeezes the
+   charts and five stacked charts never push the tables off screen. */
+.summary-body {
   display: grid;
-  grid-template-columns: 1fr 340px;
+  grid-template-columns: 1fr 360px;
   gap: 10px;
   flex: 1;
   min-height: 0;
 }
 
-.dashboard-row.halves {
-  grid-template-columns: 1fr 1fr;
-}
-
-.panel-stack {
-  display: grid;
-  grid-template-rows: 1fr 1fr;
+.summary-charts,
+.summary-rail {
+  display: flex;
+  flex-direction: column;
   gap: 10px;
   min-height: 0;
+  overflow-y: auto;
+  /* Room for the scrollbar so it never sits on top of a chart's right edge. */
+  padding-right: 2px;
+}
+
+/* Each chart claims a comfortable height and grows into spare room, but will
+   not shrink below it — past that the column scrolls. A trend read at 120px is
+   not a trend read. */
+.summary-charts > * {
+  flex: 1 0 300px;
+}
+
+/* Tables size to their content. The cap stops one long list (a raid parse, a
+   wipe's worth of deaths) from burying whatever is under it. */
+.summary-rail > * {
+  flex: 0 0 auto;
+  max-height: 45%;
 }
 
 .panel {
@@ -804,26 +821,30 @@ th.num {
 }
 
 /* ---- aggregate stats strip ---- */
-.stats-strip {
+/* One line, no card chrome: six numbers do not need six boxes competing with
+   the panels under them for attention. */
+.stats-line {
   display: flex;
-  gap: 10px;
+  align-items: baseline;
   flex-wrap: wrap;
+  gap: 0 8px;
+  padding: 2px 2px 0;
 }
 
-.stat-tile {
-  flex: 1;
-  min-width: 110px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 8px 14px;
-  display: flex;
-  flex-direction: column;
+.stat {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+}
+
+.stat-sep {
+  color: var(--baseline);
+  margin-right: 3px;
 }
 
 .stat-value {
   color: var(--ink);
-  font-size: 20px;
+  font-size: 15px;
   font-weight: 700;
 }
 

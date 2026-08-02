@@ -71,7 +71,9 @@ The heart of the product (see `docs/architecture/system-overview.md` for the spe
 
 ### F7. Default dashboard
 
-One built-in dashboard: fight list + damage summary + DPS-over-time chart + death log for the selection. Panels live-update.
+One built-in dashboard: fight list + damage summary + DPS-over-time chart + death log for the frame. Panels live-update.
+
+Charts own a wide scrolling column; tables live in a narrow rail beside it. The two scroll independently, so a raid-sized damage table never squeezes the charts and a stack of charts never pushes the tables off screen — the previous equal-height rows gave a one-row table as much of the page as every chart combined. Each chart claims a comfortable minimum height and grows into spare room rather than shrinking below it, because a trend read at 120px is not a trend read. The wide column also carries the faction and coin trends, rendered from the same panel definitions the standard views use, so combat and progression sit on one screen and one time frame.
 
 - AC: Fresh install + open log → this dashboard renders with data and no configuration.
 

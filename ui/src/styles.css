@@ -12,6 +12,7 @@
   --border: rgba(255, 255, 255, 0.1);
   --accent: #3987e5;
   --danger: #e66767;
+  --live: #63cf82;
 }
 
 * {
@@ -298,6 +299,7 @@ button {
 }
 
 .fight-row {
+  position: relative; /* anchors the live pulse dot */
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -318,6 +320,38 @@ button {
 
 .fight-row.active .fight-name {
   color: var(--accent);
+}
+
+/* A mob still being fought also breathes: a slow green pulse in the row's
+   top-right corner, on top of the accent highlight. */
+.fight-row.active::after {
+  content: "";
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--live);
+  animation: live-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes live-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.85);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fight-row.active::after {
+    animation: none;
+  }
 }
 
 .fight-name {

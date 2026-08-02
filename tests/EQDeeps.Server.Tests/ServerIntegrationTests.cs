@@ -145,6 +145,36 @@ public sealed class ServerIntegrationTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task TimelineEndpointReturnsInstantsAndBuffSpans()
+    {
+        var path = WriteLog(
+            Line(0, "You begin casting Spirit of Wolf."),
+            Line(2, "Raider01 crushes an ice giant for 100 points of damage."),
+            Line(3, "Raider01 activates Bestial Fury."),
+            Line(5, "Your Spirit of Wolf spell has worn off."),
+            Line(8, "Raider01 crushes an ice giant for 200 points of damage."));
+        var info = await OpenSessionAsync(path);
+        var id = info.GetProperty("id").GetString();
+
+        var response = await _http.PostAsJsonAsync($"/api/sessions/{id}/timeline", new
+        {
+            scope = new { },
+        });
+        response.EnsureSuccessStatusCode();
+        var result = await response.Content.ReadFromJsonAsync<JsonElement>();
+
+        var items = result.GetProperty("items").EnumerateArray().ToList();
+        var buff = Assert.Single(items, i => i.GetProperty("kind").GetString() == "buff");
+        Assert.Equal("Spirit of Wolf", buff.GetProperty("label").GetString());
+        Assert.Equal("Kizant", buff.GetProperty("actor").GetString());
+        Assert.True(buff.GetProperty("startsBefore").GetBoolean());
+
+        var ability = Assert.Single(items, i => i.GetProperty("kind").GetString() == "ability");
+        Assert.Equal("Bestial Fury", ability.GetProperty("label").GetString());
+        Assert.Equal("Raider01", ability.GetProperty("actor").GetString());
+    }
+
+    [Fact]
     public async Task LiveAppendsReachSubscribedClientsUnderLatencyBudget()
     {
         // Shared CI runners make no wall-clock promises, so CI only verifies

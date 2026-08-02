@@ -143,6 +143,9 @@ public static class ServerApp
         app.MapPost("/api/sessions/{id}/query", (string id, QuerySpec spec, SessionManager manager) =>
             manager.Get(id) is { } host ? Results.Ok(host.Execute(spec)) : Results.NotFound());
 
+        app.MapPost("/api/sessions/{id}/timeline", (string id, TimelineRequest request, SessionManager manager) =>
+            manager.Get(id) is { } host ? Results.Ok(host.Timeline(request)) : Results.NotFound());
+
         app.MapHub<LiveHub>("/hubs/live");
 
         if (spa is not null)

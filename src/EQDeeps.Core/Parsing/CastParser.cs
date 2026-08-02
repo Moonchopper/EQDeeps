@@ -3,13 +3,15 @@ using EQDeeps.Core.Events;
 namespace EQDeeps.Core.Parsing;
 
 /// <summary>
-/// Spell-casting activity: cast starts (casting/singing), interrupts, fizzles.
-/// "Lands on" / "worn off" buff messages need the spell database (lands-on text →
-/// spell) and are resolved in a later layer, not here.
+/// Spell-casting activity: cast starts (casting/singing), interrupts, fizzles,
+/// activated abilities, and the wear-off messages that carry a real spell name
+/// ("Your X spell has worn off [of Soandso]."). "Lands on" messages and
+/// received-buff fades use per-spell emote text instead of the name, so those
+/// need the spell database and are resolved in a later layer, not here.
 /// </summary>
 public static class CastParser
 {
-    public static CastEvent? Parse(string action, ParserOptions options)
+    public static GameEvent? Parse(string action, ParserOptions options)
     {
         if (action.StartsWith("You begin casting ", StringComparison.Ordinal))
         {
@@ -67,6 +69,43 @@ public static class CastParser
         if (i > 0)
         {
             return new CastEvent(Names.CapitalizeFirst(action[..i]), null, CastKind.Fizzle);
+        }
+
+        if (action.StartsWith("Your ", StringComparison.Ordinal))
+        {
+            // "Your Aegolism spell has worn off of Soandso."
+            i = action.IndexOf(" spell has worn off of ", StringComparison.Ordinal);
+            if (i > "Your ".Length && action.EndsWith(".", StringComparison.Ordinal))
+            {
+                var target = action[(i + " spell has worn off of ".Length)..^1];
+                if (target.Length > 0)
+                {
+                    return new WearOffEvent(action["Your ".Length..i], Names.CapitalizeFirst(target));
+                }
+            }
+
+            // "Your Spirit of Wolf spell has worn off."
+            if (action.EndsWith(" spell has worn off.", StringComparison.Ordinal) &&
+                action.Length > "Your ".Length + " spell has worn off.".Length)
+            {
+                return new WearOffEvent(
+                    action["Your ".Length..^" spell has worn off.".Length], options.PlayerName);
+            }
+        }
+
+        // "You activate Rest." / "Soandso activates Rest."
+        if (action.StartsWith("You activate ", StringComparison.Ordinal) &&
+            action.EndsWith(".", StringComparison.Ordinal))
+        {
+            return new AbilityEvent(options.PlayerName, action["You activate ".Length..^1]);
+        }
+
+        i = action.IndexOf(" activates ", StringComparison.Ordinal);
+        if (i > 0 && action.EndsWith(".", StringComparison.Ordinal) &&
+            i + " activates ".Length < action.Length - 1)
+        {
+            return new AbilityEvent(
+                Names.CapitalizeFirst(action[..i]), action[(i + " activates ".Length)..^1]);
         }
 
         return null;

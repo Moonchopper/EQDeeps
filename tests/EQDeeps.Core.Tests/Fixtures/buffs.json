@@ -1,0 +1,9 @@
+[
+  { "line": "Your Spirit of Wolf spell has worn off.", "expect": { "type": "wearOff", "spell": "Spirit of Wolf", "target": "TestPlayer" } },
+  { "line": "Your Aegolism spell has worn off of Soandso.", "expect": { "type": "wearOff", "spell": "Aegolism", "target": "Soandso" } },
+  { "line": "Your Blessing of the Nine spell has worn off of a shadow knight.", "expect": { "type": "wearOff", "spell": "Blessing of the Nine", "target": "A shadow knight" } },
+  { "line": "Soandso activates Rest.", "expect": { "type": "ability", "user": "Soandso", "ability": "Rest" } },
+  { "line": "You activate Fearless.", "expect": { "type": "ability", "user": "TestPlayer", "ability": "Fearless" } },
+  { "line": "Your spell has worn off.", "expect": { "type": "none" } },
+  { "line": "Your Burst of Flames spell is interrupted.", "expect": { "type": "cast", "caster": "TestPlayer", "spell": "Burst of Flames", "kind": "interrupted" } }
+]

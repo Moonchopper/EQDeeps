@@ -11,6 +11,7 @@ import { createEntityColors } from "./colors";
 import { DeathLog } from "./components/DeathLog";
 import { SelectionStats } from "./components/SelectionStats";
 import { AbilityChart } from "./components/AbilityChart";
+import { TimelineChart } from "./components/TimelineChart";
 import { DashboardView } from "./dashboards/DashboardView";
 import { defaultPanel, newDashboard, newId, type DashboardDef } from "./dashboards/model";
 import { PRESET_IDS, presetDashboards, reconcilePresets } from "./dashboards/presets";
@@ -423,6 +424,13 @@ export default function App() {
                     colors={entityColors}
                   />
                 </div>
+                <TimelineChart
+                  sessionId={activeId}
+                  fightIds={selected}
+                  refreshKey={refreshKey}
+                  character={sessions.find((s) => s.id === activeId)?.character ?? ""}
+                  fights={fights}
+                />
               </div>
             ) : (
               (() => {

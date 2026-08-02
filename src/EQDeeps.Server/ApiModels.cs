@@ -1,8 +1,12 @@
+using EQDeeps.Core.Query;
 using EQDeeps.Core.Sessions;
 
 namespace EQDeeps.Server;
 
 public sealed record OpenSessionRequest(string Path, DateTime? BackfillFrom = null, bool EmuMode = false);
+
+/// <summary>Timeline scope; a record wrapper so filters (kinds, actors) can grow in later.</summary>
+public sealed record TimelineRequest(QueryScope Scope);
 
 public sealed record SessionInfo(
     string Id,

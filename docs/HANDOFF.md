@@ -1,13 +1,23 @@
 # EQDeeps — Implementation Handoff
 
-> **Status (2026-08-01): all eight build-order phases below are complete** —
+> **Status (2026-08-02): all eight build-order phases below are complete** —
 > parser core, ingestion, session state, query engine, API + live loop, SPA,
 > composable dashboards, packaging — each with its exit criteria verified in
-> tests and its decisions recorded in `docs/architecture/adr-001…008`. See
-> `docs/product/features.md` for per-feature status. The main open items:
-> real-log validation against EQLogParser (the release gate), the spell-DB
-> work (class detection, bane, lands-on resolution — reference data files not
-> yet copied), identity-registry disk persistence, and the P1/P2 backlog.
+> tests and its decisions recorded in `docs/architecture/adr-001…010`. Since
+> then: a WebView2 windowed shell (ADR-009), an event timeline, a bundled
+> sample log, Azure Artifact Signing for releases
+> (`docs/release-signing.md`), and consent-driven auto-updating shipped as an
+> Inno Setup installer alongside the portable zip (ADR-010, feature F22).
+> Currently at **v0.4.6**. See `docs/product/features.md` for per-feature
+> status. The main open items: real-log validation against EQLogParser (the
+> release gate), the spell-DB work (class detection, bane, lands-on
+> resolution — reference data files not yet copied), identity-registry disk
+> persistence, and the P1/P2 backlog.
+>
+> **Releasing:** tags are single-use (GitHub immutable releases reserve a tag
+> name permanently, even after its release is deleted), so run the
+> **Verify signing key** workflow before tagging. Details in
+> `docs/release-signing.md`.
 
 You are picking up a **documented, greenfield** project: a clean-room, modern successor to EQLogParser. Everything you need to know about *what* to build and *what the data means* is in these docs; *how* to build it is largely yours, within the locked decisions.
 

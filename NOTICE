@@ -33,6 +33,21 @@ licensed components:
   (https://developer.microsoft.com/microsoft-edge/webview2) — BSD-style
   Microsoft license, Copyright Microsoft Corporation. The WebView2 runtime
   itself is a Windows system component and is not distributed with EQDeeps.
+- NetSparkleUpdater (https://github.com/NetSparkleUpdater/NetSparkle) — MIT
+  License, Copyright 2010–2025 Deadpikle, Dirk Eisenberg. Drives the in-app
+  update check, download, and Ed25519 verification.
+- NetSparkleUpdater.Chaos.NaCl
+  (https://github.com/NetSparkleUpdater/Chaos.NaCl) — MIT License,
+  Copyright 2024 Deadpikle, CodesInChaos. Ed25519 implementation used to
+  verify releases.
+
+== Build tooling ==
+
+The Windows installer is produced with Inno Setup
+(https://jrsoftware.org/isinfo.php), Copyright 1997-2025 Jordan Russell,
+portions Copyright Martijn Laan, under the Inno Setup License. Inno Setup's
+setup engine is therefore present in the distributed EQDeeps-Setup executable;
+it is not part of the EQDeeps application itself.
 
 EverQuest is a registered trademark of Daybreak Game Company LLC. EQDeeps is
 an unaffiliated fan-made tool and includes no game assets.

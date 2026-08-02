@@ -5,6 +5,7 @@ import { fmtNum, fmtRate, OTHER_COLOR, SERIES_COLORS } from "../format";
 import { buildSpec, METRIC_LABELS, RATE_METRICS, type PanelDef } from "./model";
 import type { EntityColors } from "../colors";
 import { attachWheelZoom, offsetTooltip } from "../chartInteractions";
+import type { ChartSettings } from "../timeControls";
 
 export interface PanelContext {
   sessionId: string;
@@ -55,17 +56,31 @@ function usePanelQuery(panel: PanelDef, ctx: PanelContext): QueryResult | null |
   return noSelection ? "no-selection" : result;
 }
 
-export function PanelBody({ panel, ctx }: { panel: PanelDef; ctx: PanelContext }) {
+export function PanelBody({
+  panel,
+  ctx,
+  settings,
+}: {
+  panel: PanelDef;
+  ctx: PanelContext;
+  /** Live header overrides for a time chart; falls back to the panel's own. */
+  settings?: ChartSettings;
+}) {
   switch (panel.viz) {
     case "table":
       return <TablePanel panel={panel} ctx={ctx} />;
     case "line":
-      return <LinePanel panel={panel} ctx={ctx} />;
+      return <LinePanel panel={panel} ctx={ctx} settings={settings} />;
     case "bar":
       return <BarPanel panel={panel} ctx={ctx} />;
     default:
       return <TilePanel panel={panel} ctx={ctx} />;
   }
+}
+
+/** The settings a time chart runs with when the header hasn't overridden them. */
+export function panelSettings(panel: PanelDef): ChartSettings {
+  return { windowSec: panel.windowSec, spanSec: panel.spanSec ?? "fit" };
 }
 
 // ---- table -----------------------------------------------------------------
@@ -158,6 +173,11 @@ function TablePanel({ panel, ctx }: { panel: PanelDef; ctx: PanelContext }) {
 
 const BREAK_MS = 30_000;
 
+// Ceiling on a zero-filled line before it stops being worth drawing. 20k
+// points is still smooth at any panel size; a whole multi-day log at a
+// 1-second bucket is two orders of magnitude past that.
+const MAX_FILLED_POINTS = 20_000;
+
 // Damage, healing and tanking read as rates — damage *per second* is the unit
 // people expect off a DPS chart. XP %, faction standing and coin are amounts:
 // dividing them by the bucket width produces a per-second figure that rounds
@@ -170,10 +190,19 @@ function fmtLineValue(value: number): string {
   return Math.abs(value) < 10 ? Number(value.toFixed(2)).toString() : fmtNum(value);
 }
 
-function LinePanel({ panel, ctx }: { panel: PanelDef; ctx: PanelContext }) {
+function LinePanel({
+  panel,
+  ctx,
+  settings,
+}: {
+  panel: PanelDef;
+  ctx: PanelContext;
+  settings?: ChartSettings;
+}) {
   const divRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<echarts.ECharts | null>(null);
   const result = usePanelQuery(panel, ctx);
+  const { windowSec, spanSec } = settings ?? panelSettings(panel);
   const [isZoomed, setIsZoomed] = useState(false);
   const suppressZoomEventRef = useRef(false);
   const extentRef = useRef<[number, number] | null>(null);
@@ -232,19 +261,28 @@ function LinePanel({ panel, ctx }: { panel: PanelDef; ctx: PanelContext }) {
     const timeline = [...allSeconds].sort((a, b) => a - b);
 
     const step = Math.max(1, panel.bucketSeconds) * 1000;
-    // A break is a hole in the data, so it has to be measured in buckets, not
-    // in wall-clock time. With 60 s buckets even back-to-back samples sit 60 s
-    // apart, so a flat 30 s threshold made every bucket its own segment — each
-    // point stranded between nulls, and connectNulls:false then drew nothing
-    // at all. Two bucket widths keeps 1 s charts on the old 30 s behaviour.
-    const breakMs = Math.max(BREAK_MS, step * 2);
+    // One continuous line: a bucket with nothing in it reads as zero rather
+    // than a hole, so idle stretches sag to the axis instead of chopping the
+    // chart into start/stop fragments. The guard is the only reason segments
+    // still exist — filling a multi-day range at a 1-second bucket would be
+    // millions of points, so past the cap fall back to breaking on gaps
+    // wider than two buckets rather than locking up the browser.
     const segments: [number, number][] = [];
-    for (const t of timeline) {
-      const last = segments[segments.length - 1];
-      if (last && t - last[1] <= breakMs) {
-        last[1] = t;
+    if (timeline.length > 0) {
+      const first = timeline[0];
+      const last = timeline[timeline.length - 1];
+      if ((last - first) / step + 1 <= MAX_FILLED_POINTS) {
+        segments.push([first, last]);
       } else {
-        segments.push([t, t]);
+        const breakMs = Math.max(BREAK_MS, step * 2);
+        for (const t of timeline) {
+          const previous = segments[segments.length - 1];
+          if (previous && t - previous[1] <= breakMs) {
+            previous[1] = t;
+          } else {
+            segments.push([t, t]);
+          }
+        }
       }
     }
 
@@ -254,7 +292,7 @@ function LinePanel({ panel, ctx }: { panel: PanelDef; ctx: PanelContext }) {
     // Rate sources average to a per-second figure; amount sources stay in
     // their own units as a rolling mean per bucket.
     const perBucket = RATE_SOURCES.has(panel.source) ? Math.max(1, panel.bucketSeconds) : 1;
-    const windowBuckets = Math.max(1, Math.round(panel.windowSec / Math.max(1, panel.bucketSeconds)));
+    const windowBuckets = Math.max(1, Math.round(windowSec / Math.max(1, panel.bucketSeconds)));
     const smoothed = (rows: QueryRow[]) => {
       const bySecond = new Map<number, number>();
       for (const row of rows) {
@@ -302,6 +340,17 @@ function LinePanel({ panel, ctx }: { panel: PanelDef; ctx: PanelContext }) {
       });
     }
 
+    // A fixed span pins the axis to [latest − span, latest]: constant width,
+    // sliding right edge, so the chart doesn't rescale as points arrive. The
+    // right edge is the newest data point rather than wall clock, so replayed
+    // logs behave. Zooming takes over until it is reset.
+    let axisMin: number | null = null;
+    let axisMax: number | null = null;
+    if (spanSec !== "fit" && segments.length > 0 && !isZoomed) {
+      axisMax = segments[segments.length - 1][1];
+      axisMin = axisMax - spanSec * 1000;
+    }
+
     chartRef.current.setOption(
       {
         backgroundColor: "transparent",
@@ -340,6 +389,8 @@ function LinePanel({ panel, ctx }: { panel: PanelDef; ctx: PanelContext }) {
         },
         xAxis: {
           type: "time",
+          min: axisMin,
+          max: axisMax,
           axisLine: { lineStyle: { color: "#383835" } },
           axisLabel: { color: "#898781", fontSize: 10 },
           splitLine: { show: false },
@@ -359,7 +410,7 @@ function LinePanel({ panel, ctx }: { panel: PanelDef; ctx: PanelContext }) {
       key: "dataZoomSelect",
       dataZoomSelectActive: true,
     });
-  }, [result, panel.source, panel.windowSec, panel.bucketSeconds]);
+  }, [result, panel.source, panel.bucketSeconds, windowSec, spanSec, isZoomed]);
 
   if (result === "no-selection") return <div className="empty">Select a fight</div>;
   return (

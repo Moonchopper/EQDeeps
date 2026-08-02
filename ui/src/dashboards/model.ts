@@ -1,4 +1,5 @@
 import type { Dimension, QueryFilter, QuerySource, QuerySpec } from "../api";
+import type { Span } from "../timeControls";
 
 // The user-facing panel definition: a QuerySpec plus presentation. This is
 // what dashboards persist and what export/import moves between machines.
@@ -27,6 +28,12 @@ export interface PanelDef {
   /** Line panels: bucket width and rolling-mean window. */
   bucketSeconds: number;
   windowSec: number;
+  /**
+   * Line panels: the viewport the chart opens on. "fit" shows the whole
+   * range. Panels stored before this existed have it undefined, which reads
+   * as "fit".
+   */
+  spanSec?: Span;
 }
 
 export interface LayoutRect {
@@ -131,6 +138,7 @@ export function defaultPanel(): PanelDef {
     spellFilter: [],
     bucketSeconds: 1,
     windowSec: 5,
+    spanSec: "fit",
   };
 }
 

@@ -1,58 +1,58 @@
-import { defaultPanel, type DashboardDef, type LayoutRect, type PanelDef } from "./model";
+import { defaultPanel, newId, type DashboardDef, type LayoutRect, type PanelDef } from "./model";
 
 /**
- * Preset dashboards covering the breakdowns the parsing community actually
- * argues about: damage rankings, healing with overheal, tanking with the
- * defensive rates, and a fight-agnostic "right now" view.
+ * The standard views: specialized breakdowns that ship with EQDeeps and sit
+ * as sub-tabs under Overview. They cover what the parsing community actually
+ * argues about — damage rankings, healing with overheal, tanking with the
+ * defensive rates, a fight-agnostic "right now", and the progression sources
+ * (experience, faction, loot).
  *
- * Presets are provisioned, not added: they carry STABLE ids, and
- * `reconcilePresets` runs at every load — presets missing from the store
- * appear automatically, an edited preset keeps the user's version (same id),
- * and a deleted preset stays deleted via the hidden list. "Restore presets"
- * rewrites them to this pristine definition, which is idempotent.
+ * These are DEFINED IN CODE and never stored. They used to be provisioned
+ * into the user's dashboard store with stable ids, which is precisely why
+ * they read as pre-provisioned dashboards: they were deletable, exportable
+ * and drag-editable like anything the user had built. Now they are read-only
+ * app furniture, and "customize" clones one into a real custom dashboard the
+ * user owns (see `cloneForCustomizing`).
  */
-export function presetDashboards(): DashboardDef[] {
+export function standardViews(): DashboardDef[] {
   return [raidDps(), healing(), tanking(), rightNow(), experience(), faction(), loot()];
 }
 
-export const PRESET_IDS = new Set(presetDashboards().map((d) => d.id));
+export const STANDARD_VIEW_IDS = new Set(standardViews().map((d) => d.id));
 
-export interface ReconcileResult {
+/** The sub-tab that shows the hand-built Overview, not a standard view. */
+export const SUMMARY_VIEW = "summary";
+
+export interface MigrationResult {
   dashboards: DashboardDef[];
   changed: boolean;
 }
 
-export function reconcilePresets(stored: DashboardDef[], hidden: string[]): ReconcileResult {
-  const presets = presetDashboards();
-  let changed = false;
-  let dashboards = [...stored];
+/**
+ * One-time migration off the old model: drop the provisioned copies of the
+ * standard views from the stored dashboard list, since the app now renders
+ * them from code. Anything the user built themselves is left untouched —
+ * including a former preset they renamed, because that no longer carries a
+ * standard-view id.
+ */
+export function stripStandardViews(stored: DashboardDef[]): MigrationResult {
+  const dashboards = stored.filter((d) => !STANDARD_VIEW_IDS.has(d.id));
+  return { dashboards, changed: dashboards.length !== stored.length };
+}
 
-  // Migration: the old "add presets" button cloned packs under random ids.
-  // Collapse them — the first dashboard named like a preset adopts the stable
-  // id (keeping any customization); later same-named copies are dropped.
-  for (const preset of presets) {
-    if (dashboards.some((d) => d.id === preset.id)) {
-      continue;
-    }
-
-    const twins = dashboards.filter((d) => d.name === preset.name);
-    if (twins.length > 0) {
-      changed = true;
-      const keeper = { ...twins[0], id: preset.id };
-      dashboards = dashboards.filter((d) => d.name !== preset.name);
-      dashboards.push(keeper);
-    }
-  }
-
-  // Provision presets that are neither stored nor deliberately hidden.
-  for (const preset of presets) {
-    if (!hidden.includes(preset.id) && !dashboards.some((d) => d.id === preset.id)) {
-      dashboards.push(preset);
-      changed = true;
-    }
-  }
-
-  return { dashboards, changed };
+/**
+ * "Customize" on a standard view: a deep copy under fresh ids, so editing it
+ * is ordinary custom-dashboard editing and the standard view stays pristine.
+ */
+export function cloneForCustomizing(view: DashboardDef): DashboardDef {
+  const id = newId("d");
+  const idMap = new Map(view.panels.map((p, i) => [p.id, `${id}-p${i}`]));
+  return {
+    id,
+    name: `${view.name} (custom)`,
+    panels: view.panels.map((p) => ({ ...p, id: idMap.get(p.id)! })),
+    layout: view.layout.map((l) => ({ ...l, i: idMap.get(l.i) ?? l.i })),
+  };
 }
 
 function panel(id: string, overrides: Partial<PanelDef>): PanelDef {

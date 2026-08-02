@@ -955,10 +955,50 @@ th.num {
   font-size: 15px;
 }
 
+/* Standard views sit to the left of the divider, the user's own dashboards to
+   the right — the two are different kinds of thing and shouldn't read alike. */
+.view-tab-divider {
+  width: 1px;
+  align-self: stretch;
+  margin: 4px 6px 0;
+  background: var(--border);
+}
+
 .view-tab-actions {
   display: flex;
   gap: 6px;
   margin-left: 8px;
+}
+
+/* ---- standard-view sub-tabs (under Overview) ---- */
+.sub-tabs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 14px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+}
+
+.sub-tab {
+  padding: 3px 10px;
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+
+.sub-tab:hover {
+  color: var(--ink);
+}
+
+.sub-tab.on {
+  color: var(--ink);
+  border-color: var(--border);
+  background: var(--bg);
 }
 
 .view-tab-actions label.mini-btn {
@@ -997,6 +1037,46 @@ th.num {
   display: flex;
   gap: 4px;
   flex-shrink: 0;
+}
+
+/* Header controls for one time chart. Kept quiet until the panel is hovered
+   so a wall of dropdowns doesn't compete with the data. */
+.panel-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.time-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  opacity: 0.45;
+  transition: opacity 120ms ease;
+}
+
+.panel:hover .time-controls,
+.time-controls:focus-within {
+  opacity: 1;
+}
+
+.time-controls label {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 400;
+}
+
+.time-controls select {
+  background: var(--bg);
+  color: var(--ink);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 1px 4px;
+  font-size: 11px;
 }
 
 .react-grid-item.react-grid-placeholder {

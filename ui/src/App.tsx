@@ -21,7 +21,12 @@ import { AbilityChart } from "./components/AbilityChart";
 import { TimelineChart } from "./components/TimelineChart";
 import { DashboardView } from "./dashboards/DashboardView";
 import { defaultPanel, newDashboard, newId, type DashboardDef } from "./dashboards/model";
-import { PRESET_IDS, presetDashboards, reconcilePresets } from "./dashboards/presets";
+import {
+  SUMMARY_VIEW,
+  cloneForCustomizing,
+  standardViews,
+  stripStandardViews,
+} from "./dashboards/standardViews";
 
 /** Update polling: rare when nothing is happening, brisk while it is. */
 const IDLE_POLL_MS = 15_000;
@@ -48,47 +53,59 @@ export default function App() {
   const [checkNote, setCheckNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [dashboards, setDashboards] = useState<DashboardDef[]>([]);
-  const [hiddenPresets, setHiddenPresets] = useState<string[]>([]);
   const [view, setView] = useState<string>("overview"); // "overview" | dashboard id
+  // Which standard view the Overview section is showing. Sticky across
+  // restarts: reopening on the tab you were last reading is the whole point
+  // of these being views rather than dashboards you navigate to.
+  const [stdView, setStdView] = useState<string>(
+    () => localStorage.getItem("eqdeeps.stdView") ?? SUMMARY_VIEW,
+  );
+  const standard = useMemo(() => standardViews(), []);
+
+  function selectStdView(id: string) {
+    setStdView(id);
+    setView("overview");
+    localStorage.setItem("eqdeeps.stdView", id);
+  }
 
   function togglePetRollup(on: boolean) {
     setPetRollup(on);
     localStorage.setItem("eqdeeps.petRollup", on ? "on" : "off");
   }
 
-  // ---- dashboards: load + reconcile presets once, save debounced -----------
+  // ---- dashboards: load the user's own, save debounced ---------------------
   const saveTimer = useRef<number | undefined>(undefined);
   useEffect(() => {
     api
       .getStore<{ dashboards?: DashboardDef[]; hiddenPresets?: string[] }>("dashboards")
       .then((doc) => {
-        const hidden = doc?.hiddenPresets ?? [];
-        const { dashboards: reconciled, changed } = reconcilePresets(doc?.dashboards ?? [], hidden);
-        setHiddenPresets(hidden);
-        setDashboards(reconciled);
-        if (changed) {
-          api.putStore("dashboards", { dashboards: reconciled, hiddenPresets: hidden })
-            .catch(() => undefined);
+        // Migration off the provisioned-presets model: the standard views are
+        // rendered from code now, so their stored copies (and the hidden list
+        // that tracked deleted ones) are dropped on first load.
+        const { dashboards: mine, changed } = stripStandardViews(doc?.dashboards ?? []);
+        setDashboards(mine);
+        if (changed || doc?.hiddenPresets) {
+          api.putStore("dashboards", { dashboards: mine }).catch(() => undefined);
         }
       })
       .catch(() => undefined);
   }, []);
 
-  /** Reset the built-in dashboards to pristine and unhide any deleted ones. Idempotent. */
-  function restorePresets() {
-    const pristine = presetDashboards();
-    const withoutPresets = dashboards.filter((d) => !PRESET_IDS.has(d.id));
-    updateDashboards([...pristine, ...withoutPresets], []);
-  }
-
-  function updateDashboards(next: DashboardDef[], nextHidden: string[] = hiddenPresets) {
+  function updateDashboards(next: DashboardDef[]) {
     setDashboards(next);
-    setHiddenPresets(nextHidden);
     window.clearTimeout(saveTimer.current);
     saveTimer.current = window.setTimeout(() => {
-      api.putStore("dashboards", { dashboards: next, hiddenPresets: nextHidden })
-        .catch(() => undefined);
+      api.putStore("dashboards", { dashboards: next }).catch(() => undefined);
     }, 800);
+  }
+
+  /** "Customize a copy" on a standard view: clone it into the user's own set. */
+  function customizeStandardView(id: string) {
+    const source = standard.find((d) => d.id === id);
+    if (!source) return;
+    const copy = cloneForCustomizing(source);
+    updateDashboards([...dashboards, copy]);
+    setView(copy.id);
   }
 
   function addDashboard() {
@@ -109,10 +126,7 @@ export default function App() {
   function deleteDashboard(id: string) {
     const current = dashboards.find((d) => d.id === id);
     if (!current || !window.confirm(`Delete dashboard "${current.name}"?`)) return;
-    // A deleted preset is remembered as hidden so it stays deleted across
-    // restarts instead of being re-provisioned.
-    const nextHidden = PRESET_IDS.has(id) ? [...hiddenPresets, id] : hiddenPresets;
-    updateDashboards(dashboards.filter((d) => d.id !== id), nextHidden);
+    updateDashboards(dashboards.filter((d) => d.id !== id));
     setView("overview");
   }
 
@@ -417,6 +431,9 @@ export default function App() {
       />
       {activeId ? (
         <>
+          {/* Two levels, because there are two kinds of thing here. Overview is
+              a section of standard views that ship with the app; everything to
+              the right of the divider is a dashboard the user built and owns. */}
           <nav className="view-tabs">
             <button
               className={"view-tab" + (view === "overview" ? " on" : "")}
@@ -424,6 +441,7 @@ export default function App() {
             >
               Overview
             </button>
+            {dashboards.length > 0 && <span className="view-tab-divider" />}
             {dashboards.map((d) => (
               <button
                 key={d.id}
@@ -437,13 +455,6 @@ export default function App() {
             ))}
             <button className="view-tab add" onClick={addDashboard} title="New dashboard">
               +
-            </button>
-            <button
-              className="mini-btn"
-              onClick={restorePresets}
-              title="Reset the built-in Raid DPS / Healing / Tanking / Right now dashboards to their defaults"
-            >
-              restore presets
             </button>
             {view !== "overview" && (
               <span className="view-tab-actions">
@@ -469,6 +480,25 @@ export default function App() {
               </span>
             )}
           </nav>
+          {view === "overview" && (
+            <nav className="sub-tabs">
+              <button
+                className={"sub-tab" + (stdView === SUMMARY_VIEW ? " on" : "")}
+                onClick={() => selectStdView(SUMMARY_VIEW)}
+              >
+                Summary
+              </button>
+              {standard.map((d) => (
+                <button
+                  key={d.id}
+                  className={"sub-tab" + (stdView === d.id ? " on" : "")}
+                  onClick={() => selectStdView(d.id)}
+                >
+                  {d.name}
+                </button>
+              ))}
+            </nav>
+          )}
           <main className="dashboard">
             <FightList
               fights={fights}
@@ -477,7 +507,24 @@ export default function App() {
               onSelect={setSelected}
               onFollowLive={setFollowLive}
             />
-            {view === "overview" ? (
+            {/* Three cases: a standard view, the hand-built Summary that
+                Overview opens on, or one of the user's own dashboards. */}
+            {view === "overview" && stdView !== SUMMARY_VIEW ? (
+              (() => {
+                const std = standard.find((d) => d.id === stdView);
+                return std ? (
+                  <DashboardView
+                    dashboard={std}
+                    ctx={{ sessionId: activeId, fightIds: selected, refreshKey, petRollup, colors: entityColors }}
+                    onChange={() => undefined}
+                    readOnly
+                    onCustomize={() => customizeStandardView(std.id)}
+                  />
+                ) : (
+                  <div className="empty">View not found</div>
+                );
+              })()
+            ) : view === "overview" ? (
               <div className="dashboard-main">
                 <SelectionStats
                   sessionId={activeId}

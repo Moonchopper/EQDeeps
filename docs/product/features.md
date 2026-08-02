@@ -6,7 +6,7 @@ Priorities: **P0** = first working pass, **P1** = v1 public release, **P2** = la
 F8, F14. Beyond spec: log autodetection (running process/registry/known paths),
 aggregate selection stats, by-target grouping, rolling-window + zoomable DPS
 charts, ability breakdown chart with per-attacker stacks, app-wide pet-rollup
-toggle, cross-panel entity colors with tinted table rows, preset dashboards,
+toggle, cross-panel entity colors with tinted table rows, standard views (F7a),
 Gantt-style event timeline (per-PC/NPC lanes: casts, activated abilities,
 deaths, resists, plus buff spans paired from the owner's cast → named
 "worn off" messages; `POST /api/sessions/{id}/timeline` is the seed of the
@@ -74,6 +74,17 @@ The heart of the product (see `docs/architecture/system-overview.md` for the spe
 One built-in dashboard: fight list + damage summary + DPS-over-time chart + death log for the selection. Panels live-update.
 
 - AC: Fresh install + open log → this dashboard renders with data and no configuration.
+
+### F7a. Standard views
+
+Overview is a section, not a page: a row of sub-tabs holds Summary (the F7 dashboard) plus the specialized standard views — Raid DPS, Healing, Tanking, Right now, Experience, Faction, Loot. These ship with the app rather than being provisioned into the user's dashboard store, so they are read-only and cannot drift, be deleted, or be confused with something the user built. "Customize a copy" clones one into a custom dashboard (F8) that the user then owns.
+
+Every time chart carries the same window/span controls in its panel header, with "apply to all" to put every chart in the view on one footing. Both ladders are multiples of the panel's bucket width, so a minute-bucketed chart offers minute-scale windows rather than the 1-second chart's seconds.
+
+- AC: The standard views cannot be edited, deleted or exported in place; "customize a copy" produces an editable dashboard and leaves the standard view unchanged.
+- AC: Changing window or span on one chart and pressing "apply to all" moves every other time chart in that view to the same setting.
+- AC: Time charts draw one continuous line — a bucket with no events reads as zero, not a hole — so idle stretches sag to the axis instead of fragmenting the chart. Ranges too large to fill point-by-point fall back to breaking on long gaps rather than degrading.
+- AC: The chosen sub-tab survives a restart.
 
 ---
 

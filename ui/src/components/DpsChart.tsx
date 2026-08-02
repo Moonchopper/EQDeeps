@@ -4,6 +4,7 @@ import { api, type QueryResult, type QueryRow } from "../api";
 import { fmtNum, OTHER_COLOR } from "../format";
 import type { EntityColors } from "../colors";
 import { attachWheelZoom, offsetTooltip } from "../chartInteractions";
+import { fmtDuration, spanChoices, windowChoices, type Span } from "../timeControls";
 
 interface Props {
   sessionId: string;
@@ -14,44 +15,42 @@ interface Props {
   colors: EntityColors;
 }
 
-const WINDOW_CHOICES = [1, 3, 5, 10, 30, 60];
-
-/** Viewport span in seconds; "fit" shows the whole selection. */
-const SPAN_CHOICES: { value: number | "fit"; label: string }[] = [
-  { value: "fit", label: "fit" },
-  { value: 30, label: "30s" },
-  { value: 60, label: "1m" },
-  { value: 120, label: "2m" },
-  { value: 300, label: "5m" },
-];
+// Shared with the standard views' time panels so the two can't drift. This
+// chart is bucketed at 1 s, which is the ladder's base unit.
+const WINDOW_CHOICES = windowChoices(1);
+const SPAN_CHOICES = spanChoices(1);
 
 /** Gaps longer than this are dead time between pulls — the line breaks. */
 const BREAK_MS = 30_000;
 
+/** Defaults: a 10 s rolling mean read over a 2-minute viewport. */
+const DEFAULT_WINDOW_SEC = 10;
+const DEFAULT_SPAN: Span = 120;
+
 /**
- * DPS over time with a user-adjustable rolling window (default 5 s — the
- * standard "current burst" number). Seconds with no landed damage inside a
- * combat segment count as zero rather than leaving holes, so swing cadence
- * doesn't shred the line; true dead time (> 30 s of raid-wide silence) still
- * breaks it. Top 8 players by total with the rest folded into "Other";
- * colors follow the entity for the life of the selection, never its rank.
+ * DPS over time with a user-adjustable rolling window. Seconds with no landed
+ * damage inside a combat segment count as zero rather than leaving holes, so
+ * swing cadence doesn't shred the line; true dead time (> 30 s of raid-wide
+ * silence) still breaks it. Top 8 players by total with the rest folded into
+ * "Other"; colors follow the entity for the life of the selection, never its
+ * rank.
  */
 export function DpsChart({ sessionId, fightIds, refreshKey, followLive, petRollup, colors }: Props) {
   const divRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<echarts.ECharts | null>(null);
-  const [windowSec, setWindowSec] = useState(5);
-  const [span, setSpan] = useState<number | "fit">("fit");
+  const [windowSec, setWindowSec] = useState(DEFAULT_WINDOW_SEC);
+  const [span, setSpan] = useState<Span>(DEFAULT_SPAN);
   const [scopeMode, setScopeMode] = useState<"selection" | "recent">("selection");
   const [result, setResult] = useState<QueryResult | null>(null);
   const selectionKey = fightIds.join(",");
 
   // Live play wants "my output right now" — a trailing window over the record
-  // stream, no fight entries involved — with a stable sliding viewport.
-  // Reviewing history wants the fight selection, fitted. Track the mode
-  // switch, but let the user override either choice afterwards.
+  // stream, no fight entries involved. Reviewing history wants the fight
+  // selection. Either way the viewport returns to the default span; the user
+  // can override both choices afterwards, "fit" included.
   useEffect(() => {
     setScopeMode(followLive ? "recent" : "selection");
-    setSpan(followLive ? 60 : "fit");
+    setSpan(DEFAULT_SPAN);
   }, [followLive]);
 
   const effectiveSpan = span === "fit" ? 60 : span;
@@ -318,7 +317,7 @@ export function DpsChart({ sessionId, fightIds, refreshKey, followLive, petRollu
               onClick={() => {
                 setScopeMode("recent");
                 if (span === "fit") {
-                  setSpan(60);
+                  setSpan(DEFAULT_SPAN);
                 }
               }}
               title="Everything in the last span — not tied to any fight or mob"
@@ -335,7 +334,7 @@ export function DpsChart({ sessionId, fightIds, refreshKey, followLive, petRollu
             >
               {WINDOW_CHOICES.map((w) => (
                 <option key={w} value={w}>
-                  {w === 1 ? "raw (1s)" : `${w}s`}
+                  {w === 1 ? "raw (1s)" : fmtDuration(w)}
                 </option>
               ))}
             </select>
@@ -347,7 +346,9 @@ export function DpsChart({ sessionId, fightIds, refreshKey, followLive, petRollu
             span
             <select
               className="panel-select"
-              value={scopeMode === "recent" && span === "fit" ? "60" : String(span)}
+              value={
+                scopeMode === "recent" && span === "fit" ? String(DEFAULT_SPAN) : String(span)
+              }
               onChange={(e) => setSpan(e.target.value === "fit" ? "fit" : Number(e.target.value))}
             >
               {SPAN_CHOICES.filter((s) => scopeMode !== "recent" || s.value !== "fit").map((s) => (

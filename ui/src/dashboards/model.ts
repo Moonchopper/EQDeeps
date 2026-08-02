@@ -81,6 +81,8 @@ export const METRIC_LABELS: Record<string, string> = {
   loots: "Items",
   platinum: "Plat",
   platPerHour: "Plat/hr",
+  considers: "Considers",
+  conLevel: "Level",
 };
 
 export const RATE_METRICS = new Set([

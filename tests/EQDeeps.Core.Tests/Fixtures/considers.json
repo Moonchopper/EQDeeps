@@ -1,0 +1,38 @@
+[
+  {
+    "line": "A bat regards you indifferently -- You could probably win this fight. (Lvl: 7)",
+    "expect": { "type": "consider", "target": "A bat", "attitude": "indifferent", "level": 7 }
+  },
+  {
+    "line": "A dar ghoul knight scowls at you, ready to attack -- what would you like your tombstone to say? (Lvl: 24)",
+    "expect": { "type": "consider", "target": "A dar ghoul knight", "attitude": "scowl", "level": 24 }
+  },
+  {
+    "line": "A death beetle glowers at you dubiously -- looks like quite a gamble. (Lvl: 12)",
+    "expect": { "type": "consider", "target": "A death beetle", "attitude": "dubious", "level": 12 }
+  },
+  {
+    "line": "Glubbug regards you indifferently -- looks kind of risky, but you might win. (Lvl: 10)",
+    "expect": { "type": "consider", "target": "Glubbug", "attitude": "indifferent", "level": 10 }
+  },
+  {
+    "line": "a skeleton glares at you threateningly -- what would you like your tombstone to say?",
+    "expect": { "type": "consider", "target": "a skeleton", "attitude": "threatening", "level": null }
+  },
+  {
+    "line": "Guard Fikus judges you amiably -- you could probably win this fight. (Lvl: 20)",
+    "expect": { "type": "consider", "target": "Guard Fikus", "attitude": "amiable", "level": 20 }
+  },
+  {
+    "line": "Guard Fikus looks upon you warmly -- rather harmless. (Lvl: 20)",
+    "expect": { "type": "consider", "target": "Guard Fikus", "attitude": "warm", "level": 20 }
+  },
+  {
+    "line": "Guard Fikus regards you as an ally -- what a pushover. (Lvl: 20)",
+    "expect": { "type": "consider", "target": "Guard Fikus", "attitude": "ally", "level": 20 }
+  },
+  {
+    "line": "Guard Fikus kindly considers you -- looks like an easy kill. (Lvl: 20)",
+    "expect": { "type": "consider", "target": "Guard Fikus", "attitude": "kindly", "level": 20 }
+  }
+]

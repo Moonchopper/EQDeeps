@@ -38,6 +38,8 @@ public static class MetricCatalog
     public static readonly IReadOnlyList<string> LootDefaults =
         ["loots", "platinum", "platPerHour"];
 
+    public static readonly IReadOnlyList<string> ConsiderDefaults = ["considers", "conLevel"];
+
     public static IReadOnlyList<string> DefaultsFor(QuerySource source) => source switch
     {
         QuerySource.Healing => HealingDefaults,
@@ -47,6 +49,7 @@ public static class MetricCatalog
         QuerySource.Experience => ExperienceDefaults,
         QuerySource.Faction => FactionDefaults,
         QuerySource.Loot => LootDefaults,
+        QuerySource.Considers => ConsiderDefaults,
         _ => DamageDefaults,
     };
 
@@ -119,6 +122,8 @@ public static class MetricCatalog
             "loots" => bag.Loots,
             "platinum" => bag.CoinCopper / 1000.0,
             "platPerHour" => Ratio(bag.CoinCopper / 1000.0 * 3600, raidSeconds),
+            "considers" => bag.Considers,
+            "conLevel" => bag.ConLevelMax,
             _ => 0,
         };
     }

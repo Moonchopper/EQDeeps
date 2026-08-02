@@ -13,6 +13,7 @@ public enum QuerySource
     Experience,
     Faction,
     Loot,
+    Considers,
 }
 
 public enum Dimension

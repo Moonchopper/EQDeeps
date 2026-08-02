@@ -21,7 +21,7 @@ function fmtMetric(metric: string, value: number): string {
       metric === "xpGains" || metric === "aaPoints" ||
       metric === "factionNet" || metric === "factionUps" ||
       metric === "factionDowns" || metric === "factionCapped" ||
-      metric === "loots") {
+      metric === "loots" || metric === "considers" || metric === "conLevel") {
     return String(Math.round(value));
   }
   if (metric === "xpPercent" || metric === "xpPerHour") {

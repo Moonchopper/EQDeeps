@@ -65,6 +65,7 @@ attached (see `.github/workflows/release.yml`) — that's how
 | [docs/architecture/system-overview.md](docs/architecture/system-overview.md) | Stack, components, the QuerySpec model |
 | [docs/architecture/log-ingestion-brief.md](docs/architecture/log-ingestion-brief.md) | Design brief for the file-reading layer |
 | [docs/architecture/adr-001…009](docs/architecture/) | Decisions per phase: parser, ingestion, session state, query engine, API/live, SPA, dashboards, packaging, windowed shell |
+| [docs/release-signing.md](docs/release-signing.md) | Azure Trusted Signing setup for signed releases and auto-update |
 
 Locked decisions: .NET 8 backend + React/TypeScript SPA, realtime via SignalR, multi-character monitoring from day one, permissive-license dependencies only (attribution in [NOTICE](NOTICE)), Windows-first, public release as the end goal.
 

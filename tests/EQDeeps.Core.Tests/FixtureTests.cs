@@ -87,6 +87,16 @@ public class FixtureTests
                 AssertEnum<CastKind>(expect, "kind", cast.Kind, context);
                 AssertBool(expect, "song", cast.Song, context);
                 break;
+            case "wearOff":
+                var wearOff = Assert.IsType<WearOffEvent>(evt);
+                AssertString(expect, "spell", wearOff.Spell, context);
+                AssertString(expect, "target", wearOff.Target, context);
+                break;
+            case "ability":
+                var ability = Assert.IsType<AbilityEvent>(evt);
+                AssertString(expect, "user", ability.User, context);
+                AssertString(expect, "ability", ability.Ability, context);
+                break;
             case "chat":
                 var chat = Assert.IsType<ChatEvent>(evt);
                 AssertEnum<ChatChannel>(expect, "channel", chat.Channel, context);

@@ -81,6 +81,15 @@ public sealed class SessionHost : IAsyncDisposable
         }
     }
 
+    public TimelineResult Timeline(TimelineRequest request)
+    {
+        lock (Session.Gate)
+        {
+            return TimelineBuilder.Build(
+                Session.Records, Session.Fights, Session.Character, request.Scope);
+        }
+    }
+
     private void OnBatchProcessed(LogBatch batch)
     {
         if (batch.Phase == IngestPhase.Live && batch.Entries.Count > 0)

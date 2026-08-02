@@ -91,6 +91,18 @@ public enum CastKind
 
 public sealed record CastEvent(string Caster, string? Spell, CastKind Kind, bool Song = false) : GameEvent;
 
+/// <summary>
+/// A buff/debuff fade reported to the log owner by spell name: "Your X spell
+/// has worn off." (<see cref="Target"/> = the owner) or "Your X spell has worn
+/// off of Soandso." (the owner's buff on someone else). Fades of *received*
+/// buffs use per-spell emote text and need the spell database, so they are not
+/// events yet.
+/// </summary>
+public sealed record WearOffEvent(string Spell, string Target) : GameEvent;
+
+/// <summary>An activated discipline/combat ability: "Soandso activates Rest." / "You activate Rest."</summary>
+public sealed record AbilityEvent(string User, string Ability) : GameEvent;
+
 public sealed record TauntEvent(string Taunter, string Target, bool Success, bool Improved = false) : GameEvent;
 
 public enum ChatChannel

@@ -74,6 +74,27 @@ export interface QueryResult {
   dataVersion: number;
 }
 
+export type TimelineItemKind =
+  "cast" | "song" | "interrupt" | "fizzle" | "ability" | "buff" | "fade" | "death" | "resist";
+
+/** One timeline mark: instants have no `end`; buff spans run [start, end]. */
+export interface TimelineItem {
+  actor: string;
+  kind: TimelineItemKind;
+  label: string;
+  start: string;
+  end?: string;
+  startsBefore?: boolean;
+  endsAfter?: boolean;
+}
+
+export interface TimelineResult {
+  rangeBegin?: string;
+  rangeEnd?: string;
+  items: TimelineItem[];
+  dataVersion: number;
+}
+
 async function json<T>(response: Response): Promise<T> {
   if (!response.ok) {
     throw new Error(`${response.status} ${await response.text()}`);
@@ -120,6 +141,13 @@ export const api = {
 
   getFights: (id: string): Promise<FightInfo[]> =>
     fetch(`/api/sessions/${id}/fights`).then((r) => json(r)),
+
+  timeline: (id: string, scope: QuerySpec["scope"]): Promise<TimelineResult> =>
+    fetch(`/api/sessions/${id}/timeline`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ scope }),
+    }).then((r) => json(r)),
 
   query: (id: string, spec: QuerySpec): Promise<QueryResult> =>
     fetch(`/api/sessions/${id}/query`, {

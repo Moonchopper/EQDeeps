@@ -1,0 +1,8 @@
+{
+  "//": "Pins the SDK to the 8.0 band so CI can use the runner image's preinstalled 8.0.423 instead of spending 40s downloading and extracting a 285 MB SDK. Without this, `dotnet` on a hosted runner resolves to the newest SDK installed (10.x), whose analyzers would trip TreatWarningsAsErrors. If a runner image ever drops the 8.0 band this fails loudly on purpose — switch rollForward to latestMajor and fix the warnings rather than letting the toolchain drift silently.",
+  "sdk": {
+    "version": "8.0.400",
+    "rollForward": "latestFeature",
+    "allowPrerelease": false
+  }
+}

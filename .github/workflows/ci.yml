@@ -5,22 +5,63 @@ on:
     branches: [main]
   pull_request:
 
+# A PR that gets pushed twice in a minute doesn't need the first run to finish.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: 1
+  DOTNET_NOLOGO: 1
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
+
 jobs:
   test:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: "8.0.x"
+
+      # Deliberately no actions/setup-dotnet: the windows runner image already
+      # ships SDK 8.0.423, and global.json pins us to it. The action ignores
+      # preinstalled SDKs and re-downloads its own, which cost 40s of a 113s run.
+      - name: Show SDK
+        run: dotnet --version
+
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-          cache: npm
-          cache-dependency-path: ui/package-lock.json
+
+      # Caching node_modules outright beats caching npm's download cache:
+      # the tarball cache still left `npm ci` reinstalling 98 packages for 8s.
+      - name: Cache node_modules
+        id: node-cache
+        uses: actions/cache@v4
+        with:
+          path: ui/node_modules
+          key: node-modules-${{ runner.os }}-${{ hashFiles('ui/package-lock.json') }}
+
+      - name: Install SPA deps
+        if: steps.node-cache.outputs.cache-hit != 'true'
+        run: npm --prefix ui ci
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', 'Directory.Build.props') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      # Restored separately from the build so a cache hit is visible in the log
+      # and `dotnet test` below can skip its own implicit restore.
+      - name: Restore
+        run: dotnet restore
+
+      # The SPA builds into src/EQDeeps.Server/wwwroot, which the server embeds.
       - name: Build SPA
-        run: |
-          npm --prefix ui ci
-          npm --prefix ui run build
+        run: npm --prefix ui run build
+
+      - name: Build
+        run: dotnet build -c Release --no-restore
+
       - name: Test
-        run: dotnet test -c Release
+        run: dotnet test -c Release --no-build

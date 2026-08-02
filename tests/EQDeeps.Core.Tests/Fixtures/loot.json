@@ -1,0 +1,34 @@
+[
+  {
+    "line": "--You have looted a Cold-Forged Cudgel from Queen Dracnia's corpse.--",
+    "expect": { "type": "loot", "looter": "TestPlayer", "item": "Cold-Forged Cudgel", "source": "Queen Dracnia", "copper": null, "quantity": 1 }
+  },
+  {
+    "line": "--Soandso has looted a Rusty Whip from a bandit's corpse.--",
+    "expect": { "type": "loot", "looter": "Soandso", "item": "Rusty Whip", "source": "a bandit", "copper": null, "quantity": 1 }
+  },
+  {
+    "line": "You looted a Froglok Meat from a froglok ton knight's corpse and sold it for 5 copper.",
+    "expect": { "type": "loot", "looter": "TestPlayer", "item": "Froglok Meat", "source": "a froglok ton knight", "copper": 5, "quantity": 1 }
+  },
+  {
+    "line": "You looted 2 Phosphorous Powder from a dar ghoul knight's corpse and sold it for 1 platinum, 2 gold, 3 silver and 4 copper.",
+    "expect": { "type": "loot", "looter": "TestPlayer", "item": "Phosphorous Powder", "source": "a dar ghoul knight", "copper": 1234, "quantity": 2 }
+  },
+  {
+    "line": "You receive 1 platinum, 2 gold, 5 silver and 3 copper from the corpse.",
+    "expect": { "type": "loot", "looter": "TestPlayer", "item": null, "source": "corpse", "copper": 1253, "quantity": 1 }
+  },
+  {
+    "line": "You receive 45 silver from the corpse.",
+    "expect": { "type": "loot", "looter": "TestPlayer", "item": null, "source": "corpse", "copper": 450, "quantity": 1 }
+  },
+  {
+    "line": "You receive 4 gold and 1 silver as your split.",
+    "expect": { "type": "loot", "looter": "TestPlayer", "item": null, "source": "split", "copper": 410, "quantity": 1 }
+  },
+  {
+    "line": "You receive a strange look from the guard.",
+    "expect": { "type": "none" }
+  }
+]

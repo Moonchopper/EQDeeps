@@ -93,11 +93,12 @@ public sealed class QueryEngine
                 units.Add(new ScopeUnit(range, null));
             }
         }
-        else if (source is QuerySource.Experience or QuerySource.Faction && scope.FightIds is null)
+        else if (source is QuerySource.Experience or QuerySource.Faction or QuerySource.Loot &&
+                 scope.FightIds is null)
         {
-            // XP and faction largely arrive outside fights (quests, turn-ins)
-            // and rate metrics need the real timeline, so an unrestricted scope
-            // means the whole record stream — not the union of fight spans.
+            // XP, faction, and loot largely arrive outside fight spans (quests,
+            // turn-ins, looting after the kill) and rate metrics need the real
+            // timeline, so an unrestricted scope means the whole record stream.
             if (_records.Count > 0)
             {
                 units.Add(new ScopeUnit(
@@ -143,7 +144,7 @@ public sealed class QueryEngine
         // ranges, not per fight — collapse to the union so overlaps don't
         // double-count.
         if (source is QuerySource.Healing or QuerySource.Casts or QuerySource.Deaths
-            or QuerySource.Experience or QuerySource.Faction)
+            or QuerySource.Experience or QuerySource.Faction or QuerySource.Loot)
         {
             var union = new TimeSegments();
             foreach (var unit in units)
@@ -285,6 +286,15 @@ public sealed class QueryEngine
                 actor = factionEvent.Faction; // rows rank the factions themselves
                 break;
 
+            case QuerySource.Loot:
+                if (record.Event is not LootEvent lootEvent)
+                {
+                    return;
+                }
+
+                actor = lootEvent.Looter;
+                break;
+
             default:
                 return;
         }
@@ -376,6 +386,10 @@ public sealed class QueryEngine
         {
             node.Bag.Add(faction);
         }
+        else if (record.Event is LootEvent loot)
+        {
+            node.Bag.Add(loot);
+        }
 
         if (node.UnitSpans.TryGetValue(unitIndex, out var span))
         {
@@ -393,6 +407,7 @@ public sealed class QueryEngine
                 : record.Event is ExperienceEvent bucketXp ? bucketXp.Percent ?? 0
                 : record.Event is FactionEvent bucketFaction
                     ? bucketFaction.Capped ? 0 : bucketFaction.Delta ?? (bucketFaction.Better ? 1 : -1)
+                : record.Event is LootEvent bucketLoot ? (bucketLoot.Copper ?? 0) / 1000.0
                 : null;
             if (amount is { } value)
             {
@@ -460,6 +475,7 @@ public sealed class QueryEngine
                 DamageEvent d => d.Defender == actor ? d.Attacker ?? "Unknown" : d.Defender,
                 HealEvent h => h.Target,
                 DeathEvent de => de.Killer ?? "Unknown",
+                LootEvent l => l.Source ?? "Unknown",
                 _ => "Unknown",
             },
             Dimension.Spell => evt switch
@@ -469,6 +485,7 @@ public sealed class QueryEngine
                 CastEvent c => c.Spell ?? "Unknown",
                 ExperienceEvent x => x.AaPoint ? "AA point" : x.Party ? "party" : "solo",
                 FactionEvent f => f.Capped ? "capped" : f.Better ? "up" : "down",
+                LootEvent l => l.Item ?? "coin",
                 _ => "Unknown",
             },
             Dimension.DamageType => evt is DamageEvent dt
@@ -537,6 +554,10 @@ public sealed class QueryEngine
             return [];
         }
 
+        // Rank rows by the first requested metric — "total" for the combat
+        // sources, but loots/xpPercent/factionNet for sources whose bags never
+        // touch Total (everything would tie at 0 otherwise).
+        var rankMetric = metricNames.Count > 0 ? metricNames[0] : "total";
         var rows = new List<QueryRow>(parent.Children.Count);
         foreach (var (key, node) in parent.Children)
         {
@@ -557,7 +578,7 @@ public sealed class QueryEngine
                             ComputeMetrics(a.Value.Bag, metricNames, raidSeconds, grandTotal),
                             Nullable(EmitRows(a.Value, metricNames, raidSeconds, grandTotal, spec)),
                             EmitSeries(a.Value)))
-                        .OrderByDescending(r => r.Metrics.GetValueOrDefault("total"))
+                        .OrderByDescending(r => r.Metrics.GetValueOrDefault(rankMetric))
                         .ToList();
                 }
                 else
@@ -578,7 +599,7 @@ public sealed class QueryEngine
                 EmitSeries(node)));
         }
 
-        return rows.OrderByDescending(r => r.Metrics.GetValueOrDefault("total")).ToList();
+        return rows.OrderByDescending(r => r.Metrics.GetValueOrDefault(rankMetric)).ToList();
     }
 
     private static List<QueryRow>? Nullable(List<QueryRow> rows) => rows.Count > 0 ? rows : null;

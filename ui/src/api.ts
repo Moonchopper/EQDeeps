@@ -27,7 +27,7 @@ export interface FightInfo {
 }
 
 export type QuerySource =
-  "damage" | "healing" | "tanking" | "casts" | "deaths" | "experience" | "faction";
+  "damage" | "healing" | "tanking" | "casts" | "deaths" | "experience" | "faction" | "loot";
 export type Dimension = "player" | "target" | "spell" | "damageType" | "character";
 
 export interface QueryFilter {

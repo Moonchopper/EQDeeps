@@ -216,6 +216,37 @@ public class QueryEngineTests
         Assert.Equal(1, bloodsabers.Metrics["factionCapped"]);
     }
 
+    // ---- loot: hand-computed ----------------------------------------------
+
+    [Fact]
+    public void LootMetricsMatchHandComputedValues()
+    {
+        Add(20, new LootEvent("Kizant", "Froglok Meat", "a froglok ton knight", Copper: 5));
+        Add(21, new LootEvent("Kizant", "Phosphorous Powder", "a dar ghoul knight", Copper: 1234, Quantity: 2));
+        Add(22, new LootEvent("Kizant", "Cold-Forged Cudgel", "Queen Dracnia"));
+        Add(23, new LootEvent("Kizant", null, "corpse", Copper: 1253));
+
+        var result = _engine.Execute(new QuerySpec
+        {
+            Source = QuerySource.Loot,
+            GroupBy = [Dimension.Spell],
+        });
+
+        Assert.Equal(4, result.Totals["loots"]); // 1 + 2 + 1; coin-only adds none
+        Assert.Equal(2.492, result.Totals["platinum"], precision: 10); // (5+1234+1253)/1000
+
+        var powder = Row(result, "Phosphorous Powder");
+        Assert.Equal(2, powder.Metrics["loots"]);
+        Assert.Equal(1.234, powder.Metrics["platinum"], precision: 10);
+
+        var coin = Row(result, "coin");
+        Assert.Equal(0, coin.Metrics["loots"]);
+        Assert.Equal(1.253, coin.Metrics["platinum"], precision: 10);
+
+        // Rows rank by the first requested metric (loots), not damage total.
+        Assert.Equal("Phosphorous Powder", result.Rows[0].Key);
+    }
+
     // ---- validity toggles are filters, never reparses ----------------------
 
     [Fact]

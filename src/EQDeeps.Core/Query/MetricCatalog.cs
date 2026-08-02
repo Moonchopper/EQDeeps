@@ -35,6 +35,9 @@ public static class MetricCatalog
     public static readonly IReadOnlyList<string> FactionDefaults =
         ["factionNet", "factionUps", "factionDowns", "factionCapped"];
 
+    public static readonly IReadOnlyList<string> LootDefaults =
+        ["loots", "platinum", "platPerHour"];
+
     public static IReadOnlyList<string> DefaultsFor(QuerySource source) => source switch
     {
         QuerySource.Healing => HealingDefaults,
@@ -43,6 +46,7 @@ public static class MetricCatalog
         QuerySource.Deaths => DeathDefaults,
         QuerySource.Experience => ExperienceDefaults,
         QuerySource.Faction => FactionDefaults,
+        QuerySource.Loot => LootDefaults,
         _ => DamageDefaults,
     };
 
@@ -112,6 +116,9 @@ public static class MetricCatalog
             "factionUps" => bag.FactionUps,
             "factionDowns" => bag.FactionDowns,
             "factionCapped" => bag.FactionCapped,
+            "loots" => bag.Loots,
+            "platinum" => bag.CoinCopper / 1000.0,
+            "platPerHour" => Ratio(bag.CoinCopper / 1000.0 * 3600, raidSeconds),
             _ => 0,
         };
     }

@@ -1,26 +1,23 @@
 import { useEffect, useState } from "react";
 import { api, type QueryResult } from "../api";
+import { frameScope, type TimeFrame } from "../timeFrame";
 
 interface Props {
   sessionId: string;
-  fightIds: number[];
+  frame: TimeFrame;
   refreshKey: number;
 }
 
-/** Deaths within the selection: victim → killer with counts. */
-export function DeathLog({ sessionId, fightIds, refreshKey }: Props) {
+/** Deaths inside the current time frame: victim → killer with counts. */
+export function DeathLog({ sessionId, frame, refreshKey }: Props) {
   const [result, setResult] = useState<QueryResult | null>(null);
 
   useEffect(() => {
-    if (fightIds.length === 0) {
-      setResult(null);
-      return;
-    }
     let cancelled = false;
     api
       .query(sessionId, {
         source: "deaths",
-        scope: { fightIds },
+        scope: frameScope(frame),
         groupBy: ["player", "target"],
         metrics: ["deaths"],
       })
@@ -29,7 +26,7 @@ export function DeathLog({ sessionId, fightIds, refreshKey }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [sessionId, fightIds.join(","), refreshKey]);
+  }, [sessionId, JSON.stringify(frame), refreshKey]);
 
   const rows = result?.rows ?? [];
   return (
@@ -38,7 +35,7 @@ export function DeathLog({ sessionId, fightIds, refreshKey }: Props) {
         <span>Deaths</span>
       </div>
       {rows.length === 0 ? (
-        <div className="empty">{fightIds.length === 0 ? "Select a fight" : "No deaths"}</div>
+        <div className="empty">No deaths</div>
       ) : (
         <div className="table-scroll">
           <table>

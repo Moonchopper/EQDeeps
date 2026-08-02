@@ -21,7 +21,24 @@ import { AbilityChart } from "./components/AbilityChart";
 import { TimelineChart } from "./components/TimelineChart";
 import { DashboardView } from "./dashboards/DashboardView";
 import { defaultPanel, newDashboard, newId, type DashboardDef } from "./dashboards/model";
-import { PRESET_IDS, presetDashboards, reconcilePresets } from "./dashboards/presets";
+import {
+  SUMMARY_VIEW,
+  cloneForCustomizing,
+  standardViews,
+  stripStandardViews,
+  summaryTrendPanels,
+} from "./dashboards/standardViews";
+import { PanelBody, type PanelContext } from "./dashboards/PanelBody";
+import { DEFAULT_CHART_SETTINGS, type ChartSettings } from "./timeControls";
+import { DEFAULT_LABEL_PX } from "./fightOverlay";
+import {
+  DEFAULT_FRAME,
+  frameFromFights,
+  framedFightIds,
+  fightsInFrame,
+  isLive,
+  type TimeFrame,
+} from "./timeFrame";
 
 /** Update polling: rare when nothing is happening, brisk while it is. */
 const IDLE_POLL_MS = 15_000;
@@ -35,60 +52,136 @@ export default function App() {
   const [sessions, setSessions] = useState<SessionInfo[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [fights, setFights] = useState<FightInfo[]>([]);
-  const [selected, setSelected] = useState<number[]>([]);
-  const [followLive, setFollowLive] = useState(true);
+  // The one time frame the whole app reports over. A live tail by default;
+  // picking fights turns it into the fixed range they span. There is no
+  // separate "follow live" flag — a live frame *is* following.
+  const [frame, setFrame] = useState<TimeFrame>(DEFAULT_FRAME);
   const [tick, setTick] = useState<TickEvent | null>(null);
   const [backfill, setBackfill] = useState<BackfillEvent | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [excludeDs, setExcludeDs] = useState(false);
   const [petRollup, setPetRollup] = useState(() => localStorage.getItem("eqdeeps.petRollup") !== "off");
+  // Window/span for every chart in the app. One value, one place — panels have
+  // no window/span of their own to disagree with it.
+  const [chartDefaults, setChartDefaults] = useState<ChartSettings>(() => {
+    try {
+      const stored = localStorage.getItem("eqdeeps.chartDefaults");
+      return stored ? { ...DEFAULT_CHART_SETTINGS, ...JSON.parse(stored) } : DEFAULT_CHART_SETTINGS;
+    } catch {
+      return DEFAULT_CHART_SETTINGS;
+    }
+  });
+  // Size of the mob names on the fight bands; 0 hides them. App-wide for the
+  // same reason window and span are: it is how you read a chart, not a
+  // property of any one of them.
+  const [fightLabelPx, setFightLabelPx] = useState<number>(() => {
+    const stored = Number(localStorage.getItem("eqdeeps.fightLabelPx"));
+    return Number.isFinite(stored) && stored >= 0 ? stored : DEFAULT_LABEL_PX;
+  });
+  const [fightsCollapsed, setFightsCollapsed] = useState(
+    () => localStorage.getItem("eqdeeps.fightsCollapsed") === "on",
+  );
   const [discovered, setDiscovered] = useState<DiscoveredLog[]>([]);
   const [update, setUpdate] = useState<UpdateState | null>(null);
   const [showUpdateNotice, setShowUpdateNotice] = useState(false);
   const [checkNote, setCheckNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [dashboards, setDashboards] = useState<DashboardDef[]>([]);
-  const [hiddenPresets, setHiddenPresets] = useState<string[]>([]);
   const [view, setView] = useState<string>("overview"); // "overview" | dashboard id
+  // Which standard view the Overview section is showing. Sticky across
+  // restarts: reopening on the tab you were last reading is the whole point
+  // of these being views rather than dashboards you navigate to.
+  const [stdView, setStdView] = useState<string>(
+    () => localStorage.getItem("eqdeeps.stdView") ?? SUMMARY_VIEW,
+  );
+  const standard = useMemo(() => standardViews(), []);
+  const summaryTrends = useMemo(() => summaryTrendPanels(), []);
+
+  function selectStdView(id: string) {
+    setStdView(id);
+    setView("overview");
+    localStorage.setItem("eqdeeps.stdView", id);
+  }
+
+  function updateChartDefaults(next: ChartSettings) {
+    setChartDefaults(next);
+    localStorage.setItem("eqdeeps.chartDefaults", JSON.stringify(next));
+    // Changing the span is a statement about the live window, so it also
+    // releases a fixed range — otherwise the control would appear to do
+    // nothing while a fight was framed.
+    if (next.spanSec !== chartDefaults.spanSec) {
+      setFrame({ kind: "live", spanSec: next.spanSec });
+    }
+  }
+
+  /** Frame the fights the list just handed us; an empty pick returns to live. */
+  function selectFights(ids: number[]) {
+    setFrame(frameFromFights(fights, ids) ?? { kind: "live", spanSec: chartDefaults.spanSec });
+  }
+
+  /** Release a fixed range without disturbing the window/span settings. */
+  function backToLive() {
+    setFrame({ kind: "live", spanSec: chartDefaults.spanSec });
+  }
+
+  /** One control for "put it back how it started". */
+  function resetToDefaults() {
+    setFrame(DEFAULT_FRAME);
+    setChartDefaults(DEFAULT_CHART_SETTINGS);
+    localStorage.setItem("eqdeeps.chartDefaults", JSON.stringify(DEFAULT_CHART_SETTINGS));
+    updateFightLabelPx(DEFAULT_LABEL_PX);
+  }
+
+  function updateFightLabelPx(px: number) {
+    setFightLabelPx(px);
+    localStorage.setItem("eqdeeps.fightLabelPx", String(px));
+  }
+
+  function toggleFightsCollapsed() {
+    setFightsCollapsed((on) => {
+      localStorage.setItem("eqdeeps.fightsCollapsed", on ? "off" : "on");
+      return !on;
+    });
+  }
 
   function togglePetRollup(on: boolean) {
     setPetRollup(on);
     localStorage.setItem("eqdeeps.petRollup", on ? "on" : "off");
   }
 
-  // ---- dashboards: load + reconcile presets once, save debounced -----------
+  // ---- dashboards: load the user's own, save debounced ---------------------
   const saveTimer = useRef<number | undefined>(undefined);
   useEffect(() => {
     api
       .getStore<{ dashboards?: DashboardDef[]; hiddenPresets?: string[] }>("dashboards")
       .then((doc) => {
-        const hidden = doc?.hiddenPresets ?? [];
-        const { dashboards: reconciled, changed } = reconcilePresets(doc?.dashboards ?? [], hidden);
-        setHiddenPresets(hidden);
-        setDashboards(reconciled);
-        if (changed) {
-          api.putStore("dashboards", { dashboards: reconciled, hiddenPresets: hidden })
-            .catch(() => undefined);
+        // Migration off the provisioned-presets model: the standard views are
+        // rendered from code now, so their stored copies (and the hidden list
+        // that tracked deleted ones) are dropped on first load.
+        const { dashboards: mine, changed } = stripStandardViews(doc?.dashboards ?? []);
+        setDashboards(mine);
+        if (changed || doc?.hiddenPresets) {
+          api.putStore("dashboards", { dashboards: mine }).catch(() => undefined);
         }
       })
       .catch(() => undefined);
   }, []);
 
-  /** Reset the built-in dashboards to pristine and unhide any deleted ones. Idempotent. */
-  function restorePresets() {
-    const pristine = presetDashboards();
-    const withoutPresets = dashboards.filter((d) => !PRESET_IDS.has(d.id));
-    updateDashboards([...pristine, ...withoutPresets], []);
-  }
-
-  function updateDashboards(next: DashboardDef[], nextHidden: string[] = hiddenPresets) {
+  function updateDashboards(next: DashboardDef[]) {
     setDashboards(next);
-    setHiddenPresets(nextHidden);
     window.clearTimeout(saveTimer.current);
     saveTimer.current = window.setTimeout(() => {
-      api.putStore("dashboards", { dashboards: next, hiddenPresets: nextHidden })
-        .catch(() => undefined);
+      api.putStore("dashboards", { dashboards: next }).catch(() => undefined);
     }, 800);
+  }
+
+  /** "Customize a copy" on a standard view: clone it into the user's own set. */
+  function customizeStandardView(id: string) {
+    const source = standard.find((d) => d.id === id);
+    if (!source) return;
+    const copy = cloneForCustomizing(source);
+    updateDashboards([...dashboards, copy]);
+    setView(copy.id);
   }
 
   function addDashboard() {
@@ -109,10 +202,7 @@ export default function App() {
   function deleteDashboard(id: string) {
     const current = dashboards.find((d) => d.id === id);
     if (!current || !window.confirm(`Delete dashboard "${current.name}"?`)) return;
-    // A deleted preset is remembered as hidden so it stays deleted across
-    // restarts instead of being re-provisioned.
-    const nextHidden = PRESET_IDS.has(id) ? [...hiddenPresets, id] : hiddenPresets;
-    updateDashboards(dashboards.filter((d) => d.id !== id), nextHidden);
+    updateDashboards(dashboards.filter((d) => d.id !== id));
     setView("overview");
   }
 
@@ -163,8 +253,6 @@ export default function App() {
 
   const activeIdRef = useRef(activeId);
   activeIdRef.current = activeId;
-  const followRef = useRef(followLive);
-  followRef.current = followLive;
   // One entity→color registry per session: charts, meter, and table tints all
   // read the same assignment, so "orange" means the same player everywhere.
   const entityColors = useMemo(() => createEntityColors(), [activeId]);
@@ -186,16 +274,11 @@ export default function App() {
             bumpRefreshThrottled();
           }
         },
+        // A live frame needs no nudging: its scope is the trailing window of
+        // the record stream, so new records move it on the server side.
         onTick: (e) => {
           if (e.sessionId === activeIdRef.current) {
             setTick(e);
-            if (followRef.current) {
-              setSelected((prev) => {
-                const same =
-                  prev.length === e.fightIds.length && prev.every((id, i) => id === e.fightIds[i]);
-                return same ? prev : e.fightIds;
-              });
-            }
             bumpRefreshThrottled();
           }
         },
@@ -264,9 +347,6 @@ export default function App() {
     try {
       const list = await api.getFights(id);
       setFights(list);
-      if (followRef.current && list.length > 0) {
-        setSelected([list[list.length - 1].id]);
-      }
       setRefreshKey((k) => k + 1);
     } catch (e) {
       setError(String(e));
@@ -277,7 +357,7 @@ export default function App() {
     setActiveId(id);
     setTick(null);
     setBackfill(null);
-    setSelected([]);
+    setFrame({ kind: "live", spanSec: chartDefaults.spanSec }); // a new log starts live
     await live.subscribe(id);
     await refreshFights(id);
   }
@@ -314,7 +394,7 @@ export default function App() {
     if (activeId === id) {
       setActiveId(null);
       setFights([]);
-      setSelected([]);
+      setFrame(DEFAULT_FRAME);
       setTick(null);
       if (list.length > 0) {
         await activate(list[0].id);
@@ -409,6 +489,13 @@ export default function App() {
         checkNote={checkNote}
         petRollup={petRollup}
         onTogglePetRollup={togglePetRollup}
+        chartDefaults={chartDefaults}
+        onChartDefaults={updateChartDefaults}
+        frame={frame}
+        fights={fights}
+        onResetDefaults={resetToDefaults}
+        fightLabelPx={fightLabelPx}
+        onFightLabelPx={updateFightLabelPx}
         onOpen={openLog}
         onRefreshDiscovered={refreshDiscovered}
         onActivate={activate}
@@ -417,6 +504,9 @@ export default function App() {
       />
       {activeId ? (
         <>
+          {/* Two levels, because there are two kinds of thing here. Overview is
+              a section of standard views that ship with the app; everything to
+              the right of the divider is a dashboard the user built and owns. */}
           <nav className="view-tabs">
             <button
               className={"view-tab" + (view === "overview" ? " on" : "")}
@@ -424,6 +514,7 @@ export default function App() {
             >
               Overview
             </button>
+            {dashboards.length > 0 && <span className="view-tab-divider" />}
             {dashboards.map((d) => (
               <button
                 key={d.id}
@@ -437,13 +528,6 @@ export default function App() {
             ))}
             <button className="view-tab add" onClick={addDashboard} title="New dashboard">
               +
-            </button>
-            <button
-              className="mini-btn"
-              onClick={restorePresets}
-              title="Reset the built-in Raid DPS / Healing / Tanking / Right now dashboards to their defaults"
-            >
-              restore presets
             </button>
             {view !== "overview" && (
               <span className="view-tab-actions">
@@ -469,64 +553,134 @@ export default function App() {
               </span>
             )}
           </nav>
-          <main className="dashboard">
+          {view === "overview" && (
+            <nav className="sub-tabs">
+              <button
+                className={"sub-tab" + (stdView === SUMMARY_VIEW ? " on" : "")}
+                onClick={() => selectStdView(SUMMARY_VIEW)}
+              >
+                Summary
+              </button>
+              {standard.map((d) => (
+                <button
+                  key={d.id}
+                  className={"sub-tab" + (stdView === d.id ? " on" : "")}
+                  onClick={() => selectStdView(d.id)}
+                >
+                  {d.name}
+                </button>
+              ))}
+            </nav>
+          )}
+          {(() => {
+            // Every panel on this screen shares one context; building it once
+            // keeps the three call sites from drifting apart.
+            const panelCtx: PanelContext = {
+              sessionId: activeId,
+              frame,
+              fights,
+              fightLabelPx,
+              refreshKey,
+              petRollup,
+              colors: entityColors,
+            };
+            return (
+          <main className={"dashboard" + (fightsCollapsed ? " fights-collapsed" : "")}>
             <FightList
               fights={fights}
-              selected={selected}
-              followLive={followLive}
-              onSelect={setSelected}
-              onFollowLive={setFollowLive}
+              selected={framedFightIds(frame)}
+              live={isLive(frame)}
+              onSelect={selectFights}
+              onReset={backToLive}
+              collapsed={fightsCollapsed}
+              onToggleCollapsed={toggleFightsCollapsed}
             />
-            {view === "overview" ? (
+            {/* Three cases: a standard view, the hand-built Summary that
+                Overview opens on, or one of the user's own dashboards. */}
+            {view === "overview" && stdView !== SUMMARY_VIEW ? (
+              (() => {
+                const std = standard.find((d) => d.id === stdView);
+                return std ? (
+                  <DashboardView
+                    dashboard={std}
+                    ctx={panelCtx}
+                    chartDefaults={chartDefaults}
+                    onChange={() => undefined}
+                    readOnly
+                    onCustomize={() => customizeStandardView(std.id)}
+                  />
+                ) : (
+                  <div className="empty">View not found</div>
+                );
+              })()
+            ) : view === "overview" ? (
               <div className="dashboard-main">
                 <SelectionStats
                   sessionId={activeId}
                   character={sessions.find((s) => s.id === activeId)?.character ?? ""}
-                  fightIds={selected}
+                  frame={frame}
+                  fightCount={fightsInFrame(frame, fights).length}
                   refreshKey={refreshKey}
                   petRollup={petRollup}
                 />
-                <div className="dashboard-row">
-                  <SummaryTable
-                    sessionId={activeId}
-                    fightIds={selected}
-                    refreshKey={refreshKey}
-                    excludeDamageShields={excludeDs}
-                    onToggleDamageShields={setExcludeDs}
-                    petRollup={petRollup}
-                    onOpenInBuilder={openInBuilder}
-                    colors={entityColors}
-                  />
-                  <div className="panel-stack">
+                {/* Charts own the wide column and stack; tables live in a
+                    narrow rail. Trends are time-series, so width is
+                    resolution — and a rail keeps a one-row damage table from
+                    claiming half the page the way an equal-height row did. */}
+                <div className="summary-body">
+                  <div className="summary-charts">
+                    <DpsChart
+                      sessionId={activeId}
+                      frame={frame}
+                      fights={fights}
+                      fightLabelPx={fightLabelPx}
+                      refreshKey={refreshKey}
+                      petRollup={petRollup}
+                      colors={entityColors}
+                      chartDefaults={chartDefaults}
+                    />
+                    {/* Healing and damage taken abreast, under the DPS chart:
+                        output, upkeep and what came back, all on one axis. */}
+                    <div className="summary-pair">
+                      {summaryTrends.map((p) => (
+                        <div key={p.id} className="panel chart-panel">
+                          <div className="panel-title">
+                            <span className="panel-name">{p.title}</span>
+                          </div>
+                          <PanelBody panel={p} ctx={panelCtx} settings={chartDefaults} />
+                        </div>
+                      ))}
+                    </div>
+                    <TimelineChart
+                      sessionId={activeId}
+                      frame={frame}
+                      refreshKey={refreshKey}
+                      character={sessions.find((s) => s.id === activeId)?.character ?? ""}
+                      fights={fights}
+                    />
+                  </div>
+                  <div className="summary-rail">
+                    <SummaryTable
+                      sessionId={activeId}
+                      frame={frame}
+                      refreshKey={refreshKey}
+                      excludeDamageShields={excludeDs}
+                      onToggleDamageShields={setExcludeDs}
+                      petRollup={petRollup}
+                      onOpenInBuilder={openInBuilder}
+                      colors={entityColors}
+                    />
+                    <AbilityChart
+                      sessionId={activeId}
+                      frame={frame}
+                      refreshKey={refreshKey}
+                      petRollup={petRollup}
+                      colors={entityColors}
+                    />
                     <LiveMeter tick={tick} colorFor={entityColors.claim} petRollup={petRollup} />
-                    <DeathLog sessionId={activeId} fightIds={selected} refreshKey={refreshKey} />
+                    <DeathLog sessionId={activeId} frame={frame} refreshKey={refreshKey} />
                   </div>
                 </div>
-                <div className="dashboard-row halves">
-                  <DpsChart
-                    sessionId={activeId}
-                    fightIds={selected}
-                    refreshKey={refreshKey}
-                    followLive={followLive}
-                    petRollup={petRollup}
-                    colors={entityColors}
-                  />
-                  <AbilityChart
-                    sessionId={activeId}
-                    fightIds={selected}
-                    refreshKey={refreshKey}
-                    character={sessions.find((s) => s.id === activeId)?.character ?? ""}
-                    petRollup={petRollup}
-                    colors={entityColors}
-                  />
-                </div>
-                <TimelineChart
-                  sessionId={activeId}
-                  fightIds={selected}
-                  refreshKey={refreshKey}
-                  character={sessions.find((s) => s.id === activeId)?.character ?? ""}
-                  fights={fights}
-                />
               </div>
             ) : (
               (() => {
@@ -534,7 +688,8 @@ export default function App() {
                 return dashboard ? (
                   <DashboardView
                     dashboard={dashboard}
-                    ctx={{ sessionId: activeId, fightIds: selected, refreshKey, petRollup, colors: entityColors }}
+                    ctx={panelCtx}
+                    chartDefaults={chartDefaults}
                     onChange={(next) =>
                       updateDashboards(dashboards.map((d) => (d.id === next.id ? next : d)))
                     }
@@ -545,6 +700,8 @@ export default function App() {
               })()
             )}
           </main>
+            );
+          })()}
         </>
       ) : (
         <main className="welcome">

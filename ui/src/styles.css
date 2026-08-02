@@ -37,6 +37,17 @@ button {
   padding: 0;
 }
 
+/* The open dropdown list is painted from these rules, NOT from the closed
+   control's — so a select styled dark still drops a light popup, and light
+   option text on it is invisible until the row highlight lands under the
+   cursor. Every select in the app gets its list styled here rather than each
+   one remembering to. */
+option,
+optgroup {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
 .app {
   display: flex;
   flex-direction: column;
@@ -253,10 +264,49 @@ button {
   font-weight: 400;
 }
 
+/* The app-wide chart setting, parked at the right end of the top bar next to
+   the version. `margin-left: auto` pushes this group right; .version then sits
+   beside it rather than claiming the gap itself. */
+.global-time-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.global-time-controls .time-controls {
+  opacity: 1; /* no panel to hover — it is always the live setting */
+}
+
+/* What the app is currently reporting over: "live", a mob name, or a range. */
+.frame-readout {
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 600;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The fight list is a range selector; say so once, quietly, under the rows. */
+.fight-hint {
+  padding: 5px 10px;
+  border-top: 1px solid var(--border);
+  font-size: 10px;
+}
+
+.fight-actions .mini-btn.on {
+  color: var(--live);
+  border-color: var(--live);
+}
+
 .version {
   color: var(--muted);
   font-size: 11px;
-  margin-left: auto;
 }
 
 .version a {
@@ -478,7 +528,7 @@ button.update-pill {
   z-index: 40;
   min-width: 230px;
   padding: 10px 12px;
-  background: var(--panel);
+  background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: 8px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
@@ -533,6 +583,48 @@ button.update-pill {
   min-height: 0;
 }
 
+/* Collapsed to a spine. It stays on screen rather than vanishing because the
+   frame it set is still in force, and there has to be a way back. */
+.dashboard.fights-collapsed {
+  grid-template-columns: 26px 1fr;
+}
+
+.fight-list.collapsed {
+  align-items: center;
+  justify-content: flex-start;
+  padding: 10px 0;
+  cursor: pointer;
+}
+
+.fight-list.collapsed:hover {
+  border-color: var(--accent);
+}
+
+.fight-spine {
+  writing-mode: vertical-rl;
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}
+
+.fight-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.fight-collapse {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 4px 0 0;
+}
+
+.fight-collapse:hover {
+  color: var(--ink);
+}
+
 .dashboard-main {
   display: flex;
   flex-direction: column;
@@ -541,23 +633,67 @@ button.update-pill {
   min-height: 0;
 }
 
-.dashboard-row {
+/* Summary: charts in a wide scrolling column, tables in a narrow rail.
+   Both scroll independently, so a raid-sized damage table never squeezes the
+   charts and five stacked charts never push the tables off screen. */
+.summary-body {
   display: grid;
-  grid-template-columns: 1fr 340px;
+  /* The divider sits a third of the way in rather than hugging the right
+     edge: the rail now carries the ability chart as well as the tables, and a
+     bar chart in a 360px column is a stack of stubs. */
+  grid-template-columns: 2fr minmax(340px, 1fr);
   gap: 10px;
   flex: 1;
   min-height: 0;
 }
 
-.dashboard-row.halves {
-  grid-template-columns: 1fr 1fr;
-}
-
-.panel-stack {
-  display: grid;
-  grid-template-rows: 1fr 1fr;
+.summary-charts,
+.summary-rail {
+  display: flex;
+  flex-direction: column;
   gap: 10px;
   min-height: 0;
+  overflow-y: auto;
+  /* Room for the scrollbar so it never sits on top of a chart's right edge. */
+  padding-right: 2px;
+}
+
+/* Each chart claims a comfortable height and grows into spare room, but will
+   not shrink below it — past that the column scrolls. A trend read at 120px is
+   not a trend read. */
+.summary-charts > * {
+  flex: 1 0 300px;
+}
+
+/* Tables size to their content. The cap stops one long list (a raid parse, a
+   wipe's worth of deaths) from burying whatever is under it. */
+.summary-rail > * {
+  flex: 0 0 auto;
+  max-height: 45%;
+}
+
+/* A chart in the rail is not a table: it has no natural height to size to, so
+   it claims a floor and takes the room the tables leave. */
+.summary-rail > .chart-panel {
+  flex: 1 0 260px;
+  max-height: none;
+}
+
+/* Two trends abreast. They collapse to one column when the left side is too
+   narrow to give either of them a readable time axis. */
+.summary-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  flex: 1 0 300px;
+  min-height: 0;
+}
+
+@media (max-width: 1200px) {
+  .summary-pair {
+    grid-template-columns: 1fr;
+    flex-basis: 600px;
+  }
 }
 
 .panel {
@@ -754,26 +890,30 @@ th.num {
 }
 
 /* ---- aggregate stats strip ---- */
-.stats-strip {
+/* One line, no card chrome: six numbers do not need six boxes competing with
+   the panels under them for attention. */
+.stats-line {
   display: flex;
-  gap: 10px;
+  align-items: baseline;
   flex-wrap: wrap;
+  gap: 0 8px;
+  padding: 2px 2px 0;
 }
 
-.stat-tile {
-  flex: 1;
-  min-width: 110px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 8px 14px;
-  display: flex;
-  flex-direction: column;
+.stat {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+}
+
+.stat-sep {
+  color: var(--baseline);
+  margin-right: 3px;
 }
 
 .stat-value {
   color: var(--ink);
-  font-size: 20px;
+  font-size: 15px;
   font-weight: 700;
 }
 
@@ -955,10 +1095,50 @@ th.num {
   font-size: 15px;
 }
 
+/* Standard views sit to the left of the divider, the user's own dashboards to
+   the right — the two are different kinds of thing and shouldn't read alike. */
+.view-tab-divider {
+  width: 1px;
+  align-self: stretch;
+  margin: 4px 6px 0;
+  background: var(--border);
+}
+
 .view-tab-actions {
   display: flex;
   gap: 6px;
   margin-left: 8px;
+}
+
+/* ---- standard-view sub-tabs (under Overview) ---- */
+.sub-tabs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 14px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+}
+
+.sub-tab {
+  padding: 3px 10px;
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+
+.sub-tab:hover {
+  color: var(--ink);
+}
+
+.sub-tab.on {
+  color: var(--ink);
+  border-color: var(--border);
+  background: var(--surface-2);
 }
 
 .view-tab-actions label.mini-btn {
@@ -997,6 +1177,47 @@ th.num {
   display: flex;
   gap: 4px;
   flex-shrink: 0;
+}
+
+/* Header controls for one time chart. Kept quiet until the panel is hovered
+   so a wall of dropdowns doesn't compete with the data. */
+.panel-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.time-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  opacity: 0.45;
+  transition: opacity 120ms ease;
+}
+
+.panel:hover .time-controls,
+.time-controls:focus-within {
+  opacity: 1;
+}
+
+.time-controls label {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 400;
+}
+
+.time-controls select {
+  background: var(--page);
+  color: var(--ink-2);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 1px 4px;
+  font: inherit;
+  font-size: 11px;
 }
 
 .react-grid-item.react-grid-placeholder {

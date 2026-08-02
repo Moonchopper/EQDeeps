@@ -2,10 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as echarts from "echarts";
 import { api, type FightInfo, type TimelineItem, type TimelineItemKind, type TimelineResult } from "../api";
 import { attachWheelZoom, offsetTooltip } from "../chartInteractions";
+import { fightsInFrame, type TimeFrame } from "../timeFrame";
 
 interface Props {
   sessionId: string;
-  fightIds: number[];
+  frame: TimeFrame;
   refreshKey: number;
   character: string;
   fights: FightInfo[];
@@ -125,7 +126,10 @@ function instantTooltip(item: TimelineItem, kindName: string): string {
  * plus buff spans derived from the owner's cast → "worn off" pairs. Spell-DB
  * integration will add received buffs and true durations later.
  */
-export function TimelineChart({ sessionId, fightIds, refreshKey, character, fights }: Props) {
+export function TimelineChart({ sessionId, frame, refreshKey, character, fights }: Props) {
+  // The timeline draws per-combatant lanes, so it is inherently fight-shaped:
+  // it takes the fights the frame covers rather than the frame itself.
+  const fightIds = fightsInFrame(frame, fights);
   const divRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<echarts.ECharts | null>(null);
   const [result, setResult] = useState<TimelineResult | null>(null);

@@ -1,7 +1,10 @@
 import { useState, type CSSProperties } from "react";
-import type { DiscoveredLog, SessionInfo, UpdateMode, UpdateState } from "../api";
+import type { DiscoveredLog, FightInfo, SessionInfo, UpdateMode, UpdateState } from "../api";
 import type { BackfillEvent } from "../live";
 import { UpdateSettings } from "./UpdateSettings";
+import { TimeControls, type ChartSettings } from "../timeControls";
+import { frameLabel, isDefaultState, type TimeFrame } from "../timeFrame";
+import { LABEL_SIZE_CHOICES } from "../fightOverlay";
 
 interface Props {
   sessions: SessionInfo[];
@@ -17,6 +20,16 @@ interface Props {
   checkNote: string | null;
   petRollup: boolean;
   onTogglePetRollup: (on: boolean) => void;
+  /** App-wide window/span. Owned here, pushed down to every chart. */
+  chartDefaults: ChartSettings;
+  onChartDefaults: (next: ChartSettings) => void;
+  /** The one time frame, for the readout beside the controls. */
+  frame: TimeFrame;
+  fights: FightInfo[];
+  onResetDefaults: () => void;
+  /** Fight overlay: -1 off, 0 bands only, otherwise the name size in px. */
+  fightLabelPx: number;
+  onFightLabelPx: (px: number) => void;
   onOpen: (path: string) => void;
   onRefreshDiscovered: () => void;
   onActivate: (id: string) => void;
@@ -48,6 +61,13 @@ export function SessionBar({
   checkNote,
   petRollup,
   onTogglePetRollup,
+  chartDefaults,
+  onChartDefaults,
+  frame,
+  fights,
+  onResetDefaults,
+  fightLabelPx,
+  onFightLabelPx,
   onOpen,
   onRefreshDiscovered,
   onActivate,
@@ -148,6 +168,36 @@ export function SessionBar({
         </span>
       )}
       {error && <span className="error">{error}</span>}
+      {/* The parent window/span for every chart in the app. It sits up here
+          rather than on a panel precisely because it belongs to none of them:
+          changing it pushes down and clears any per-panel deviation. */}
+      <span className="global-time-controls" title="Rolling window and viewport for every chart">
+        <span className="frame-readout" title="What every panel is currently reporting over">
+          {frameLabel(frame, fights)}
+        </span>
+        <TimeControls settings={chartDefaults} bucketSeconds={1} onChange={onChartDefaults} />
+        <label className="time-controls" title="Fight overlay: off, shaded bands only, or bands with mob names at this size">
+          overlay
+          <select
+            value={fightLabelPx}
+            onChange={(e) => onFightLabelPx(Number(e.target.value))}
+          >
+            {LABEL_SIZE_CHOICES.map((c) => (
+              <option key={c.value} value={c.value}>
+                {c.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button
+          className="mini-btn"
+          onClick={onResetDefaults}
+          disabled={isDefaultState(frame, chartDefaults, fightLabelPx)}
+          title="Back to the opening state: live, 10 s window, 2 m span"
+        >
+          reset
+        </button>
+      </span>
       {update && (
         <span className="version">
           <UpdateSettings

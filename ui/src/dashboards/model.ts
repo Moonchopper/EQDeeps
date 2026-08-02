@@ -1,4 +1,6 @@
 import type { Dimension, QueryFilter, QuerySource, QuerySpec } from "../api";
+import type { ChartSettings } from "../timeControls";
+import { frameScope, type TimeFrame } from "../timeFrame";
 
 // The user-facing panel definition: a QuerySpec plus presentation. This is
 // what dashboards persist and what export/import moves between machines.
@@ -24,9 +26,13 @@ export interface PanelDef {
   excludeFlags: string[];
   playerFilter: string[];
   spellFilter: string[];
-  /** Line panels: bucket width and rolling-mean window. */
+  /**
+   * Line panels: the server-side bucket width. This is a QUERY parameter —
+   * it decides what the server aggregates. The rolling window and the
+   * viewport span are presentation and live in the app-wide chart settings
+   * (see DEFAULT_CHART_SETTINGS), not here, so every chart starts uniform.
+   */
   bucketSeconds: number;
-  windowSec: number;
 }
 
 export interface LayoutRect {
@@ -130,7 +136,6 @@ export function defaultPanel(): PanelDef {
     playerFilter: [],
     spellFilter: [],
     bucketSeconds: 1,
-    windowSec: 5,
   };
 }
 
@@ -138,15 +143,34 @@ export function newDashboard(name: string): DashboardDef {
   return { id: newId("d"), name, panels: [], layout: [] };
 }
 
-/** Binds a panel's stored definition to the live context at render time. */
-export function buildSpec(panel: PanelDef, fightIds: number[], petRollup: boolean): QuerySpec {
-  const scope: QuerySpec["scope"] = {};
-  if (panel.scopeMode === "recent") {
-    scope.lastSeconds = panel.lastSeconds + (panel.viz === "line" ? panel.windowSec : 0);
-  } else {
-    if (panel.scopeMode === "selection") {
-      scope.fightIds = fightIds;
-    }
+/**
+ * Binds a panel's stored definition to the live context at render time.
+ *
+ * The time frame is the query, not just the picture. A whole-log panel is
+ * scoped to the span the user is looking at, so the tile beside a chart
+ * counts exactly the seconds the chart draws — a "2 m" span with an all-time
+ * total next to it is just two different questions sharing a panel border.
+ * Span "fit" means the whole log, which is where these started.
+ *
+ * Time charts additionally fetch one rolling window of extra history, so the
+ * mean is already warm at the left edge of the viewport instead of ramping up
+ * from nothing. That history sits outside the drawn axis range.
+ */
+export function buildSpec(
+  panel: PanelDef,
+  frame: TimeFrame,
+  petRollup: boolean,
+  settings: ChartSettings,
+): QuerySpec {
+  const warmup = panel.viz === "line" ? settings.windowSec : 0;
+  // A "recent" panel keeps a fixed window of its own, independent of the
+  // frame. No standard view uses it now, but the query builder still offers
+  // it for a custom panel that wants a fixed trailing window.
+  const scope: QuerySpec["scope"] =
+    panel.scopeMode === "recent"
+      ? { lastSeconds: panel.lastSeconds + warmup }
+      : frameScope(frame, warmup);
+  if (panel.scopeMode !== "recent") {
     if (panel.skipFirstSeconds > 0) {
       scope.skipFirstSeconds = panel.skipFirstSeconds;
     }

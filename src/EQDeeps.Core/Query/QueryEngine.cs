@@ -88,9 +88,43 @@ public sealed class QueryEngine
 
         if (scope.TimeRanges is { Count: > 0 } explicitRanges)
         {
+            // A range picked off the fight list is still a range, but combat
+            // must keep aggregating per fight inside it: "DPS over these five
+            // pulls" has to mean what it meant when five fights were selected
+            // directly, not damage averaged across the downtime between them.
+            // Progression sources take the range whole - XP, faction and loot
+            // land between pulls, which is the entire point of a range.
+            var perFight = source is not (QuerySource.Experience or QuerySource.Faction
+                or QuerySource.Loot or QuerySource.Considers);
             foreach (var range in explicitRanges)
             {
-                units.Add(new ScopeUnit(range, null));
+                var matched = false;
+                if (perFight)
+                {
+                    foreach (var fight in _fights.Fights)
+                    {
+                        if (fight.BeginTime > range.End || fight.LastDamageTime < range.Begin)
+                        {
+                            continue;
+                        }
+
+                        // Clipped to the range: a fight straddling the edge
+                        // contributes only the part the user actually framed.
+                        units.Add(new ScopeUnit(
+                            new TimeRange(
+                                fight.BeginTime > range.Begin ? fight.BeginTime : range.Begin,
+                                fight.LastDamageTime < range.End ? fight.LastDamageTime : range.End),
+                            fight.Name));
+                        matched = true;
+                    }
+                }
+
+                // Nothing fought in it (pure downtime, or a progression
+                // source): the range itself is the unit.
+                if (!matched)
+                {
+                    units.Add(new ScopeUnit(range, null));
+                }
             }
         }
         else if (source is QuerySource.Experience or QuerySource.Faction or QuerySource.Loot

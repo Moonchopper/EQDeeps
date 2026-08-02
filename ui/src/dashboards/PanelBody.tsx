@@ -1,14 +1,21 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import * as echarts from "echarts";
-import { api, type QueryResult, type QueryRow } from "../api";
+import { api, type FightInfo, type QuerySource, type QueryResult, type QueryRow } from "../api";
 import { fmtNum, fmtRate, OTHER_COLOR, SERIES_COLORS } from "../format";
 import { buildSpec, METRIC_LABELS, RATE_METRICS, type PanelDef } from "./model";
 import type { EntityColors } from "../colors";
 import { attachWheelZoom, offsetTooltip } from "../chartInteractions";
+import type { ChartSettings } from "../timeControls";
+import type { TimeFrame } from "../timeFrame";
+import { fightMarkArea } from "../fightOverlay";
 
 export interface PanelContext {
   sessionId: string;
-  fightIds: number[];
+  frame: TimeFrame;
+  /** For the fight bands drawn behind time charts. */
+  fights: FightInfo[];
+  /** Mob-name size on those bands; 0 hides them. */
+  fightLabelPx: number;
   refreshKey: number;
   petRollup: boolean;
   colors: EntityColors;
@@ -31,17 +38,16 @@ function fmtMetric(metric: string, value: number): string {
   return fmtNum(value);
 }
 
-function usePanelQuery(panel: PanelDef, ctx: PanelContext): QueryResult | null | "no-selection" {
+function usePanelQuery(
+  panel: PanelDef,
+  ctx: PanelContext,
+  settings: ChartSettings,
+): QueryResult | null | "no-selection" {
   const [result, setResult] = useState<QueryResult | null>(null);
-  const spec = buildSpec(panel, ctx.fightIds, ctx.petRollup);
+  const spec = buildSpec(panel, ctx.frame, ctx.petRollup, settings);
   const specKey = JSON.stringify(spec);
-  const noSelection = panel.scopeMode === "selection" && ctx.fightIds.length === 0;
 
   useEffect(() => {
-    if (noSelection) {
-      setResult(null);
-      return;
-    }
     let cancelled = false;
     api
       .query(ctx.sessionId, JSON.parse(specKey))
@@ -50,28 +56,41 @@ function usePanelQuery(panel: PanelDef, ctx: PanelContext): QueryResult | null |
     return () => {
       cancelled = true;
     };
-  }, [ctx.sessionId, specKey, ctx.refreshKey, noSelection]);
+  }, [ctx.sessionId, specKey, ctx.refreshKey]);
 
-  return noSelection ? "no-selection" : result;
+  return result;
 }
 
-export function PanelBody({ panel, ctx }: { panel: PanelDef; ctx: PanelContext }) {
+export function PanelBody({
+  panel,
+  ctx,
+  settings,
+}: {
+  panel: PanelDef;
+  ctx: PanelContext;
+  /**
+   * The time frame every panel here reports over — app-wide, or this panel's
+   * override. Not just the charts: a total is as much a reading of a time
+   * frame as a line is.
+   */
+  settings: ChartSettings;
+}) {
   switch (panel.viz) {
     case "table":
-      return <TablePanel panel={panel} ctx={ctx} />;
+      return <TablePanel panel={panel} ctx={ctx} settings={settings} />;
     case "line":
-      return <LinePanel panel={panel} ctx={ctx} />;
+      return <LinePanel panel={panel} ctx={ctx} settings={settings} />;
     case "bar":
-      return <BarPanel panel={panel} ctx={ctx} />;
+      return <BarPanel panel={panel} ctx={ctx} settings={settings} />;
     default:
-      return <TilePanel panel={panel} ctx={ctx} />;
+      return <TilePanel panel={panel} ctx={ctx} settings={settings} />;
   }
 }
 
 // ---- table -----------------------------------------------------------------
 
-function TablePanel({ panel, ctx }: { panel: PanelDef; ctx: PanelContext }) {
-  const result = usePanelQuery(panel, ctx);
+function TablePanel({ panel, ctx, settings }: { panel: PanelDef; ctx: PanelContext; settings: ChartSettings }) {
+  const result = usePanelQuery(panel, ctx, settings);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   if (result === "no-selection") return <div className="empty">Select a fight</div>;
   if (!result) return <div className="empty">Loading…</div>;
@@ -158,10 +177,39 @@ function TablePanel({ panel, ctx }: { panel: PanelDef; ctx: PanelContext }) {
 
 const BREAK_MS = 30_000;
 
-function LinePanel({ panel, ctx }: { panel: PanelDef; ctx: PanelContext }) {
+/** Series name carrying the fight bands; kept out of the legend by name. */
+const FIGHT_BANDS = "__fights";
+
+// Ceiling on a zero-filled line before it stops being worth drawing. 20k
+// points is still smooth at any panel size; a whole multi-day log at a
+// 1-second bucket is two orders of magnitude past that.
+const MAX_FILLED_POINTS = 20_000;
+
+// Damage, healing and tanking read as rates — damage *per second* is the unit
+// people expect off a DPS chart. XP %, faction standing and coin are amounts:
+// dividing them by the bucket width produces a per-second figure that rounds
+// to zero and tells the reader nothing.
+const RATE_SOURCES = new Set<QuerySource>(["damage", "healing", "tanking"]);
+
+// fmtNum rounds to whole numbers below 1K, which suits damage but erases XP %
+// and coin — values that legitimately sit under 1.
+function fmtLineValue(value: number): string {
+  return Math.abs(value) < 10 ? Number(value.toFixed(2)).toString() : fmtNum(value);
+}
+
+function LinePanel({
+  panel,
+  ctx,
+  settings,
+}: {
+  panel: PanelDef;
+  ctx: PanelContext;
+  settings: ChartSettings;
+}) {
   const divRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<echarts.ECharts | null>(null);
-  const result = usePanelQuery(panel, ctx);
+  const { windowSec, spanSec } = settings;
+  const result = usePanelQuery(panel, ctx, settings);
   const [isZoomed, setIsZoomed] = useState(false);
   const suppressZoomEventRef = useRef(false);
   const extentRef = useRef<[number, number] | null>(null);
@@ -218,21 +266,40 @@ function LinePanel({ panel, ctx }: { panel: PanelDef; ctx: PanelContext }) {
       }
     }
     const timeline = [...allSeconds].sort((a, b) => a - b);
+
+    const step = Math.max(1, panel.bucketSeconds) * 1000;
+    // One continuous line: a bucket with nothing in it reads as zero rather
+    // than a hole, so idle stretches sag to the axis instead of chopping the
+    // chart into start/stop fragments. The guard is the only reason segments
+    // still exist — filling a multi-day range at a 1-second bucket would be
+    // millions of points, so past the cap fall back to breaking on gaps
+    // wider than two buckets rather than locking up the browser.
     const segments: [number, number][] = [];
-    for (const t of timeline) {
-      const last = segments[segments.length - 1];
-      if (last && t - last[1] <= BREAK_MS) {
-        last[1] = t;
+    if (timeline.length > 0) {
+      const first = timeline[0];
+      const last = timeline[timeline.length - 1];
+      if ((last - first) / step + 1 <= MAX_FILLED_POINTS) {
+        segments.push([first, last]);
       } else {
-        segments.push([t, t]);
+        const breakMs = Math.max(BREAK_MS, step * 2);
+        for (const t of timeline) {
+          const previous = segments[segments.length - 1];
+          if (previous && t - previous[1] <= breakMs) {
+            previous[1] = t;
+          } else {
+            segments.push([t, t]);
+          }
+        }
       }
     }
 
     extentRef.current =
       segments.length > 0 ? [segments[0][0], segments[segments.length - 1][1]] : null;
 
-    const step = Math.max(1, panel.bucketSeconds) * 1000;
-    const windowBuckets = Math.max(1, Math.round(panel.windowSec / Math.max(1, panel.bucketSeconds)));
+    // Rate sources average to a per-second figure; amount sources stay in
+    // their own units as a rolling mean per bucket.
+    const perBucket = RATE_SOURCES.has(panel.source) ? Math.max(1, panel.bucketSeconds) : 1;
+    const windowBuckets = Math.max(1, Math.round(windowSec / Math.max(1, panel.bucketSeconds)));
     const smoothed = (rows: QueryRow[]) => {
       const bySecond = new Map<number, number>();
       for (const row of rows) {
@@ -252,7 +319,7 @@ function LinePanel({ panel, ctx }: { panel: PanelDef; ctx: PanelContext }) {
           if (ring.length > windowBuckets) {
             sum -= ring.shift()!;
           }
-          points.push([t, sum / (ring.length * Math.max(1, panel.bucketSeconds))]);
+          points.push([t, sum / (ring.length * perBucket)]);
         }
         points.push([end + step / 2, null]);
       }
@@ -280,6 +347,41 @@ function LinePanel({ panel, ctx }: { panel: PanelDef; ctx: PanelContext }) {
       });
     }
 
+    // A fixed span pins the axis to [latest − span, latest]: constant width,
+    // sliding right edge, so the chart doesn't rescale as points arrive. The
+    // right edge is the newest data point rather than wall clock, so replayed
+    // logs behave. Zooming takes over until it is reset.
+    let axisMin: number | null = null;
+    let axisMax: number | null = null;
+    if (spanSec !== "fit" && segments.length > 0 && !isZoomed) {
+      axisMax = segments[segments.length - 1][1];
+      axisMin = axisMax - spanSec * 1000;
+    }
+
+    // Fight bands behind the line — same backdrop the DPS chart gets, so an
+    // XP trough reads as "between pulls" rather than an unexplained gap.
+    const plotHeight = (divRef.current?.clientHeight ?? 0) - 26 - 24; // grid top/bottom
+    const plotWidth = (divRef.current?.clientWidth ?? 0) - 48 - 10; // grid left/right
+    const markArea = extentRef.current
+      ? fightMarkArea(
+          ctx.fights,
+          axisMin ?? extentRef.current[0],
+          axisMax ?? extentRef.current[1],
+          plotHeight,
+          plotWidth,
+          ctx.fightLabelPx,
+        )
+      : undefined;
+    if (markArea) {
+      series.push({
+        name: FIGHT_BANDS,
+        type: "line",
+        data: [],
+        silent: true,
+        markArea,
+      } as echarts.SeriesOption);
+    }
+
     chartRef.current.setOption(
       {
         backgroundColor: "transparent",
@@ -305,6 +407,7 @@ function LinePanel({ panel, ctx }: { panel: PanelDef; ctx: PanelContext }) {
         legend: {
           type: "scroll",
           top: 0,
+          data: top.map((row) => row.label).concat(rest.length > 0 ? [`Other (${rest.length})`] : []),
           textStyle: { color: "#c3c2b7", fontSize: 10 },
           inactiveColor: "#52514e",
         },
@@ -314,17 +417,19 @@ function LinePanel({ panel, ctx }: { panel: PanelDef; ctx: PanelContext }) {
           backgroundColor: "#232322",
           borderColor: "rgba(255,255,255,0.10)",
           textStyle: { color: "#ffffff", fontSize: 12 },
-          valueFormatter: (v: unknown) => (typeof v === "number" ? fmtNum(v) : "—"),
+          valueFormatter: (v: unknown) => (typeof v === "number" ? fmtLineValue(v) : "—"),
         },
         xAxis: {
           type: "time",
+          min: axisMin,
+          max: axisMax,
           axisLine: { lineStyle: { color: "#383835" } },
           axisLabel: { color: "#898781", fontSize: 10 },
           splitLine: { show: false },
         },
         yAxis: {
           type: "value",
-          axisLabel: { color: "#898781", fontSize: 10, formatter: (v: number) => fmtNum(v) },
+          axisLabel: { color: "#898781", fontSize: 10, formatter: (v: number) => fmtLineValue(v) },
           splitLine: { lineStyle: { color: "#2c2c2a" } },
         },
         series,
@@ -337,7 +442,7 @@ function LinePanel({ panel, ctx }: { panel: PanelDef; ctx: PanelContext }) {
       key: "dataZoomSelect",
       dataZoomSelectActive: true,
     });
-  }, [result, panel.windowSec, panel.bucketSeconds]);
+  }, [result, panel.source, panel.bucketSeconds, windowSec, spanSec, isZoomed, ctx.fights, ctx.fightLabelPx]);
 
   if (result === "no-selection") return <div className="empty">Select a fight</div>;
   return (
@@ -362,10 +467,10 @@ function LinePanel({ panel, ctx }: { panel: PanelDef; ctx: PanelContext }) {
 
 // ---- bar -------------------------------------------------------------------
 
-function BarPanel({ panel, ctx }: { panel: PanelDef; ctx: PanelContext }) {
+function BarPanel({ panel, ctx, settings }: { panel: PanelDef; ctx: PanelContext; settings: ChartSettings }) {
   const divRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<echarts.ECharts | null>(null);
-  const result = usePanelQuery(panel, ctx);
+  const result = usePanelQuery(panel, ctx, settings);
   const metric = panel.primaryMetric;
 
   useEffect(() => {
@@ -440,8 +545,8 @@ function BarPanel({ panel, ctx }: { panel: PanelDef; ctx: PanelContext }) {
 
 // ---- tile ------------------------------------------------------------------
 
-function TilePanel({ panel, ctx }: { panel: PanelDef; ctx: PanelContext }) {
-  const result = usePanelQuery(panel, ctx);
+function TilePanel({ panel, ctx, settings }: { panel: PanelDef; ctx: PanelContext; settings: ChartSettings }) {
+  const result = usePanelQuery(panel, ctx, settings);
   if (result === "no-selection") return <div className="empty">Select a fight</div>;
   const value = result?.totals[panel.primaryMetric] ?? 0;
   return (

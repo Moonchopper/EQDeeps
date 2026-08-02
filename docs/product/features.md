@@ -6,7 +6,7 @@ Priorities: **P0** = first working pass, **P1** = v1 public release, **P2** = la
 F8, F14. Beyond spec: log autodetection (running process/registry/known paths),
 aggregate selection stats, by-target grouping, rolling-window + zoomable DPS
 charts, ability breakdown chart with per-attacker stacks, app-wide pet-rollup
-toggle, cross-panel entity colors with tinted table rows, preset dashboards,
+toggle, cross-panel entity colors with tinted table rows, one app-wide time frame (F7a), standard views (F7b),
 Gantt-style event timeline (per-PC/NPC lanes: casts, activated abilities,
 deaths, resists, plus buff spans paired from the owner's cast → named
 "worn off" messages; `POST /api/sessions/{id}/timeline` is the seed of the
@@ -71,9 +71,50 @@ The heart of the product (see `docs/architecture/system-overview.md` for the spe
 
 ### F7. Default dashboard
 
-One built-in dashboard: fight list + damage summary + DPS-over-time chart + death log for the selection. Panels live-update.
+One built-in dashboard: fight list + damage summary + DPS-over-time chart + death log for the frame. Panels live-update.
+
+Charts own a wide scrolling column; tables live in a narrow rail beside it. The two scroll independently, so a raid-sized damage table never squeezes the charts and a stack of charts never pushes the tables off screen — the previous equal-height rows gave a one-row table as much of the page as every chart combined. Each chart claims a comfortable minimum height and grows into spare room rather than shrinking below it, because a trend read at 120px is not a trend read. The wide column carries the DPS chart, healing and damage-taken trends side by side, and the timeline; the rail carries the damage table, the ability breakdown, the live meter and deaths. The trends are rendered from the same panel definitions the standard views use, so output, upkeep and incoming damage sit on one screen and one time frame. The fight list collapses to a spine — it stays visible rather than vanishing, because the frame it set is still in force and there has to be a way back.
 
 - AC: Fresh install + open log → this dashboard renders with data and no configuration.
+
+### F7a. One time frame
+
+Time is the primary axis, not fights. Every record has a timestamp, and much of what matters — XP, faction, loot, downtime itself — happens outside any fight, so a fight is a derived artifact (the parser's read of where a pull started and stopped) rather than the thing everything hangs off. The app therefore has exactly one time frame, and every panel reports over it.
+
+The frame is either a **live tail** — the trailing span of the record stream, anchored to the newest record, which is what "following live" amounts to — or a **fixed range**, produced by the fight list. There is no separate follow-live flag: a live frame is already following.
+
+The fight list is a **range selector**, not a filter. Click frames one fight, shift-click extends to frame everything between in list order, ctrl/cmd-click adds or removes one, a group header frames the pull chain. What is picked becomes the window between the first and last fight chosen, downtime included. Because it is a window, combat from other fights inside it counts too — concurrent mobs, or a long pull straddling the edge.
+
+Combat still aggregates per fight *within* the frame, so DPS over a framed stretch means what it meant when those fights were selected directly, rather than damage averaged across the downtime between them. Progression sources take the frame whole, which is what makes a range worth having.
+
+A single **reset** in the top bar returns the frame to live and the window/span to their defaults; "back to live" in the fight list releases a range without touching the settings.
+
+Every time chart draws **fight bands** behind the line: faint alternating shading over the stretches where something was being fought, labelled with the mob. Without them a trough reads the same whether you were between pulls, running to the next camp, or fighting something that did not hurt. Names are anchored at the floor and read upward, clamped to the plot height so a long mob name truncates rather than running off the top. One app-wide setting in the top bar governs the whole overlay: off, bands (shading with no names), or names at small / medium / large, defaulting to large. Whether a band is named is decided per band by measurement: rotated text is only as wide as its font size, so a band earns a name when it spans more pixels than that. Dense views therefore thin out rather than switching off, and the shading itself stops entirely past ~120 bands, because solid shading is not context.
+
+- AC: Selecting fights changes what every panel shows, including Experience, Faction and Loot.
+- AC: A frame covering isolated sequential fights reports the same total, active seconds and DPS as selecting those fights directly.
+- AC: A live frame updates as records arrive, with nothing to re-select.
+- AC: A chart zoomed to a few pulls names the mobs behind the line; one zoomed out to a whole evening shades without naming, and one showing days shades not at all.
+
+### F7b. Standard views
+
+Overview is a section, not a page: a row of sub-tabs holds Summary (the F7 dashboard) plus the specialized standard views — Healing, Tanking, Experience, Faction, Loot. Damage rankings and a live "right now" view are deliberately absent: Summary already carries both, and a standard view has to earn its tab. These ship with the app rather than being provisioned into the user's dashboard store, so they are read-only and cannot drift, be deleted, or be confused with something the user built. "Customize a copy" clones one into a custom dashboard (F8) that the user then owns.
+
+Window and span are presentation, not properties of a panel, so no panel definition carries them: there is exactly one default (`DEFAULT_CHART_SETTINGS`) and every chart in the app starts there. The top bar owns it — a control beside the version number — and changing it pushes down to every chart, Summary's DPS chart included. The setting persists across restarts.
+
+Individual charts can still deviate: each time panel repeats the same controls in its header, with "apply to all" to put the rest of that view on its footing. A deviation lasts until the parent setting changes, which clears it rather than leaving some charts silently behind. Both ladders are multiples of the panel's bucket width, so a minute-bucketed chart offers minute-scale windows rather than the 1-second chart's seconds.
+
+The span is the query, not just the picture: a whole-log panel is scoped to the span being viewed, so a total or a table beside a chart counts exactly the seconds the chart draws. Span "fit" means the whole log. Time charts fetch one extra rolling window of history beyond the span so the mean is warm at the left edge; that history sits outside the drawn axis.
+
+Panels keep `bucketSeconds`, which is a different thing: it is a query parameter deciding what the server aggregates, not how the result is read.
+
+- AC: The standard views cannot be edited, deleted or exported in place; "customize a copy" produces an editable dashboard and leaves the standard view unchanged.
+- AC: A fresh profile opens every time chart — Summary's and every standard view's — on the same window and span.
+- AC: Changing the top-bar setting moves every chart in the app, discarding per-panel deviations.
+- AC: Every panel in a view reports over the same time frame — narrowing the span lowers the totals and tables, it does not merely crop the charts.
+- AC: Changing window or span on one chart and pressing "apply to all" moves every other time chart in that view to the same setting.
+- AC: Time charts draw one continuous line — a bucket with no events reads as zero, not a hole — so idle stretches sag to the axis instead of fragmenting the chart. Ranges too large to fill point-by-point fall back to breaking on long gaps rather than degrading.
+- AC: The chosen sub-tab survives a restart.
 
 ---
 

@@ -3,6 +3,7 @@ import { api, type QueryResult, type QueryRow, type QuerySource, type QuerySpec 
 import { fmtNum, fmtRate } from "../format";
 import { defaultPanel, type PanelDef } from "../dashboards/model";
 import type { EntityColors } from "../colors";
+import { frameScope, type TimeFrame } from "../timeFrame";
 
 interface Column {
   metric: string;
@@ -42,7 +43,7 @@ const COLUMNS: Record<string, Column[]> = {
 
 interface Props {
   sessionId: string;
-  fightIds: number[];
+  frame: TimeFrame;
   refreshKey: number;
   excludeDamageShields: boolean;
   onToggleDamageShields: (exclude: boolean) => void;
@@ -57,7 +58,7 @@ interface Props {
  */
 export function SummaryTable({
   sessionId,
-  fightIds,
+  frame,
   refreshKey,
   excludeDamageShields,
   onToggleDamageShields,
@@ -72,13 +73,9 @@ export function SummaryTable({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (fightIds.length === 0) {
-      setResult(null);
-      return;
-    }
     const spec: QuerySpec = {
       source,
-      scope: { fightIds },
+      scope: frameScope(frame),
       // By-target rows show how the numbers differ per mob across an
       // aggregate selection; drill-down inverts (target → player).
       groupBy: rowsBy === "player" ? ["player", "spell"] : ["target", "player"],
@@ -104,7 +101,7 @@ export function SummaryTable({
     return () => {
       cancelled = true;
     };
-  }, [sessionId, source, rowsBy, fightIds.join(","), refreshKey, excludeDamageShields, petRollup]);
+  }, [sessionId, source, rowsBy, JSON.stringify(frame), refreshKey, excludeDamageShields, petRollup]);
 
   const columns = COLUMNS[source];
 
@@ -227,9 +224,7 @@ export function SummaryTable({
         </span>
       </div>
       {error && <div className="error">{error}</div>}
-      {fightIds.length === 0 ? (
-        <div className="empty">Select a fight</div>
-      ) : result ? (
+      {result ? (
         <div className="table-scroll">
           <table>
             <thead>

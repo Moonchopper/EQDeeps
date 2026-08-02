@@ -1,58 +1,102 @@
-import { defaultPanel, type DashboardDef, type LayoutRect, type PanelDef } from "./model";
+import { defaultPanel, newId, type DashboardDef, type LayoutRect, type PanelDef } from "./model";
 
 /**
- * Preset dashboards covering the breakdowns the parsing community actually
- * argues about: damage rankings, healing with overheal, tanking with the
- * defensive rates, and a fight-agnostic "right now" view.
+ * The standard views: specialized breakdowns that ship with EQDeeps and sit
+ * as sub-tabs under Overview — healing with overheal, tanking with the
+ * defensive rates, and the progression sources (experience, faction, loot).
  *
- * Presets are provisioned, not added: they carry STABLE ids, and
- * `reconcilePresets` runs at every load — presets missing from the store
- * appear automatically, an edited preset keeps the user's version (same id),
- * and a deleted preset stays deleted via the hidden list. "Restore presets"
- * rewrites them to this pristine definition, which is idempotent.
+ * Damage rankings and a "right now" view used to be here and are not, because
+ * Summary already answers both: it carries the damage summary and a DPS chart
+ * that follows live by default. A standard view has to earn its tab.
+ *
+ * These are DEFINED IN CODE and never stored. They used to be provisioned
+ * into the user's dashboard store with stable ids, which is precisely why
+ * they read as pre-provisioned dashboards: they were deletable, exportable
+ * and drag-editable like anything the user had built. Now they are read-only
+ * app furniture, and "customize" clones one into a real custom dashboard the
+ * user owns (see `cloneForCustomizing`).
  */
-export function presetDashboards(): DashboardDef[] {
-  return [raidDps(), healing(), tanking(), rightNow(), experience(), faction(), loot()];
+export function standardViews(): DashboardDef[] {
+  return [healing(), tanking(), experience(), faction(), loot()];
 }
 
-export const PRESET_IDS = new Set(presetDashboards().map((d) => d.id));
+export const STANDARD_VIEW_IDS = new Set(standardViews().map((d) => d.id));
 
-export interface ReconcileResult {
+/**
+ * Views that used to ship and no longer do. They stay listed because the
+ * store migration has to keep recognising them: an install that never ran the
+ * build which stripped provisioned presets would otherwise find them
+ * resurrected as the user's own dashboards, which is not where they came from
+ * and not what "removed" should mean.
+ */
+const RETIRED_VIEW_IDS = ["preset-raid-dps", "preset-right-now"];
+
+/** The sub-tab that shows the hand-built Overview, not a standard view. */
+export const SUMMARY_VIEW = "summary";
+
+export interface MigrationResult {
   dashboards: DashboardDef[];
   changed: boolean;
 }
 
-export function reconcilePresets(stored: DashboardDef[], hidden: string[]): ReconcileResult {
-  const presets = presetDashboards();
-  let changed = false;
-  let dashboards = [...stored];
+/**
+ * One-time migration off the old model: drop the provisioned copies of the
+ * standard views from the stored dashboard list, since the app now renders
+ * them from code. Anything the user built themselves is left untouched —
+ * including a former preset they renamed, because that no longer carries a
+ * standard-view id.
+ */
+export function stripStandardViews(stored: DashboardDef[]): MigrationResult {
+  const dashboards = stored.filter(
+    (d) => !STANDARD_VIEW_IDS.has(d.id) && !RETIRED_VIEW_IDS.includes(d.id),
+  );
+  return { dashboards, changed: dashboards.length !== stored.length };
+}
 
-  // Migration: the old "add presets" button cloned packs under random ids.
-  // Collapse them — the first dashboard named like a preset adopts the stable
-  // id (keeping any customization); later same-named copies are dropped.
-  for (const preset of presets) {
-    if (dashboards.some((d) => d.id === preset.id)) {
-      continue;
-    }
+/**
+ * "Customize" on a standard view: a deep copy under fresh ids, so editing it
+ * is ordinary custom-dashboard editing and the standard view stays pristine.
+ */
+export function cloneForCustomizing(view: DashboardDef): DashboardDef {
+  const id = newId("d");
+  const idMap = new Map(view.panels.map((p, i) => [p.id, `${id}-p${i}`]));
+  return {
+    id,
+    name: `${view.name} (custom)`,
+    panels: view.panels.map((p) => ({ ...p, id: idMap.get(p.id)! })),
+    layout: view.layout.map((l) => ({ ...l, i: idMap.get(l.i) ?? l.i })),
+  };
+}
 
-    const twins = dashboards.filter((d) => d.name === preset.name);
-    if (twins.length > 0) {
-      changed = true;
-      const keeper = { ...twins[0], id: preset.id };
-      dashboards = dashboards.filter((d) => d.name !== preset.name);
-      dashboards.push(keeper);
-    }
-  }
-
-  // Provision presets that are neither stored nor deliberately hidden.
-  for (const preset of presets) {
-    if (!hidden.includes(preset.id) && !dashboards.some((d) => d.id === preset.id)) {
-      dashboards.push(preset);
-      changed = true;
-    }
-  }
-
-  return { dashboards, changed };
+/**
+ * The trends the Summary page carries beside the DPS chart. Healing and damage
+ * taken are the other two halves of the same question a parse asks — output,
+ * upkeep, and what the mob did back — so they belong on the landing view next
+ * to damage rather than a tab away.
+ *
+ * They are panel definitions rather than bespoke components so they run the
+ * same query path, get the same fight bands, and honour the same time frame
+ * and window as everything else.
+ */
+export function summaryTrendPanels(): PanelDef[] {
+  return [
+    panel("summary-healing", {
+      title: "Healing over time",
+      viz: "line",
+      source: "healing",
+      scopeMode: "all",
+      groupBy: ["player"],
+      bucketSeconds: 1,
+    }),
+    panel("summary-tanking", {
+      title: "Damage taken over time",
+      viz: "line",
+      source: "tanking",
+      scopeMode: "all",
+      groupBy: ["player"],
+      bucketSeconds: 1,
+    }),
+  ];
 }
 
 function panel(id: string, overrides: Partial<PanelDef>): PanelDef {
@@ -75,73 +119,6 @@ function build(
   return { id, name, panels, layout };
 }
 
-function raidDps(): DashboardDef {
-  return build("preset-raid-dps", "Raid DPS", [
-    [
-      {
-        title: "Damage rankings",
-        viz: "table",
-        source: "damage",
-        groupBy: ["player", "spell"],
-        metrics: ["total", "dps", "sdps", "percentOfTotal", "critRate", "twincastRate", "maxHit"],
-      },
-      { x: 0, y: 0, w: 7, h: 10 },
-    ],
-    [
-      {
-        title: "DPS over time",
-        viz: "line",
-        source: "damage",
-        groupBy: ["player"],
-        bucketSeconds: 1,
-        windowSec: 5,
-      },
-      { x: 7, y: 0, w: 5, h: 10 },
-    ],
-    [
-      {
-        title: "Damage by ability",
-        viz: "bar",
-        source: "damage",
-        groupBy: ["spell"],
-        primaryMetric: "total",
-      },
-      { x: 0, y: 10, w: 7, h: 8 },
-    ],
-    [
-      {
-        title: "Total damage",
-        viz: "tile",
-        source: "damage",
-        groupBy: ["player"],
-        primaryMetric: "total",
-      },
-      { x: 7, y: 10, w: 2, h: 4 },
-    ],
-    [
-      {
-        title: "Raid deaths",
-        viz: "tile",
-        source: "deaths",
-        groupBy: ["player"],
-        primaryMetric: "deaths",
-      },
-      { x: 9, y: 10, w: 3, h: 4 },
-    ],
-    [
-      {
-        title: "Kill shots excluded",
-        viz: "table",
-        source: "damage",
-        groupBy: ["player"],
-        metrics: ["total", "sdps", "percentOfTotal"],
-        excludeFlags: ["headshot", "assassinate", "finishingBlow", "slayUndead"],
-      },
-      { x: 7, y: 14, w: 5, h: 4 },
-    ],
-  ]);
-}
-
 function healing(): DashboardDef {
   return build("preset-healing", "Healing", [
     [
@@ -161,7 +138,6 @@ function healing(): DashboardDef {
         source: "healing",
         groupBy: ["player"],
         bucketSeconds: 1,
-        windowSec: 5,
       },
       { x: 7, y: 0, w: 5, h: 10 },
     ],
@@ -217,7 +193,6 @@ function tanking(): DashboardDef {
         source: "tanking",
         groupBy: ["player"],
         bucketSeconds: 1,
-        windowSec: 5,
       },
       { x: 0, y: 10, w: 7, h: 8 },
     ],
@@ -244,60 +219,6 @@ function tanking(): DashboardDef {
   ]);
 }
 
-function rightNow(): DashboardDef {
-  return build("preset-right-now", "Right now", [
-    [
-      {
-        title: "Rolling DPS — last 2 minutes",
-        viz: "line",
-        source: "damage",
-        scopeMode: "recent",
-        lastSeconds: 120,
-        groupBy: ["player"],
-        bucketSeconds: 1,
-        windowSec: 5,
-      },
-      { x: 0, y: 0, w: 8, h: 10 },
-    ],
-    [
-      {
-        title: "Damage — last 60 s",
-        viz: "table",
-        source: "damage",
-        scopeMode: "recent",
-        lastSeconds: 60,
-        groupBy: ["player"],
-        metrics: ["total", "dps", "percentOfTotal"],
-      },
-      { x: 8, y: 0, w: 4, h: 10 },
-    ],
-    [
-      {
-        title: "Abilities — last 60 s",
-        viz: "bar",
-        source: "damage",
-        scopeMode: "recent",
-        lastSeconds: 60,
-        groupBy: ["spell"],
-        primaryMetric: "total",
-      },
-      { x: 0, y: 10, w: 8, h: 8 },
-    ],
-    [
-      {
-        title: "Healing — last 60 s",
-        viz: "table",
-        source: "healing",
-        scopeMode: "recent",
-        lastSeconds: 60,
-        groupBy: ["player"],
-        metrics: ["total", "dps", "overhealRate"],
-      },
-      { x: 8, y: 10, w: 4, h: 8 },
-    ],
-  ]);
-}
-
 // XP arrives at kills but also outside fights entirely (quests, turn-ins), so
 // every panel scopes to the whole log rather than the fight selection.
 function experience(): DashboardDef {
@@ -311,7 +232,6 @@ function experience(): DashboardDef {
         groupBy: ["character"],
         primaryMetric: "xpPercent",
         bucketSeconds: 60,
-        windowSec: 300,
       },
       { x: 0, y: 0, w: 8, h: 10 },
     ],
@@ -375,7 +295,6 @@ function faction(): DashboardDef {
         groupBy: ["player"],
         primaryMetric: "factionNet",
         bucketSeconds: 60,
-        windowSec: 300,
       },
       { x: 0, y: 0, w: 8, h: 10 },
     ],
@@ -450,7 +369,6 @@ function loot(): DashboardDef {
         groupBy: ["character"],
         primaryMetric: "platinum",
         bucketSeconds: 60,
-        windowSec: 300,
       },
       { x: 0, y: 10, w: 12, h: 8 },
     ],

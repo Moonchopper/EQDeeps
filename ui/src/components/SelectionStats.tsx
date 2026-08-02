@@ -1,11 +1,14 @@
 import { useEffect, useState } from "react";
 import { api, type QueryResult } from "../api";
 import { fmtNum } from "../format";
+import { frameScope, type TimeFrame } from "../timeFrame";
 
 interface Props {
   sessionId: string;
   character: string;
-  fightIds: number[];
+  frame: TimeFrame;
+  /** Fights the frame covers — a count, not a scope. */
+  fightCount: number;
   refreshKey: number;
   petRollup: boolean;
 }
@@ -27,19 +30,22 @@ function fmtSeconds(total: number): string {
  * dilutes the number). Averages across mixed content are knowingly unadjusted
  * for mob level/mitigation (feature F21 tracks normalizing that).
  */
-export function SelectionStats({ sessionId, character, fightIds, refreshKey, petRollup }: Props) {
+export function SelectionStats({
+  sessionId,
+  character,
+  frame,
+  fightCount,
+  refreshKey,
+  petRollup,
+}: Props) {
   const [result, setResult] = useState<QueryResult | null>(null);
 
   useEffect(() => {
-    if (fightIds.length === 0) {
-      setResult(null);
-      return;
-    }
     let cancelled = false;
     api
       .query(sessionId, {
         source: "damage",
-        scope: { fightIds },
+        scope: frameScope(frame),
         groupBy: ["player"],
         metrics: ["total", "dps", "sdps", "activeSeconds"],
         petRollup,
@@ -49,9 +55,9 @@ export function SelectionStats({ sessionId, character, fightIds, refreshKey, pet
     return () => {
       cancelled = true;
     };
-  }, [sessionId, fightIds.join(","), refreshKey, petRollup]);
+  }, [sessionId, JSON.stringify(frame), refreshKey, petRollup]);
 
-  if (fightIds.length === 0 || !result) {
+  if (!result) {
     return null;
   }
 
@@ -59,7 +65,7 @@ export function SelectionStats({ sessionId, character, fightIds, refreshKey, pet
   const raidDps = result.raidSeconds > 0 ? (result.totals["total"] ?? 0) / result.raidSeconds : 0;
 
   const tiles: { label: string; value: string }[] = [
-    { label: fightIds.length === 1 ? "fight" : "fights", value: String(fightIds.length) },
+    { label: fightCount === 1 ? "fight" : "fights", value: String(fightCount) },
     { label: "fought time", value: fmtSeconds(result.raidSeconds) },
     { label: "total damage", value: fmtNum(result.totals["total"] ?? 0) },
     { label: "raid dps", value: fmtNum(raidDps) },
@@ -68,12 +74,13 @@ export function SelectionStats({ sessionId, character, fightIds, refreshKey, pet
   ];
 
   return (
-    <div className="stats-strip">
-      {tiles.map((t) => (
-        <div key={t.label} className="stat-tile">
+    <div className="stats-line">
+      {tiles.map((t, i) => (
+        <span key={t.label} className="stat">
+          {i > 0 && <span className="stat-sep">·</span>}
           <span className="stat-value">{t.value}</span>
           <span className="stat-label">{t.label}</span>
-        </div>
+        </span>
       ))}
     </div>
   );

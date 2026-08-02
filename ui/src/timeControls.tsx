@@ -49,13 +49,7 @@ export interface ChartSettings {
  * carries its own. The top-bar control seeds from this and pushes any change
  * down to every chart.
  */
-export const DEFAULT_CHART_SETTINGS: ChartSettings = { windowSec: 10, spanSec: 120 };
-
-/**
- * A live tail has nothing to fit to — it has no end — so when the app-wide
- * span is "fit", charts reading the record stream fall back to this.
- */
-export const LIVE_FALLBACK_SPAN_SEC = 120;
+export const DEFAULT_CHART_SETTINGS: ChartSettings = { windowSec: 10, spanSec: 900 };
 
 interface Props {
   settings: ChartSettings;

@@ -447,11 +447,7 @@ function LinePanel({
   if (result === "no-selection") return <div className="empty">Select a fight</div>;
   return (
     <div className="chart-wrap">
-      <div
-        ref={divRef}
-        className="chart"
-        title="Drag to zoom a time range · scroll to zoom · double-click to reset"
-      />
+      <div ref={divRef} className="chart" />
       {isZoomed && (
         <button
           className="zoom-reset"

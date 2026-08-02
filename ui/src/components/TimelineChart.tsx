@@ -339,7 +339,15 @@ export function TimelineChart({ sessionId, frame, refreshKey, character, fights 
             overflow: "truncate" as const,
             formatter: (value: string) => labels[Number(value)] ?? "",
           },
-          splitLine: { lineStyle: { color: "#2c2c2a" } },
+          // Banding, not lines: a mark far from the axis needs its row carried
+          // across to the name, and alternating washes do that without adding
+          // rules that compete with the vertical time grid. Both steps are
+          // barely-there on purpose — the events are the subject.
+          splitArea: {
+            show: true,
+            areaStyle: { color: ["rgba(255,255,255,0.022)", "rgba(255,255,255,0.055)"] },
+          },
+          splitLine: { show: false },
         },
         series,
       },

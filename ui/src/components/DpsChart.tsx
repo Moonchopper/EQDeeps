@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import * as echarts from "echarts";
 import { api, type QueryResult, type QueryRow } from "../api";
 import { fmtNum, OTHER_COLOR } from "../format";
@@ -56,10 +56,21 @@ export function DpsChart({ sessionId, fightIds, refreshKey, followLive, petRollu
   const effectiveSpan = span === "fit" ? 60 : span;
 
   // Drag-to-zoom: while the user is zoomed, the sliding span viewport pauses
-  // (it would yank the axis out from under the selection); double-click zooms
-  // back out and the next refresh resumes following.
-  const zoomedRef = useRef(false);
+  // (it would yank the axis out from under the selection). A visible "reset
+  // zoom" pill appears whenever the view is non-default; double-click is the
+  // shortcut for the same reset.
+  const [isZoomed, setIsZoomed] = useState(false);
   const suppressZoomEventRef = useRef(false);
+
+  const resetZoom = useCallback(() => {
+    const chart = chartRef.current;
+    if (chart) {
+      suppressZoomEventRef.current = true;
+      chart.dispatchAction({ type: "dataZoom", start: 0, end: 100 });
+      suppressZoomEventRef.current = false;
+    }
+    setIsZoomed(false);
+  }, []);
 
   useEffect(() => {
     if (!divRef.current) return;
@@ -67,15 +78,10 @@ export function DpsChart({ sessionId, fightIds, refreshKey, followLive, petRollu
     chartRef.current = chart;
     chart.on("datazoom", () => {
       if (!suppressZoomEventRef.current) {
-        zoomedRef.current = true;
+        setIsZoomed(true);
       }
     });
-    chart.getZr().on("dblclick", () => {
-      suppressZoomEventRef.current = true;
-      chart.dispatchAction({ type: "dataZoom", start: 0, end: 100 });
-      suppressZoomEventRef.current = false;
-      zoomedRef.current = false;
-    });
+    chart.getZr().on("dblclick", resetZoom);
     const onResize = () => chart.resize();
     window.addEventListener("resize", onResize);
     return () => {
@@ -83,11 +89,11 @@ export function DpsChart({ sessionId, fightIds, refreshKey, followLive, petRollu
       chart.dispose();
       chartRef.current = null;
     };
-  }, []);
+  }, [resetZoom]);
 
   useEffect(() => {
-    zoomedRef.current = false; // new selection or mode: fresh viewport
-  }, [selectionKey, scopeMode]);
+    resetZoom(); // new selection or mode: fresh viewport
+  }, [selectionKey, scopeMode, resetZoom]);
 
   useEffect(() => {
     if (scopeMode === "selection" && fightIds.length === 0) {
@@ -207,7 +213,7 @@ export function DpsChart({ sessionId, fightIds, refreshKey, followLive, petRollu
     // the newest data second (not wall clock), so replayed logs behave too.
     let axisMin: number | null = null;
     let axisMax: number | null = null;
-    if ((span !== "fit" || scopeMode === "recent") && segments.length > 0 && !zoomedRef.current) {
+    if ((span !== "fit" || scopeMode === "recent") && segments.length > 0 && !isZoomed) {
       axisMax = segments[segments.length - 1][1];
       axisMin = axisMax - effectiveSpan * 1000;
     }
@@ -276,7 +282,7 @@ export function DpsChart({ sessionId, fightIds, refreshKey, followLive, petRollu
       key: "dataZoomSelect",
       dataZoomSelectActive: true,
     });
-  }, [result, windowSec, span, scopeMode, effectiveSpan, colors]);
+  }, [result, windowSec, span, scopeMode, effectiveSpan, colors, isZoomed]);
 
   return (
     <div className="panel chart-panel">
@@ -340,11 +346,22 @@ export function DpsChart({ sessionId, fightIds, refreshKey, followLive, petRollu
       {scopeMode === "selection" && fightIds.length === 0 && (
         <div className="empty">Select a fight</div>
       )}
-      <div
-        ref={divRef}
-        className="chart"
-        title="Drag to zoom a time range · scroll to zoom · double-click to reset"
-      />
+      <div className="chart-wrap">
+        <div
+          ref={divRef}
+          className="chart"
+          title="Drag to zoom a time range · scroll to zoom · double-click to reset"
+        />
+        {isZoomed && (
+          <button
+            className="zoom-reset"
+            onClick={resetZoom}
+            title="Back to the full view (or double-click the chart)"
+          >
+            ↺ reset zoom
+          </button>
+        )}
+      </div>
     </div>
   );
 }

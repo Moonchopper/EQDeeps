@@ -504,6 +504,34 @@ th.num {
   min-height: 180px;
 }
 
+.chart-wrap {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Appears only while the view is non-default — the way back is always visible. */
+.zoom-reset {
+  position: absolute;
+  top: 28px;
+  right: 14px;
+  z-index: 5;
+  background: var(--surface-2);
+  border: 1px solid var(--accent);
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 3px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
+}
+
+.zoom-reset:hover {
+  background: var(--accent);
+}
+
 /* ---- live meter ---- */
 .meter-rows {
   display: flex;

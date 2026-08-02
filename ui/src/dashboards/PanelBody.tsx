@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import * as echarts from "echarts";
 import { api, type QueryResult, type QueryRow } from "../api";
 import { fmtNum, fmtRate, OTHER_COLOR, SERIES_COLORS } from "../format";
@@ -153,14 +153,29 @@ function LinePanel({ panel, ctx }: { panel: PanelDef; ctx: PanelContext }) {
   const divRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<echarts.ECharts | null>(null);
   const result = usePanelQuery(panel, ctx);
+  const [isZoomed, setIsZoomed] = useState(false);
+  const suppressZoomEventRef = useRef(false);
+
+  const resetZoom = useCallback(() => {
+    const chart = chartRef.current;
+    if (chart) {
+      suppressZoomEventRef.current = true;
+      chart.dispatchAction({ type: "dataZoom", start: 0, end: 100 });
+      suppressZoomEventRef.current = false;
+    }
+    setIsZoomed(false);
+  }, []);
 
   useEffect(() => {
     if (!divRef.current) return;
     const chart = echarts.init(divRef.current);
     chartRef.current = chart;
-    chart.getZr().on("dblclick", () => {
-      chart.dispatchAction({ type: "dataZoom", start: 0, end: 100 });
+    chart.on("datazoom", () => {
+      if (!suppressZoomEventRef.current) {
+        setIsZoomed(true);
+      }
     });
+    chart.getZr().on("dblclick", resetZoom);
     const observer = new ResizeObserver(() => chart.resize());
     observer.observe(divRef.current);
     return () => {
@@ -168,7 +183,7 @@ function LinePanel({ panel, ctx }: { panel: PanelDef; ctx: PanelContext }) {
       chart.dispose();
       chartRef.current = null;
     };
-  }, []);
+  }, [resetZoom]);
 
   useEffect(() => {
     if (!chartRef.current) return;
@@ -306,11 +321,22 @@ function LinePanel({ panel, ctx }: { panel: PanelDef; ctx: PanelContext }) {
 
   if (result === "no-selection") return <div className="empty">Select a fight</div>;
   return (
-    <div
-      ref={divRef}
-      className="chart"
-      title="Drag to zoom a time range · scroll to zoom · double-click to reset"
-    />
+    <div className="chart-wrap">
+      <div
+        ref={divRef}
+        className="chart"
+        title="Drag to zoom a time range · scroll to zoom · double-click to reset"
+      />
+      {isZoomed && (
+        <button
+          className="zoom-reset"
+          onClick={resetZoom}
+          title="Back to the full view (or double-click the chart)"
+        >
+          ↺ reset zoom
+        </button>
+      )}
+    </div>
   );
 }
 

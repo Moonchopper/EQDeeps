@@ -4,7 +4,14 @@ import { api, type QueryResult, type QueryRow } from "../api";
 import { fmtNum, OTHER_COLOR } from "../format";
 import type { EntityColors } from "../colors";
 import { attachWheelZoom, offsetTooltip } from "../chartInteractions";
-import { fmtDuration, spanChoices, windowChoices, type Span } from "../timeControls";
+import {
+  LIVE_FALLBACK_SPAN_SEC,
+  fmtDuration,
+  spanChoices,
+  windowChoices,
+  type ChartSettings,
+  type Span,
+} from "../timeControls";
 
 interface Props {
   sessionId: string;
@@ -13,6 +20,7 @@ interface Props {
   followLive: boolean;
   petRollup: boolean;
   colors: EntityColors;
+  chartDefaults: ChartSettings;
 }
 
 // Shared with the standard views' time panels so the two can't drift. This
@@ -23,10 +31,6 @@ const SPAN_CHOICES = spanChoices(1);
 /** Gaps longer than this are dead time between pulls — the line breaks. */
 const BREAK_MS = 30_000;
 
-/** Defaults: a 10 s rolling mean read over a 2-minute viewport. */
-const DEFAULT_WINDOW_SEC = 10;
-const DEFAULT_SPAN: Span = 120;
-
 /**
  * DPS over time with a user-adjustable rolling window. Seconds with no landed
  * damage inside a combat segment count as zero rather than leaving holes, so
@@ -35,22 +39,35 @@ const DEFAULT_SPAN: Span = 120;
  * "Other"; colors follow the entity for the life of the selection, never its
  * rank.
  */
-export function DpsChart({ sessionId, fightIds, refreshKey, followLive, petRollup, colors }: Props) {
+export function DpsChart({
+  sessionId,
+  fightIds,
+  refreshKey,
+  followLive,
+  petRollup,
+  colors,
+  chartDefaults,
+}: Props) {
   const divRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<echarts.ECharts | null>(null);
-  const [windowSec, setWindowSec] = useState(DEFAULT_WINDOW_SEC);
-  const [span, setSpan] = useState<Span>(DEFAULT_SPAN);
+  const [windowSec, setWindowSec] = useState(chartDefaults.windowSec);
+  const [span, setSpan] = useState<Span>(chartDefaults.spanSec);
   const [scopeMode, setScopeMode] = useState<"selection" | "recent">("selection");
   const [result, setResult] = useState<QueryResult | null>(null);
   const selectionKey = fightIds.join(",");
 
+  // The top-bar control is the parent: this chart is not special, so a change
+  // there pushes down here exactly as it does to every standard-view panel.
+  useEffect(() => {
+    setWindowSec(chartDefaults.windowSec);
+    setSpan(chartDefaults.spanSec);
+  }, [chartDefaults.windowSec, chartDefaults.spanSec]);
+
   // Live play wants "my output right now" — a trailing window over the record
   // stream, no fight entries involved. Reviewing history wants the fight
-  // selection. Either way the viewport returns to the default span; the user
-  // can override both choices afterwards, "fit" included.
+  // selection. The viewport is left alone: it belongs to the parent setting.
   useEffect(() => {
     setScopeMode(followLive ? "recent" : "selection");
-    setSpan(DEFAULT_SPAN);
   }, [followLive]);
 
   const effectiveSpan = span === "fit" ? 60 : span;
@@ -317,7 +334,7 @@ export function DpsChart({ sessionId, fightIds, refreshKey, followLive, petRollu
               onClick={() => {
                 setScopeMode("recent");
                 if (span === "fit") {
-                  setSpan(DEFAULT_SPAN);
+                  setSpan(LIVE_FALLBACK_SPAN_SEC);
                 }
               }}
               title="Everything in the last span — not tied to any fight or mob"
@@ -347,7 +364,7 @@ export function DpsChart({ sessionId, fightIds, refreshKey, followLive, petRollu
             <select
               className="panel-select"
               value={
-                scopeMode === "recent" && span === "fit" ? String(DEFAULT_SPAN) : String(span)
+                scopeMode === "recent" && span === "fit" ? String(LIVE_FALLBACK_SPAN_SEC) : String(span)
               }
               onChange={(e) => setSpan(e.target.value === "fit" ? "fit" : Number(e.target.value))}
             >

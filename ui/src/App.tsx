@@ -27,6 +27,7 @@ import {
   standardViews,
   stripStandardViews,
 } from "./dashboards/standardViews";
+import { DEFAULT_CHART_SETTINGS, type ChartSettings } from "./timeControls";
 
 /** Update polling: rare when nothing is happening, brisk while it is. */
 const IDLE_POLL_MS = 15_000;
@@ -47,6 +48,16 @@ export default function App() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [excludeDs, setExcludeDs] = useState(false);
   const [petRollup, setPetRollup] = useState(() => localStorage.getItem("eqdeeps.petRollup") !== "off");
+  // Window/span for every chart in the app. One value, one place — panels have
+  // no window/span of their own to disagree with it.
+  const [chartDefaults, setChartDefaults] = useState<ChartSettings>(() => {
+    try {
+      const stored = localStorage.getItem("eqdeeps.chartDefaults");
+      return stored ? { ...DEFAULT_CHART_SETTINGS, ...JSON.parse(stored) } : DEFAULT_CHART_SETTINGS;
+    } catch {
+      return DEFAULT_CHART_SETTINGS;
+    }
+  });
   const [discovered, setDiscovered] = useState<DiscoveredLog[]>([]);
   const [update, setUpdate] = useState<UpdateState | null>(null);
   const [showUpdateNotice, setShowUpdateNotice] = useState(false);
@@ -66,6 +77,11 @@ export default function App() {
     setStdView(id);
     setView("overview");
     localStorage.setItem("eqdeeps.stdView", id);
+  }
+
+  function updateChartDefaults(next: ChartSettings) {
+    setChartDefaults(next);
+    localStorage.setItem("eqdeeps.chartDefaults", JSON.stringify(next));
   }
 
   function togglePetRollup(on: boolean) {
@@ -423,6 +439,8 @@ export default function App() {
         checkNote={checkNote}
         petRollup={petRollup}
         onTogglePetRollup={togglePetRollup}
+        chartDefaults={chartDefaults}
+        onChartDefaults={updateChartDefaults}
         onOpen={openLog}
         onRefreshDiscovered={refreshDiscovered}
         onActivate={activate}
@@ -516,6 +534,7 @@ export default function App() {
                   <DashboardView
                     dashboard={std}
                     ctx={{ sessionId: activeId, fightIds: selected, refreshKey, petRollup, colors: entityColors }}
+                    chartDefaults={chartDefaults}
                     onChange={() => undefined}
                     readOnly
                     onCustomize={() => customizeStandardView(std.id)}
@@ -557,6 +576,7 @@ export default function App() {
                     followLive={followLive}
                     petRollup={petRollup}
                     colors={entityColors}
+                    chartDefaults={chartDefaults}
                   />
                   <AbilityChart
                     sessionId={activeId}
@@ -582,6 +602,7 @@ export default function App() {
                   <DashboardView
                     dashboard={dashboard}
                     ctx={{ sessionId: activeId, fightIds: selected, refreshKey, petRollup, colors: entityColors }}
+                    chartDefaults={chartDefaults}
                     onChange={(next) =>
                       updateDashboards(dashboards.map((d) => (d.id === next.id ? next : d)))
                     }

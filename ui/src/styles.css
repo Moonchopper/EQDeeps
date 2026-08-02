@@ -264,10 +264,26 @@ optgroup {
   font-weight: 400;
 }
 
+/* The app-wide chart setting, parked at the right end of the top bar next to
+   the version. `margin-left: auto` pushes this group right; .version then sits
+   beside it rather than claiming the gap itself. */
+.global-time-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.global-time-controls .time-controls {
+  opacity: 1; /* no panel to hover — it is always the live setting */
+}
+
 .version {
   color: var(--muted);
   font-size: 11px;
-  margin-left: auto;
 }
 
 .version a {

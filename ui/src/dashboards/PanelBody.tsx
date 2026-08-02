@@ -32,9 +32,13 @@ function fmtMetric(metric: string, value: number): string {
   return fmtNum(value);
 }
 
-function usePanelQuery(panel: PanelDef, ctx: PanelContext): QueryResult | null | "no-selection" {
+function usePanelQuery(
+  panel: PanelDef,
+  ctx: PanelContext,
+  windowSec = 0,
+): QueryResult | null | "no-selection" {
   const [result, setResult] = useState<QueryResult | null>(null);
-  const spec = buildSpec(panel, ctx.fightIds, ctx.petRollup);
+  const spec = buildSpec(panel, ctx.fightIds, ctx.petRollup, windowSec);
   const specKey = JSON.stringify(spec);
   const noSelection = panel.scopeMode === "selection" && ctx.fightIds.length === 0;
 
@@ -63,8 +67,8 @@ export function PanelBody({
 }: {
   panel: PanelDef;
   ctx: PanelContext;
-  /** Live header overrides for a time chart; falls back to the panel's own. */
-  settings?: ChartSettings;
+  /** Window and span for a time chart — app-wide default, or this panel's override. */
+  settings: ChartSettings;
 }) {
   switch (panel.viz) {
     case "table":
@@ -76,11 +80,6 @@ export function PanelBody({
     default:
       return <TilePanel panel={panel} ctx={ctx} />;
   }
-}
-
-/** The settings a time chart runs with when the header hasn't overridden them. */
-export function panelSettings(panel: PanelDef): ChartSettings {
-  return { windowSec: panel.windowSec, spanSec: panel.spanSec ?? "fit" };
 }
 
 // ---- table -----------------------------------------------------------------
@@ -197,12 +196,12 @@ function LinePanel({
 }: {
   panel: PanelDef;
   ctx: PanelContext;
-  settings?: ChartSettings;
+  settings: ChartSettings;
 }) {
   const divRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<echarts.ECharts | null>(null);
-  const result = usePanelQuery(panel, ctx);
-  const { windowSec, spanSec } = settings ?? panelSettings(panel);
+  const { windowSec, spanSec } = settings;
+  const result = usePanelQuery(panel, ctx, windowSec);
   const [isZoomed, setIsZoomed] = useState(false);
   const suppressZoomEventRef = useRef(false);
   const extentRef = useRef<[number, number] | null>(null);

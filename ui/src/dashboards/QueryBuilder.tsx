@@ -200,9 +200,8 @@ export function QueryBuilder({ panel, onSave, onCancel }: Props) {
             </>
           ) : (
             <>
-              <label>Smoothing</label>
+              <label>Bucket</label>
               <div className="radio-row">
-                bucket
                 <input
                   className="num-input"
                   type="number"
@@ -210,15 +209,11 @@ export function QueryBuilder({ panel, onSave, onCancel }: Props) {
                   value={draft.bucketSeconds}
                   onChange={(e) => set("bucketSeconds", Math.max(1, Number(e.target.value) || 1))}
                 />
-                s, rolling window
-                <input
-                  className="num-input"
-                  type="number"
-                  min={1}
-                  value={draft.windowSec}
-                  onChange={(e) => set("windowSec", Math.max(1, Number(e.target.value) || 1))}
-                />
                 s
+                <span className="subtle">
+                  what the server aggregates · the rolling window and viewport are
+                  set for all charts from the top bar
+                </span>
               </div>
             </>
           )}

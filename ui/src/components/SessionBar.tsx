@@ -2,6 +2,7 @@ import { useState, type CSSProperties } from "react";
 import type { DiscoveredLog, SessionInfo, UpdateMode, UpdateState } from "../api";
 import type { BackfillEvent } from "../live";
 import { UpdateSettings } from "./UpdateSettings";
+import { TimeControls, type ChartSettings } from "../timeControls";
 
 interface Props {
   sessions: SessionInfo[];
@@ -17,6 +18,9 @@ interface Props {
   checkNote: string | null;
   petRollup: boolean;
   onTogglePetRollup: (on: boolean) => void;
+  /** App-wide window/span. Owned here, pushed down to every chart. */
+  chartDefaults: ChartSettings;
+  onChartDefaults: (next: ChartSettings) => void;
   onOpen: (path: string) => void;
   onRefreshDiscovered: () => void;
   onActivate: (id: string) => void;
@@ -48,6 +52,8 @@ export function SessionBar({
   checkNote,
   petRollup,
   onTogglePetRollup,
+  chartDefaults,
+  onChartDefaults,
   onOpen,
   onRefreshDiscovered,
   onActivate,
@@ -148,6 +154,17 @@ export function SessionBar({
         </span>
       )}
       {error && <span className="error">{error}</span>}
+      {/* The parent window/span for every chart in the app. It sits up here
+          rather than on a panel precisely because it belongs to none of them:
+          changing it pushes down and clears any per-panel deviation. */}
+      <span className="global-time-controls" title="Rolling window and viewport for every chart">
+        <span className="subtle">all charts</span>
+        <TimeControls
+          settings={chartDefaults}
+          bucketSeconds={1}
+          onChange={onChartDefaults}
+        />
+      </span>
       {update && (
         <span className="version">
           <UpdateSettings

@@ -1,7 +1,7 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { GridLayout, useContainerWidth, type Layout, type LayoutItem } from "react-grid-layout";
 import { defaultPanel, newId, type DashboardDef, type PanelDef } from "./model";
-import { PanelBody, panelSettings, type PanelContext } from "./PanelBody";
+import { PanelBody, type PanelContext } from "./PanelBody";
 import { QueryBuilder } from "./QueryBuilder";
 import { TimeControls, type ChartSettings } from "../timeControls";
 
@@ -9,6 +9,8 @@ interface Props {
   dashboard: DashboardDef;
   ctx: PanelContext;
   onChange: (dashboard: DashboardDef) => void;
+  /** App-wide window/span from the top bar: where every chart here starts. */
+  chartDefaults: ChartSettings;
   /**
    * Standard views are app furniture: rendered from code, never stored, and
    * not editable in place. Their panels keep the header time controls (those
@@ -34,17 +36,29 @@ function rectFor(dashboard: DashboardDef, panelId: string): LayoutItem {
 }
 
 /** A grid of query panels — one custom dashboard, or one standard view. */
-export function DashboardView({ dashboard, ctx, onChange, readOnly, onCustomize }: Props) {
+export function DashboardView({
+  dashboard,
+  ctx,
+  onChange,
+  chartDefaults,
+  readOnly,
+  onCustomize,
+}: Props) {
   const [editing, setEditing] = useState<PanelDef | null>(null);
   const { containerRef, width, mounted } = useContainerWidth();
-  // Header window/span live only for as long as the view is open. They are a
-  // way of looking at the data, not a property of it — and on a standard view
-  // there is nowhere to persist them to anyway.
+  // Per-panel deviations from the app-wide setting, for as long as the view is
+  // open. They are a way of looking at the data, not a property of it.
   const [chartSettings, setChartSettings] = useState<Record<string, ChartSettings>>({});
+
+  // The top-bar control is the parent: changing it pushes down, discarding the
+  // per-panel deviations rather than leaving some charts silently behind.
+  useEffect(() => {
+    setChartSettings({});
+  }, [chartDefaults.windowSec, chartDefaults.spanSec]);
 
   const layout: Layout = dashboard.panels.map((p) => rectFor(dashboard, p.id));
   const timeCharts = dashboard.panels.filter((p) => p.viz === "line");
-  const settingsFor = (panel: PanelDef) => chartSettings[panel.id] ?? panelSettings(panel);
+  const settingsFor = (panel: PanelDef) => chartSettings[panel.id] ?? chartDefaults;
 
   const applyToAll = (from: PanelDef) => {
     const source = settingsFor(from);

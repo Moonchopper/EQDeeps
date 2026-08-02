@@ -42,6 +42,21 @@ export interface ChartSettings {
   spanSec: Span;
 }
 
+/**
+ * THE default for every time chart in the app — Summary's DPS chart and every
+ * standard view's panels alike. It is deliberately the only one: window and
+ * span are presentation, not properties of a panel, so no panel definition
+ * carries its own. The top-bar control seeds from this and pushes any change
+ * down to every chart.
+ */
+export const DEFAULT_CHART_SETTINGS: ChartSettings = { windowSec: 10, spanSec: 120 };
+
+/**
+ * A live tail has nothing to fit to — it has no end — so when the app-wide
+ * span is "fit", charts reading the record stream fall back to this.
+ */
+export const LIVE_FALLBACK_SPAN_SEC = 120;
+
 interface Props {
   settings: ChartSettings;
   bucketSeconds: number;

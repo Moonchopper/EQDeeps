@@ -79,9 +79,15 @@ One built-in dashboard: fight list + damage summary + DPS-over-time chart + deat
 
 Overview is a section, not a page: a row of sub-tabs holds Summary (the F7 dashboard) plus the specialized standard views — Raid DPS, Healing, Tanking, Right now, Experience, Faction, Loot. These ship with the app rather than being provisioned into the user's dashboard store, so they are read-only and cannot drift, be deleted, or be confused with something the user built. "Customize a copy" clones one into a custom dashboard (F8) that the user then owns.
 
-Every time chart carries the same window/span controls in its panel header, with "apply to all" to put every chart in the view on one footing. Both ladders are multiples of the panel's bucket width, so a minute-bucketed chart offers minute-scale windows rather than the 1-second chart's seconds.
+Window and span are presentation, not properties of a panel, so no panel definition carries them: there is exactly one default (`DEFAULT_CHART_SETTINGS`) and every chart in the app starts there. The top bar owns it — a control beside the version number — and changing it pushes down to every chart, Summary's DPS chart included. The setting persists across restarts.
+
+Individual charts can still deviate: each time panel repeats the same controls in its header, with "apply to all" to put the rest of that view on its footing. A deviation lasts until the parent setting changes, which clears it rather than leaving some charts silently behind. Both ladders are multiples of the panel's bucket width, so a minute-bucketed chart offers minute-scale windows rather than the 1-second chart's seconds.
+
+Panels keep `bucketSeconds`, which is a different thing: it is a query parameter deciding what the server aggregates, not how the result is read.
 
 - AC: The standard views cannot be edited, deleted or exported in place; "customize a copy" produces an editable dashboard and leaves the standard view unchanged.
+- AC: A fresh profile opens every time chart — Summary's and every standard view's — on the same window and span.
+- AC: Changing the top-bar setting moves every chart in the app, discarding per-panel deviations.
 - AC: Changing window or span on one chart and pressing "apply to all" moves every other time chart in that view to the same setting.
 - AC: Time charts draw one continuous line — a bucket with no events reads as zero, not a hole — so idle stretches sag to the axis instead of fragmenting the chart. Ranges too large to fill point-by-point fall back to breaking on long gaps rather than degrading.
 - AC: The chosen sub-tab survives a restart.

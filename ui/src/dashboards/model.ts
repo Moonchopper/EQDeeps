@@ -1,5 +1,4 @@
 import type { Dimension, QueryFilter, QuerySource, QuerySpec } from "../api";
-import type { Span } from "../timeControls";
 
 // The user-facing panel definition: a QuerySpec plus presentation. This is
 // what dashboards persist and what export/import moves between machines.
@@ -25,15 +24,13 @@ export interface PanelDef {
   excludeFlags: string[];
   playerFilter: string[];
   spellFilter: string[];
-  /** Line panels: bucket width and rolling-mean window. */
-  bucketSeconds: number;
-  windowSec: number;
   /**
-   * Line panels: the viewport the chart opens on. "fit" shows the whole
-   * range. Panels stored before this existed have it undefined, which reads
-   * as "fit".
+   * Line panels: the server-side bucket width. This is a QUERY parameter —
+   * it decides what the server aggregates. The rolling window and the
+   * viewport span are presentation and live in the app-wide chart settings
+   * (see DEFAULT_CHART_SETTINGS), not here, so every chart starts uniform.
    */
-  spanSec?: Span;
+  bucketSeconds: number;
 }
 
 export interface LayoutRect {
@@ -137,8 +134,6 @@ export function defaultPanel(): PanelDef {
     playerFilter: [],
     spellFilter: [],
     bucketSeconds: 1,
-    windowSec: 5,
-    spanSec: "fit",
   };
 }
 
@@ -146,11 +141,21 @@ export function newDashboard(name: string): DashboardDef {
   return { id: newId("d"), name, panels: [], layout: [] };
 }
 
-/** Binds a panel's stored definition to the live context at render time. */
-export function buildSpec(panel: PanelDef, fightIds: number[], petRollup: boolean): QuerySpec {
+/**
+ * Binds a panel's stored definition to the live context at render time.
+ * `windowSec` is the app-wide rolling window: a "recent"-scoped time chart
+ * fetches that much extra history so the mean is already warm at the left
+ * edge of the viewport instead of ramping up from nothing.
+ */
+export function buildSpec(
+  panel: PanelDef,
+  fightIds: number[],
+  petRollup: boolean,
+  windowSec: number,
+): QuerySpec {
   const scope: QuerySpec["scope"] = {};
   if (panel.scopeMode === "recent") {
-    scope.lastSeconds = panel.lastSeconds + (panel.viz === "line" ? panel.windowSec : 0);
+    scope.lastSeconds = panel.lastSeconds + (panel.viz === "line" ? windowSec : 0);
   } else {
     if (panel.scopeMode === "selection") {
       scope.fightIds = fightIds;

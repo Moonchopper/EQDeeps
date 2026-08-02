@@ -36,20 +36,18 @@ export function offsetTooltip(
 interface ZrWheelEvent {
   offsetX: number;
   wheelDelta: number;
-  event?: { shiftKey?: boolean; preventDefault?: () => void };
+  event?: { preventDefault?: () => void };
 }
 
 /**
- * Wheel navigation for time charts, replacing the built-in wheel zoom (whose
- * modifier handling can't make zoom and pan exclusive): plain wheel zooms
- * around the cursor, shift+wheel scrubs left/right. Both move the dataZoom
- * window with absolute time values, clamped to the data extent supplied by
- * getExtent, so the view can't wander into empty space.
- * Zooming back out to the full extent dispatches a true reset (0–100%) so the
- * chart's zoomed-state tracking can settle back to "default view".
+ * Wheel zoom for time charts, replacing the built-in handler: zooms around
+ * the cursor with absolute time values, clamped to the data extent supplied
+ * by getExtent so the view can't wander into empty space. Zooming back out
+ * to the full extent dispatches a true reset (0–100%) so the chart's
+ * zoomed-state tracking settles back to "default view".
  * Returns a detach function.
  */
-export function attachWheelNavigation(
+export function attachWheelZoom(
   chart: echarts.ECharts,
   pad: { left: number; right: number },
   getExtent: () => [number, number] | null,
@@ -72,24 +70,6 @@ export function attachWheelNavigation(
 
     e.event?.preventDefault?.();
     const extent = getExtent();
-
-    if (e.event?.shiftKey) {
-      // Scrub: a fifth of the window per notch; wheel down moves later.
-      let shift = (end - start) * 0.2 * (delta > 0 ? -1 : 1);
-      if (extent) {
-        shift = shift > 0 ? Math.min(shift, extent[1] - end) : Math.max(shift, extent[0] - start);
-      }
-      if (shift === 0) {
-        return;
-      }
-      chart.dispatchAction({
-        type: "dataZoom",
-        dataZoomIndex: 0,
-        startValue: start + shift,
-        endValue: end + shift,
-      });
-      return;
-    }
 
     // Zoom around the cursor; wheel up zooms in.
     const factor = delta > 0 ? 1 / 1.3 : 1.3;

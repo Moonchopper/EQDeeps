@@ -4,7 +4,7 @@ import { api, type QueryResult, type QueryRow } from "../api";
 import { fmtNum, fmtRate, OTHER_COLOR, SERIES_COLORS } from "../format";
 import { buildSpec, METRIC_LABELS, RATE_METRICS, type PanelDef } from "./model";
 import type { EntityColors } from "../colors";
-import { attachWheelNavigation, offsetTooltip } from "../chartInteractions";
+import { attachWheelZoom, offsetTooltip } from "../chartInteractions";
 
 export interface PanelContext {
   sessionId: string;
@@ -181,12 +181,12 @@ function LinePanel({ panel, ctx }: { panel: PanelDef; ctx: PanelContext }) {
       setIsZoomed(!(window.start === 0 && window.end === 100));
     });
     chart.getZr().on("dblclick", resetZoom);
-    const detachScrub = attachWheelNavigation(chart, { left: 48, right: 10 }, () => extentRef.current);
+    const detachWheelZoom = attachWheelZoom(chart, { left: 48, right: 10 }, () => extentRef.current);
     const observer = new ResizeObserver(() => chart.resize());
     observer.observe(divRef.current);
     return () => {
       observer.disconnect();
-      detachScrub();
+      detachWheelZoom();
       chart.dispose();
       chartRef.current = null;
     };
@@ -337,7 +337,7 @@ function LinePanel({ panel, ctx }: { panel: PanelDef; ctx: PanelContext }) {
       <div
         ref={divRef}
         className="chart"
-        title="Drag to zoom a time range · scroll to zoom · shift+scroll to scrub · double-click to reset"
+        title="Drag to zoom a time range · scroll to zoom · double-click to reset"
       />
       {isZoomed && (
         <button

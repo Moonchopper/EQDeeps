@@ -3,7 +3,7 @@ import * as echarts from "echarts";
 import { api, type QueryResult, type QueryRow } from "../api";
 import { fmtNum, OTHER_COLOR } from "../format";
 import type { EntityColors } from "../colors";
-import { attachWheelNavigation, offsetTooltip } from "../chartInteractions";
+import { attachWheelZoom, offsetTooltip } from "../chartInteractions";
 
 interface Props {
   sessionId: string;
@@ -89,12 +89,12 @@ export function DpsChart({ sessionId, fightIds, refreshKey, followLive, petRollu
       setIsZoomed(!(window.start === 0 && window.end === 100));
     });
     chart.getZr().on("dblclick", resetZoom);
-    const detachScrub = attachWheelNavigation(chart, { left: 52, right: 12 }, () => extentRef.current);
+    const detachWheelZoom = attachWheelZoom(chart, { left: 52, right: 12 }, () => extentRef.current);
     const onResize = () => chart.resize();
     window.addEventListener("resize", onResize);
     return () => {
       window.removeEventListener("resize", onResize);
-      detachScrub();
+      detachWheelZoom();
       chart.dispose();
       chartRef.current = null;
     };
@@ -244,8 +244,8 @@ export function DpsChart({ sessionId, fightIds, refreshKey, followLive, petRollu
           top: -1000,
           feature: { dataZoom: { yAxisIndex: "none", filterMode: "none" } },
         },
-        // Wheel gestures are handled by attachWheelNavigation (exclusive
-        // zoom/scrub on modifier); the inside component just holds the window.
+        // Wheel zoom is handled by attachWheelZoom (extent-clamped, resets
+        // cleanly at full extent); the inside component just holds the window.
         dataZoom: [
           {
             type: "inside",
@@ -366,7 +366,7 @@ export function DpsChart({ sessionId, fightIds, refreshKey, followLive, petRollu
         <div
           ref={divRef}
           className="chart"
-          title="Drag to zoom a time range · scroll to zoom · shift+scroll to scrub · double-click to reset"
+          title="Drag to zoom a time range · scroll to zoom · double-click to reset"
         />
         {isZoomed && (
           <button

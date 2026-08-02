@@ -12,8 +12,212 @@ public static class MiscParser
             ?? ParseResist(action, options)
             ?? ParseExperience(action)
             ?? ParseFaction(action)
+            ?? ParseLoot(action, options)
             ?? ParseMembership(action, options)
             ?? ParseWho(action);
+    }
+
+    private static GameEvent? ParseLoot(string action, ParserOptions options)
+    {
+        // "--You have looted a Cold-Forged Cudgel from Queen Dracnia's corpse.--"
+        // "--Soandso has looted a Rusty Whip from a bandit's corpse.--"
+        if (action.StartsWith("--", StringComparison.Ordinal) &&
+            action.EndsWith(".--", StringComparison.Ordinal))
+        {
+            var body = action.AsSpan(2, action.Length - 5);
+            string looter;
+            if (body.StartsWith("You have looted a ", StringComparison.Ordinal))
+            {
+                looter = options.PlayerName;
+                body = body["You have looted a ".Length..];
+            }
+            else
+            {
+                var i = body.IndexOf(" has looted a ", StringComparison.Ordinal);
+                if (i <= 0)
+                {
+                    return null;
+                }
+
+                looter = body[..i].ToString();
+                body = body[(i + " has looted a ".Length)..];
+            }
+
+            var from = body.LastIndexOf(" from ", StringComparison.Ordinal);
+            return from > 0
+                ? new LootEvent(looter, body[..from].ToString(), StripCorpse(body[(from + 6)..]))
+                : null;
+        }
+
+        // "You looted a Froglok Meat from a froglok ton knight's corpse and
+        // sold it for 5 copper." — auto-sell; "You looted 2 X …" for stacks.
+        if (action.StartsWith("You looted ", StringComparison.Ordinal))
+        {
+            var body = action.AsSpan("You looted ".Length).TrimEnd();
+            if (body.Length > 0 && body[^1] == '.')
+            {
+                body = body[..^1];
+            }
+
+            var sold = body.IndexOf(" and sold it for ", StringComparison.Ordinal);
+            if (sold <= 0)
+            {
+                return null;
+            }
+
+            var copper = ParseCoins(body[(sold + " and sold it for ".Length)..]);
+            if (copper is null)
+            {
+                return null;
+            }
+
+            body = body[..sold];
+            var quantity = 1;
+            if (body.StartsWith("a ", StringComparison.Ordinal))
+            {
+                body = body[2..];
+            }
+            else if (body.StartsWith("an ", StringComparison.Ordinal))
+            {
+                body = body[3..];
+            }
+            else
+            {
+                var digits = 0;
+                while (digits < body.Length && char.IsAsciiDigit(body[digits]))
+                {
+                    digits++;
+                }
+
+                if (digits == 0 || digits >= body.Length || body[digits] != ' ' ||
+                    !int.TryParse(body[..digits], out quantity))
+                {
+                    return null;
+                }
+
+                body = body[(digits + 1)..];
+            }
+
+            var from = body.LastIndexOf(" from ", StringComparison.Ordinal);
+            return from > 0
+                ? new LootEvent(options.PlayerName, body[..from].ToString(),
+                    StripCorpse(body[(from + 6)..]), copper, quantity)
+                : null;
+        }
+
+        // "You receive 1 platinum, 2 gold and 3 copper from the corpse." /
+        // "You receive 4 gold and 1 silver as your split."
+        if (action.StartsWith("You receive ", StringComparison.Ordinal))
+        {
+            var body = action.AsSpan("You receive ".Length).TrimEnd();
+            if (body.Length > 0 && body[^1] == '.')
+            {
+                body = body[..^1];
+            }
+
+            string source;
+            if (body.EndsWith(" from the corpse", StringComparison.Ordinal))
+            {
+                source = "corpse";
+                body = body[..^" from the corpse".Length];
+            }
+            else if (body.EndsWith(" as your split", StringComparison.Ordinal))
+            {
+                source = "split";
+                body = body[..^" as your split".Length];
+            }
+            else
+            {
+                return null;
+            }
+
+            var copper = ParseCoins(body);
+            return copper is null
+                ? null
+                : new LootEvent(options.PlayerName, Item: null, source, copper);
+        }
+
+        return null;
+    }
+
+    /// <summary>"1 platinum, 2 gold, 5 silver and 3 copper" → total copper, or null on any mismatch.</summary>
+    private static long? ParseCoins(ReadOnlySpan<char> text)
+    {
+        long total = 0;
+        var any = false;
+        while (text.Length > 0)
+        {
+            var digits = 0;
+            while (digits < text.Length && char.IsAsciiDigit(text[digits]))
+            {
+                digits++;
+            }
+
+            if (digits == 0 || digits >= text.Length || text[digits] != ' ' ||
+                !long.TryParse(text[..digits], out var amount))
+            {
+                return null;
+            }
+
+            text = text[(digits + 1)..];
+            long multiplier;
+            if (text.StartsWith("platinum", StringComparison.Ordinal))
+            {
+                multiplier = 1000;
+                text = text["platinum".Length..];
+            }
+            else if (text.StartsWith("gold", StringComparison.Ordinal))
+            {
+                multiplier = 100;
+                text = text["gold".Length..];
+            }
+            else if (text.StartsWith("silver", StringComparison.Ordinal))
+            {
+                multiplier = 10;
+                text = text["silver".Length..];
+            }
+            else if (text.StartsWith("copper", StringComparison.Ordinal))
+            {
+                multiplier = 1;
+                text = text["copper".Length..];
+            }
+            else
+            {
+                return null;
+            }
+
+            total += amount * multiplier;
+            any = true;
+            if (text.Length == 0)
+            {
+                break;
+            }
+
+            if (text.StartsWith(", ", StringComparison.Ordinal))
+            {
+                text = text[2..];
+            }
+            else if (text.StartsWith(" and ", StringComparison.Ordinal))
+            {
+                text = text[5..];
+            }
+            else
+            {
+                return null;
+            }
+        }
+
+        return any ? total : null;
+    }
+
+    private static string StripCorpse(ReadOnlySpan<char> source)
+    {
+        if (source.EndsWith("'s corpse", StringComparison.Ordinal))
+        {
+            source = source[..^"'s corpse".Length];
+        }
+
+        return source.ToString();
     }
 
     private static GameEvent? ParseFaction(string action)

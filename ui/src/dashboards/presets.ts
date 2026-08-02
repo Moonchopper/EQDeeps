@@ -12,7 +12,7 @@ import { defaultPanel, type DashboardDef, type LayoutRect, type PanelDef } from 
  * rewrites them to this pristine definition, which is idempotent.
  */
 export function presetDashboards(): DashboardDef[] {
-  return [raidDps(), healing(), tanking(), rightNow(), experience(), faction()];
+  return [raidDps(), healing(), tanking(), rightNow(), experience(), faction(), loot()];
 }
 
 export const PRESET_IDS = new Set(presetDashboards().map((d) => d.id));
@@ -398,6 +398,59 @@ function faction(): DashboardDef {
         scopeMode: "all",
         groupBy: ["player", "spell"],
         metrics: ["factionNet", "factionUps", "factionDowns", "factionCapped"],
+      },
+      { x: 0, y: 10, w: 12, h: 8 },
+    ],
+  ]);
+}
+
+// Loot lands after the kill (outside fight spans) — whole-log scope. Items
+// group on the spell dimension, their source corpse on target.
+function loot(): DashboardDef {
+  return build("preset-loot", "Loot", [
+    [
+      {
+        title: "Items looted",
+        viz: "table",
+        source: "loot",
+        scopeMode: "all",
+        groupBy: ["spell", "target"],
+        metrics: ["loots", "platinum"],
+      },
+      { x: 0, y: 0, w: 8, h: 10 },
+    ],
+    [
+      {
+        title: "Coin (plat)",
+        viz: "tile",
+        source: "loot",
+        scopeMode: "all",
+        groupBy: ["player"],
+        primaryMetric: "platinum",
+      },
+      { x: 8, y: 0, w: 4, h: 4 },
+    ],
+    [
+      {
+        title: "Plat per hour",
+        viz: "tile",
+        source: "loot",
+        scopeMode: "all",
+        groupBy: ["player"],
+        primaryMetric: "platPerHour",
+      },
+      { x: 8, y: 4, w: 4, h: 3 },
+    ],
+    [
+      {
+        title: "Coin over time",
+        viz: "line",
+        source: "loot",
+        scopeMode: "all",
+        groupBy: ["character"],
+        primaryMetric: "platinum",
+        bucketSeconds: 60,
+        windowSec: 300,
       },
       { x: 0, y: 10, w: 12, h: 8 },
     ],

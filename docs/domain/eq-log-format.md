@@ -216,7 +216,7 @@ Absorb records: zero-damage attempts against the defender (counts toward defensi
 
 ### 3.12 Misc events worth capturing
 
-- **Loot:** `--You have looted a Cold-Forged Cudgel from Queen Dracnia's corpse.--` (also `<Player> has looted…`); master-looter and "left on corpse/chest" variants; currency splits (`You receive 12 platinum … as your split`).
+- **Loot:** `--You have looted a Cold-Forged Cudgel from Queen Dracnia's corpse.--` (also `<Player> has looted…`); master-looter and "left on corpse/chest" variants; auto-sell loots carry the price and an optional stack count (`You looted 2 Phosphorous Powder from a dar ghoul knight's corpse and sold it for 1 platinum, 2 gold, 3 silver and 4 copper.`); coin pickups list any subset of denominations joined by `, `/` and ` (`You receive 1 platinum, 2 gold and 3 copper from the corpse.`; splits end `as your split`).
 - **Random rolls:** two-line pairs — `**A Magic Die is rolled by <Player>.` then `**It could have been any number from 0 to 100, but this time it turned up a 87.`
 - **Resists:** `Your target resisted the <Spell> spell.` / `<NPC> resisted your <Spell>!` — resist analytics per spell/NPC.
 - **Mez break:** `<NPC> has been awakened by <Player>.`

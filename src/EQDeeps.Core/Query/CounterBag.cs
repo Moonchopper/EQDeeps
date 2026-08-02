@@ -75,6 +75,9 @@ public sealed class CounterBag
     public long FactionDowns;
     public long FactionCapped;
 
+    public long Loots;
+    public long CoinCopper;
+
     public readonly TimeSegments ActiveTime = new();
 
     public void Add(ExperienceEvent xp)
@@ -106,6 +109,16 @@ public sealed class CounterBag
         {
             FactionDowns++;
         }
+    }
+
+    public void Add(LootEvent loot)
+    {
+        if (loot.Item is not null)
+        {
+            Loots += loot.Quantity;
+        }
+
+        CoinCopper += loot.Copper ?? 0;
     }
 
     public void Add(DamageEvent damage)

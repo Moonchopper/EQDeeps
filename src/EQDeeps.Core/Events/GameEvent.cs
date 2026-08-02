@@ -157,3 +157,13 @@ public sealed record ExperienceEvent(
 /// </summary>
 public sealed record FactionEvent(
     string Faction, int? Delta, bool Better, bool Capped = false) : GameEvent;
+
+/// <summary>
+/// An item loot or coin pickup. <see cref="Item"/> is null for pure coin
+/// events; <see cref="Copper"/> (total value in copper, 1 plat = 1000) is null
+/// for item-only loots and set for coin pickups and auto-sold loots.
+/// <see cref="Source"/> is the corpse/looter-facing origin ("a froglok ton
+/// knight", "corpse", "split").
+/// </summary>
+public sealed record LootEvent(
+    string Looter, string? Item, string? Source, long? Copper = null, int Quantity = 1) : GameEvent;

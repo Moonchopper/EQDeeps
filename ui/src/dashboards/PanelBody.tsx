@@ -20,7 +20,8 @@ function fmtMetric(metric: string, value: number): string {
       metric === "interrupts" || metric === "fizzles" || metric === "activeSeconds" ||
       metric === "xpGains" || metric === "aaPoints" ||
       metric === "factionNet" || metric === "factionUps" ||
-      metric === "factionDowns" || metric === "factionCapped") {
+      metric === "factionDowns" || metric === "factionCapped" ||
+      metric === "loots") {
     return String(Math.round(value));
   }
   if (metric === "xpPercent" || metric === "xpPerHour") {

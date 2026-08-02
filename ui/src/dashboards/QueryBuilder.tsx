@@ -9,7 +9,7 @@ interface Props {
 }
 
 const SOURCES: QuerySource[] =
-  ["damage", "healing", "tanking", "casts", "deaths", "experience", "faction"];
+  ["damage", "healing", "tanking", "casts", "deaths", "experience", "faction", "loot"];
 
 /**
  * The query editor — every panel is metric × dimensions × filters × scope ×

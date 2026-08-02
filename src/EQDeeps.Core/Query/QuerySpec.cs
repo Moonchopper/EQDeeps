@@ -12,6 +12,7 @@ public enum QuerySource
     Deaths,
     Experience,
     Faction,
+    Loot,
 }
 
 public enum Dimension

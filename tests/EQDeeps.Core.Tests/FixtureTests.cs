@@ -155,6 +155,27 @@ public class FixtureTests
                 }
 
                 break;
+            case "loot":
+                var loot = Assert.IsType<LootEvent>(evt);
+                AssertString(expect, "looter", loot.Looter, context);
+                AssertString(expect, "item", loot.Item, context);
+                AssertString(expect, "source", loot.Source, context);
+                if (expect.TryGetProperty("copper", out var copper))
+                {
+                    var expectedCopper = copper.ValueKind == JsonValueKind.Null
+                        ? (long?)null
+                        : copper.GetInt64();
+                    Assert.True(expectedCopper == loot.Copper,
+                        $"{context} — copper expected {expectedCopper} got {loot.Copper}");
+                }
+
+                if (expect.TryGetProperty("quantity", out var quantity))
+                {
+                    Assert.True(quantity.GetInt32() == loot.Quantity,
+                        $"{context} — quantity expected {quantity.GetInt32()} got {loot.Quantity}");
+                }
+
+                break;
             case "who":
                 var who = Assert.IsType<WhoEvent>(evt);
                 AssertString(expect, "player", who.Player, context);

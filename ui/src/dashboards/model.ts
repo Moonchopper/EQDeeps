@@ -78,6 +78,9 @@ export const METRIC_LABELS: Record<string, string> = {
   factionUps: "Gains",
   factionDowns: "Losses",
   factionCapped: "Capped",
+  loots: "Items",
+  platinum: "Plat",
+  platPerHour: "Plat/hr",
 };
 
 export const RATE_METRICS = new Set([

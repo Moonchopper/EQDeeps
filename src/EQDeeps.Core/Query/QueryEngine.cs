@@ -93,12 +93,14 @@ public sealed class QueryEngine
                 units.Add(new ScopeUnit(range, null));
             }
         }
-        else if (source is QuerySource.Experience or QuerySource.Faction or QuerySource.Loot &&
+        else if (source is QuerySource.Experience or QuerySource.Faction or QuerySource.Loot
+                     or QuerySource.Considers &&
                  scope.FightIds is null)
         {
-            // XP, faction, and loot largely arrive outside fight spans (quests,
-            // turn-ins, looting after the kill) and rate metrics need the real
-            // timeline, so an unrestricted scope means the whole record stream.
+            // XP, faction, loot, and considers largely arrive outside fight
+            // spans (quests, turn-ins, looting/conning around the pull) and
+            // rate metrics need the real timeline, so an unrestricted scope
+            // means the whole record stream.
             if (_records.Count > 0)
             {
                 units.Add(new ScopeUnit(
@@ -144,7 +146,8 @@ public sealed class QueryEngine
         // ranges, not per fight — collapse to the union so overlaps don't
         // double-count.
         if (source is QuerySource.Healing or QuerySource.Casts or QuerySource.Deaths
-            or QuerySource.Experience or QuerySource.Faction or QuerySource.Loot)
+            or QuerySource.Experience or QuerySource.Faction or QuerySource.Loot
+            or QuerySource.Considers)
         {
             var union = new TimeSegments();
             foreach (var unit in units)
@@ -295,6 +298,15 @@ public sealed class QueryEngine
                 actor = lootEvent.Looter;
                 break;
 
+            case QuerySource.Considers:
+                if (record.Event is not ConsiderEvent considerEvent)
+                {
+                    return;
+                }
+
+                actor = considerEvent.Target; // rows rank the conned targets
+                break;
+
             default:
                 return;
         }
@@ -389,6 +401,10 @@ public sealed class QueryEngine
         else if (record.Event is LootEvent loot)
         {
             node.Bag.Add(loot);
+        }
+        else if (record.Event is ConsiderEvent consider)
+        {
+            node.Bag.Add(consider);
         }
 
         if (node.UnitSpans.TryGetValue(unitIndex, out var span))
@@ -486,6 +502,7 @@ public sealed class QueryEngine
                 ExperienceEvent x => x.AaPoint ? "AA point" : x.Party ? "party" : "solo",
                 FactionEvent f => f.Capped ? "capped" : f.Better ? "up" : "down",
                 LootEvent l => l.Item ?? "coin",
+                ConsiderEvent con => con.Attitude,
                 _ => "Unknown",
             },
             Dimension.DamageType => evt is DamageEvent dt

@@ -247,6 +247,36 @@ public class QueryEngineTests
         Assert.Equal("Phosphorous Powder", result.Rows[0].Key);
     }
 
+    // ---- considers: hand-computed -----------------------------------------
+
+    [Fact]
+    public void ConsiderMetricsMatchHandComputedValues()
+    {
+        Add(30, new ConsiderEvent("A dar ghoul knight", "scowl", 22));
+        Add(31, new ConsiderEvent("A dar ghoul knight", "scowl", 24)); // respawn, higher level
+        Add(32, new ConsiderEvent("A bat", "indifferent", 7));
+        Add(33, new ConsiderEvent("a skeleton", "threatening", null)); // classic, no level
+
+        var result = _engine.Execute(new QuerySpec
+        {
+            Source = QuerySource.Considers,
+            GroupBy = [Dimension.Player, Dimension.Spell],
+        });
+
+        Assert.Equal(4, result.Totals["considers"]);
+
+        var knight = Row(result, "A dar ghoul knight");
+        Assert.Equal(2, knight.Metrics["considers"]);
+        Assert.Equal(24, knight.Metrics["conLevel"]); // max level seen
+        Assert.Equal(2, knight.Children!.Single(c => c.Key == "scowl").Metrics["considers"]);
+
+        var skeleton = Row(result, "a skeleton");
+        Assert.Equal(0, skeleton.Metrics["conLevel"]); // classic: level unknown
+
+        // Ranked by considers (first metric): the twice-conned knight first.
+        Assert.Equal("A dar ghoul knight", result.Rows[0].Key);
+    }
+
     // ---- validity toggles are filters, never reparses ----------------------
 
     [Fact]

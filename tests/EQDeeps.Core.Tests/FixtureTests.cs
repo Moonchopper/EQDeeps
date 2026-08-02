@@ -176,6 +176,20 @@ public class FixtureTests
                 }
 
                 break;
+            case "consider":
+                var consider = Assert.IsType<ConsiderEvent>(evt);
+                AssertString(expect, "target", consider.Target, context);
+                AssertString(expect, "attitude", consider.Attitude, context);
+                if (expect.TryGetProperty("level", out var conLevel))
+                {
+                    var expectedConLevel = conLevel.ValueKind == JsonValueKind.Null
+                        ? (int?)null
+                        : conLevel.GetInt32();
+                    Assert.True(expectedConLevel == consider.Level,
+                        $"{context} — level expected {expectedConLevel} got {consider.Level}");
+                }
+
+                break;
             case "who":
                 var who = Assert.IsType<WhoEvent>(evt);
                 AssertString(expect, "player", who.Player, context);

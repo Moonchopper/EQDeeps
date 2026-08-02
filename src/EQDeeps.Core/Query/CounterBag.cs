@@ -78,6 +78,9 @@ public sealed class CounterBag
     public long Loots;
     public long CoinCopper;
 
+    public long Considers;
+    public long ConLevelMax;
+
     public readonly TimeSegments ActiveTime = new();
 
     public void Add(ExperienceEvent xp)
@@ -119,6 +122,15 @@ public sealed class CounterBag
         }
 
         CoinCopper += loot.Copper ?? 0;
+    }
+
+    public void Add(ConsiderEvent consider)
+    {
+        Considers++;
+        if (consider.Level is { } level && level > ConLevelMax)
+        {
+            ConLevelMax = level;
+        }
     }
 
     public void Add(DamageEvent damage)

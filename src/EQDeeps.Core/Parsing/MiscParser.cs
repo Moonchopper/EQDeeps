@@ -13,9 +13,51 @@ public static class MiscParser
             ?? ParseExperience(action)
             ?? ParseFaction(action)
             ?? ParseLoot(action, options)
+            ?? ParseConsider(action)
             ?? ParseMembership(action, options)
             ?? ParseWho(action);
     }
+
+    private static GameEvent? ParseConsider(string action)
+    {
+        // "A bat regards you indifferently -- You could probably win this
+        // fight. (Lvl: 7)" — the attitude infix identifies the line; the
+        // threat clause varies freely and is dropped; the level suffix is a
+        // modern-server addition.
+        foreach (var (infix, attitude) in ConsiderPatterns)
+        {
+            var i = action.IndexOf(infix, StringComparison.Ordinal);
+            if (i <= 0)
+            {
+                continue;
+            }
+
+            int? level = null;
+            var lvl = action.LastIndexOf(" (Lvl: ", StringComparison.Ordinal);
+            if (lvl > 0 && action.EndsWith(")", StringComparison.Ordinal) &&
+                int.TryParse(action.AsSpan(lvl + " (Lvl: ".Length, action.Length - lvl - " (Lvl: ".Length - 1),
+                    out var parsed))
+            {
+                level = parsed;
+            }
+
+            return new ConsiderEvent(action[..i], attitude, level);
+        }
+
+        return null;
+    }
+
+    private static readonly (string Infix, string Attitude)[] ConsiderPatterns =
+    [
+        (" scowls at you, ready to attack", "scowl"),
+        (" glares at you threateningly", "threatening"),
+        (" glowers at you dubiously", "dubious"),
+        (" regards you indifferently", "indifferent"),
+        (" judges you amiably", "amiable"),
+        (" kindly considers you", "kindly"),
+        (" looks upon you warmly", "warm"),
+        (" regards you as an ally", "ally"),
+    ];
 
     private static GameEvent? ParseLoot(string action, ParserOptions options)
     {

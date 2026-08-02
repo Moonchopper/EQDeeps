@@ -167,3 +167,10 @@ public sealed record FactionEvent(
 /// </summary>
 public sealed record LootEvent(
     string Looter, string? Item, string? Source, long? Copper = null, int Quantity = 1) : GameEvent;
+
+/// <summary>
+/// A /consider result: the target's attitude bucket and — on modern servers —
+/// its level from the "(Lvl: N)" suffix. Considers are the accessible source
+/// of NPC levels (mob-stats groundwork); the threat clause is dropped.
+/// </summary>
+public sealed record ConsiderEvent(string Target, string Attitude, int? Level) : GameEvent;

@@ -148,6 +148,18 @@ jobs:
           if (-not $env:SPARKLE_PRIVATE_KEY) {
             throw "SPARKLE_PRIVATE_KEY is not set — clients could not verify this release."
           }
+
+          # The generator refuses to sign unless BOTH halves of the key are
+          # available, and the public half must be exactly the one compiled into
+          # the app — if those ever drift, every client rejects every release.
+          # So read it from the source of truth instead of duplicating it here.
+          $source = Get-Content src/EQDeeps.Server/Updates/UpdateService.cs -Raw
+          $key = [regex]::Match($source, 'const string PublicKey = "([^"]+)"')
+          if (-not $key.Success) {
+            throw "could not read PublicKey from UpdateService.cs — app cast would be unsigned."
+          }
+          $env:SPARKLE_PUBLIC_KEY = $key.Groups[1].Value
+
           dotnet tool install --global NetSparkleUpdater.Tools.AppCastGenerator --version 2.9.0
 
           New-Item -ItemType Directory -Force artifacts/notes | Out-Null

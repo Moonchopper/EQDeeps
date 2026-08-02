@@ -1,27 +1,41 @@
-using System.Diagnostics;
+using System.Windows.Forms;
 using EQDeeps.Server;
 using Microsoft.Extensions.DependencyInjection;
 
-// Launch behavior (feature F14): start on the default localhost port, fall
-// back to a dynamic port when it's taken by something else, reuse an already
-// running EQDeeps instead of starting twice, open the default browser, and
-// exit shortly after the last browser tab closes (the log is the source of
-// truth — reopening backfills instantly, so nothing is worth orphaning a
-// background process for). Flags: --no-browser, --no-update-check,
-// --stay-alive (keep running with no UI connected), --urls <url>.
+// Launch behavior (feature F14): the exe is a windowed app — start the
+// localhost server, then host the SPA in the app's own WebView2 window.
+// Closing the window exits (the log is the source of truth — relaunching
+// backfills instantly, so nothing is worth orphaning a background process
+// for). Start on the default port, fall back to a dynamic port when it's
+// taken, and reuse an already running instance (focus its window) instead of
+// starting twice. Without the WebView2 runtime, degrade to browser mode:
+// open the default browser and exit shortly after the last tab is
+// deliberately closed. Flags: --browser (default browser instead of the app
+// window), --no-browser (headless: no UI at all), --no-update-check,
+// --stay-alive (keep running with no UI open), --urls <url>.
 
-var noBrowser = args.Contains("--no-browser");
+Native.AttachConsole(-1); // WinExe has no console; reattach so terminal launches still print
+
+var browserMode = args.Contains("--browser");
+var noUi = args.Contains("--no-browser");
 var noUpdateCheck = args.Contains("--no-update-check");
 var stayAlive = args.Contains("--stay-alive");
 var explicitUrls = args.Any(a => a.StartsWith("--urls", StringComparison.OrdinalIgnoreCase)) ||
                    Environment.GetEnvironmentVariable("ASPNETCORE_URLS") is not null;
 
+var windowMode = !browserMode && !noUi && AppWindow.IsRuntimeAvailable();
+
 if (!explicitUrls && await IsEqdeepsAlreadyRunningAsync(ServerApp.DefaultUrl))
 {
-    Console.WriteLine($"EQDeeps is already running at {ServerApp.DefaultUrl} — opening it.");
-    if (!noBrowser)
+    Console.WriteLine($"EQDeeps is already running at {ServerApp.DefaultUrl} — switching to it.");
+    if (!noUi)
     {
-        OpenBrowser(ServerApp.DefaultUrl);
+        // Surface the running instance's window; browser-mode servers (or
+        // older builds) have none, so open a tab like before.
+        if (browserMode || !await TryFocusRunningInstanceAsync(ServerApp.DefaultUrl))
+        {
+            AppWindow.OpenInDefaultBrowser(ServerApp.DefaultUrl);
+        }
     }
 
     return;
@@ -41,25 +55,76 @@ catch (IOException) when (!explicitUrls)
 }
 
 var url = app.Urls.FirstOrDefault() ?? ServerApp.DefaultUrl;
-Console.WriteLine($"EQDeeps v{UpdateChecker.CurrentVersion} — {url}  (Ctrl+C to quit)");
+Console.WriteLine($"EQDeeps v{UpdateChecker.CurrentVersion} — {url}" +
+                  (windowMode ? "" : "  (Ctrl+C to quit)"));
 
 if (!noUpdateCheck)
 {
     _ = app.Services.GetRequiredService<UpdateChecker>().CheckAsync();
 }
 
-if (!noBrowser)
+if (windowMode)
 {
-    OpenBrowser(url);
+    StartWindow(app, url, stayAlive);
+}
+else if (!noUi)
+{
+    AppWindow.OpenInDefaultBrowser(url);
 }
 
-if (!stayAlive)
+// Browser tabs govern lifetime only when they are the UI; in window mode the
+// window governs it, and headless runs are never auto-exited.
+if (!windowMode && !stayAlive)
 {
     _ = MonitorUiClientsAsync(app);
 }
 
 await app.WaitForShutdownAsync();
 return;
+
+// The shell window runs its message loop on a dedicated STA thread while the
+// host keeps the main thread; closing the window stops the host (unless
+// --stay-alive), and a stopping host closes the window (e.g. Ctrl+C).
+static void StartWindow(WebApplication app, string url, bool stayAlive)
+{
+    var lifetime = app.Services.GetRequiredService<Microsoft.Extensions.Hosting.IHostApplicationLifetime>();
+    var bridge = app.Services.GetRequiredService<WindowBridge>();
+    using var ready = new ManualResetEventSlim();
+    AppWindow? window = null;
+    var uiThread = new Thread(() =>
+    {
+        Application.SetHighDpiMode(HighDpiMode.PerMonitorV2);
+        Application.EnableVisualStyles();
+        Application.SetCompatibleTextRenderingDefault(false);
+        var fellBackToBrowser = false;
+        using var w = new AppWindow(url, onBrowserFallback: () =>
+        {
+            // WebView2 died after the window opened; the browser tab just
+            // launched is now the UI, so the tab monitor takes over lifetime.
+            fellBackToBrowser = true;
+            if (!stayAlive)
+            {
+                _ = MonitorUiClientsAsync(app);
+            }
+        });
+        window = w;
+        bridge.Attach(w.TryFocus);
+        ready.Set();
+        Application.Run(w);
+        if (!fellBackToBrowser && !stayAlive)
+        {
+            lifetime.StopApplication();
+        }
+    })
+    {
+        IsBackground = true,
+        Name = "EQDeeps UI",
+    };
+    uiThread.SetApartmentState(ApartmentState.STA);
+    uiThread.Start();
+    ready.Wait();
+    lifetime.ApplicationStopping.Register(() => window?.RequestClose());
+}
 
 // Once a UI has connected, exit when the last one has been *deliberately*
 // closed (pagehide goodbye) and gone past a grace period. Disconnects without
@@ -106,25 +171,23 @@ static async Task<bool> IsEqdeepsAlreadyRunningAsync(string url)
     }
 }
 
-static void OpenBrowser(string url)
+static async Task<bool> TryFocusRunningInstanceAsync(string url)
 {
     try
     {
-        if (OperatingSystem.IsWindows())
-        {
-            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
-        }
-        else if (OperatingSystem.IsMacOS())
-        {
-            Process.Start("open", url);
-        }
-        else
-        {
-            Process.Start("xdg-open", url);
-        }
+        using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(2) };
+        var response = await http.PostAsync(url + "/api/ui/focus", content: null);
+        return response.IsSuccessStatusCode;
     }
     catch (Exception)
     {
-        // No browser available — the printed URL is enough.
+        return false;
     }
+}
+
+internal static class Native
+{
+    /// <summary>ATTACH_PARENT_PROCESS = -1; fails harmlessly when double-clicked.</summary>
+    [System.Runtime.InteropServices.DllImport("kernel32.dll")]
+    internal static extern bool AttachConsole(int dwProcessId);
 }

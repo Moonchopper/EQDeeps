@@ -35,6 +35,7 @@ public static class ServerApp
         builder.Services.AddSingleton<DocumentStore>();
         builder.Services.AddSingleton<UpdateChecker>();
         builder.Services.AddSingleton<ClientTracker>();
+        builder.Services.AddSingleton<WindowBridge>();
 
         var app = builder.Build();
 
@@ -57,6 +58,12 @@ public static class ServerApp
             clients.OnGoodbye();
             return Results.NoContent();
         });
+
+        // A second exe launch asks the running instance to surface its shell
+        // window; 404 means there is no window (browser mode, headless, or an
+        // older build) and the caller opens a browser tab instead.
+        app.MapPost("/api/ui/focus", (WindowBridge bridge) =>
+            bridge.TryFocus() ? Results.NoContent() : Results.NotFound());
 
         app.MapGet("/api/logs/discovered", () => Results.Ok(LogDiscovery.Discover()));
 

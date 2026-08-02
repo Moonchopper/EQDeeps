@@ -4,11 +4,20 @@
     <Description>EQDeeps local backend: sessions REST API + SignalR realtime channel.</Description>
     <Version Condition="'$(Version)' == ''">0.1.0</Version>
     <ApplicationIcon>Assets\eqdeeps.ico</ApplicationIcon>
+    <!-- The exe is a windowed app (WebView2 shell hosts the SPA); WinExe keeps
+         a console window from flashing when double-clicked. Program attaches
+         to the parent console so terminal launches still print. -->
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <OutputType>WinExe</OutputType>
+    <UseWindowsForms>true</UseWindowsForms>
     <!-- The built SPA is embedded into the assembly so the published output is
          one self-contained exe; dev builds serve the physical wwwroot instead. -->
     <GenerateEmbeddedFilesManifest>true</GenerateEmbeddedFilesManifest>
+    <!-- Keep package XML doc files (WebView2) out of the shipped folder. -->
+    <PublishReferencesDocumentationFiles>false</PublishReferencesDocumentationFiles>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4078.44" />
     <ProjectReference Include="..\EQDeeps.Core\EQDeeps.Core.csproj" />
     <PackageReference Include="Microsoft.Win32.Registry" Version="5.0.0" />
     <PackageReference Include="Microsoft.Extensions.FileProviders.Embedded" Version="8.0.8" />

@@ -1,6 +1,8 @@
 # ADR-008: Packaging & distribution
 
-Status: accepted (2026-08-01). Scope: phase 8 — feature F14.
+Status: accepted (2026-08-01). Scope: phase 8 — feature F14. The launch
+behavior below (browser-tab UI) is superseded by ADR-009 (windowed shell);
+it survives as the fallback/`--browser` mode.
 
 ## Design
 

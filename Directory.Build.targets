@@ -1,0 +1,11 @@
+<Project>
+  <!-- The WebView2 package references its WPF assembly unconditionally (also
+       into projects that reference EQDeeps.Server transitively); the shell is
+       WinForms-only and the WPF dll drags in a WindowsBase version conflict
+       (MSB3277), so drop it before reference resolution. -->
+  <Target Name="RemoveWebView2WpfReference" BeforeTargets="ResolveAssemblyReferences">
+    <ItemGroup>
+      <Reference Remove="@(Reference)" Condition="'%(FileName)' == 'Microsoft.Web.WebView2.Wpf'" />
+    </ItemGroup>
+  </Target>
+</Project>

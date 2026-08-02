@@ -6,14 +6,16 @@ A modern, real-time EverQuest combat-log analytics app — a clean-room successo
 
 ## Run it
 
-**From a release zip**: run `EQDeeps.Server.exe` — it starts the local server and
-opens your browser. No install, no .NET required. Deliberately closing the last
-browser tab shuts the app down a few seconds later (reopening backfills from the
-log, so nothing is lost); tabs merely backgrounded, put to sleep by the browser,
-or interrupted by system sleep do **not** stop it — the tab reconnects when you
-return. Flags: `--no-browser`, `--no-update-check`, `--stay-alive` (keep parsing
-with no UI open), `--urls http://127.0.0.1:PORT`; launching it again focuses the
-running instance.
+**From a release zip**: run `EQDeeps.Server.exe` — the app opens in its own
+window (WebView2, the browser engine built into Windows 10/11). No install, no
+.NET required. Closing the window exits the app (reopening backfills from the
+log, so nothing is lost), and launching the exe again focuses the already-open
+window. On machines without the WebView2 runtime it falls back to your default
+browser, where deliberately closing the last tab shuts the app down a few
+seconds later — backgrounded or slept tabs do **not** stop it. Flags:
+`--browser` (use your default browser instead of the app window),
+`--no-browser` (headless, no UI), `--no-update-check`, `--stay-alive` (keep
+parsing with no UI open), `--urls http://127.0.0.1:PORT`.
 
 **From source**:
 
@@ -53,6 +55,6 @@ GitHub release with the artifact attached (see `.github/workflows/release.yml`).
 | [docs/domain/metrics-and-aggregation.md](docs/domain/metrics-and-aggregation.md) | Fight segmentation, counters, metric formulas |
 | [docs/architecture/system-overview.md](docs/architecture/system-overview.md) | Stack, components, the QuerySpec model |
 | [docs/architecture/log-ingestion-brief.md](docs/architecture/log-ingestion-brief.md) | Design brief for the file-reading layer |
-| [docs/architecture/adr-001…008](docs/architecture/) | Decisions per phase: parser, ingestion, session state, query engine, API/live, SPA, dashboards, packaging |
+| [docs/architecture/adr-001…009](docs/architecture/) | Decisions per phase: parser, ingestion, session state, query engine, API/live, SPA, dashboards, packaging, windowed shell |
 
 Locked decisions: .NET 8 backend + React/TypeScript SPA, realtime via SignalR, multi-character monitoring from day one, permissive-license dependencies only (attribution in [NOTICE](NOTICE)), Windows-first, public release as the end goal.

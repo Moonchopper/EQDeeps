@@ -25,9 +25,14 @@ licensed components:
   Copyright .NET Foundation and Contributors.
 - react-grid-layout (https://github.com/react-grid-layout/react-grid-layout)
   — MIT License, Copyright Samuel Reed.
-- .NET runtime and ASP.NET Core, including Microsoft.Extensions.* and
-  Microsoft.Win32.Registry packages (https://github.com/dotnet) — MIT
-  License, Copyright .NET Foundation and Contributors.
+- .NET runtime, ASP.NET Core, and Windows Forms, including
+  Microsoft.Extensions.* and Microsoft.Win32.Registry packages
+  (https://github.com/dotnet) — MIT License, Copyright .NET Foundation and
+  Contributors.
+- Microsoft Edge WebView2 SDK
+  (https://developer.microsoft.com/microsoft-edge/webview2) — BSD-style
+  Microsoft license, Copyright Microsoft Corporation. The WebView2 runtime
+  itself is a Windows system component and is not distributed with EQDeeps.
 
 EverQuest is a registered trademark of Daybreak Game Company LLC. EQDeeps is
 an unaffiliated fan-made tool and includes no game assets.

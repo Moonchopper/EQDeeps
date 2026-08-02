@@ -105,7 +105,7 @@ Learned verified-players, pet→owner mappings, and class detections persist per
 
 ### F14. Packaging & updates
 
-Self-contained Windows distribution (single exe or installer) that starts the local backend, serves the UI, and opens the browser (and/or tray icon). Update check against GitHub Releases with one-click download.
+Self-contained Windows distribution (single exe or installer) that starts the local backend and shows the UI in the app's own window (WebView2 shell; default-browser fallback). Update check against GitHub Releases with one-click download.
 
 - AC: A machine without the .NET SDK runs the app from the published artifact.
 

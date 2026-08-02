@@ -149,6 +149,11 @@ jobs:
             throw "SPARKLE_PRIVATE_KEY is not set — clients could not verify this release."
           }
 
+          # Secrets pick up stray bytes surprisingly easily — a BOM or trailing
+          # newline from however the value was piped in when it was set. Base64
+          # tolerates whitespace but not a BOM, which is exactly how v0.4.1 failed.
+          $env:SPARKLE_PRIVATE_KEY = $env:SPARKLE_PRIVATE_KEY.Trim() -replace "^﻿", ""
+
           # The generator refuses to sign unless BOTH halves of the key are
           # available, and the public half must be exactly the one compiled into
           # the app — if those ever drift, every client rejects every release.
@@ -159,6 +164,16 @@ jobs:
             throw "could not read PublicKey from UpdateService.cs — app cast would be unsigned."
           }
           $env:SPARKLE_PUBLIC_KEY = $key.Groups[1].Value
+
+          # Fail with a readable message rather than the generator's opaque
+          # "not a valid Base-64 string" buried in its own error handling.
+          foreach ($pair in @(@("private", $env:SPARKLE_PRIVATE_KEY), @("public", $env:SPARKLE_PUBLIC_KEY))) {
+            try { $bytes = [Convert]::FromBase64String($pair[1]) }
+            catch { throw "$($pair[0]) Ed25519 key is not valid base64 — see docs/release-signing.md." }
+            if ($bytes.Length -ne 32) {
+              throw "$($pair[0]) Ed25519 key decodes to $($bytes.Length) bytes, expected 32."
+            }
+          }
 
           dotnet tool install --global NetSparkleUpdater.Tools.AppCastGenerator --version 2.9.0
 

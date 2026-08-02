@@ -50,6 +50,21 @@ public sealed class RecentLogsTests : IDisposable
     }
 
     [Fact]
+    public void ForgetRemovesOnlyThatPathAndPersists()
+    {
+        var recents = new RecentLogs(_dir);
+        recents.Touch(@"C:\logs\eqlog_Keep_xegony.txt");
+        recents.Touch(@"C:\logs\eqlog_Drop_testserver.txt");
+
+        Assert.True(recents.Forget(@"c:\LOGS\eqlog_drop_testserver.TXT")); // case-insensitive
+        Assert.Equal([@"C:\logs\eqlog_Keep_xegony.txt"], recents.List());
+        Assert.False(recents.Forget(@"C:\logs\eqlog_Drop_testserver.txt")); // already gone
+
+        // The removal survives a restart — otherwise it would come straight back.
+        Assert.Equal([@"C:\logs\eqlog_Keep_xegony.txt"], new RecentLogs(_dir).List());
+    }
+
+    [Fact]
     public void DescribeParsesConventionAndFallsBackForOddNames()
     {
         Directory.CreateDirectory(_dir);

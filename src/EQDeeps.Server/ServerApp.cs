@@ -173,6 +173,15 @@ public static class ServerApp
             return Results.Ok(ordered);
         });
 
+        // Drop one entry from the recently-opened list — logs the player is
+        // done with (test files, copies) shouldn't keep being offered. Only the
+        // MRU is edited: the file stays, and installed-log discovery will still
+        // find it if it lives in a real EverQuest Logs directory.
+        app.MapDelete("/api/logs/recent", (string path, RecentLogs recents) =>
+            string.IsNullOrWhiteSpace(path) ? Results.BadRequest(new { error = "path is required" })
+            : recents.Forget(path) ? Results.NoContent()
+            : Results.NotFound(new { error = "not in recent logs", path }));
+
         app.MapGet("/api/store/{key}", (string key, DocumentStore store) =>
             !DocumentStore.IsValidKey(key)
                 ? Results.NotFound()

@@ -204,6 +204,12 @@ export const api = {
 
   discoverLogs: (): Promise<DiscoveredLog[]> => fetch("/api/logs/discovered").then((r) => json(r)),
 
+  /** Drop a log from the recently-opened list. The file itself is untouched. */
+  forgetRecentLog: (path: string): Promise<void> =>
+    fetch(`/api/logs/recent?path=${encodeURIComponent(path)}`, { method: "DELETE" }).then(
+      () => undefined,
+    ),
+
   openSession: (path: string): Promise<SessionInfo> =>
     fetch("/api/sessions", {
       method: "POST",

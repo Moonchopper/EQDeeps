@@ -6,10 +6,15 @@ on:
 
 permissions:
   contents: write
+  id-token: write # OIDC token for Artifact Signing — no stored Azure secret
 
 jobs:
   release:
     runs-on: windows-latest
+    # Required, not cosmetic: the federated credential only honours tokens whose
+    # subject is repo:Moonchopper/EQDeeps:environment:release. Drop this and
+    # Azure login fails with AADSTS700213.
+    environment: release
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
@@ -42,6 +47,43 @@ jobs:
           -p:IncludeNativeLibrariesForSelfExtract=true
           -p:Version=${{ steps.version.outputs.version }}
           -o artifacts/win-x64
+
+      - name: Azure login
+        uses: azure/login@v3
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      # Signs between publish and zip, so the exe inside the zip is the signed
+      # one. Certificates are only valid three days, so the RFC3161 timestamp is
+      # what keeps signatures verifying long after — don't drop it.
+      - name: Sign EQDeeps.Server.exe
+        uses: azure/artifact-signing-action@v2
+        with:
+          endpoint: ${{ vars.ARTIFACT_SIGNING_ENDPOINT }}
+          signing-account-name: ${{ vars.ARTIFACT_SIGNING_ACCOUNT }}
+          certificate-profile-name: ${{ vars.ARTIFACT_SIGNING_PROFILE }}
+          files-folder: ${{ github.workspace }}\artifacts\win-x64
+          files-folder-filter: exe
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+
+      # The signing action can succeed while leaving a file unsigned if the
+      # folder filter matches nothing. Fail the release rather than ship it.
+      - name: Verify signature
+        shell: pwsh
+        run: |
+          $sig = Get-AuthenticodeSignature artifacts/win-x64/EQDeeps.Server.exe
+          $sig | Format-List Status, StatusMessage, SignerCertificate, TimeStamperCertificate
+          if ($sig.Status -ne 'Valid') {
+            throw "EQDeeps.Server.exe is not validly signed (status: $($sig.Status))."
+          }
+          if (-not $sig.TimeStamperCertificate) {
+            throw "Signature is not timestamped — it would stop verifying in three days."
+          }
+          Write-Host "Signed by: $($sig.SignerCertificate.Subject)"
 
       - name: Zip artifact
         shell: pwsh

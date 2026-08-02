@@ -33,88 +33,91 @@ export function offsetTooltip(
   return [px, py];
 }
 
-interface ZrMouseEvent {
+interface ZrWheelEvent {
   offsetX: number;
-  event?: { button?: number; preventDefault?: () => void };
+  wheelDelta: number;
+  event?: { shiftKey?: boolean; preventDefault?: () => void };
 }
 
 /**
- * Press-and-hold middle mouse button to scrub the time axis left/right.
- * Pixel movement converts to time through the axis, and the window shifts via
- * a dataZoom action — so scrubbing behaves exactly like a zoom (the reset pill
- * appears, live-follow pauses) and composes with drag-zoom and wheel-zoom.
+ * Wheel navigation for time charts, replacing the built-in wheel zoom (whose
+ * modifier handling can't make zoom and pan exclusive): plain wheel zooms
+ * around the cursor, shift+wheel scrubs left/right. Both move the dataZoom
+ * window with absolute time values, clamped to the data extent supplied by
+ * getExtent, so the view can't wander into empty space.
+ * Zooming back out to the full extent dispatches a true reset (0–100%) so the
+ * chart's zoomed-state tracking can settle back to "default view".
  * Returns a detach function.
  */
-export function attachMiddleScrub(
+export function attachWheelNavigation(
   chart: echarts.ECharts,
   pad: { left: number; right: number },
+  getExtent: () => [number, number] | null,
 ): () => void {
   const zr = chart.getZr();
-  let lastX: number | null = null;
 
-  const armBrush = (active: boolean) =>
-    chart.dispatchAction({
-      type: "takeGlobalCursor",
-      key: "dataZoomSelect",
-      dataZoomSelectActive: active,
-    });
-
-  const onDown = (e: ZrMouseEvent) => {
-    if (e.event?.button === 1) {
-      lastX = e.offsetX;
-      e.event.preventDefault?.(); // stop the browser's middle-click autoscroll
-      // The zoom brush doesn't filter by button and would draw a selection box
-      // during the scrub — disarm it for the duration of the drag. This handler
-      // registers before the toolbox brush mounts, so the disarm wins the race
-      // on the same mousedown.
-      armBrush(false);
-    }
-  };
-
-  const onMove = (e: ZrMouseEvent) => {
-    if (lastX === null) {
+  const onWheel = (e: ZrWheelEvent) => {
+    const delta = e.wheelDelta;
+    if (!delta) {
       return;
     }
-    const dx = e.offsetX - lastX;
-    if (dx === 0) {
-      return;
-    }
-    lastX = e.offsetX;
 
     const leftPx = pad.left;
     const rightPx = chart.getWidth() - pad.right;
-    const startValue = chart.convertFromPixel({ xAxisIndex: 0 }, leftPx);
-    const endValue = chart.convertFromPixel({ xAxisIndex: 0 }, rightPx);
-    if (!Number.isFinite(startValue) || !Number.isFinite(endValue) || endValue <= startValue) {
+    const start = chart.convertFromPixel({ xAxisIndex: 0 }, leftPx);
+    const end = chart.convertFromPixel({ xAxisIndex: 0 }, rightPx);
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
       return;
     }
 
-    // Content follows the cursor: dragging right shifts the window earlier.
-    const timePerPixel = (endValue - startValue) / (rightPx - leftPx);
-    const delta = dx * timePerPixel;
+    e.event?.preventDefault?.();
+    const extent = getExtent();
+
+    if (e.event?.shiftKey) {
+      // Scrub: a fifth of the window per notch; wheel down moves later.
+      let shift = (end - start) * 0.2 * (delta > 0 ? -1 : 1);
+      if (extent) {
+        shift = shift > 0 ? Math.min(shift, extent[1] - end) : Math.max(shift, extent[0] - start);
+      }
+      if (shift === 0) {
+        return;
+      }
+      chart.dispatchAction({
+        type: "dataZoom",
+        dataZoomIndex: 0,
+        startValue: start + shift,
+        endValue: end + shift,
+      });
+      return;
+    }
+
+    // Zoom around the cursor; wheel up zooms in.
+    const factor = delta > 0 ? 1 / 1.3 : 1.3;
+    const cursor = chart.convertFromPixel({ xAxisIndex: 0 }, e.offsetX);
+    let newStart = cursor - (cursor - start) * factor;
+    let newEnd = cursor + (end - cursor) * factor;
+    if (extent) {
+      newStart = Math.max(newStart, extent[0]);
+      newEnd = Math.min(newEnd, extent[1]);
+      if (newStart <= extent[0] && newEnd >= extent[1]) {
+        // Fully zoomed out again — issue a real reset.
+        chart.dispatchAction({ type: "dataZoom", dataZoomIndex: 0, start: 0, end: 100 });
+        return;
+      }
+    }
+    if (newEnd - newStart < 1000) {
+      return; // don't zoom tighter than one second of log time
+    }
     chart.dispatchAction({
       type: "dataZoom",
       dataZoomIndex: 0,
-      startValue: startValue - delta,
-      endValue: endValue - delta,
+      startValue: newStart,
+      endValue: newEnd,
     });
   };
 
-  const onUp = () => {
-    if (lastX !== null) {
-      lastX = null;
-      armBrush(true); // scrub finished: left-drag zoom works again
-    }
-  };
-
-  zr.on("mousedown", onDown);
-  zr.on("mousemove", onMove);
-  zr.on("mouseup", onUp);
-  zr.on("globalout", onUp);
+  zr.on("mousewheel", onWheel);
   return () => {
-    zr.off("mousedown", onDown);
-    zr.off("mousemove", onMove);
-    zr.off("mouseup", onUp);
-    zr.off("globalout", onUp);
+    zr.off("mousewheel", onWheel);
   };
 }

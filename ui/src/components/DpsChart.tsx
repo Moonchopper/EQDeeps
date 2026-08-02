@@ -3,7 +3,7 @@ import * as echarts from "echarts";
 import { api, type QueryResult, type QueryRow } from "../api";
 import { fmtNum, OTHER_COLOR } from "../format";
 import type { EntityColors } from "../colors";
-import { attachMiddleScrub, offsetTooltip } from "../chartInteractions";
+import { attachWheelNavigation, offsetTooltip } from "../chartInteractions";
 
 interface Props {
   sessionId: string;
@@ -62,6 +62,7 @@ export function DpsChart({ sessionId, fightIds, refreshKey, followLive, petRollu
   // shortcut for the same reset.
   const [isZoomed, setIsZoomed] = useState(false);
   const suppressZoomEventRef = useRef(false);
+  const extentRef = useRef<[number, number] | null>(null);
 
   const resetZoom = useCallback(() => {
     const chart = chartRef.current;
@@ -77,13 +78,18 @@ export function DpsChart({ sessionId, fightIds, refreshKey, followLive, petRollu
     if (!divRef.current) return;
     const chart = echarts.init(divRef.current);
     chartRef.current = chart;
-    chart.on("datazoom", () => {
-      if (!suppressZoomEventRef.current) {
-        setIsZoomed(true);
+    chart.on("datazoom", (params: unknown) => {
+      if (suppressZoomEventRef.current) {
+        return;
       }
+      // A dispatch back to the full range (wheel-zoom-out hitting the data
+      // extent) is a reset, not a zoom.
+      const p = params as { start?: number; end?: number; batch?: { start?: number; end?: number }[] };
+      const window = p.batch?.[0] ?? p;
+      setIsZoomed(!(window.start === 0 && window.end === 100));
     });
     chart.getZr().on("dblclick", resetZoom);
-    const detachScrub = attachMiddleScrub(chart, { left: 52, right: 12 });
+    const detachScrub = attachWheelNavigation(chart, { left: 52, right: 12 }, () => extentRef.current);
     const onResize = () => chart.resize();
     window.addEventListener("resize", onResize);
     return () => {
@@ -169,6 +175,9 @@ export function DpsChart({ sessionId, fightIds, refreshKey, followLive, petRollu
       }
     }
 
+    extentRef.current =
+      segments.length > 0 ? [segments[0][0], segments[segments.length - 1][1]] : null;
+
     const smoothed = (bySecond: Map<number, number>) => {
       const points: [number, number | null][] = [];
       for (const [start, end] of segments) {
@@ -235,12 +244,15 @@ export function DpsChart({ sessionId, fightIds, refreshKey, followLive, petRollu
           top: -1000,
           feature: { dataZoom: { yAxisIndex: "none", filterMode: "none" } },
         },
+        // Wheel gestures are handled by attachWheelNavigation (exclusive
+        // zoom/scrub on modifier); the inside component just holds the window.
         dataZoom: [
           {
             type: "inside",
             xAxisIndex: 0,
             filterMode: "none",
-            zoomOnMouseWheel: true,
+            zoomOnMouseWheel: false,
+            moveOnMouseWheel: false,
             moveOnMouseMove: false,
           },
         ],
@@ -354,7 +366,7 @@ export function DpsChart({ sessionId, fightIds, refreshKey, followLive, petRollu
         <div
           ref={divRef}
           className="chart"
-          title="Drag to zoom a time range · scroll to zoom · hold middle mouse to scrub · double-click to reset"
+          title="Drag to zoom a time range · scroll to zoom · shift+scroll to scrub · double-click to reset"
         />
         {isZoomed && (
           <button

@@ -4,7 +4,7 @@ import { api, type QueryResult, type QueryRow } from "../api";
 import { fmtNum, fmtRate, OTHER_COLOR, SERIES_COLORS } from "../format";
 import { buildSpec, METRIC_LABELS, RATE_METRICS, type PanelDef } from "./model";
 import type { EntityColors } from "../colors";
-import { attachMiddleScrub, offsetTooltip } from "../chartInteractions";
+import { attachWheelNavigation, offsetTooltip } from "../chartInteractions";
 
 export interface PanelContext {
   sessionId: string;
@@ -156,6 +156,7 @@ function LinePanel({ panel, ctx }: { panel: PanelDef; ctx: PanelContext }) {
   const result = usePanelQuery(panel, ctx);
   const [isZoomed, setIsZoomed] = useState(false);
   const suppressZoomEventRef = useRef(false);
+  const extentRef = useRef<[number, number] | null>(null);
 
   const resetZoom = useCallback(() => {
     const chart = chartRef.current;
@@ -171,13 +172,16 @@ function LinePanel({ panel, ctx }: { panel: PanelDef; ctx: PanelContext }) {
     if (!divRef.current) return;
     const chart = echarts.init(divRef.current);
     chartRef.current = chart;
-    chart.on("datazoom", () => {
-      if (!suppressZoomEventRef.current) {
-        setIsZoomed(true);
+    chart.on("datazoom", (params: unknown) => {
+      if (suppressZoomEventRef.current) {
+        return;
       }
+      const p = params as { start?: number; end?: number; batch?: { start?: number; end?: number }[] };
+      const window = p.batch?.[0] ?? p;
+      setIsZoomed(!(window.start === 0 && window.end === 100));
     });
     chart.getZr().on("dblclick", resetZoom);
-    const detachScrub = attachMiddleScrub(chart, { left: 48, right: 10 });
+    const detachScrub = attachWheelNavigation(chart, { left: 48, right: 10 }, () => extentRef.current);
     const observer = new ResizeObserver(() => chart.resize());
     observer.observe(divRef.current);
     return () => {
@@ -215,6 +219,9 @@ function LinePanel({ panel, ctx }: { panel: PanelDef; ctx: PanelContext }) {
         segments.push([t, t]);
       }
     }
+
+    extentRef.current =
+      segments.length > 0 ? [segments[0][0], segments[segments.length - 1][1]] : null;
 
     const step = Math.max(1, panel.bucketSeconds) * 1000;
     const windowBuckets = Math.max(1, Math.round(panel.windowSec / Math.max(1, panel.bucketSeconds)));
@@ -282,7 +289,8 @@ function LinePanel({ panel, ctx }: { panel: PanelDef; ctx: PanelContext }) {
             type: "inside",
             xAxisIndex: 0,
             filterMode: "none",
-            zoomOnMouseWheel: true,
+            zoomOnMouseWheel: false,
+            moveOnMouseWheel: false,
             moveOnMouseMove: false,
           },
         ],
@@ -329,7 +337,7 @@ function LinePanel({ panel, ctx }: { panel: PanelDef; ctx: PanelContext }) {
       <div
         ref={divRef}
         className="chart"
-        title="Drag to zoom a time range · scroll to zoom · hold middle mouse to scrub · double-click to reset"
+        title="Drag to zoom a time range · scroll to zoom · shift+scroll to scrub · double-click to reset"
       />
       {isZoomed && (
         <button

@@ -3,6 +3,7 @@
     <RootNamespace>EQDeeps.Server</RootNamespace>
     <Description>EQDeeps local backend: sessions REST API + SignalR realtime channel.</Description>
     <Version Condition="'$(Version)' == ''">0.1.0</Version>
+    <ApplicationIcon>Assets\eqdeeps.ico</ApplicationIcon>
     <!-- The built SPA is embedded into the assembly so the published output is
          one self-contained exe; dev builds serve the physical wwwroot instead. -->
     <GenerateEmbeddedFilesManifest>true</GenerateEmbeddedFilesManifest>

@@ -224,6 +224,7 @@ Absorb records: zero-damage attempts against the defender (counts toward defensi
 - **Raid/group membership:** `Soandso has joined the raid.`, `You have joined the group.`, `Soandso is now the leader of your raid.` — identity signals (see §5).
 - **Pet leader:** `Gobaber says 'My leader is Piemastaj'` — definitive pet→owner mapping (produced by targeting the pet and using /pet leader).
 - **Discipline/activated abilities:** `<Player> activates <Ability>.`
+- **Experience:** modern servers log the level-progress delta — `You gain experience! (5.472%)` / `You gain party experience! (1.812%)` — while classic servers only announce `You gain experience!!` (no number). AA points are separate and carry a running total: `You have gained an ability point!  You now have 2 ability points.` Beware `You gain a rune for N points of absorption.`, which shares the `You gain ` prefix but is an absorb line.
 
 ## 4. Player self-reference
 

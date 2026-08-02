@@ -140,6 +140,51 @@ public class QueryEngineTests
         Assert.Equal(20.0, r2.Metrics["overhealRate"], precision: 10); // 100 / 500
     }
 
+    // ---- experience: hand-computed ----------------------------------------
+
+    [Fact]
+    public void ExperienceMetricsMatchHandComputedValues()
+    {
+        // XP at t10..t70: solo 5% @t10, party 1.5% @t40, classic no-percent
+        // solo gain @t70, AA point @t70. Active span t10..t70 = 61 s inclusive.
+        Add(10, new ExperienceEvent(5.0, Party: false));
+        Add(40, new ExperienceEvent(1.5, Party: true));
+        Add(70, new ExperienceEvent(null, Party: false));
+        Add(70, new ExperienceEvent(null, Party: false, AaPoint: true, AaTotal: 2));
+
+        var result = _engine.Execute(new QuerySpec
+        {
+            Source = QuerySource.Experience,
+            Scope = new QueryScope { TimeRanges = [new TimeRange(T0, T0.AddSeconds(100))] },
+            GroupBy = [Dimension.Spell],
+        });
+
+        Assert.Equal(6.5, result.Totals["xpPercent"], precision: 10);
+        Assert.Equal(3, result.Totals["xpGains"]);
+        Assert.Equal(1, result.Totals["aaPoints"]);
+        Assert.Equal(61, result.RaidSeconds);
+        Assert.Equal(6.5 * 3600 / 61, result.Totals["xpPerHour"], precision: 8);
+
+        var solo = Row(result, "solo");
+        Assert.Equal(5.0, solo.Metrics["xpPercent"], precision: 10);
+        Assert.Equal(2, solo.Metrics["xpGains"]); // the classic gain counts, adds 0%
+
+        var party = Row(result, "party");
+        Assert.Equal(1.5, party.Metrics["xpPercent"], precision: 10);
+        Assert.Equal(1, party.Metrics["xpGains"]);
+
+        var aa = Row(result, "AA point");
+        Assert.Equal(1, aa.Metrics["aaPoints"]);
+        Assert.Equal(0, aa.Metrics["xpGains"]);
+
+        // An unrestricted scope must cover the whole record stream — XP that
+        // falls outside every fight (here: everything past t8) still counts.
+        var unrestricted = _engine.Execute(new QuerySpec { Source = QuerySource.Experience });
+        Assert.Equal(6.5, unrestricted.Totals["xpPercent"], precision: 10);
+        Assert.Equal(3, unrestricted.Totals["xpGains"]);
+        Assert.Equal(1, unrestricted.Totals["aaPoints"]);
+    }
+
     // ---- validity toggles are filters, never reparses ----------------------
 
     [Fact]

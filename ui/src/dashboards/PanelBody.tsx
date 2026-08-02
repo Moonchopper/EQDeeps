@@ -17,8 +17,13 @@ export interface PanelContext {
 function fmtMetric(metric: string, value: number): string {
   if (RATE_METRICS.has(metric)) return fmtRate(value);
   if (metric === "hits" || metric === "deaths" || metric === "casts" ||
-      metric === "interrupts" || metric === "fizzles" || metric === "activeSeconds") {
+      metric === "interrupts" || metric === "fizzles" || metric === "activeSeconds" ||
+      metric === "xpGains" || metric === "aaPoints") {
     return String(Math.round(value));
+  }
+  if (metric === "xpPercent" || metric === "xpPerHour") {
+    // Level-progress points, not a ratio: show two decimals (gains are tiny).
+    return value.toFixed(2);
   }
   return fmtNum(value);
 }

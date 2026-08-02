@@ -117,6 +117,29 @@ public class FixtureTests
                 AssertBool(expect, "raid", membership.Raid, context);
                 AssertBool(expect, "joined", membership.Joined, context);
                 break;
+            case "experience":
+                var xp = Assert.IsType<ExperienceEvent>(evt);
+                AssertBool(expect, "party", xp.Party, context);
+                AssertBool(expect, "aaPoint", xp.AaPoint, context);
+                if (expect.TryGetProperty("percent", out var percent))
+                {
+                    var expectedPercent = percent.ValueKind == JsonValueKind.Null
+                        ? (double?)null
+                        : percent.GetDouble();
+                    Assert.True(expectedPercent == xp.Percent,
+                        $"{context} — percent expected {expectedPercent} got {xp.Percent}");
+                }
+
+                if (expect.TryGetProperty("aaTotal", out var aaTotal))
+                {
+                    var expectedTotal = aaTotal.ValueKind == JsonValueKind.Null
+                        ? (int?)null
+                        : aaTotal.GetInt32();
+                    Assert.True(expectedTotal == xp.AaTotal,
+                        $"{context} — aaTotal expected {expectedTotal} got {xp.AaTotal}");
+                }
+
+                break;
             case "who":
                 var who = Assert.IsType<WhoEvent>(evt);
                 AssertString(expect, "player", who.Player, context);

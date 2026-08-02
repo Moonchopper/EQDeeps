@@ -93,6 +93,17 @@ public sealed class QueryEngine
                 units.Add(new ScopeUnit(range, null));
             }
         }
+        else if (source is QuerySource.Experience && scope.FightIds is null)
+        {
+            // XP largely arrives outside fights (quests, turn-ins) and its
+            // rate metric needs the real timeline, so an unrestricted scope
+            // means the whole record stream — not the union of fight spans.
+            if (_records.Count > 0)
+            {
+                units.Add(new ScopeUnit(
+                    new TimeRange(_records[0].Timestamp, _records[_records.Count - 1].Timestamp), null));
+            }
+        }
         else
         {
             var wanted = scope.FightIds is { Count: > 0 } ids ? new HashSet<int>(ids) : null;
@@ -128,9 +139,10 @@ public sealed class QueryEngine
             units = result;
         }
 
-        // Healing/casts/deaths aggregate over the merged time ranges, not per
-        // fight — collapse to the union so overlapping fights don't double-count.
-        if (source is QuerySource.Healing or QuerySource.Casts or QuerySource.Deaths)
+        // Healing/casts/deaths/experience aggregate over the merged time ranges,
+        // not per fight — collapse to the union so overlaps don't double-count.
+        if (source is QuerySource.Healing or QuerySource.Casts or QuerySource.Deaths
+            or QuerySource.Experience)
         {
             var union = new TimeSegments();
             foreach (var unit in units)
@@ -254,6 +266,15 @@ public sealed class QueryEngine
                 actor = ((DeathEvent)record.Event).Victim;
                 break;
 
+            case QuerySource.Experience:
+                if (record.Event is not ExperienceEvent)
+                {
+                    return;
+                }
+
+                actor = _character; // XP always belongs to the log owner
+                break;
+
             default:
                 return;
         }
@@ -337,6 +358,10 @@ public sealed class QueryEngine
         {
             node.Bag.Deaths++;
         }
+        else if (record.Event is ExperienceEvent xp)
+        {
+            node.Bag.Add(xp);
+        }
 
         if (node.UnitSpans.TryGetValue(unitIndex, out var span))
         {
@@ -347,13 +372,19 @@ public sealed class QueryEngine
             node.UnitSpans[unitIndex] = new TimeRange(record.Timestamp, record.Timestamp);
         }
 
-        if (bucketSeconds is { } width && (damage is not null || heal is not null))
+        if (bucketSeconds is { } width)
         {
-            node.Buckets ??= [];
-            var offset = record.Timestamp.Ticks / TimeSpan.TicksPerSecond;
-            var bucketStart = new DateTime((offset - offset % width) * TimeSpan.TicksPerSecond);
-            var amount = damage?.Amount ?? heal!.Landed;
-            node.Buckets[bucketStart] = node.Buckets.GetValueOrDefault(bucketStart) + amount;
+            double? amount = damage is not null ? damage.Amount
+                : heal is not null ? heal.Landed
+                : record.Event is ExperienceEvent bucketXp ? bucketXp.Percent ?? 0
+                : null;
+            if (amount is { } value)
+            {
+                node.Buckets ??= [];
+                var offset = record.Timestamp.Ticks / TimeSpan.TicksPerSecond;
+                var bucketStart = new DateTime((offset - offset % width) * TimeSpan.TicksPerSecond);
+                node.Buckets[bucketStart] = node.Buckets.GetValueOrDefault(bucketStart) + value;
+            }
         }
     }
 
@@ -420,6 +451,7 @@ public sealed class QueryEngine
                 DamageEvent d => d.SubType ?? DamageKindLabel(d.Kind),
                 HealEvent h => h.Spell ?? "Unknown",
                 CastEvent c => c.Spell ?? "Unknown",
+                ExperienceEvent x => x.AaPoint ? "AA point" : x.Party ? "party" : "solo",
                 _ => "Unknown",
             },
             Dimension.DamageType => evt is DamageEvent dt

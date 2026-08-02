@@ -26,7 +26,7 @@ export interface FightInfo {
   groupIndex: number;
 }
 
-export type QuerySource = "damage" | "healing" | "tanking" | "casts" | "deaths";
+export type QuerySource = "damage" | "healing" | "tanking" | "casts" | "deaths" | "experience";
 export type Dimension = "player" | "target" | "spell" | "damageType" | "character";
 
 export interface QueryFilter {

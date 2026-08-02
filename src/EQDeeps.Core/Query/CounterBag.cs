@@ -64,7 +64,24 @@ public sealed class CounterBag
     public long CastFizzles;
     public long Taunts;
 
+    /// <summary>Level-progress percent summed across gains (0 on classic logs).</summary>
+    public double XpPercent;
+    public long XpGains;
+    public long AaPoints;
+
     public readonly TimeSegments ActiveTime = new();
+
+    public void Add(ExperienceEvent xp)
+    {
+        if (xp.AaPoint)
+        {
+            AaPoints++;
+            return;
+        }
+
+        XpGains++;
+        XpPercent += xp.Percent ?? 0;
+    }
 
     public void Add(DamageEvent damage)
     {

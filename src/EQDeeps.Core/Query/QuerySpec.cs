@@ -10,6 +10,7 @@ public enum QuerySource
     Tanking,
     Casts,
     Deaths,
+    Experience,
 }
 
 public enum Dimension

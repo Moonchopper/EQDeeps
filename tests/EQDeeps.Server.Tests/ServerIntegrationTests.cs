@@ -229,7 +229,7 @@ public sealed class ServerIntegrationTests : IAsyncLifetime
         Assert.Equal("sample", entries[^1].GetProperty("source").GetString());
         var samplePath = sample.GetProperty("path").GetString()!;
         Assert.True(File.Exists(samplePath));
-        Assert.Equal("Sample", sample.GetProperty("character").GetString());
+        Assert.Equal("SampleCharacter", sample.GetProperty("character").GetString());
         Assert.Equal("demo", sample.GetProperty("server").GetString());
 
         // Opening it works like any log, but never enters the recent-logs MRU —
@@ -237,7 +237,7 @@ public sealed class ServerIntegrationTests : IAsyncLifetime
         var response = await _http.PostAsJsonAsync("/api/sessions", new { path = samplePath });
         response.EnsureSuccessStatusCode();
         var info = await response.Content.ReadFromJsonAsync<JsonElement>();
-        Assert.Equal("Sample", info.GetProperty("character").GetString());
+        Assert.Equal("SampleCharacter", info.GetProperty("character").GetString());
         Assert.Empty(new RecentLogs(_dir).List());
 
         var close = await _http.DeleteAsync($"/api/sessions/{info.GetProperty("id").GetString()}");

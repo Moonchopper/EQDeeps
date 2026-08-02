@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using System.IO.Compression;
 
 namespace EQDeeps.Server;
@@ -9,12 +10,14 @@ namespace EQDeeps.Server;
 /// extracted file is an ordinary log — a session over it parses, backfills,
 /// and queries exactly like any other — but it is listed with source "sample"
 /// and never enters the recent-logs MRU, so it can't be mistaken for the
-/// player's real logs. A stamp file records the embedded resource size so a
-/// new build with different sample content re-extracts exactly once.
+/// player's real logs. The sample directory holds exactly one file: staleness
+/// is judged against the uncompressed size recorded in the gzip trailer (a new
+/// build with different content re-extracts exactly once), and leftovers from
+/// older builds are swept on extraction.
 /// </summary>
 public sealed class SampleLog
 {
-    public const string FileName = "eqlog_Sample_demo.txt";
+    public const string FileName = "eqlog_SampleCharacter_demo.txt";
     private const string ResourceName = "EQDeeps.Server.Assets.sample-log.txt.gz";
     private readonly string _dir;
     private readonly object _gate = new();
@@ -61,10 +64,8 @@ public sealed class SampleLog
                     return null;
                 }
 
-                var stampPath = FilePath + ".stamp";
-                var stamp = resource.Length.ToString();
-                if (File.Exists(FilePath) && File.Exists(stampPath) &&
-                    File.ReadAllText(stampPath) == stamp)
+                var expected = UncompressedLength(resource);
+                if (File.Exists(FilePath) && new FileInfo(FilePath).Length == expected)
                 {
                     return FilePath;
                 }
@@ -78,7 +79,7 @@ public sealed class SampleLog
                 }
 
                 File.Move(temp, FilePath, overwrite: true);
-                File.WriteAllText(stampPath, stamp);
+                SweepStrayFiles();
                 return FilePath;
             }
             catch (IOException)
@@ -88,6 +89,39 @@ public sealed class SampleLog
             catch (UnauthorizedAccessException)
             {
                 return null;
+            }
+        }
+    }
+
+    /// <summary>Gzip trailer ISIZE: uncompressed length (mod 2^32 — the sample
+    /// is ~20 MB, nowhere near the wraparound).</summary>
+    private static long UncompressedLength(Stream resource)
+    {
+        Span<byte> trailer = stackalloc byte[4];
+        resource.Seek(-4, SeekOrigin.End);
+        resource.ReadExactly(trailer);
+        resource.Seek(0, SeekOrigin.Begin);
+        return BinaryPrimitives.ReadUInt32LittleEndian(trailer);
+    }
+
+    /// <summary>The sample directory is exactly one example file — remove
+    /// leftovers from older builds (renamed samples, stamp files).</summary>
+    private void SweepStrayFiles()
+    {
+        foreach (var file in Directory.EnumerateFiles(_dir))
+        {
+            if (!string.Equals(Path.GetFileName(file), FileName, StringComparison.OrdinalIgnoreCase))
+            {
+                try
+                {
+                    File.Delete(file);
+                }
+                catch (IOException)
+                {
+                }
+                catch (UnauthorizedAccessException)
+                {
+                }
             }
         }
     }

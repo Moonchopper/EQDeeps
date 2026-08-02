@@ -20,7 +20,7 @@ public sealed class SampleLogTests : IDisposable
     }
 
     [Fact]
-    public void ExtractsEmbeddedLogAndIsIdempotent()
+    public void ExtractsExactlyOneFileAndIsIdempotent()
     {
         var sample = new SampleLog(_dir);
         var path = sample.TryEnsureExtracted();
@@ -28,22 +28,26 @@ public sealed class SampleLogTests : IDisposable
         Assert.True(File.Exists(path));
         Assert.Equal(SampleLog.FileName, Path.GetFileName(path));
 
-        // Real log content: timestamped lines, the demo character's name baked in.
+        // Real log content: timestamped lines.
         using (var reader = new StreamReader(path!))
         {
             var first = reader.ReadLine();
             Assert.StartsWith("[", first);
         }
 
-        // A second call is a no-op (stamp matches) — same path, no rewrite.
+        // A second call is a no-op (extracted length matches the gzip trailer) —
+        // same path, no rewrite.
         var written = File.GetLastWriteTimeUtc(path!);
         Assert.Equal(path, sample.TryEnsureExtracted());
         Assert.Equal(written, File.GetLastWriteTimeUtc(path!));
 
-        // A deleted file is re-extracted.
+        // A deleted or stale file is re-extracted, and leftovers from older
+        // builds are swept: the sample directory is exactly one example file.
         File.Delete(path!);
+        File.WriteAllText(Path.Combine(Path.GetDirectoryName(path!)!, "eqlog_Old_demo.txt"), "stale");
         Assert.Equal(path, sample.TryEnsureExtracted());
-        Assert.True(File.Exists(path));
+        var entry = Assert.Single(Directory.EnumerateFiles(Path.GetDirectoryName(path!)!));
+        Assert.Equal(path, entry);
     }
 
     [Fact]
@@ -57,14 +61,14 @@ public sealed class SampleLogTests : IDisposable
     }
 
     [Fact]
-    public void SampleFileNameParsesAsSampleAtDemo()
+    public void SampleFileNameParsesAsSampleCharacterAtDemo()
     {
         var sample = new SampleLog(_dir);
         var path = sample.TryEnsureExtracted();
         Assert.NotNull(path);
         var described = LogDiscovery.Describe(path!, "sample");
         Assert.NotNull(described);
-        Assert.Equal("Sample", described!.Character);
+        Assert.Equal("SampleCharacter", described!.Character);
         Assert.Equal("demo", described.Server);
         Assert.Equal("sample", described.Source);
     }

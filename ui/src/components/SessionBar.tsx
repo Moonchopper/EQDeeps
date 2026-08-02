@@ -92,7 +92,9 @@ export function SessionBar({
             </option>
           ))}
           {sample && (
-            <option value={sample.path}>Sample log — bundled demo data, not yours</option>
+            <option value={sample.path}>
+              {sample.character} — bundled demo data, not yours
+            </option>
           )}
         </select>
       )}

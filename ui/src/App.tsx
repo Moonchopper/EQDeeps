@@ -486,7 +486,8 @@ export default function App() {
                 onClick={() => openLog(sampleLog.path)}
               >
                 <span className="discovered-name">
-                  <span className="sample-badge">sample</span> Sample log — not your data
+                  <span className="sample-badge">sample</span> {sampleLog.character}{" "}
+                  <span className="subtle">@{sampleLog.server}</span> — not your data
                 </span>
                 <span className="discovered-meta">
                   two days of real gameplay bundled with EQDeeps · {(sampleLog.sizeBytes / 1048576).toFixed(1)} MB

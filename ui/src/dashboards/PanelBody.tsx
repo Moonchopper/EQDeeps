@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import * as echarts from "echarts";
-import { api, type QueryResult, type QueryRow } from "../api";
+import { api, type QuerySource, type QueryResult, type QueryRow } from "../api";
 import { fmtNum, fmtRate, OTHER_COLOR, SERIES_COLORS } from "../format";
 import { buildSpec, METRIC_LABELS, RATE_METRICS, type PanelDef } from "./model";
 import type { EntityColors } from "../colors";
@@ -158,6 +158,18 @@ function TablePanel({ panel, ctx }: { panel: PanelDef; ctx: PanelContext }) {
 
 const BREAK_MS = 30_000;
 
+// Damage, healing and tanking read as rates — damage *per second* is the unit
+// people expect off a DPS chart. XP %, faction standing and coin are amounts:
+// dividing them by the bucket width produces a per-second figure that rounds
+// to zero and tells the reader nothing.
+const RATE_SOURCES = new Set<QuerySource>(["damage", "healing", "tanking"]);
+
+// fmtNum rounds to whole numbers below 1K, which suits damage but erases XP %
+// and coin — values that legitimately sit under 1.
+function fmtLineValue(value: number): string {
+  return Math.abs(value) < 10 ? Number(value.toFixed(2)).toString() : fmtNum(value);
+}
+
 function LinePanel({ panel, ctx }: { panel: PanelDef; ctx: PanelContext }) {
   const divRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<echarts.ECharts | null>(null);
@@ -218,10 +230,18 @@ function LinePanel({ panel, ctx }: { panel: PanelDef; ctx: PanelContext }) {
       }
     }
     const timeline = [...allSeconds].sort((a, b) => a - b);
+
+    const step = Math.max(1, panel.bucketSeconds) * 1000;
+    // A break is a hole in the data, so it has to be measured in buckets, not
+    // in wall-clock time. With 60 s buckets even back-to-back samples sit 60 s
+    // apart, so a flat 30 s threshold made every bucket its own segment — each
+    // point stranded between nulls, and connectNulls:false then drew nothing
+    // at all. Two bucket widths keeps 1 s charts on the old 30 s behaviour.
+    const breakMs = Math.max(BREAK_MS, step * 2);
     const segments: [number, number][] = [];
     for (const t of timeline) {
       const last = segments[segments.length - 1];
-      if (last && t - last[1] <= BREAK_MS) {
+      if (last && t - last[1] <= breakMs) {
         last[1] = t;
       } else {
         segments.push([t, t]);
@@ -231,7 +251,9 @@ function LinePanel({ panel, ctx }: { panel: PanelDef; ctx: PanelContext }) {
     extentRef.current =
       segments.length > 0 ? [segments[0][0], segments[segments.length - 1][1]] : null;
 
-    const step = Math.max(1, panel.bucketSeconds) * 1000;
+    // Rate sources average to a per-second figure; amount sources stay in
+    // their own units as a rolling mean per bucket.
+    const perBucket = RATE_SOURCES.has(panel.source) ? Math.max(1, panel.bucketSeconds) : 1;
     const windowBuckets = Math.max(1, Math.round(panel.windowSec / Math.max(1, panel.bucketSeconds)));
     const smoothed = (rows: QueryRow[]) => {
       const bySecond = new Map<number, number>();
@@ -252,7 +274,7 @@ function LinePanel({ panel, ctx }: { panel: PanelDef; ctx: PanelContext }) {
           if (ring.length > windowBuckets) {
             sum -= ring.shift()!;
           }
-          points.push([t, sum / (ring.length * Math.max(1, panel.bucketSeconds))]);
+          points.push([t, sum / (ring.length * perBucket)]);
         }
         points.push([end + step / 2, null]);
       }
@@ -314,7 +336,7 @@ function LinePanel({ panel, ctx }: { panel: PanelDef; ctx: PanelContext }) {
           backgroundColor: "#232322",
           borderColor: "rgba(255,255,255,0.10)",
           textStyle: { color: "#ffffff", fontSize: 12 },
-          valueFormatter: (v: unknown) => (typeof v === "number" ? fmtNum(v) : "—"),
+          valueFormatter: (v: unknown) => (typeof v === "number" ? fmtLineValue(v) : "—"),
         },
         xAxis: {
           type: "time",
@@ -324,7 +346,7 @@ function LinePanel({ panel, ctx }: { panel: PanelDef; ctx: PanelContext }) {
         },
         yAxis: {
           type: "value",
-          axisLabel: { color: "#898781", fontSize: 10, formatter: (v: number) => fmtNum(v) },
+          axisLabel: { color: "#898781", fontSize: 10, formatter: (v: number) => fmtLineValue(v) },
           splitLine: { lineStyle: { color: "#2c2c2a" } },
         },
         series,
@@ -337,7 +359,7 @@ function LinePanel({ panel, ctx }: { panel: PanelDef; ctx: PanelContext }) {
       key: "dataZoomSelect",
       dataZoomSelectActive: true,
     });
-  }, [result, panel.windowSec, panel.bucketSeconds]);
+  }, [result, panel.source, panel.windowSec, panel.bucketSeconds]);
 
   if (result === "no-selection") return <div className="empty">Select a fight</div>;
   return (

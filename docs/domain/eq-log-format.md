@@ -225,6 +225,7 @@ Absorb records: zero-damage attempts against the defender (counts toward defensi
 - **Pet leader:** `Gobaber says 'My leader is Piemastaj'` — definitive pet→owner mapping (produced by targeting the pet and using /pet leader).
 - **Discipline/activated abilities:** `<Player> activates <Ability>.`
 - **Experience:** modern servers log the level-progress delta — `You gain experience! (5.472%)` / `You gain party experience! (1.812%)` — while classic servers only announce `You gain experience!!` (no number). AA points are separate and carry a running total: `You have gained an ability point!  You now have 2 ability points.` Beware `You gain a rune for N points of absorption.`, which shares the `You gain ` prefix but is an absorb line.
+- **Faction:** modern servers log the numeric delta — `Your faction standing with Frogloks of Guk has been adjusted by -4.` — while classic servers say `… got better.` / `… got worse.`; the capped variants `… could not possibly get any better/worse.` mean standing did **not** move.
 
 ## 4. Player self-reference
 

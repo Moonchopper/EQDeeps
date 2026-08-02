@@ -11,9 +11,59 @@ public static class MiscParser
             ?? ParseZone(action)
             ?? ParseResist(action, options)
             ?? ParseExperience(action)
+            ?? ParseFaction(action)
             ?? ParseMembership(action, options)
             ?? ParseWho(action);
     }
+
+    private static GameEvent? ParseFaction(string action)
+    {
+        // "Your faction standing with Frogloks of Guk has been adjusted by -4."
+        // Classic servers: "… got better." / "… got worse." /
+        // "… could not possibly get any better." (standing already capped).
+        const string prefix = "Your faction standing with ";
+        if (!action.StartsWith(prefix, StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        var rest = action.AsSpan(prefix.Length);
+        var adjusted = rest.IndexOf(" has been adjusted by ", StringComparison.Ordinal);
+        if (adjusted > 0)
+        {
+            var number = rest[(adjusted + " has been adjusted by ".Length)..].TrimEnd();
+            if (number.Length > 0 && number[^1] == '.')
+            {
+                number = number[..^1];
+            }
+
+            return int.TryParse(number, System.Globalization.NumberStyles.AllowLeadingSign,
+                System.Globalization.CultureInfo.InvariantCulture, out var delta)
+                ? new FactionEvent(rest[..adjusted].ToString(), delta, Better: delta >= 0)
+                : null;
+        }
+
+        foreach (var (suffix, better, capped) in FactionSuffixes)
+        {
+            if (rest.EndsWith(suffix, StringComparison.Ordinal))
+            {
+                var faction = rest[..^suffix.Length];
+                return faction.Length > 0
+                    ? new FactionEvent(faction.ToString(), Delta: null, better, capped)
+                    : null;
+            }
+        }
+
+        return null;
+    }
+
+    private static readonly (string Suffix, bool Better, bool Capped)[] FactionSuffixes =
+    [
+        (" got better.", true, false),
+        (" got worse.", false, false),
+        (" could not possibly get any better.", true, true),
+        (" could not possibly get any worse.", false, true),
+    ];
 
     private static GameEvent? ParseExperience(string action)
     {

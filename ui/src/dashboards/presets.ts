@@ -12,7 +12,7 @@ import { defaultPanel, type DashboardDef, type LayoutRect, type PanelDef } from 
  * rewrites them to this pristine definition, which is idempotent.
  */
 export function presetDashboards(): DashboardDef[] {
-  return [raidDps(), healing(), tanking(), rightNow(), experience()];
+  return [raidDps(), healing(), tanking(), rightNow(), experience(), faction()];
 }
 
 export const PRESET_IDS = new Set(presetDashboards().map((d) => d.id));
@@ -358,6 +358,48 @@ function experience(): DashboardDef {
         metrics: ["xpPercent", "xpPerHour", "xpGains", "aaPoints"],
       },
       { x: 0, y: 10, w: 8, h: 8 },
+    ],
+  ]);
+}
+
+// Faction moves at kills and quest turn-ins alike, so panels scope to the
+// whole log; rows/series are the factions themselves.
+function faction(): DashboardDef {
+  return build("preset-faction", "Faction", [
+    [
+      {
+        title: "Standing changes over time",
+        viz: "line",
+        source: "faction",
+        scopeMode: "all",
+        groupBy: ["player"],
+        primaryMetric: "factionNet",
+        bucketSeconds: 60,
+        windowSec: 300,
+      },
+      { x: 0, y: 0, w: 8, h: 10 },
+    ],
+    [
+      {
+        title: "Net standing",
+        viz: "tile",
+        source: "faction",
+        scopeMode: "all",
+        groupBy: ["player"],
+        primaryMetric: "factionNet",
+      },
+      { x: 8, y: 0, w: 4, h: 4 },
+    ],
+    [
+      {
+        title: "By faction",
+        viz: "table",
+        source: "faction",
+        scopeMode: "all",
+        groupBy: ["player", "spell"],
+        metrics: ["factionNet", "factionUps", "factionDowns", "factionCapped"],
+      },
+      { x: 0, y: 10, w: 12, h: 8 },
     ],
   ]);
 }

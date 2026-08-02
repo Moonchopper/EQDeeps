@@ -185,6 +185,37 @@ public class QueryEngineTests
         Assert.Equal(1, unrestricted.Totals["aaPoints"]);
     }
 
+    // ---- faction: hand-computed -------------------------------------------
+
+    [Fact]
+    public void FactionMetricsMatchHandComputedValues()
+    {
+        Add(10, new FactionEvent("Frogloks of Guk", -4, Better: false));
+        Add(11, new FactionEvent("Frogloks of Guk", -4, Better: false));
+        Add(12, new FactionEvent("Guards of Qeynos", 2, Better: true));
+        Add(13, new FactionEvent("Guards of Qeynos", null, Better: true));  // classic → +1
+        Add(14, new FactionEvent("Bloodsabers", null, Better: false, Capped: true)); // no movement
+
+        var result = _engine.Execute(new QuerySpec { Source = QuerySource.Faction });
+
+        Assert.Equal(-5, result.Totals["factionNet"]); // -8 + 2 + 1
+        Assert.Equal(2, result.Totals["factionUps"]);
+        Assert.Equal(2, result.Totals["factionDowns"]);
+        Assert.Equal(1, result.Totals["factionCapped"]);
+
+        var guk = Row(result, "Frogloks of Guk");
+        Assert.Equal(-8, guk.Metrics["factionNet"]);
+        Assert.Equal(2, guk.Metrics["factionDowns"]);
+
+        var qeynos = Row(result, "Guards of Qeynos");
+        Assert.Equal(3, qeynos.Metrics["factionNet"]);
+        Assert.Equal(2, qeynos.Metrics["factionUps"]);
+
+        var bloodsabers = Row(result, "Bloodsabers");
+        Assert.Equal(0, bloodsabers.Metrics["factionNet"]);
+        Assert.Equal(1, bloodsabers.Metrics["factionCapped"]);
+    }
+
     // ---- validity toggles are filters, never reparses ----------------------
 
     [Fact]

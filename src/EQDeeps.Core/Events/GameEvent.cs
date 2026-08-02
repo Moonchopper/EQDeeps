@@ -147,3 +147,13 @@ public sealed record ResistEvent(string Caster, string? Resister, string Spell) 
 /// </summary>
 public sealed record ExperienceEvent(
     double? Percent, bool Party, bool AaPoint = false, int? AaTotal = null) : GameEvent;
+
+/// <summary>
+/// Faction standing change for the log owner. Modern servers log the numeric
+/// adjustment ("has been adjusted by -4."); classic servers only say got
+/// better/worse, so <see cref="Delta"/> is null there and <see cref="Better"/>
+/// carries the direction. <see cref="Capped"/> marks the "could not possibly
+/// get any better/worse" lines, where standing did not actually move.
+/// </summary>
+public sealed record FactionEvent(
+    string Faction, int? Delta, bool Better, bool Capped = false) : GameEvent;

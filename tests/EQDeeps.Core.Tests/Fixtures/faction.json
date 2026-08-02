@@ -1,0 +1,26 @@
+[
+  {
+    "line": "Your faction standing with Frogloks of Guk has been adjusted by -4.",
+    "expect": { "type": "faction", "faction": "Frogloks of Guk", "delta": -4, "better": false, "capped": false }
+  },
+  {
+    "line": "Your faction standing with Guards of Qeynos has been adjusted by 2.",
+    "expect": { "type": "faction", "faction": "Guards of Qeynos", "delta": 2, "better": true, "capped": false }
+  },
+  {
+    "line": "Your faction standing with Guards of Qeynos got better.",
+    "expect": { "type": "faction", "faction": "Guards of Qeynos", "delta": null, "better": true, "capped": false }
+  },
+  {
+    "line": "Your faction standing with Bloodsabers got worse.",
+    "expect": { "type": "faction", "faction": "Bloodsabers", "delta": null, "better": false, "capped": false }
+  },
+  {
+    "line": "Your faction standing with Bloodsabers could not possibly get any worse.",
+    "expect": { "type": "faction", "faction": "Bloodsabers", "delta": null, "better": false, "capped": true }
+  },
+  {
+    "line": "Your faction standing with Guards of Qeynos could not possibly get any better.",
+    "expect": { "type": "faction", "faction": "Guards of Qeynos", "delta": null, "better": true, "capped": true }
+  }
+]

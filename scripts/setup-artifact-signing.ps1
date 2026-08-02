@@ -16,8 +16,8 @@
 # Idempotent: safe to re-run either phase.
 param(
     [string]$Region = "eastus",
-    [string]$ResourceGroup = "eqdeeps-signing",
-    [string]$AccountName = "eqdeeps-signing",
+    [string]$ResourceGroup = "default",
+    [string]$AccountName = "moonchopper",
     [string]$ProfileName = "eqdeeps-public",
     [string]$Repo = "Moonchopper/EQDeeps",
     [string]$IdentityValidationId = ""
@@ -109,7 +109,8 @@ $appId = az ad app list --display-name $appName --query "[0].appId" -o tsv
 if (-not $appId) {
     $appId = az ad app create --display-name $appName --query appId -o tsv
 }
-if (-not (az ad sp show --id $appId 2>$null)) {
+$sp = az ad sp show --id $appId 2>$null
+if (-not $sp) {
     az ad sp create --id $appId | Out-Null
 }
 

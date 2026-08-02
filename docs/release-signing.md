@@ -77,17 +77,24 @@ powershell -File scripts/setup-artifact-signing.ps1
 Plain `az login` silently reuses whatever Microsoft session your browser already
 has, which is an easy way to provision into the wrong tenant.
 
-Phase 1 creates the `eqdeeps-signing` resource group and signing account (East
-US), a GitHub OIDC app registration federated to this repo's `release`
-environment (so CI signs with short-lived tokens — no secret to leak), the role
-assignments, and the repo secrets/variables CI will use.
+Phase 1 creates the `default` resource group and the `moonchopper` signing
+account (East US), a GitHub OIDC app registration federated to this repo's
+`release` environment (so CI signs with short-lived tokens — no secret to leak),
+the role assignments, and the repo secrets/variables CI will use. It's
+idempotent, so it's safe to run against resources you already made by hand.
+
+> Role assignment from the CLI currently fails on this subscription with
+> `MissingSubscription` — every scoped `Microsoft.Authorization` call does,
+> including plain role-definition lookups. It's a quirk of the preview resource
+> type. Assign roles in the portal (Access control (IAM) → Add role assignment)
+> until it clears.
 
 ### Step 3 — Identity validation (manual, ~15 min)
 
 Microsoft verifying you're a real person — it's what SmartScreen's trust is
 anchored to, and it can only be done in the portal:
 
-1. Portal → search "Artifact Signing accounts" → `eqdeeps-signing`.
+1. Portal → search "Artifact Signing accounts" → `moonchopper`.
 2. Left menu → **Identity validations** → switch the dropdown from Organization
    to **Individual** → **New identity** → **Public**.
 3. Select your billing account. The name and address fields populate read-only
@@ -105,8 +112,10 @@ anchored to, and it can only be done in the portal:
 > this page".
 
 If the **New identity** button is greyed out, the `Artifact Signing Identity
-Verifier` role hasn't landed — phase 1 assigns it, but it needs Reader at
-subscription scope too.
+Verifier` role hasn't landed. Subscription **Owner does not imply it** — it must
+be assigned explicitly, on the signing account or the resource group above it,
+and it needs at least Reader at subscription scope alongside. Sign out and back
+in after assigning; the portal caches the check.
 
 ### Step 4 — Run phase 2 (~1 min)
 

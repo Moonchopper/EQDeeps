@@ -262,6 +262,37 @@ button.update-pill {
   font-weight: 400;
 }
 
+/* Determinate progress: the pill itself fills left-to-right as --pct rises,
+   so a long download is visibly moving rather than a static number. */
+.update-pill-progress {
+  position: relative;
+  overflow: hidden;
+  border-color: var(--accent);
+  color: var(--ink) !important;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+.update-pill-progress::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: var(--pct, 0%);
+  background: var(--accent);
+  opacity: 0.28;
+  transition: width 0.4s ease-out;
+}
+
+.update-pill-label {
+  position: relative; /* above the fill */
+}
+
+.update-pill-failed {
+  border-color: var(--danger);
+  color: var(--danger) !important;
+  cursor: help;
+}
+
 .update-star {
   color: var(--gold);
 }

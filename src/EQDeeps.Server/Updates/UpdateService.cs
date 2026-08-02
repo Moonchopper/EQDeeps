@@ -24,6 +24,8 @@ public sealed record UpdateState(
     string? ReleaseNotes = null,
     string? ReleaseUrl = null,
     int DownloadPercent = 0,
+    long DownloadedBytes = 0,
+    long DownloadSizeBytes = 0,
     bool PromptRequired = false,
     bool RestartRequired = false,
     bool RequiresElevation = false,
@@ -281,7 +283,25 @@ public sealed class UpdateService : IDisposable
             return;
         }
 
-        Mutate(s => s with { Stage = UpdateStage.Downloading, DownloadPercent = 0, PromptRequired = false });
+        // Accepting with "always update" set turns on auto mode first, which
+        // stages by itself, and then the UI asks to stage again. NetSparkle
+        // ignores the second download, but without this guard the progress we
+        // report would snap back to 0% mid-download.
+        if (_state.Stage == UpdateStage.Downloading)
+        {
+            return;
+        }
+
+        // Size comes from the app cast so the UI can show "12.4 / 57.8 MB"
+        // from the very first frame, before any progress event has fired.
+        Mutate(s => s with
+        {
+            Stage = UpdateStage.Downloading,
+            DownloadPercent = 0,
+            DownloadedBytes = 0,
+            DownloadSizeBytes = _offered.UpdateSize,
+            PromptRequired = false,
+        });
         await _sparkle.InitAndBeginDownload(_offered).ConfigureAwait(false);
     }
 
@@ -380,7 +400,16 @@ public sealed class UpdateService : IDisposable
     // ---- NetSparkle callbacks --------------------------------------------
 
     private void OnDownloadProgress(object sender, AppCastItem item, NetSparkleUpdater.Events.ItemDownloadProgressEventArgs args) =>
-        Mutate(s => s with { DownloadPercent = args.ProgressPercentage });
+        Mutate(s => s with
+        {
+            DownloadPercent = args.ProgressPercentage,
+            DownloadedBytes = args.BytesReceived,
+            // Prefer what the transfer reports; the app cast figure is only a
+            // starting estimate and a chunked response may not set this at all.
+            DownloadSizeBytes = args.TotalBytesToReceive > 0
+                ? args.TotalBytesToReceive
+                : s.DownloadSizeBytes,
+        });
 
     private void OnDownloadFinished(AppCastItem item, string path)
     {
@@ -389,6 +418,7 @@ public sealed class UpdateService : IDisposable
         {
             Stage = UpdateStage.Staged,
             DownloadPercent = 100,
+            DownloadedBytes = s.DownloadSizeBytes,
             RestartRequired = true,
             RequiresElevation = UpdateInstaller.RequiresElevation(),
         });

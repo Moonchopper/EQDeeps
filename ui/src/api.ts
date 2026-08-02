@@ -145,6 +145,9 @@ export interface UpdateState {
   releaseNotes?: string;
   releaseUrl?: string;
   downloadPercent: number;
+  downloadedBytes: number;
+  /** Total size of the update, known from the app cast before the first byte. */
+  downloadSizeBytes: number;
   /** The server wants the consent dialog shown right now. */
   promptRequired: boolean;
   /** An installer is staged; it lands on next launch, or on "Restart now". */

@@ -23,6 +23,10 @@ import { DashboardView } from "./dashboards/DashboardView";
 import { defaultPanel, newDashboard, newId, type DashboardDef } from "./dashboards/model";
 import { PRESET_IDS, presetDashboards, reconcilePresets } from "./dashboards/presets";
 
+/** Update polling: rare when nothing is happening, brisk while it is. */
+const IDLE_POLL_MS = 15_000;
+const ACTIVE_POLL_MS = 700;
+
 /**
  * The default dashboard (feature F7): fight list + summary + DPS chart + live
  * meter + deaths, all scoped to the fight selection, live-updating via the hub.
@@ -225,10 +229,23 @@ export default function App() {
     // progress; polling keeps the pill and the consent prompt in step with it.
     const pollUpdate = () => api.getUpdateState().then(setUpdate).catch(() => undefined);
     pollUpdate();
-    const updateTimer = window.setInterval(pollUpdate, 15_000);
+    const updateTimer = window.setInterval(pollUpdate, IDLE_POLL_MS);
     return () => window.clearInterval(updateTimer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // While something is actually happening, poll fast enough for the progress
+  // bar to move. At the idle interval a download finishes between two polls,
+  // so the update appears to do nothing and then be done.
+  useEffect(() => {
+    const busy = update?.stage === "downloading" || update?.stage === "checking";
+    if (!busy) return;
+    const timer = window.setInterval(
+      () => api.getUpdateState().then(setUpdate).catch(() => undefined),
+      ACTIVE_POLL_MS,
+    );
+    return () => window.clearInterval(timer);
+  }, [update?.stage]);
 
   function refreshDiscovered() {
     api

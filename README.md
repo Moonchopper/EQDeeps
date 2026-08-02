@@ -2,6 +2,8 @@
 
 A modern, real-time EverQuest combat-log analytics app — a clean-room successor to [EQLogParser](https://github.com/kauffman12/EQLogParser) built around composable queries and dashboards instead of fixed views.
 
+![EQDeeps overview dashboard on a synthetic raid log](docs/media/overview.png)
+
 **Status: v0.1.0 released.** Parser core, ingestion (≈1 GB/s backfill, sub-250 ms live latency), fight/session state, the composable query engine, a localhost REST + SignalR backend, the overview dashboard (fight list, summaries, zoomable rolling-window DPS charts, live meter, ability breakdowns, deaths), custom dashboards with a full query-builder UI, preset dashboards, log autodetection, a WebView2 windowed shell, and a self-contained single-file distribution with CI releases — validated through day-to-day use on real logs. Remaining before public v1: a systematic number-comparison harness against EQLogParser, spell-DB integration (class detection, bane, lands-on resolution), identity persistence to disk, and the P1/P2 backlog — see [features.md](docs/product/features.md).
 
 ## Run it
@@ -17,6 +19,10 @@ seconds later — backgrounded or slept tabs do **not** stop it. Flags:
 `--browser` (use your default browser instead of the app window),
 `--no-browser` (headless, no UI), `--no-update-check`, `--stay-alive` (keep
 parsing with no UI open), `--urls http://127.0.0.1:PORT`.
+
+> **First run:** the exe is unsigned, so Windows SmartScreen shows
+> "Windows protected your PC". Click **More info → Run anyway** — that's
+> expected for a small unsigned app and only happens once.
 
 **From source**:
 
@@ -61,3 +67,9 @@ attached (see `.github/workflows/release.yml`) — that's how
 | [docs/architecture/adr-001…009](docs/architecture/) | Decisions per phase: parser, ingestion, session state, query engine, API/live, SPA, dashboards, packaging, windowed shell |
 
 Locked decisions: .NET 8 backend + React/TypeScript SPA, realtime via SignalR, multi-character monitoring from day one, permissive-license dependencies only (attribution in [NOTICE](NOTICE)), Windows-first, public release as the end goal.
+
+## License
+
+[MIT](LICENSE). Third-party attributions live in [NOTICE](NOTICE), which must
+accompany any distributed copy. EverQuest is a registered trademark of Daybreak
+Game Company LLC; EQDeeps is an unaffiliated fan-made tool.

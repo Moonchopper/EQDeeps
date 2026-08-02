@@ -37,6 +37,17 @@ button {
   padding: 0;
 }
 
+/* The open dropdown list is painted from these rules, NOT from the closed
+   control's — so a select styled dark still drops a light popup, and light
+   option text on it is invisible until the row highlight lands under the
+   cursor. Every select in the app gets its list styled here rather than each
+   one remembering to. */
+option,
+optgroup {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
 .app {
   display: flex;
   flex-direction: column;
@@ -478,7 +489,7 @@ button.update-pill {
   z-index: 40;
   min-width: 230px;
   padding: 10px 12px;
-  background: var(--panel);
+  background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: 8px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
@@ -998,7 +1009,7 @@ th.num {
 .sub-tab.on {
   color: var(--ink);
   border-color: var(--border);
-  background: var(--bg);
+  background: var(--surface-2);
 }
 
 .view-tab-actions label.mini-btn {
@@ -1071,11 +1082,12 @@ th.num {
 }
 
 .time-controls select {
-  background: var(--bg);
-  color: var(--ink);
+  background: var(--page);
+  color: var(--ink-2);
   border: 1px solid var(--border);
   border-radius: 5px;
   padding: 1px 4px;
+  font: inherit;
   font-size: 11px;
 }
 

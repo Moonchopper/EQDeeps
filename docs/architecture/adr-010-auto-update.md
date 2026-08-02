@@ -75,11 +75,25 @@ loop must honour them with no UI attached.
 
 ### Staging and applying
 
-Downloads are staged and **applied on exit**, never mid-session — a combat
-parser that restarts itself during a raid is worse than one that updates a day
-late. `UserInteractionMode.DownloadNoInstall` keeps NetSparkle from installing
-on its own; the staged installer is recorded in `pending-update.json` so an
-interrupted run resumes without re-downloading.
+Downloads are staged and **applied on exit by default**, never mid-session — a
+combat parser that restarts itself during a raid is worse than one that updates
+a day late. `UserInteractionMode.DownloadNoInstall` keeps NetSparkle from
+installing on its own; the staged installer is recorded in
+`pending-update.json` so an interrupted run resumes without re-downloading.
+"Update & restart now" is available for users who want it immediately; it
+applies an already-staged installer directly, so it works offline and never
+re-downloads what is already on disk.
+
+Applying is a two-part handshake, and both halves are required: the handoff
+script waits for our PID to exit before it can replace our files, so applying
+must also shut the app down. Omitting that shipped once — the script waited its
+two minutes and gave up, making "restart to update" look inert. `UpdateApplyTests`
+now pins it.
+
+A long-running session re-checks every **two hours**. EQDeeps is commonly left
+open for days, so that loop is the only thing that tells such a session a
+release exists; six hours was long enough for a whole raid night to pass. The
+request is a ~2 KB app cast fetch, so checking more often costs nothing.
 
 Because Inno Setup cannot replace a running exe, `UpdateInstaller` writes a
 throwaway batch script that waits for our PID to exit, runs the installer

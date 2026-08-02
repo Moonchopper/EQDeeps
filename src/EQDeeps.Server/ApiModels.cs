@@ -21,6 +21,13 @@ public enum DeferScope
 
 public sealed record DeferUpdateRequest(DeferScope Scope);
 
+/// <summary>
+/// Consent to install. <paramref name="ApplyWhenReady"/> distinguishes "update
+/// now" (restart as soon as the download lands) from the default, which waits
+/// until the user closes the app on their own terms.
+/// </summary>
+public sealed record StageUpdateRequest(bool ApplyWhenReady = false);
+
 public sealed record SetUpdateModeRequest(UpdateMode Mode);
 
 /// <summary>Timeline scope; a record wrapper so filters (kinds, actors) can grow in later.</summary>

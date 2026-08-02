@@ -6,7 +6,7 @@ import type { DeferScope, UpdateState } from "../api";
  * and the button are a single decision rather than two clicks.
  */
 export type UpdateChoice =
-  | { kind: "update"; always: boolean }
+  | { kind: "update"; always: boolean; now: boolean }
   | { kind: "defer"; scope: DeferScope };
 
 /**
@@ -71,8 +71,9 @@ export function UpdateNotice({
         {state.canSelfInstall ? (
           <>
             <p className="update-when">
-              It downloads in the background and installs the next time you close
-              EQDeeps — your parse is never interrupted.
+              {state.restartRequired
+                ? "Already downloaded and waiting. It installs the next time you close EQDeeps."
+                : "It downloads in the background and installs the next time you close EQDeeps — your parse is never interrupted."}
             </p>
             <label className="update-always">
               <input
@@ -102,11 +103,22 @@ export function UpdateNotice({
               </button>
             </div>
             <div className="modal-actions">
+              {/* Two ways to say yes, differing only in when the restart
+                  happens. "On exit" stays the default (and the primary
+                  button) because never interrupting a parse is the point. */}
+              <button
+                className="mini-btn"
+                onClick={() => onChoice({ kind: "update", always, now: true })}
+                title="Install straight away — EQDeeps closes and reopens on the new version"
+              >
+                Update &amp; restart now
+              </button>
               <button
                 className="update-download"
-                onClick={() => onChoice({ kind: "update", always })}
+                onClick={() => onChoice({ kind: "update", always, now: false })}
+                title="Download now, install when you next close EQDeeps"
               >
-                Update
+                {state.restartRequired ? "Install on exit" : "Update"}
               </button>
             </div>
           </>

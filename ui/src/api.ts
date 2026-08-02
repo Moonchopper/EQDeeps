@@ -156,6 +156,8 @@ export interface UpdateState {
   requiresElevation: boolean;
   /** False for portable and source builds: they can only link to the release. */
   canSelfInstall: boolean;
+  /** When the last check completed — proof a manual check actually ran. */
+  lastCheckedUtc?: string;
   error?: string;
 }
 
@@ -170,9 +172,17 @@ export const api = {
   checkForUpdate: (): Promise<UpdateState> =>
     fetch("/api/update/check", { method: "POST" }).then((r) => json(r)),
 
-  /** Consent given: download in the background and stage for install. */
-  stageUpdate: (): Promise<UpdateState> =>
-    fetch("/api/update/stage", { method: "POST" }).then((r) => json(r)),
+  /**
+   * Consent given: download in the background and stage for install.
+   * `applyWhenReady` means "update now" — install and relaunch as soon as the
+   * download lands, rather than waiting for the user to close the app.
+   */
+  stageUpdate: (applyWhenReady = false): Promise<UpdateState> =>
+    fetch("/api/update/stage", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ applyWhenReady }),
+    }).then((r) => json(r)),
 
   deferUpdate: (scope: DeferScope): Promise<UpdateState> =>
     fetch("/api/update/defer", {

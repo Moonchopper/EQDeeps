@@ -13,6 +13,8 @@ interface Props {
   onApplyUpdate: () => void;
   onSetUpdateMode: (mode: UpdateMode) => void;
   onCheckForUpdate: () => void;
+  /** Transient result of a manual check, e.g. "up to date". */
+  checkNote: string | null;
   petRollup: boolean;
   onTogglePetRollup: (on: boolean) => void;
   onOpen: (path: string) => void;
@@ -43,6 +45,7 @@ export function SessionBar({
   onApplyUpdate,
   onSetUpdateMode,
   onCheckForUpdate,
+  checkNote,
   petRollup,
   onTogglePetRollup,
   onOpen,
@@ -152,6 +155,21 @@ export function SessionBar({
             onSetMode={onSetUpdateMode}
             onCheckNow={onCheckForUpdate}
           />
+          {/* On-demand check. Deliberately its own control rather than buried
+              in the menu: it is the way back for anyone who chose "don't ask
+              again", and it overrides auto mode to ask before installing. */}
+          <button
+            className="check-btn"
+            onClick={onCheckForUpdate}
+            disabled={update.stage === "checking"}
+            title="Check for updates now"
+            aria-label="Check for updates now"
+          >
+            <span className={update.stage === "checking" ? "check-icon spinning" : "check-icon"}>
+              ⟳
+            </span>
+          </button>
+          {checkNote && <span className="check-note">{checkNote}</span>}
           <UpdatePill
             state={update}
             onShowPrompt={onShowUpdatePrompt}

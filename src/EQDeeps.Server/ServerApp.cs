@@ -91,9 +91,9 @@ public static class ServerApp
 
         // The user said yes: download and stage it. Installing still waits for
         // them to close the app (or press Restart now).
-        app.MapPost("/api/update/stage", async (UpdateService updates) =>
+        app.MapPost("/api/update/stage", async (StageUpdateRequest? request, UpdateService updates) =>
         {
-            await updates.StageAsync();
+            await updates.StageAsync(request?.ApplyWhenReady ?? false);
             return Results.Ok(updates.State);
         });
 

@@ -4,10 +4,11 @@ import { api, type QueryResult, type QueryRow } from "../api";
 import { fmtNum, fmtRate, OTHER_COLOR } from "../format";
 import type { EntityColors } from "../colors";
 import { offsetTooltip } from "../chartInteractions";
+import { frameScope, type TimeFrame } from "../timeFrame";
 
 interface Props {
   sessionId: string;
-  fightIds: number[];
+  frame: TimeFrame;
   refreshKey: number;
   character: string;
   petRollup: boolean;
@@ -31,7 +32,7 @@ const MAX_STACK_ATTACKERS = 8;
  * and a legend carries identity. Flat mode stays single-hue — there the
  * category axis already names each bar.
  */
-export function AbilityChart({ sessionId, fightIds, refreshKey, character, petRollup, colors }: Props) {
+export function AbilityChart({ sessionId, frame, refreshKey, character, petRollup, colors }: Props) {
   const divRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<echarts.ECharts | null>(null);
   const [players, setPlayers] = useState<QueryResult | null>(null);
@@ -41,7 +42,7 @@ export function AbilityChart({ sessionId, fightIds, refreshKey, character, petRo
   const [mode, setMode] = useState<"dps" | "total">("dps");
   const [split, setSplit] = useState(false);
   const [abilities, setAbilities] = useState<QueryResult | null>(null);
-  const selectionKey = fightIds.join(",");
+  const selectionKey = JSON.stringify(frame);
   const splitActive = player === "" && split;
 
   useEffect(() => {
@@ -59,15 +60,11 @@ export function AbilityChart({ sessionId, fightIds, refreshKey, character, petRo
 
   // Actor list for the picker (pets appear as their own actors).
   useEffect(() => {
-    if (fightIds.length === 0) {
-      setPlayers(null);
-      return;
-    }
     let cancelled = false;
     api
       .query(sessionId, {
         source: "damage",
-        scope: { fightIds },
+        scope: frameScope(frame),
         groupBy: ["player"],
         metrics: ["total", "dps", "activeSeconds"],
         petRollup,
@@ -88,16 +85,11 @@ export function AbilityChart({ sessionId, fightIds, refreshKey, character, petRo
   }, [sessionId, selectionKey, refreshKey, character, petRollup]);
 
   useEffect(() => {
-    if (fightIds.length === 0) {
-      setAbilities(null);
-      chartRef.current?.clear();
-      return;
-    }
     let cancelled = false;
     api
       .query(sessionId, {
         source: "damage",
-        scope: { fightIds },
+        scope: frameScope(frame),
         groupBy: splitActive ? ["spell", "player"] : ["spell"],
         metrics: ["total", "hits"],
         filters: player ? [{ dim: "player", values: [player] }] : [],
@@ -326,7 +318,6 @@ export function AbilityChart({ sessionId, fightIds, refreshKey, character, petRo
           </span>
         </span>
       </div>
-      {fightIds.length === 0 && <div className="empty">Select a fight</div>}
       <div ref={divRef} className="chart" />
     </div>
   );

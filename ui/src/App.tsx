@@ -28,6 +28,14 @@ import {
   stripStandardViews,
 } from "./dashboards/standardViews";
 import { DEFAULT_CHART_SETTINGS, type ChartSettings } from "./timeControls";
+import {
+  DEFAULT_FRAME,
+  frameFromFights,
+  framedFightIds,
+  fightsInFrame,
+  isLive,
+  type TimeFrame,
+} from "./timeFrame";
 
 /** Update polling: rare when nothing is happening, brisk while it is. */
 const IDLE_POLL_MS = 15_000;
@@ -41,8 +49,10 @@ export default function App() {
   const [sessions, setSessions] = useState<SessionInfo[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [fights, setFights] = useState<FightInfo[]>([]);
-  const [selected, setSelected] = useState<number[]>([]);
-  const [followLive, setFollowLive] = useState(true);
+  // The one time frame the whole app reports over. A live tail by default;
+  // picking fights turns it into the fixed range they span. There is no
+  // separate "follow live" flag — a live frame *is* following.
+  const [frame, setFrame] = useState<TimeFrame>(DEFAULT_FRAME);
   const [tick, setTick] = useState<TickEvent | null>(null);
   const [backfill, setBackfill] = useState<BackfillEvent | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -82,6 +92,29 @@ export default function App() {
   function updateChartDefaults(next: ChartSettings) {
     setChartDefaults(next);
     localStorage.setItem("eqdeeps.chartDefaults", JSON.stringify(next));
+    // Changing the span is a statement about the live window, so it also
+    // releases a fixed range — otherwise the control would appear to do
+    // nothing while a fight was framed.
+    if (next.spanSec !== chartDefaults.spanSec) {
+      setFrame({ kind: "live", spanSec: next.spanSec });
+    }
+  }
+
+  /** Frame the fights the list just handed us; an empty pick returns to live. */
+  function selectFights(ids: number[]) {
+    setFrame(frameFromFights(fights, ids) ?? { kind: "live", spanSec: chartDefaults.spanSec });
+  }
+
+  /** Release a fixed range without disturbing the window/span settings. */
+  function backToLive() {
+    setFrame({ kind: "live", spanSec: chartDefaults.spanSec });
+  }
+
+  /** One control for "put it back how it started". */
+  function resetToDefaults() {
+    setFrame(DEFAULT_FRAME);
+    setChartDefaults(DEFAULT_CHART_SETTINGS);
+    localStorage.setItem("eqdeeps.chartDefaults", JSON.stringify(DEFAULT_CHART_SETTINGS));
   }
 
   function togglePetRollup(on: boolean) {
@@ -193,8 +226,6 @@ export default function App() {
 
   const activeIdRef = useRef(activeId);
   activeIdRef.current = activeId;
-  const followRef = useRef(followLive);
-  followRef.current = followLive;
   // One entity→color registry per session: charts, meter, and table tints all
   // read the same assignment, so "orange" means the same player everywhere.
   const entityColors = useMemo(() => createEntityColors(), [activeId]);
@@ -216,16 +247,11 @@ export default function App() {
             bumpRefreshThrottled();
           }
         },
+        // A live frame needs no nudging: its scope is the trailing window of
+        // the record stream, so new records move it on the server side.
         onTick: (e) => {
           if (e.sessionId === activeIdRef.current) {
             setTick(e);
-            if (followRef.current) {
-              setSelected((prev) => {
-                const same =
-                  prev.length === e.fightIds.length && prev.every((id, i) => id === e.fightIds[i]);
-                return same ? prev : e.fightIds;
-              });
-            }
             bumpRefreshThrottled();
           }
         },
@@ -294,9 +320,6 @@ export default function App() {
     try {
       const list = await api.getFights(id);
       setFights(list);
-      if (followRef.current && list.length > 0) {
-        setSelected([list[list.length - 1].id]);
-      }
       setRefreshKey((k) => k + 1);
     } catch (e) {
       setError(String(e));
@@ -307,7 +330,7 @@ export default function App() {
     setActiveId(id);
     setTick(null);
     setBackfill(null);
-    setSelected([]);
+    setFrame({ kind: "live", spanSec: chartDefaults.spanSec }); // a new log starts live
     await live.subscribe(id);
     await refreshFights(id);
   }
@@ -344,7 +367,7 @@ export default function App() {
     if (activeId === id) {
       setActiveId(null);
       setFights([]);
-      setSelected([]);
+      setFrame(DEFAULT_FRAME);
       setTick(null);
       if (list.length > 0) {
         await activate(list[0].id);
@@ -441,6 +464,9 @@ export default function App() {
         onTogglePetRollup={togglePetRollup}
         chartDefaults={chartDefaults}
         onChartDefaults={updateChartDefaults}
+        frame={frame}
+        fights={fights}
+        onResetDefaults={resetToDefaults}
         onOpen={openLog}
         onRefreshDiscovered={refreshDiscovered}
         onActivate={activate}
@@ -520,10 +546,10 @@ export default function App() {
           <main className="dashboard">
             <FightList
               fights={fights}
-              selected={selected}
-              followLive={followLive}
-              onSelect={setSelected}
-              onFollowLive={setFollowLive}
+              selected={framedFightIds(frame)}
+              live={isLive(frame)}
+              onSelect={selectFights}
+              onReset={backToLive}
             />
             {/* Three cases: a standard view, the hand-built Summary that
                 Overview opens on, or one of the user's own dashboards. */}
@@ -533,7 +559,7 @@ export default function App() {
                 return std ? (
                   <DashboardView
                     dashboard={std}
-                    ctx={{ sessionId: activeId, fightIds: selected, refreshKey, petRollup, colors: entityColors }}
+                    ctx={{ sessionId: activeId, frame, refreshKey, petRollup, colors: entityColors }}
                     chartDefaults={chartDefaults}
                     onChange={() => undefined}
                     readOnly
@@ -548,14 +574,15 @@ export default function App() {
                 <SelectionStats
                   sessionId={activeId}
                   character={sessions.find((s) => s.id === activeId)?.character ?? ""}
-                  fightIds={selected}
+                  frame={frame}
+                  fightCount={fightsInFrame(frame, fights).length}
                   refreshKey={refreshKey}
                   petRollup={petRollup}
                 />
                 <div className="dashboard-row">
                   <SummaryTable
                     sessionId={activeId}
-                    fightIds={selected}
+                    frame={frame}
                     refreshKey={refreshKey}
                     excludeDamageShields={excludeDs}
                     onToggleDamageShields={setExcludeDs}
@@ -565,22 +592,21 @@ export default function App() {
                   />
                   <div className="panel-stack">
                     <LiveMeter tick={tick} colorFor={entityColors.claim} petRollup={petRollup} />
-                    <DeathLog sessionId={activeId} fightIds={selected} refreshKey={refreshKey} />
+                    <DeathLog sessionId={activeId} frame={frame} refreshKey={refreshKey} />
                   </div>
                 </div>
                 <div className="dashboard-row halves">
                   <DpsChart
                     sessionId={activeId}
-                    fightIds={selected}
+                    frame={frame}
                     refreshKey={refreshKey}
-                    followLive={followLive}
                     petRollup={petRollup}
                     colors={entityColors}
                     chartDefaults={chartDefaults}
                   />
                   <AbilityChart
                     sessionId={activeId}
-                    fightIds={selected}
+                    frame={frame}
                     refreshKey={refreshKey}
                     character={sessions.find((s) => s.id === activeId)?.character ?? ""}
                     petRollup={petRollup}
@@ -589,7 +615,7 @@ export default function App() {
                 </div>
                 <TimelineChart
                   sessionId={activeId}
-                  fightIds={selected}
+                  frame={frame}
                   refreshKey={refreshKey}
                   character={sessions.find((s) => s.id === activeId)?.character ?? ""}
                   fights={fights}
@@ -601,7 +627,7 @@ export default function App() {
                 return dashboard ? (
                   <DashboardView
                     dashboard={dashboard}
-                    ctx={{ sessionId: activeId, fightIds: selected, refreshKey, petRollup, colors: entityColors }}
+                    ctx={{ sessionId: activeId, frame, refreshKey, petRollup, colors: entityColors }}
                     chartDefaults={chartDefaults}
                     onChange={(next) =>
                       updateDashboards(dashboards.map((d) => (d.id === next.id ? next : d)))

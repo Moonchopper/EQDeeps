@@ -5,19 +5,18 @@ import { fmtNum, OTHER_COLOR } from "../format";
 import type { EntityColors } from "../colors";
 import { attachWheelZoom, offsetTooltip } from "../chartInteractions";
 import {
-  LIVE_FALLBACK_SPAN_SEC,
   fmtDuration,
   spanChoices,
   windowChoices,
   type ChartSettings,
   type Span,
 } from "../timeControls";
+import { frameScope, isLive, type TimeFrame } from "../timeFrame";
 
 interface Props {
   sessionId: string;
-  fightIds: number[];
+  frame: TimeFrame;
   refreshKey: number;
-  followLive: boolean;
   petRollup: boolean;
   colors: EntityColors;
   chartDefaults: ChartSettings;
@@ -41,9 +40,8 @@ const BREAK_MS = 30_000;
  */
 export function DpsChart({
   sessionId,
-  fightIds,
+  frame,
   refreshKey,
-  followLive,
   petRollup,
   colors,
   chartDefaults,
@@ -52,9 +50,8 @@ export function DpsChart({
   const chartRef = useRef<echarts.ECharts | null>(null);
   const [windowSec, setWindowSec] = useState(chartDefaults.windowSec);
   const [span, setSpan] = useState<Span>(chartDefaults.spanSec);
-  const [scopeMode, setScopeMode] = useState<"selection" | "recent">("selection");
   const [result, setResult] = useState<QueryResult | null>(null);
-  const selectionKey = fightIds.join(",");
+  const frameKey = JSON.stringify(frame);
 
   // The top-bar control is the parent: this chart is not special, so a change
   // there pushes down here exactly as it does to every standard-view panel.
@@ -62,13 +59,6 @@ export function DpsChart({
     setWindowSec(chartDefaults.windowSec);
     setSpan(chartDefaults.spanSec);
   }, [chartDefaults.windowSec, chartDefaults.spanSec]);
-
-  // Live play wants "my output right now" — a trailing window over the record
-  // stream, no fight entries involved. Reviewing history wants the fight
-  // selection. The viewport is left alone: it belongs to the parent setting.
-  useEffect(() => {
-    setScopeMode(followLive ? "recent" : "selection");
-  }, [followLive]);
 
   const effectiveSpan = span === "fit" ? 60 : span;
 
@@ -117,25 +107,17 @@ export function DpsChart({
   }, [resetZoom]);
 
   useEffect(() => {
-    resetZoom(); // new selection or mode: fresh viewport
-  }, [selectionKey, scopeMode, resetZoom]);
+    resetZoom(); // new frame: fresh viewport
+  }, [frameKey, resetZoom]);
 
   useEffect(() => {
-    if (scopeMode === "selection" && fightIds.length === 0) {
-      setResult(null);
-      chartRef.current?.clear();
-      return;
-    }
     let cancelled = false;
     api
       .query(sessionId, {
         source: "damage",
-        scope:
-          scopeMode === "recent"
-            ? // Extra windowSec of lookback warms up the rolling mean so the
-              // left edge of the viewport is already smoothed.
-              { lastSeconds: effectiveSpan + windowSec }
-            : { fightIds },
+        // The frame is the scope. The extra windowSec of lookback warms up the
+        // rolling mean so the left edge of the viewport is already smoothed.
+        scope: frameScope(frame, windowSec),
         groupBy: ["player"],
         metrics: ["total"],
         bucketSeconds: 1,
@@ -146,7 +128,7 @@ export function DpsChart({
     return () => {
       cancelled = true;
     };
-  }, [sessionId, selectionKey, refreshKey, scopeMode, effectiveSpan, windowSec, petRollup]);
+  }, [sessionId, frameKey, refreshKey, windowSec, petRollup]);
 
   useEffect(() => {
     if (!chartRef.current) return;
@@ -241,7 +223,7 @@ export function DpsChart({
     // the newest data second (not wall clock), so replayed logs behave too.
     let axisMin: number | null = null;
     let axisMax: number | null = null;
-    if ((span !== "fit" || scopeMode === "recent") && segments.length > 0 && !isZoomed) {
+    if (span !== "fit" && segments.length > 0 && !isZoomed) {
       axisMax = segments[segments.length - 1][1];
       axisMin = axisMax - effectiveSpan * 1000;
     }
@@ -314,34 +296,17 @@ export function DpsChart({
       key: "dataZoomSelect",
       dataZoomSelectActive: true,
     });
-  }, [result, windowSec, span, scopeMode, effectiveSpan, colors, isZoomed]);
+  }, [result, windowSec, span, colors, isZoomed]);
 
   return (
     <div className="panel chart-panel">
       <div className="panel-title">
         <span>Damage per second</span>
         <span className="title-controls">
-          <span className="tabs">
-            <button
-              className={"tab small" + (scopeMode === "selection" ? " on" : "")}
-              onClick={() => setScopeMode("selection")}
-              title="The selected fight(s)"
-            >
-              selection
-            </button>
-            <button
-              className={"tab small" + (scopeMode === "recent" ? " on" : "")}
-              onClick={() => {
-                setScopeMode("recent");
-                if (span === "fit") {
-                  setSpan(LIVE_FALLBACK_SPAN_SEC);
-                }
-              }}
-              title="Everything in the last span — not tied to any fight or mob"
-            >
-              recent
-            </button>
-          </span>
+          {/* The scope tabs are gone: the app has one time frame now, set by
+              the fight list or the top bar, and this chart reads it like
+              everything else. What is left is how to read it. */}
+          <span className="subtle">{isLive(frame) ? "live" : "framed"}</span>
           <label className="toggle" title="Rolling average window — 1 s is raw landed damage">
             window
             <select
@@ -358,17 +323,15 @@ export function DpsChart({
           </label>
           <label
             className="toggle"
-            title="Time viewport — a fixed span slides with the fight instead of rescaling"
+            title="Time viewport — a fixed span slides with the newest data instead of rescaling"
           >
             span
             <select
               className="panel-select"
-              value={
-                scopeMode === "recent" && span === "fit" ? String(LIVE_FALLBACK_SPAN_SEC) : String(span)
-              }
+              value={String(span)}
               onChange={(e) => setSpan(e.target.value === "fit" ? "fit" : Number(e.target.value))}
             >
-              {SPAN_CHOICES.filter((s) => scopeMode !== "recent" || s.value !== "fit").map((s) => (
+              {SPAN_CHOICES.map((s) => (
                 <option key={String(s.value)} value={String(s.value)}>
                   {s.label}
                 </option>
@@ -377,9 +340,6 @@ export function DpsChart({
           </label>
         </span>
       </div>
-      {scopeMode === "selection" && fightIds.length === 0 && (
-        <div className="empty">Select a fight</div>
-      )}
       <div className="chart-wrap">
         <div
           ref={divRef}

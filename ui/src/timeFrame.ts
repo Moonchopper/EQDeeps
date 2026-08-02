@@ -1,0 +1,136 @@
+import type { FightInfo, QuerySpec } from "./api";
+import { DEFAULT_CHART_SETTINGS, type ChartSettings, type Span } from "./timeControls";
+
+/**
+ * What slice of the log the whole app is looking at. There is exactly one of
+ * these, and every panel reports over it.
+ *
+ * Time is the substrate: every record has a timestamp, and much of what
+ * matters — XP turn-ins, faction, loot, downtime itself — happens outside any
+ * fight. Fights are a derived artifact (the parser's read of where a pull
+ * started and stopped), so they are a way of *picking* a frame rather than the
+ * axis everything hangs off. Selecting fights produces a range; the server
+ * still subdivides that range per fight for combat, so DPS means what it
+ * always meant.
+ *
+ *  live  — the trailing `spanSec` of the record stream, anchored to the newest
+ *          record. Inherently follows live play: new records move the window.
+ *          `spanSec: "fit"` is the whole log.
+ *  range — a fixed window, produced by selecting fights. Does not follow.
+ */
+export type TimeFrame =
+  | { kind: "live"; spanSec: Span }
+  | { kind: "range"; fightIds: number[]; begin: string; end: string };
+
+export const DEFAULT_FRAME: TimeFrame = { kind: "live", spanSec: DEFAULT_CHART_SETTINGS.spanSec };
+
+/** A live frame tracks the newest record; a fixed range does not. */
+export function isLive(frame: TimeFrame): boolean {
+  return frame.kind === "live";
+}
+
+/** Fight ids to highlight in the list — empty when the frame is a live tail. */
+export function framedFightIds(frame: TimeFrame): number[] {
+  return frame.kind === "range" ? frame.fightIds : [];
+}
+
+/**
+ * The frame as a query scope. `warmupSec` is extra history for a rolling
+ * mean's left edge; it widens the query without widening what gets drawn.
+ */
+export function frameScope(frame: TimeFrame, warmupSec = 0): QuerySpec["scope"] {
+  if (frame.kind === "range") {
+    const begin = warmupSec > 0
+      ? new Date(new Date(frame.begin).getTime() - warmupSec * 1000).toISOString().slice(0, 19)
+      : frame.begin;
+    return { timeRanges: [{ begin, end: frame.end }] };
+  }
+
+  // "fit" is the whole log: no bound at all rather than a very large one, so
+  // the server takes its own unrestricted path.
+  return frame.spanSec === "fit" ? {} : { lastSeconds: frame.spanSec + warmupSec };
+}
+
+/**
+ * Builds a frame from a fight selection: the wall-clock window those fights
+ * span, downtime between them included. One fight is just that fight.
+ */
+export function frameFromFights(fights: FightInfo[], ids: number[]): TimeFrame | null {
+  const chosen = fights.filter((f) => ids.includes(f.id));
+  if (chosen.length === 0) {
+    return null;
+  }
+
+  let begin = chosen[0].beginTime;
+  let end = chosen[0].lastDamageTime;
+  for (const fight of chosen) {
+    if (fight.beginTime < begin) begin = fight.beginTime;
+    if (fight.lastDamageTime > end) end = fight.lastDamageTime;
+  }
+
+  return { kind: "range", fightIds: [...ids], begin, end };
+}
+
+/** Inclusive index range between two fight-list positions, in either order. */
+export function fightIdsBetween(fights: FightInfo[], anchorId: number, targetId: number): number[] {
+  const a = fights.findIndex((f) => f.id === anchorId);
+  const b = fights.findIndex((f) => f.id === targetId);
+  if (a < 0 || b < 0) {
+    return [targetId];
+  }
+
+  const [lo, hi] = a <= b ? [a, b] : [b, a];
+  return fights.slice(lo, hi + 1).map((f) => f.id);
+}
+
+/**
+ * The fights the frame covers. The timeline is inherently fight-shaped — it
+ * draws per-combatant lanes — so it needs the fights inside the window rather
+ * than the window itself. A live frame resolves against the newest fight,
+ * matching how the server anchors its trailing scope.
+ */
+export function fightsInFrame(frame: TimeFrame, fights: FightInfo[]): number[] {
+  if (frame.kind === "range") {
+    return frame.fightIds;
+  }
+
+  if (frame.spanSec === "fit" || fights.length === 0) {
+    return fights.map((f) => f.id);
+  }
+
+  const newest = new Date(fights[fights.length - 1].lastDamageTime).getTime();
+  const from = newest - frame.spanSec * 1000;
+  return fights.filter((f) => new Date(f.lastDamageTime).getTime() >= from).map((f) => f.id);
+}
+
+/** Short human description for the top bar. */
+export function frameLabel(frame: TimeFrame, fights: FightInfo[]): string {
+  if (frame.kind === "live") {
+    return frame.spanSec === "fit" ? "whole log" : "live";
+  }
+
+  const chosen = fights.filter((f) => frame.fightIds.includes(f.id));
+  if (chosen.length === 1) {
+    return chosen[0].name;
+  }
+
+  const seconds = Math.max(
+    0,
+    Math.round((new Date(frame.end).getTime() - new Date(frame.begin).getTime()) / 1000),
+  );
+  const length = seconds >= 3600
+    ? `${(seconds / 3600).toFixed(1)}h`
+    : seconds >= 60
+      ? `${Math.round(seconds / 60)}m`
+      : `${seconds}s`;
+  return `${chosen.length || frame.fightIds.length} fights · ${length}`;
+}
+
+/** True when nothing has been changed from the app's opening state. */
+export function isDefaultState(frame: TimeFrame, settings: ChartSettings): boolean {
+  return (
+    frame.kind === "live" &&
+    frame.spanSec === DEFAULT_CHART_SETTINGS.spanSec &&
+    settings.windowSec === DEFAULT_CHART_SETTINGS.windowSec
+  );
+}

@@ -281,6 +281,29 @@ optgroup {
   opacity: 1; /* no panel to hover — it is always the live setting */
 }
 
+/* What the app is currently reporting over: "live", a mob name, or a range. */
+.frame-readout {
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 600;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The fight list is a range selector; say so once, quietly, under the rows. */
+.fight-hint {
+  padding: 5px 10px;
+  border-top: 1px solid var(--border);
+  font-size: 10px;
+}
+
+.fight-actions .mini-btn.on {
+  color: var(--live);
+  border-color: var(--live);
+}
+
 .version {
   color: var(--muted);
   font-size: 11px;

@@ -1,5 +1,6 @@
 import type { Dimension, QueryFilter, QuerySource, QuerySpec } from "../api";
 import type { ChartSettings } from "../timeControls";
+import { frameScope, type TimeFrame } from "../timeFrame";
 
 // The user-facing panel definition: a QuerySpec plus presentation. This is
 // what dashboards persist and what export/import moves between machines.
@@ -157,20 +158,19 @@ export function newDashboard(name: string): DashboardDef {
  */
 export function buildSpec(
   panel: PanelDef,
-  fightIds: number[],
+  frame: TimeFrame,
   petRollup: boolean,
   settings: ChartSettings,
 ): QuerySpec {
   const warmup = panel.viz === "line" ? settings.windowSec : 0;
-  const scope: QuerySpec["scope"] = {};
-  if (panel.scopeMode === "recent") {
-    scope.lastSeconds = panel.lastSeconds + warmup;
-  } else if (panel.scopeMode === "all" && settings.spanSec !== "fit") {
-    scope.lastSeconds = settings.spanSec + warmup;
-  } else {
-    if (panel.scopeMode === "selection") {
-      scope.fightIds = fightIds;
-    }
+  // "recent" panels keep a fixed window of their own — that is the whole
+  // identity of the Right now view. Everything else reports over the app's
+  // one time frame.
+  const scope: QuerySpec["scope"] =
+    panel.scopeMode === "recent"
+      ? { lastSeconds: panel.lastSeconds + warmup }
+      : frameScope(frame, warmup);
+  if (panel.scopeMode !== "recent") {
     if (panel.skipFirstSeconds > 0) {
       scope.skipFirstSeconds = panel.skipFirstSeconds;
     }

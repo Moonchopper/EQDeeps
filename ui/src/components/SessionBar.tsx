@@ -1,8 +1,9 @@
 import { useState, type CSSProperties } from "react";
-import type { DiscoveredLog, SessionInfo, UpdateMode, UpdateState } from "../api";
+import type { DiscoveredLog, FightInfo, SessionInfo, UpdateMode, UpdateState } from "../api";
 import type { BackfillEvent } from "../live";
 import { UpdateSettings } from "./UpdateSettings";
 import { TimeControls, type ChartSettings } from "../timeControls";
+import { frameLabel, isDefaultState, type TimeFrame } from "../timeFrame";
 
 interface Props {
   sessions: SessionInfo[];
@@ -21,6 +22,10 @@ interface Props {
   /** App-wide window/span. Owned here, pushed down to every chart. */
   chartDefaults: ChartSettings;
   onChartDefaults: (next: ChartSettings) => void;
+  /** The one time frame, for the readout beside the controls. */
+  frame: TimeFrame;
+  fights: FightInfo[];
+  onResetDefaults: () => void;
   onOpen: (path: string) => void;
   onRefreshDiscovered: () => void;
   onActivate: (id: string) => void;
@@ -54,6 +59,9 @@ export function SessionBar({
   onTogglePetRollup,
   chartDefaults,
   onChartDefaults,
+  frame,
+  fights,
+  onResetDefaults,
   onOpen,
   onRefreshDiscovered,
   onActivate,
@@ -158,12 +166,18 @@ export function SessionBar({
           rather than on a panel precisely because it belongs to none of them:
           changing it pushes down and clears any per-panel deviation. */}
       <span className="global-time-controls" title="Rolling window and viewport for every chart">
-        <span className="subtle">all charts</span>
-        <TimeControls
-          settings={chartDefaults}
-          bucketSeconds={1}
-          onChange={onChartDefaults}
-        />
+        <span className="frame-readout" title="What every panel is currently reporting over">
+          {frameLabel(frame, fights)}
+        </span>
+        <TimeControls settings={chartDefaults} bucketSeconds={1} onChange={onChartDefaults} />
+        <button
+          className="mini-btn"
+          onClick={onResetDefaults}
+          disabled={isDefaultState(frame, chartDefaults)}
+          title="Back to the opening state: live, 10 s window, 2 m span"
+        >
+          reset
+        </button>
       </span>
       {update && (
         <span className="version">

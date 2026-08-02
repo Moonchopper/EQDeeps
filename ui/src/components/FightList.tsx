@@ -1,41 +1,64 @@
-import { Fragment } from "react";
+import { Fragment, useRef } from "react";
 import type { FightInfo } from "../api";
 import { fmtClock, fmtDuration, fmtNum } from "../format";
 
 interface Props {
   fights: FightInfo[];
   selected: number[];
-  followLive: boolean;
+  /** True while the frame is a live tail — nothing in the list is framed. */
+  live: boolean;
   onSelect: (ids: number[]) => void;
-  onFollowLive: (follow: boolean) => void;
+  onReset: () => void;
 }
 
 /**
  * Chronological fight list with pull-chain grouping: a "break" divider renders
- * between groups. Click selects a fight; ctrl/cmd-click toggles; clicking a
- * group header selects the whole pull chain.
+ * between groups.
+ *
+ * This is a RANGE SELECTOR, not a filter. A click frames one fight;
+ * shift-click extends from the last click to frame everything between, in
+ * list order; ctrl/cmd-click adds or removes a single fight; a group header
+ * frames the whole pull chain. Whatever is picked becomes the app's time
+ * frame — the window between the first and last fight chosen, downtime
+ * included — so every panel reports over it.
  */
-export function FightList({ fights, selected, followLive, onSelect, onFollowLive }: Props) {
+export function FightList({ fights, selected, live, onSelect, onReset }: Props) {
   const selectedSet = new Set(selected);
+  // Where a shift-click measures from. Kept as a ref so extending the range
+  // repeatedly always reaches back to the same anchor.
+  const anchorRef = useRef<number | null>(null);
 
-  const toggle = (id: number, additive: boolean) => {
-    onFollowLive(false);
-    if (!additive) {
-      onSelect([id]);
+  const pick = (id: number, event: React.MouseEvent) => {
+    if (event.shiftKey && anchorRef.current !== null) {
+      const a = fights.findIndex((f) => f.id === anchorRef.current);
+      const b = fights.findIndex((f) => f.id === id);
+      if (a >= 0 && b >= 0) {
+        const [lo, hi] = a <= b ? [a, b] : [b, a];
+        onSelect(fights.slice(lo, hi + 1).map((f) => f.id));
+        return;
+      }
+    }
+
+    if (event.ctrlKey || event.metaKey) {
+      const next = new Set(selectedSet);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      anchorRef.current = id;
+      onSelect([...next]);
       return;
     }
-    const next = new Set(selectedSet);
-    if (next.has(id)) {
-      next.delete(id);
-    } else {
-      next.add(id);
-    }
-    onSelect([...next]);
+
+    anchorRef.current = id;
+    onSelect([id]);
   };
 
   const selectGroup = (groupIndex: number) => {
-    onFollowLive(false);
-    onSelect(fights.filter((f) => f.groupIndex === groupIndex).map((f) => f.id));
+    const group = fights.filter((f) => f.groupIndex === groupIndex);
+    anchorRef.current = group[0]?.id ?? null;
+    onSelect(group.map((f) => f.id));
   };
 
   const rows: JSX.Element[] = [];
@@ -48,7 +71,7 @@ export function FightList({ fights, selected, followLive, onSelect, onFollowLive
           key={`g${fight.groupIndex}`}
           className="fight-group"
           onClick={() => selectGroup(fight.groupIndex)}
-          title="Select the whole pull chain"
+          title="Frame the whole pull chain"
         >
           — pull chain {fight.groupIndex + 1} —
         </button>,
@@ -62,7 +85,7 @@ export function FightList({ fights, selected, followLive, onSelect, onFollowLive
           (selectedSet.has(fight.id) ? " selected" : "") +
           (!fight.closed ? " active" : "")
         }
-        onClick={(e) => toggle(fight.id, e.ctrlKey || e.metaKey)}
+        onClick={(e) => pick(fight.id, e)}
       >
         <span className="fight-name">
           {fight.dead ? "☠ " : fight.closed ? "" : "⚔ "}
@@ -76,11 +99,6 @@ export function FightList({ fights, selected, followLive, onSelect, onFollowLive
     );
   }
 
-  const selectAll = () => {
-    onFollowLive(false);
-    onSelect(fights.map((f) => f.id));
-  };
-
   return (
     <div className="panel fight-list">
       <div className="panel-title">
@@ -88,25 +106,35 @@ export function FightList({ fights, selected, followLive, onSelect, onFollowLive
         <span className="fight-actions">
           <button
             className="mini-btn"
-            onClick={selectAll}
-            title="Aggregate every fight in the log"
+            onClick={() => fights.length > 0 && onSelect(fights.map((f) => f.id))}
+            title="Frame the entire log, first fight to last"
             disabled={fights.length === 0}
           >
             select all
           </button>
-          <label className="follow-live">
-            <input
-              type="checkbox"
-              checked={followLive}
-              onChange={(e) => onFollowLive(e.target.checked)}
-            />
-            follow live
-          </label>
+          {/* Returning to live is the way out of a fixed range, which is what
+              the old "follow live" checkbox amounted to once the frame became
+              a single app-wide concept. */}
+          <button
+            className={"mini-btn" + (live ? " on" : "")}
+            onClick={onReset}
+            title="Back to the live view — the trailing window, following new records"
+            disabled={live}
+          >
+            {live ? "live" : "back to live"}
+          </button>
         </span>
       </div>
       <div className="fight-scroll">
-        {rows.length > 0 ? <Fragment>{rows}</Fragment> : <div className="empty">No fights yet</div>}
+        {rows.length > 0 ? (
+          <Fragment>{rows}</Fragment>
+        ) : (
+          <div className="empty">No fights yet</div>
+        )}
       </div>
+      {rows.length > 0 && (
+        <div className="fight-hint subtle">click to frame · shift-click for a range</div>
+      )}
     </div>
   );
 }

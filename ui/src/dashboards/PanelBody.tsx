@@ -6,10 +6,11 @@ import { buildSpec, METRIC_LABELS, RATE_METRICS, type PanelDef } from "./model";
 import type { EntityColors } from "../colors";
 import { attachWheelZoom, offsetTooltip } from "../chartInteractions";
 import type { ChartSettings } from "../timeControls";
+import type { TimeFrame } from "../timeFrame";
 
 export interface PanelContext {
   sessionId: string;
-  fightIds: number[];
+  frame: TimeFrame;
   refreshKey: number;
   petRollup: boolean;
   colors: EntityColors;
@@ -38,15 +39,10 @@ function usePanelQuery(
   settings: ChartSettings,
 ): QueryResult | null | "no-selection" {
   const [result, setResult] = useState<QueryResult | null>(null);
-  const spec = buildSpec(panel, ctx.fightIds, ctx.petRollup, settings);
+  const spec = buildSpec(panel, ctx.frame, ctx.petRollup, settings);
   const specKey = JSON.stringify(spec);
-  const noSelection = panel.scopeMode === "selection" && ctx.fightIds.length === 0;
 
   useEffect(() => {
-    if (noSelection) {
-      setResult(null);
-      return;
-    }
     let cancelled = false;
     api
       .query(ctx.sessionId, JSON.parse(specKey))
@@ -55,9 +51,9 @@ function usePanelQuery(
     return () => {
       cancelled = true;
     };
-  }, [ctx.sessionId, specKey, ctx.refreshKey, noSelection]);
+  }, [ctx.sessionId, specKey, ctx.refreshKey]);
 
-  return noSelection ? "no-selection" : result;
+  return result;
 }
 
 export function PanelBody({

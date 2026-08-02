@@ -165,6 +165,10 @@ independent signature: NetSparkle's Ed25519 in `SecurityMode.Strict`, over both
 the app cast and the installer. Both gates must pass before EQDeeps runs
 anything it downloaded.
 
+**Status: done (2026-08-02).** The keypair exists, `SPARKLE_PRIVATE_KEY` is set
+on the repo, and the public key is compiled in. The steps below are kept for
+rotation and for anyone rebuilding this from scratch.
+
 ### One-time key generation
 
 ```

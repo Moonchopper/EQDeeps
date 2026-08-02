@@ -17,6 +17,9 @@
     <PublishReferencesDocumentationFiles>false</PublishReferencesDocumentationFiles>
   </PropertyGroup>
   <ItemGroup>
+    <InternalsVisibleTo Include="EQDeeps.Server.Tests" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4078.44" />
     <!-- Update checking/download/Ed25519 verification (ADR-010). The UI packages
          are deliberately not referenced: the SPA is the only update UI. -->

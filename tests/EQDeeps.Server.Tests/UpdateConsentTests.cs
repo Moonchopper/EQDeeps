@@ -41,6 +41,27 @@ public class AppVersionTests
 }
 
 /// <summary>
+/// Guards the one build-time mistake that disables auto-update without failing
+/// anything: shipping the placeholder public key. The app degrades safely to
+/// notify-only in that case, but silently — a log line is the only other signal.
+/// </summary>
+public class ReleaseKeyTests
+{
+    [Fact]
+    public void ReleasePublicKeyIsARealEd25519Key()
+    {
+        Assert.False(
+            UpdateService.PublicKey.StartsWith("REPLACE_WITH", StringComparison.Ordinal),
+            "The Ed25519 placeholder is still in place — auto-update would silently " +
+            "disable itself. See docs/release-signing.md.");
+
+        // Ed25519 public keys are exactly 32 bytes; anything else would leave
+        // Ed25519Checker without a signer and fail every verification.
+        Assert.Equal(32, Convert.FromBase64String(UpdateService.PublicKey).Length);
+    }
+}
+
+/// <summary>
 /// The consent matrix (F22). These are the four levers the user actually sees,
 /// so each one is pinned here rather than left to the service to get right.
 /// </summary>

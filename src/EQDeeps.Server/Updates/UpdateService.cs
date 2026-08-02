@@ -52,7 +52,12 @@ public sealed class UpdateService : IDisposable
     /// never leaves the release workflow's secrets. Replacing this key is a
     /// breaking change for every installed copy — see docs/release-signing.md.
     /// </summary>
-    private const string PublicKey = "REPLACE_WITH_ED25519_PUBLIC_KEY";
+    /// <remarks>
+    /// Internal rather than private so a test can assert the placeholder never
+    /// ships: with it still in place auto-update silently disables itself, and
+    /// the only other signal is a log line nobody reads.
+    /// </remarks>
+    internal const string PublicKey = "YxA3OlqIw4vxDda3+dwhqbS419SOyxgglRXzADUyWbs=";
 
     private const string AppCastUrl =
         "https://github.com/Moonchopper/EQDeeps/releases/latest/download/appcast.xml";

@@ -12,14 +12,16 @@ namespace EQDeeps.Server;
 public sealed class SessionManager : IAsyncDisposable
 {
     private readonly IHubContext<LiveHub> _hub;
+    private readonly RecentLogs _recents;
     private readonly ConcurrentDictionary<string, SessionHost> _sessions = new();
     private readonly ConcurrentDictionary<string, IdentityRegistry> _registries =
         new(StringComparer.OrdinalIgnoreCase);
     private int _nextId;
 
-    public SessionManager(IHubContext<LiveHub> hub)
+    public SessionManager(IHubContext<LiveHub> hub, RecentLogs recents)
     {
         _hub = hub;
+        _recents = recents;
     }
 
     public SessionHost Open(OpenSessionRequest request)
@@ -41,6 +43,7 @@ public sealed class SessionManager : IAsyncDisposable
         var id = "s" + Interlocked.Increment(ref _nextId);
         var host = new SessionHost(id, session, _hub);
         _sessions[id] = host;
+        _recents.Touch(Path.GetFullPath(request.Path));
         return host;
     }
 

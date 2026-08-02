@@ -59,6 +59,41 @@ public static class LogDiscovery
         return results.OrderByDescending(r => r.LastWriteTime).ToList();
     }
 
+    /// <summary>
+    /// Describes a single log file (recent-logs entries): parses
+    /// character/server from the name when it matches the convention, falls
+    /// back to the bare filename otherwise (EMU logs, renamed copies), and
+    /// returns null for files that no longer exist.
+    /// </summary>
+    public static DiscoveredLog? Describe(string path, string source)
+    {
+        try
+        {
+            var info = new FileInfo(path);
+            if (!info.Exists)
+            {
+                return null;
+            }
+
+            if (!LogFileNames.TryParse(path, out var character, out var server))
+            {
+                character = Path.GetFileNameWithoutExtension(path);
+                server = "unknown";
+            }
+
+            return new DiscoveredLog(
+                info.FullName, character, server, info.LastWriteTime, info.Length, source);
+        }
+        catch (IOException)
+        {
+            return null;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
+
     /// <summary>Scans one Logs directory for character log files (exposed for tests).</summary>
     public static List<DiscoveredLog> ScanLogsDirectory(string logsDir, string source)
     {

@@ -1,9 +1,27 @@
 using EQDeeps.Core.Query;
 using EQDeeps.Core.Sessions;
+using EQDeeps.Server.Updates;
 
 namespace EQDeeps.Server;
 
 public sealed record OpenSessionRequest(string Path, DateTime? BackfillFrom = null, bool EmuMode = false);
+
+/// <summary>How long a "no thanks" to an update should last.</summary>
+public enum DeferScope
+{
+    /// <summary>Until the app restarts, or the user checks by hand.</summary>
+    Once,
+
+    /// <summary>Until a release newer than the one offered ships.</summary>
+    Release,
+
+    /// <summary>Until the user is running a different version than they are now.</summary>
+    CurrentVersion,
+}
+
+public sealed record DeferUpdateRequest(DeferScope Scope);
+
+public sealed record SetUpdateModeRequest(UpdateMode Mode);
 
 /// <summary>Timeline scope; a record wrapper so filters (kinds, actors) can grow in later.</summary>
 public sealed record TimelineRequest(QueryScope Scope);

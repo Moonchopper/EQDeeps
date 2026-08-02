@@ -152,11 +152,51 @@ re-run, so the fix is usually just running phase 1 again.
 
 ### Step 5 — Wire CI
 
-Tell Claude the profile exists. The follow-up work (separate PRs): a signing
-step in `release.yml` (sign `EQDeeps.Server.exe` between publish and zip, under
-`environment: release`), then the in-app auto-updater (download → verify our
-Authenticode signature → swap on restart), then delete the SmartScreen note from
-the README once reputation settles.
+Done. `release.yml` signs the app exe and the installer under
+`environment: release`, and fails the build if either comes out unsigned or
+untimestamped. Remaining follow-up: delete the SmartScreen note from the README
+once reputation settles.
+
+## Update signing (Ed25519) — required for auto-update
+
+Authenticode proves *who* built a file. It does not prove that a given file is
+the release the app cast is advertising, so auto-update (ADR-010) adds a second,
+independent signature: NetSparkle's Ed25519 in `SecurityMode.Strict`, over both
+the app cast and the installer. Both gates must pass before EQDeeps runs
+anything it downloaded.
+
+### One-time key generation
+
+```
+dotnet tool install --global NetSparkleUpdater.Tools.AppCastGenerator --version 2.9.0
+netsparkle-generate-appcast --generate-keys
+netsparkle-generate-appcast --export
+```
+
+`--export` prints the base64 keypair. Then:
+
+1. **Private key** → repository secret `SPARKLE_PRIVATE_KEY` (Settings → Secrets
+   and variables → Actions). The release workflow reads it as the
+   `SPARKLE_PRIVATE_KEY` environment variable and refuses to publish without it.
+2. **Public key** → the `PublicKey` constant in
+   `src/EQDeeps.Server/Updates/UpdateService.cs`, replacing the
+   `REPLACE_WITH_ED25519_PUBLIC_KEY` placeholder.
+
+Back the private key up somewhere outside CI (a password manager). It is not
+recoverable from the public key.
+
+> **While the placeholder is still in place**, installed builds deliberately
+> refuse to self-install and log a warning — they fall back to notify-only,
+> exactly like the portable zip. That is the safe failure, but it does mean
+> auto-update stays off until the key is wired in.
+
+### Rotating or losing the key
+
+Because the public key is compiled into every shipped copy, changing it means
+already-installed copies will reject every future release: they verify against
+the old key and see a mismatch. Recovery is a manual re-download by every user.
+Treat `SPARKLE_PRIVATE_KEY` as release-critical, and rotate only alongside a
+release that users are told to install by hand.
 
 ## Ongoing
 

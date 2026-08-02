@@ -247,6 +247,21 @@ button {
   background: rgba(245, 197, 66, 0.12);
 }
 
+/* The pill is a button while an update is actionable and plain text while one
+   is downloading; strip the button chrome so both read identically. */
+button.update-pill {
+  background: none;
+  font-size: inherit;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.update-pill-quiet {
+  border-color: var(--border);
+  color: var(--muted) !important;
+  font-weight: 400;
+}
+
 .update-star {
   color: var(--gold);
 }
@@ -277,6 +292,117 @@ button {
   padding: 5px 12px;
   font-weight: 600;
   text-decoration: none;
+  cursor: pointer;
+}
+
+/* Sets expectations before the user commits: nothing is interrupted. */
+.update-when {
+  color: var(--muted);
+  font-size: 12px;
+  margin: 10px 0 8px;
+}
+
+.update-always {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink-2);
+  font-size: 12px;
+  margin-bottom: 10px;
+  cursor: pointer;
+}
+
+/* The three declines sit together, distinct from the single accept action, so
+   the difference between them is legible at a glance. */
+.update-declines {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.link-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--muted);
+  font-size: 12px;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.link-btn:hover {
+  color: var(--ink);
+}
+
+/* ---- update preferences menu ---- */
+.update-settings {
+  position: relative;
+}
+
+.version-btn {
+  text-decoration: none;
+  color: inherit;
+  font-size: inherit;
+}
+
+.version-btn:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.update-menu {
+  position: absolute;
+  top: 22px;
+  right: 0;
+  z-index: 40;
+  min-width: 230px;
+  padding: 10px 12px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  text-align: left;
+  font-weight: 400;
+}
+
+.update-menu-title {
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 6px;
+}
+
+.update-menu-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 3px 0;
+  color: var(--ink-2);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.update-menu-row:hover {
+  color: var(--ink);
+}
+
+.update-menu-foot {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 9px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.update-menu-note {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.4;
 }
 
 /* ---- dashboard grid ---- */

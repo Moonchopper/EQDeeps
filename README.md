@@ -8,9 +8,18 @@ A modern, real-time EverQuest combat-log analytics app — a clean-room successo
 
 ## Run it
 
-**From a release zip** ([latest release](https://github.com/Moonchopper/EQDeeps/releases/latest)):
-unzip and run `EQDeeps.Server.exe` — the app opens in its own
-window (WebView2, the browser engine built into Windows 10/11). No install, no
+**Installer** (recommended, [latest release](https://github.com/Moonchopper/EQDeeps/releases/latest)):
+run `EQDeeps-Setup-x.y.z.exe`. It installs for you only, under
+`%LocalAppData%\Programs\EQDeeps`, with no administrator rights needed — the
+wizard still lets you pick any folder, or install for all users if you'd rather.
+Installed copies **keep themselves up to date**: see [Updates](#updates) below.
+
+**Portable zip** (same release): unzip and run `EQDeeps.Server.exe` — nothing is
+written outside the folder and deleting it removes the app. Portable copies
+tell you when a new release exists but can't install it for you.
+
+Either way the app opens in its own
+window (WebView2, the browser engine built into Windows 10/11). No
 .NET required. Closing the window exits the app (reopening backfills from the
 log, so nothing is lost), and launching the exe again focuses the already-open
 window. On machines without the WebView2 runtime it falls back to your default
@@ -24,6 +33,29 @@ parsing with no UI open), `--urls http://127.0.0.1:PORT`.
 > per file hash, so a brand-new release can still show "Windows protected your
 > PC" until enough people have run it. Click **More info → Run anyway**; the
 > prompt stops appearing as a release circulates.
+
+## Updates
+
+Installed copies check GitHub for new releases and, by default, **ask you once
+per release** before doing anything. The prompt offers:
+
+| | What it does |
+| --- | --- |
+| **Update** | Downloads in the background; installs the next time you close EQDeeps |
+| **Not right now** | Asks again next launch |
+| **Skip this version** | Silent until something newer than that release ships |
+| **Don't ask again for vX.Y.Z** | Silent until you're running a different version |
+| **Update automatically from now on** | Stops asking; every release installs itself |
+
+Updates are **never applied mid-session** — a download is staged quietly and the
+swap happens after you close the app, so a raid parse is never interrupted. The
+pill beside the version number shows what's happening and offers **restart to
+update** if you want it sooner. Nothing is executed until it passes both an
+Ed25519 signature check against a key built into the app and a Windows
+Authenticode check.
+
+Prefer no network calls at all? `--no-update-check` disables the whole thing for
+a run, and the in-app setting has a "never check" mode.
 
 **From source**:
 
@@ -45,13 +77,17 @@ UI dev loop: `dotnet run --project src/EQDeeps.Server` + `cd ui && npm run dev`.
 ## Package & share
 
 `powershell -File scripts/publish.ps1` produces a self-contained
-`artifacts/win-x64/` folder: one `EQDeeps.Server.exe` (SPA embedded) plus
-`NOTICE.txt`, which must accompany any copy you distribute. Zip the folder and
-it runs on any 64-bit Windows machine.
+`artifacts/win-x64/` folder: `EQDeeps.Server.exe` (SPA embedded) with its
+runtime, plus `NOTICE.txt`, which must accompany any copy you distribute. Zip
+the folder and it runs on any 64-bit Windows machine. Add `-Installer` to also
+compile `artifacts/installer/EQDeeps-Setup-x.y.z.exe` — that needs
+[Inno Setup 6](https://jrsoftware.org/isdl.php)
+(`winget install JRSoftware.InnoSetup`).
 
 Releases ship by pushing a git tag: `git tag v0.x.y && git push origin v0.x.y`
-makes CI test, publish, zip, and create a GitHub release with the artifact
-attached (see `.github/workflows/release.yml`) — that's how
+makes CI test, publish, sign, build the installer, and create a GitHub release
+with the installer, the portable zip, and the signed app cast that drives
+auto-update (see `.github/workflows/release.yml`) — that's how
 [v0.1.0](https://github.com/Moonchopper/EQDeeps/releases/tag/v0.1.0) was built.
 
 ## Documentation
@@ -65,7 +101,7 @@ attached (see `.github/workflows/release.yml`) — that's how
 | [docs/domain/metrics-and-aggregation.md](docs/domain/metrics-and-aggregation.md) | Fight segmentation, counters, metric formulas |
 | [docs/architecture/system-overview.md](docs/architecture/system-overview.md) | Stack, components, the QuerySpec model |
 | [docs/architecture/log-ingestion-brief.md](docs/architecture/log-ingestion-brief.md) | Design brief for the file-reading layer |
-| [docs/architecture/adr-001…009](docs/architecture/) | Decisions per phase: parser, ingestion, session state, query engine, API/live, SPA, dashboards, packaging, windowed shell |
+| [docs/architecture/adr-001…010](docs/architecture/) | Decisions per phase: parser, ingestion, session state, query engine, API/live, SPA, dashboards, packaging, windowed shell, auto-update |
 | [docs/release-signing.md](docs/release-signing.md) | Azure Artifact Signing setup for signed releases and auto-update |
 
 Locked decisions: .NET 8 backend + React/TypeScript SPA, realtime via SignalR, multi-character monitoring from day one, permissive-license dependencies only (attribution in [NOTICE](NOTICE)), Windows-first, public release as the end goal.

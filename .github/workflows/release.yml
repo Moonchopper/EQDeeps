@@ -39,12 +39,12 @@ jobs:
       - name: Test
         run: dotnet test -c Release
 
+      # A folder, not a single-file exe: Inno Setup installs an application
+      # directory and the updater replaces it in place (ADR-010).
       - name: Publish win-x64
         shell: pwsh
         run: >
           dotnet publish src/EQDeeps.Server -c Release -r win-x64 --self-contained
-          -p:PublishSingleFile=true
-          -p:IncludeNativeLibrariesForSelfExtract=true
           -p:Version=${{ steps.version.outputs.version }}
           -o artifacts/win-x64
 
@@ -55,10 +55,11 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      # Signs between publish and zip, so the exe inside the zip is the signed
-      # one. Certificates are only valid three days, so the RFC3161 timestamp is
-      # what keeps signatures verifying long after — don't drop it.
-      - name: Sign EQDeeps.Server.exe
+      # Sign the app before it goes into the installer, so the exe users launch
+      # every day is signed too — not just the one-time setup program.
+      # Certificates are only valid three days, so the RFC3161 timestamp is what
+      # keeps signatures verifying long after; don't drop it.
+      - name: Sign application
         uses: azure/artifact-signing-action@v2
         with:
           endpoint: ${{ vars.ARTIFACT_SIGNING_ENDPOINT }}
@@ -70,29 +71,109 @@ jobs:
           timestamp-rfc3161: http://timestamp.acs.microsoft.com
           timestamp-digest: SHA256
 
-      # The signing action can succeed while leaving a file unsigned if the
-      # folder filter matches nothing. Fail the release rather than ship it.
-      - name: Verify signature
-        shell: pwsh
-        run: |
-          $sig = Get-AuthenticodeSignature artifacts/win-x64/EQDeeps.Server.exe
-          $sig | Format-List Status, StatusMessage, SignerCertificate, TimeStamperCertificate
-          if ($sig.Status -ne 'Valid') {
-            throw "EQDeeps.Server.exe is not validly signed (status: $($sig.Status))."
-          }
-          if (-not $sig.TimeStamperCertificate) {
-            throw "Signature is not timestamped — it would stop verifying in three days."
-          }
-          Write-Host "Signed by: $($sig.SignerCertificate.Subject)"
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress -y
 
-      - name: Zip artifact
+      - name: Build installer
         shell: pwsh
         run: |
-          Copy-Item NOTICE artifacts/win-x64/NOTICE.txt
-          Compress-Archive -Path artifacts/win-x64/* -DestinationPath "EQDeeps-${{ steps.version.outputs.version }}-win-x64.zip"
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" `
+            "/DAppVersion=${{ steps.version.outputs.version }}" `
+            "/DPayloadDir=..\artifacts\win-x64" `
+            "installer\EQDeeps.iss"
+
+      # The installer is what the updater downloads and executes on a user's
+      # machine, so this signature is the one that actually gates auto-update:
+      # UpdateService refuses to run anything WinVerifyTrust rejects.
+      - name: Sign installer
+        uses: azure/artifact-signing-action@v2
+        with:
+          endpoint: ${{ vars.ARTIFACT_SIGNING_ENDPOINT }}
+          signing-account-name: ${{ vars.ARTIFACT_SIGNING_ACCOUNT }}
+          certificate-profile-name: ${{ vars.ARTIFACT_SIGNING_PROFILE }}
+          files-folder: ${{ github.workspace }}\artifacts\installer
+          files-folder-filter: exe
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+
+      # The signing action can succeed while leaving a file unsigned if the
+      # folder filter matches nothing. Fail the release rather than ship an
+      # installer that every client would then refuse to apply.
+      - name: Verify signatures
+        shell: pwsh
+        run: |
+          $targets = @(
+            "artifacts/win-x64/EQDeeps.Server.exe",
+            "artifacts/installer/EQDeeps-Setup-${{ steps.version.outputs.version }}.exe"
+          )
+          foreach ($target in $targets) {
+            $sig = Get-AuthenticodeSignature $target
+            if ($sig.Status -ne 'Valid') {
+              throw "$target is not validly signed (status: $($sig.Status))."
+            }
+            if (-not $sig.TimeStamperCertificate) {
+              throw "$target is not timestamped — it would stop verifying in three days."
+            }
+            Write-Host "$target signed by: $($sig.SignerCertificate.Subject)"
+          }
+
+      # Portable zip for people who don't want an installer. It self-reports as
+      # not installable, so it links to the release instead of updating itself.
+      - name: Zip portable build
+        shell: pwsh
+        run: |
+          Copy-Item NOTICE artifacts/win-x64/NOTICE.txt -Force
+          Compress-Archive -Path artifacts/win-x64/* `
+            -DestinationPath "EQDeeps-${{ steps.version.outputs.version }}-win-x64.zip"
 
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
-          files: EQDeeps-*.zip
+          files: |
+            artifacts/installer/EQDeeps-Setup-${{ steps.version.outputs.version }}.exe
+            EQDeeps-*.zip
           generate_release_notes: true
+
+      # The app cast is generated after the release exists so it can carry the
+      # release notes GitHub just wrote — those bullets are what the in-app
+      # consent dialog shows. It is uploaded to this same release, which is what
+      # makes releases/latest/download/appcast.xml resolve for every client.
+      - name: Publish app cast
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          if (-not $env:SPARKLE_PRIVATE_KEY) {
+            throw "SPARKLE_PRIVATE_KEY is not set — clients could not verify this release."
+          }
+          dotnet tool install --global NetSparkleUpdater.Tools.AppCastGenerator --version 2.9.0
+
+          New-Item -ItemType Directory -Force artifacts/notes | Out-Null
+          $notes = gh release view ${{ github.ref_name }} --json body --jq .body
+          Set-Content -Path "artifacts/notes/${{ steps.version.outputs.version }}.md" `
+            -Value $notes -Encoding utf8
+
+          netsparkle-generate-appcast `
+            --binaries artifacts/installer `
+            --ext exe `
+            --file-version ${{ steps.version.outputs.version }} `
+            --product-name EQDeeps `
+            --os windows `
+            --base-url "https://github.com/Moonchopper/EQDeeps/releases/download/${{ github.ref_name }}" `
+            --change-log-path artifacts/notes `
+            --appcast-output-directory artifacts/appcast `
+            --human-readable
+          if ($LASTEXITCODE -ne 0) { throw "app cast generation failed" }
+
+          # Strict mode needs both signatures: one over the installer (carried
+          # inside the app cast) and one over the app cast itself.
+          if (-not (Test-Path artifacts/appcast/appcast.xml.signature)) {
+            throw "app cast signature missing — clients in Strict mode would reject it."
+          }
+
+          gh release upload ${{ github.ref_name }} `
+            artifacts/appcast/appcast.xml `
+            artifacts/appcast/appcast.xml.signature `
+            --clobber

@@ -1,8 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { api, type DiscoveredLog, type FightInfo, type SessionInfo, type VersionInfo } from "./api";
+import {
+  api,
+  type DiscoveredLog,
+  type FightInfo,
+  type SessionInfo,
+  type UpdateMode,
+  type UpdateState,
+} from "./api";
 import { createLiveConnection, type BackfillEvent, type TickEvent } from "./live";
 import { describeAge, SessionBar } from "./components/SessionBar";
-import { markAnnounced, shouldAnnounce, UpdateNotice } from "./components/UpdateNotice";
+import { UpdateNotice, type UpdateChoice } from "./components/UpdateNotice";
 import { FightList } from "./components/FightList";
 import { SummaryTable } from "./components/SummaryTable";
 import { DpsChart } from "./components/DpsChart";
@@ -32,7 +39,7 @@ export default function App() {
   const [excludeDs, setExcludeDs] = useState(false);
   const [petRollup, setPetRollup] = useState(() => localStorage.getItem("eqdeeps.petRollup") !== "off");
   const [discovered, setDiscovered] = useState<DiscoveredLog[]>([]);
-  const [version, setVersion] = useState<VersionInfo | null>(null);
+  const [update, setUpdate] = useState<UpdateState | null>(null);
   const [showUpdateNotice, setShowUpdateNotice] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dashboards, setDashboards] = useState<DashboardDef[]>([]);
@@ -214,13 +221,12 @@ export default function App() {
       })
       .catch((e) => setError(String(e)));
     refreshDiscovered();
-    // Update-check results land a moment after startup; poll twice.
-    api.getVersion().then(setVersion).catch(() => undefined);
-    const versionTimer = window.setTimeout(
-      () => api.getVersion().then(setVersion).catch(() => undefined),
-      15_000,
-    );
-    return () => window.clearTimeout(versionTimer);
+    // The server checks for updates on its own schedule and drives download
+    // progress; polling keeps the pill and the consent prompt in step with it.
+    const pollUpdate = () => api.getUpdateState().then(setUpdate).catch(() => undefined);
+    pollUpdate();
+    const updateTimer = window.setInterval(pollUpdate, 15_000);
+    return () => window.clearInterval(updateTimer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -285,32 +291,76 @@ export default function App() {
     }
   }
 
-  // Announce a new release once per version; the gold pill in the session bar
-  // stays as the persistent reminder after dismissal.
+  // The server decides whether to ask, applying the user's standing answers
+  // (F22); the SPA just renders the question when it says so.
   useEffect(() => {
-    if (version && shouldAnnounce(version)) {
+    if (update?.promptRequired) {
       setShowUpdateNotice(true);
     }
-  }, [version]);
+  }, [update]);
 
-  function dismissUpdateNotice() {
-    if (version) {
-      markAnnounced(version);
-    }
+  async function answerUpdate(choice: UpdateChoice) {
     setShowUpdateNotice(false);
+    try {
+      if (choice.kind === "defer") {
+        setUpdate(await api.deferUpdate(choice.scope));
+        return;
+      }
+
+      // "Always" first, so a failure partway still leaves the standing
+      // preference the user just expressed.
+      if (choice.always) {
+        setUpdate(await api.setUpdateMode("auto"));
+      }
+
+      setUpdate(await api.stageUpdate());
+    } catch {
+      // A failed consent call is not worth a red banner over the app; the
+      // next poll re-reads the real state from the server.
+    }
+  }
+
+  async function applyUpdateNow() {
+    try {
+      await api.applyUpdate();
+    } catch {
+      // The app is exiting underneath us — a rejected fetch here is expected.
+    }
+  }
+
+  async function setUpdateMode(mode: UpdateMode) {
+    try {
+      setUpdate(await api.setUpdateMode(mode));
+    } catch {
+      // Next poll re-reads the authoritative state.
+    }
+  }
+
+  // An explicit check clears every standing decline server-side, so this is
+  // also the way back for someone who chose "don't ask again".
+  async function checkForUpdateNow() {
+    try {
+      setUpdate(await api.checkForUpdate());
+    } catch {
+      // Offline: the state simply stays as it was.
+    }
   }
 
   return (
     <div className="app">
-      {showUpdateNotice && version && (
-        <UpdateNotice version={version} onDismiss={dismissUpdateNotice} />
+      {showUpdateNotice && update?.latestVersion && (
+        <UpdateNotice state={update} onChoice={answerUpdate} />
       )}
       <SessionBar
         sessions={sessions}
         activeId={activeId}
         backfill={backfill}
         discovered={discovered}
-        version={version}
+        update={update}
+        onShowUpdatePrompt={() => setShowUpdateNotice(true)}
+        onApplyUpdate={applyUpdateNow}
+        onSetUpdateMode={setUpdateMode}
+        onCheckForUpdate={checkForUpdateNow}
         petRollup={petRollup}
         onTogglePetRollup={togglePetRollup}
         onOpen={openLog}

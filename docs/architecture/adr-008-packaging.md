@@ -1,8 +1,11 @@
 # ADR-008: Packaging & distribution
 
-Status: accepted (2026-08-01). Scope: phase 8 — feature F14. The launch
-behavior below (browser-tab UI) is superseded by ADR-009 (windowed shell);
-it survives as the fallback/`--browser` mode.
+Status: accepted (2026-08-01), partly superseded. Scope: phase 8 — feature F14.
+The launch behavior below (browser-tab UI) is superseded by ADR-009 (windowed
+shell); it survives as the fallback/`--browser` mode. The **single-file exe**
+and **update check** bullets are superseded by ADR-010 (installer +
+auto-update): the payload is now a folder installed by Inno Setup, and the
+notify-only update check survives only in the portable build.
 
 ## Design
 
@@ -26,6 +29,9 @@ it survives as the fallback/`--browser` mode.
   exposed at `/api/version`; the session bar shows the running version and an
   "vX.Y.Z available ↗" link to the release page. No download, no auto-install,
   silent on failure — offline machines behave identically.
+  *(Superseded by ADR-010: installed builds now stage and apply updates with
+  per-update consent. This notify-only path is what the portable zip still
+  does, since it has nothing to install into.)*
 - **Versioning & CI**: SemVer via `<Version>` (default 0.1.0), overridden from
   the git tag in CI. `ci.yml` builds SPA + runs the full test suite on
   push/PR; `release.yml` fires on `v*` tags — test, publish win-x64, zip,

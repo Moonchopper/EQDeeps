@@ -1,21 +1,13 @@
-import type { VersionInfo } from "../api";
+import { useState } from "react";
+import type { DeferScope, UpdateState } from "../api";
 
-const DISMISS_KEY = "eqdeeps.dismissedUpdate";
-
-/** True when this release hasn't been dismissed before (once per version). */
-export function shouldAnnounce(version: VersionInfo): boolean {
-  return (
-    version.updateAvailable &&
-    !!version.latestVersion &&
-    localStorage.getItem(DISMISS_KEY) !== version.latestVersion
-  );
-}
-
-export function markAnnounced(version: VersionInfo): void {
-  if (version.latestVersion) {
-    localStorage.setItem(DISMISS_KEY, version.latestVersion);
-  }
-}
+/**
+ * What the user told us. "always" rides along with an update so the checkbox
+ * and the button are a single decision rather than two clicks.
+ */
+export type UpdateChoice =
+  | { kind: "update"; always: boolean }
+  | { kind: "defer"; scope: DeferScope };
 
 /**
  * Compress GitHub's auto-generated release notes ("* Title by @user in URL"
@@ -40,16 +32,32 @@ export function shortChangelog(notes: string): string[] {
   return chosen.slice(0, 6);
 }
 
-/** One-time-per-version popup: what's new, and where to get it. */
-export function UpdateNotice({ version, onDismiss }: { version: VersionInfo; onDismiss: () => void }) {
-  const items = shortChangelog(version.releaseNotes ?? "");
+/**
+ * The consent dialog. Every way of saying "no" is on screen at once and says
+ * plainly how long it lasts — the alternative (one "Later" button whose
+ * meaning you have to guess) is what makes update prompts feel like nagging.
+ *
+ * A backdrop click maps to the mildest decline, "not right now", so dismissing
+ * by reflex never silences anything permanently.
+ */
+export function UpdateNotice({
+  state,
+  onChoice,
+}: {
+  state: UpdateState;
+  onChoice: (choice: UpdateChoice) => void;
+}) {
+  const [always, setAlways] = useState(false);
+  const items = shortChangelog(state.releaseNotes ?? "");
+  const decline = (scope: DeferScope) => () => onChoice({ kind: "defer", scope });
+
   return (
-    <div className="modal-backdrop" onClick={onDismiss}>
+    <div className="modal-backdrop" onClick={decline("once")}>
       <div className="modal update-notice" onClick={(e) => e.stopPropagation()}>
         <div className="modal-title">
-          <span className="update-star">★</span> EQDeeps v{version.latestVersion} is available
+          <span className="update-star">★</span> EQDeeps v{state.latestVersion} is available
         </div>
-        <p className="update-sub">You're running v{version.version}. What's new:</p>
+        <p className="update-sub">You're running v{state.version}. What's new:</p>
         {items.length > 0 ? (
           <ul className="update-changelog">
             {items.map((line, i) => (
@@ -59,22 +67,69 @@ export function UpdateNotice({ version, onDismiss }: { version: VersionInfo; onD
         ) : (
           <p className="update-sub">See the release page for details.</p>
         )}
-        <div className="modal-actions">
-          <button className="mini-btn" onClick={onDismiss}>
-            Later
-          </button>
-          {version.releaseUrl && (
-            <a
-              className="update-download"
-              href={version.releaseUrl}
-              target="_blank"
-              rel="noreferrer"
-              onClick={onDismiss}
-            >
-              Download ↗
-            </a>
-          )}
-        </div>
+
+        {state.canSelfInstall ? (
+          <>
+            <p className="update-when">
+              It downloads in the background and installs the next time you close
+              EQDeeps — your parse is never interrupted.
+            </p>
+            <label className="update-always">
+              <input
+                type="checkbox"
+                checked={always}
+                onChange={(e) => setAlways(e.target.checked)}
+              />
+              Update automatically from now on
+            </label>
+            <div className="update-declines">
+              <button className="link-btn" onClick={decline("once")}>
+                Not right now
+              </button>
+              <button
+                className="link-btn"
+                onClick={decline("release")}
+                title="Stay quiet until a release newer than this one ships"
+              >
+                Skip this version
+              </button>
+              <button
+                className="link-btn"
+                onClick={decline("currentVersion")}
+                title={`Stop asking while you're running v${state.version}`}
+              >
+                Don't ask again for v{state.version}
+              </button>
+            </div>
+            <div className="modal-actions">
+              <button
+                className="update-download"
+                onClick={() => onChoice({ kind: "update", always })}
+              >
+                Update
+              </button>
+            </div>
+          </>
+        ) : (
+          // Portable and source builds have nothing to install into, so the
+          // honest offer is the download page — the pre-auto-update behaviour.
+          <div className="modal-actions">
+            <button className="mini-btn" onClick={decline("once")}>
+              Later
+            </button>
+            {state.releaseUrl && (
+              <a
+                className="update-download"
+                href={state.releaseUrl}
+                target="_blank"
+                rel="noreferrer"
+                onClick={decline("once")}
+              >
+                Download ↗
+              </a>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

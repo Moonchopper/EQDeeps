@@ -127,19 +127,13 @@ jobs:
           Compress-Archive -Path artifacts/win-x64/* `
             -DestinationPath "EQDeeps-${{ steps.version.outputs.version }}-win-x64.zip"
 
-      - name: Create release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            artifacts/installer/EQDeeps-Setup-${{ steps.version.outputs.version }}.exe
-            EQDeeps-*.zip
-          generate_release_notes: true
-
-      # The app cast is generated after the release exists so it can carry the
-      # release notes GitHub just wrote — those bullets are what the in-app
-      # consent dialog shows. It is uploaded to this same release, which is what
-      # makes releases/latest/download/appcast.xml resolve for every client.
-      - name: Publish app cast
+      # Everything the release will contain has to exist BEFORE it is created:
+      # this repo has immutable releases enabled, so a published release's
+      # assets are frozen and the app cast could never be attached afterwards.
+      # The notes are fetched from the generate-notes API rather than letting
+      # the release action write them, because the app cast embeds them as the
+      # changelog the in-app consent dialog shows.
+      - name: Build app cast
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
@@ -177,10 +171,15 @@ jobs:
 
           dotnet tool install --global NetSparkleUpdater.Tools.AppCastGenerator --version 2.9.0
 
+          # generate-notes produces the same "What's Changed" list the release
+          # UI would, without needing the release to exist yet.
           New-Item -ItemType Directory -Force artifacts/notes | Out-Null
-          $notes = gh release view ${{ github.ref_name }} --json body --jq .body
+          $notes = gh api "repos/${{ github.repository }}/releases/generate-notes" `
+            -f tag_name=${{ github.ref_name }} --jq .body
+          if (-not $notes) { throw "could not generate release notes for ${{ github.ref_name }}." }
           Set-Content -Path "artifacts/notes/${{ steps.version.outputs.version }}.md" `
             -Value $notes -Encoding utf8
+          Set-Content -Path artifacts/release-notes.md -Value $notes -Encoding utf8
 
           netsparkle-generate-appcast `
             --binaries artifacts/installer `
@@ -200,7 +199,16 @@ jobs:
             throw "app cast signature missing — clients in Strict mode would reject it."
           }
 
-          gh release upload ${{ github.ref_name }} `
-            artifacts/appcast/appcast.xml `
-            artifacts/appcast/appcast.xml.signature `
-            --clobber
+      # Publishes once, with everything attached. The app cast rides along here
+      # rather than being uploaded afterwards, which immutable releases forbid.
+      # Attaching it to each release is what makes
+      # releases/latest/download/appcast.xml resolve for every client.
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: artifacts/release-notes.md
+          files: |
+            artifacts/installer/EQDeeps-Setup-${{ steps.version.outputs.version }}.exe
+            EQDeeps-*.zip
+            artifacts/appcast/appcast.xml
+            artifacts/appcast/appcast.xml.signature

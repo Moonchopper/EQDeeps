@@ -211,3 +211,23 @@ releases just go back to unsigned — the app keeps working.
 One recurring item: **identity validation expires.** Microsoft emails reminders
 starting 60 days out. Let it lapse and certificate renewal stops, which stops
 signing until a new validation is created and attached to the profile.
+
+### Rehearsing before you tag
+
+Release tags are **single-use**. GitHub's immutable releases keep a tag name
+reserved even after its release is deleted, so a failed release burns that
+version number permanently — v0.4.0 was lost this way.
+
+So verify the key before tagging, via the **Verify signing key** workflow
+(Actions → Verify signing key → Run workflow). It round-trips a real signature
+against the stored secret and confirms a tampered file is rejected, without
+publishing anything.
+
+One trap worth naming, because it cost a release: setting the secret by piping
+into `gh secret set` from PowerShell 5.1 re-encodes the value and can prepend a
+BOM, which base64 will not accept. Set it with shell redirection instead, which
+is byte-exact:
+
+```
+gh secret set SPARKLE_PRIVATE_KEY --repo Moonchopper/EQDeeps < NetSparkle_Ed25519.priv
+```

@@ -1,0 +1,71 @@
+# Proves the Ed25519 release key stored in secrets can actually sign, without
+# publishing anything.
+#
+# This exists because release tags are single-use: GitHub's immutable releases
+# keep a tag name reserved even after its release is deleted, so every failed
+# release attempt burns a version number. Rehearse here first.
+#
+# Also worth running after rotating SPARKLE_PRIVATE_KEY, or if updates ever stop
+# being offered to clients.
+name: Verify signing key
+
+on:
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Round-trip the release key
+        shell: pwsh
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          if (-not $env:SPARKLE_PRIVATE_KEY) { throw "SPARKLE_PRIVATE_KEY is not set." }
+
+          # Secrets pick up stray bytes surprisingly easily — a BOM or trailing
+          # newline from however the value was piped in. Base64 tolerates
+          # whitespace but not a BOM, so normalize before anything else.
+          $private = $env:SPARKLE_PRIVATE_KEY.Trim() -replace "^﻿", ""
+          $env:SPARKLE_PRIVATE_KEY = $private
+
+          # The public half must be exactly the one compiled into the app.
+          $source = Get-Content src/EQDeeps.Server/Updates/UpdateService.cs -Raw
+          $key = [regex]::Match($source, 'const string PublicKey = "([^"]+)"')
+          if (-not $key.Success) { throw "could not read PublicKey from UpdateService.cs" }
+          $env:SPARKLE_PUBLIC_KEY = $key.Groups[1].Value
+
+          foreach ($pair in @(@("private", $private), @("public", $env:SPARKLE_PUBLIC_KEY))) {
+            try { $bytes = [Convert]::FromBase64String($pair[1]) }
+            catch { throw "$($pair[0]) key is not valid base64: $($_.Exception.Message)" }
+            if ($bytes.Length -ne 32) {
+              throw "$($pair[0]) key decodes to $($bytes.Length) bytes; Ed25519 needs 32."
+            }
+            Write-Host "$($pair[0]) key: 32 bytes, valid base64"
+          }
+
+          dotnet tool install --global NetSparkleUpdater.Tools.AppCastGenerator --version 2.9.0
+
+          # Sign a probe and verify it, then confirm a tampered copy is rejected.
+          # This is what the release actually does, minus publishing.
+          $probe = Join-Path $env:RUNNER_TEMP "probe.bin"
+          Set-Content -Path $probe -Value "eqdeeps signing probe" -Encoding utf8
+          $line = netsparkle-generate-appcast --generate-signature $probe |
+            Select-String "^Signature:"
+          if (-not $line) { throw "the generator produced no signature" }
+          $signature = ($line.ToString() -replace '^Signature:\s*', '').Trim()
+
+          $ok = netsparkle-generate-appcast --verify $probe --signature $signature
+          if ($ok -notmatch "valid") { throw "signature did not verify: $ok" }
+          Write-Host "signature verifies"
+
+          Add-Content -Path $probe -Value "tampered"
+          $bad = netsparkle-generate-appcast --verify $probe --signature $signature
+          if ($bad -notmatch "invalid") { throw "a tampered file still verified — key check is meaningless" }
+          Write-Host "tampered file correctly rejected"
+          Write-Host "Release key is usable; a release would produce a signed app cast."

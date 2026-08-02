@@ -13,6 +13,7 @@
   --accent: #3987e5;
   --danger: #e66767;
   --live: #63cf82;
+  --gold: #f5c542;
 }
 
 * {
@@ -199,6 +200,55 @@ button {
 
 .version a {
   color: var(--accent);
+  text-decoration: none;
+}
+
+/* ---- update available ---- */
+.update-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: 8px;
+  padding: 2px 9px;
+  border: 1px solid var(--gold);
+  border-radius: 6px;
+  color: var(--gold) !important; /* outweigh .version a */
+  font-weight: 600;
+}
+
+.update-pill:hover {
+  background: rgba(245, 197, 66, 0.12);
+}
+
+.update-star {
+  color: var(--gold);
+}
+
+.update-notice {
+  max-width: 460px;
+}
+
+.update-sub {
+  color: var(--ink-2);
+  margin: 6px 0;
+}
+
+.update-changelog {
+  margin: 8px 0 4px;
+  padding-left: 20px;
+  color: var(--ink-2);
+}
+
+.update-changelog li {
+  margin: 3px 0;
+}
+
+.update-download {
+  background: var(--accent);
+  color: #fff;
+  border-radius: 6px;
+  padding: 5px 12px;
+  font-weight: 600;
   text-decoration: none;
 }
 

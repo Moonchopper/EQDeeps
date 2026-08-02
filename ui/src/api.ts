@@ -95,6 +95,7 @@ export interface VersionInfo {
   updateAvailable: boolean;
   latestVersion?: string;
   releaseUrl?: string;
+  releaseNotes?: string;
 }
 
 export const api = {

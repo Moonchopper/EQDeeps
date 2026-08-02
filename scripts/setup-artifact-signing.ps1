@@ -59,9 +59,11 @@ az provider register --namespace Microsoft.CodeSigning --wait
 
 if ($IdentityValidationId) {
     # ---- Phase 2: certificate profile --------------------------------------
-    # No --include-street-address / --include-postal-code: for Public Trust the
-    # subject is CN + city/state/country and nothing else. Those two flags would
-    # publish a home address in every binary we ship.
+    # No --include-street-address / --include-postal-code: those two flags would
+    # publish a home address in every binary we ship. Public Trust always emits
+    # CN, O, L, S and C regardless of the include* flags (those are private-trust
+    # only), so the subject lands as:
+    #   CN=<name>, O=<name>, L=<city>, S=<state>, C=<country>
     Write-Host "== Creating certificate profile '$ProfileName' =="
     az artifact-signing certificate-profile create `
         -g $ResourceGroup --account-name $AccountName -n $ProfileName `

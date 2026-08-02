@@ -21,11 +21,15 @@ can read the certificate subject from the exe's Properties → Digital Signature
 and public scanners like VirusTotal index it permanently:
 
 ```
-CN = <your legal name>
-L  = <city>
-S  = <state>
-C  = <country>
+CN = Austin Culbertson
+O  = Austin Culbertson
+L  = Raleigh
+S  = NC
+C  = US
 ```
+
+Individual certificates carry an `O=` too — it's your own name repeated, not an
+organization, and it does not pick up the billing account's `companyName`.
 
 Street address and postal code are opt-in via `--include-street-address` /
 `--include-postal-code`; the script deliberately sets neither. Email and phone

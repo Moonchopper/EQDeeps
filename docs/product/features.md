@@ -114,6 +114,17 @@ Self-contained Windows distribution (single exe or installer) that starts the lo
 
 - AC: A machine without the .NET SDK runs the app from the published artifact.
 
+### F22. Consent-driven auto-update
+
+Installed builds keep themselves current without ever surprising the user. An Inno Setup installer (per-user by default, real directory page) plus a NetSparkle update loop; see [ADR-010](../architecture/adr-010-auto-update.md).
+
+The consent model is the feature, not the downloading. The default is to ask once per release, and every way of saying "no" states how long it lasts: *not right now* (until restart), *skip this version* (until something newer ships), *don't ask again for vX.Y.Z* (until the user is on a different build), or *always update automatically*. Preferences persist server-side, so they hold with no UI attached.
+
+- AC: An update is never applied mid-session — downloads stage quietly and install on exit.
+- AC: Declining is always reversible; an explicit "check now" overrides every standing decline.
+- AC: Nothing downloaded is executed unless it passes both Ed25519 and Authenticode verification.
+- AC: Portable and unkeyed builds degrade to notify-only rather than pretending to install.
+
 ---
 
 ## P2 — Later

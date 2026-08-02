@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using EQDeeps.Core.Query;
+using EQDeeps.Server.Updates;
 
 namespace EQDeeps.Server;
 
@@ -33,7 +34,13 @@ public static class ServerApp
         builder.Services.AddSignalR().AddJsonProtocol(o => ConfigureJson(o.PayloadSerializerOptions));
         builder.Services.AddSingleton<SessionManager>();
         builder.Services.AddSingleton<DocumentStore>();
-        builder.Services.AddSingleton<UpdateChecker>();
+        // Update stack (ADR-010). --updateRoot redirects the preference and
+        // staged-installer files the same way --recentLogsRoot does, so tests
+        // never touch the real %AppData%.
+        builder.Services.AddSingleton(_ => new UpdatePreferenceStore(builder.Configuration["updateRoot"]));
+        builder.Services.AddSingleton(_ => new PendingUpdateStore(builder.Configuration["updateRoot"]));
+        builder.Services.AddSingleton(_ => new UpdateInstaller());
+        builder.Services.AddSingleton<UpdateService>();
         builder.Services.AddSingleton<ClientTracker>();
         builder.Services.AddSingleton<WindowBridge>();
         // --recentLogsRoot redirects the MRU file (tests); default: %AppData%\EQDeeps.
@@ -54,7 +61,75 @@ public static class ServerApp
 
         app.MapGet("/api/health", () => Results.Ok(new { status = "ok" }));
 
-        app.MapGet("/api/version", (UpdateChecker updates) => Results.Ok(updates.Info));
+        // Kept in its original shape: the pill in the session bar only needs
+        // "am I current", and a stable endpoint means an older SPA cached in
+        // WebView2 still renders something sane after an update.
+        app.MapGet("/api/version", (UpdateService updates) =>
+        {
+            var state = updates.State;
+            return Results.Ok(new
+            {
+                version = state.Version,
+                updateAvailable = state.LatestVersion is not null &&
+                                  AppVersion.IsNewer(state.LatestVersion, state.Version),
+                latestVersion = state.LatestVersion,
+                releaseUrl = state.ReleaseUrl,
+            });
+        });
+
+        // ---- update consent (F22 / ADR-010) --------------------------------
+
+        app.MapGet("/api/update/state", (UpdateService updates) => Results.Ok(updates.State));
+
+        // An explicit "check for updates" overrides every standing decline —
+        // see UpdatePreferences.Decide.
+        app.MapPost("/api/update/check", async (UpdateService updates) =>
+        {
+            await updates.CheckAsync(userInitiated: true);
+            return Results.Ok(updates.State);
+        });
+
+        // The user said yes: download and stage it. Installing still waits for
+        // them to close the app (or press Restart now).
+        app.MapPost("/api/update/stage", async (UpdateService updates) =>
+        {
+            await updates.StageAsync();
+            return Results.Ok(updates.State);
+        });
+
+        // The three flavours of "no", which differ only in how long they last.
+        app.MapPost("/api/update/defer", (DeferUpdateRequest request, UpdateService updates) =>
+        {
+            switch (request.Scope)
+            {
+                case DeferScope.Once:
+                    updates.DeclineForThisRun();
+                    break;
+                case DeferScope.Release:
+                    updates.SkipOfferedRelease();
+                    break;
+                case DeferScope.CurrentVersion:
+                    updates.MuteForCurrentVersion();
+                    break;
+                default:
+                    return Results.BadRequest(new { error = "unknown defer scope" });
+            }
+
+            return Results.Ok(updates.State);
+        });
+
+        app.MapPut("/api/update/mode", (SetUpdateModeRequest request, UpdateService updates) =>
+        {
+            updates.SetMode(request.Mode);
+            return Results.Ok(updates.State);
+        });
+
+        // Restart now: the one path allowed to raise a UAC prompt, because the
+        // user is looking at the button they just pressed.
+        app.MapPost("/api/update/apply", (UpdateService updates) =>
+            updates.ApplyNow(out var error)
+                ? Results.NoContent()
+                : Results.BadRequest(new { error = string.IsNullOrEmpty(error) ? "nothing staged" : error }));
 
         // pagehide beacon from a genuinely closing tab (see ClientTracker).
         app.MapPost("/api/ui/goodbye", (ClientTracker clients) =>

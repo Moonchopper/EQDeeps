@@ -119,10 +119,75 @@ export interface VersionInfo {
   releaseNotes?: string;
 }
 
+export type UpdateStage =
+  | "idle"
+  | "checking"
+  | "available"
+  | "downloading"
+  | "staged"
+  | "failed";
+
+/** Standing policy: ask each time (default), update silently, or never check. */
+export type UpdateMode = "ask" | "auto" | "manual";
+
+/**
+ * How long a "no" lasts. "once" is forgotten at restart, "release" waits for
+ * something newer than what was offered, "currentVersion" stays quiet until
+ * the user is running a different build.
+ */
+export type DeferScope = "once" | "release" | "currentVersion";
+
+export interface UpdateState {
+  version: string;
+  stage: UpdateStage;
+  mode: UpdateMode;
+  latestVersion?: string;
+  releaseNotes?: string;
+  releaseUrl?: string;
+  downloadPercent: number;
+  /** The server wants the consent dialog shown right now. */
+  promptRequired: boolean;
+  /** An installer is staged; it lands on next launch, or on "Restart now". */
+  restartRequired: boolean;
+  /** Applying would raise a UAC prompt, so it needs an explicit click. */
+  requiresElevation: boolean;
+  /** False for portable and source builds: they can only link to the release. */
+  canSelfInstall: boolean;
+  error?: string;
+}
+
 export const api = {
   listSessions: (): Promise<SessionInfo[]> => fetch("/api/sessions").then((r) => json(r)),
 
   getVersion: (): Promise<VersionInfo> => fetch("/api/version").then((r) => json(r)),
+
+  getUpdateState: (): Promise<UpdateState> => fetch("/api/update/state").then((r) => json(r)),
+
+  /** Explicit "check for updates" — overrides every standing decline. */
+  checkForUpdate: (): Promise<UpdateState> =>
+    fetch("/api/update/check", { method: "POST" }).then((r) => json(r)),
+
+  /** Consent given: download in the background and stage for install. */
+  stageUpdate: (): Promise<UpdateState> =>
+    fetch("/api/update/stage", { method: "POST" }).then((r) => json(r)),
+
+  deferUpdate: (scope: DeferScope): Promise<UpdateState> =>
+    fetch("/api/update/defer", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ scope }),
+    }).then((r) => json(r)),
+
+  setUpdateMode: (mode: UpdateMode): Promise<UpdateState> =>
+    fetch("/api/update/mode", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mode }),
+    }).then((r) => json(r)),
+
+  /** Close and reinstall now. The app exits; the installer brings it back. */
+  applyUpdate: (): Promise<void> =>
+    fetch("/api/update/apply", { method: "POST" }).then(() => undefined),
 
   discoverLogs: (): Promise<DiscoveredLog[]> => fetch("/api/logs/discovered").then((r) => json(r)),
 

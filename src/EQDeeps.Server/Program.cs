@@ -1,5 +1,6 @@
 using System.Windows.Forms;
 using EQDeeps.Server;
+using EQDeeps.Server.Updates;
 using Microsoft.Extensions.DependencyInjection;
 
 // Launch behavior (feature F14): the exe is a windowed app — start the
@@ -55,12 +56,13 @@ catch (IOException) when (!explicitUrls)
 }
 
 var url = app.Urls.FirstOrDefault() ?? ServerApp.DefaultUrl;
-Console.WriteLine($"EQDeeps v{UpdateChecker.CurrentVersion} — {url}" +
+Console.WriteLine($"EQDeeps v{AppVersion.Current} — {url}" +
                   (windowMode ? "" : "  (Ctrl+C to quit)"));
 
+var updates = app.Services.GetRequiredService<UpdateService>();
 if (!noUpdateCheck)
 {
-    _ = app.Services.GetRequiredService<UpdateChecker>().CheckAsync();
+    updates.Start();
 }
 
 if (windowMode)
@@ -80,6 +82,15 @@ if (!windowMode && !stayAlive)
 }
 
 await app.WaitForShutdownAsync();
+
+// Now that the window is gone and our files are unlocked, hand any staged
+// installer to the updater (ADR-010). Deliberately the last thing we do: an
+// update never interrupts a parse, it just means the next launch is newer.
+if (!noUpdateCheck)
+{
+    updates.ApplyOnExit();
+}
+
 return;
 
 // The shell window runs its message loop on a dedicated STA thread while the

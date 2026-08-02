@@ -27,10 +27,15 @@ public sealed class ServerIntegrationTests : IAsyncLifetime
     public async Task InitializeAsync()
     {
         Directory.CreateDirectory(_dir);
-        // recentLogsRoot/sampleLogRoot: keep the MRU file and the extracted
-        // demo log inside the test sandbox, not %AppData%.
-        _app = ServerApp.Build(
-            ["--urls", "http://127.0.0.1:0", "--recentLogsRoot", _dir, "--sampleLogRoot", _dir]);
+        // recentLogsRoot/sampleLogRoot/updateRoot: keep the MRU file, the
+        // extracted demo log and the update preferences inside the test
+        // sandbox, not %AppData%.
+        _app = ServerApp.Build([
+            "--urls", "http://127.0.0.1:0",
+            "--recentLogsRoot", _dir,
+            "--sampleLogRoot", _dir,
+            "--updateRoot", _dir,
+        ]);
         await _app.StartAsync();
         _baseUrl = _app.Urls.First();
         _http = new HttpClient { BaseAddress = new Uri(_baseUrl) };
@@ -306,5 +311,38 @@ public sealed class ServerIntegrationTests : IAsyncLifetime
         }
 
         Assert.True(found, "no fights push contained the new fight");
+    }
+
+    /// <summary>
+    /// The consent endpoints are what the dialog's buttons hang off, so pin the
+    /// round trip: a preference set over HTTP comes back in the state and lands
+    /// on disk where a UI-less run can still honour it.
+    /// </summary>
+    [Fact]
+    public async Task UpdatePreferencesRoundTripThroughTheApi()
+    {
+        var state = await _http.GetFromJsonAsync<JsonElement>("/api/update/state");
+        Assert.False(string.IsNullOrEmpty(state.GetProperty("version").GetString()));
+        Assert.Equal("ask", state.GetProperty("mode").GetString());
+
+        var afterMode = await _http.PutAsJsonAsync("/api/update/mode", new { mode = "auto" });
+        afterMode.EnsureSuccessStatusCode();
+        Assert.Equal(
+            "auto",
+            (await afterMode.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("mode").GetString());
+
+        // "Don't ask again for this build" is the one decline that persists
+        // against the running version rather than against an offered release.
+        var afterDefer = await _http.PostAsJsonAsync(
+            "/api/update/defer", new { scope = "currentVersion" });
+        afterDefer.EnsureSuccessStatusCode();
+
+        var stored = await File.ReadAllTextAsync(Path.Combine(_dir, "update-prefs.json"));
+        Assert.Contains("Auto", stored, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("mutedOnVersion", stored, StringComparison.OrdinalIgnoreCase);
+
+        // A machine with no staged installer has nothing to apply.
+        var apply = await _http.PostAsync("/api/update/apply", content: null);
+        Assert.Equal(System.Net.HttpStatusCode.BadRequest, apply.StatusCode);
     }
 }

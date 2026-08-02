@@ -17,7 +17,13 @@
     <PublishReferencesDocumentationFiles>false</PublishReferencesDocumentationFiles>
   </PropertyGroup>
   <ItemGroup>
+    <InternalsVisibleTo Include="EQDeeps.Server.Tests" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4078.44" />
+    <!-- Update checking/download/Ed25519 verification (ADR-010). The UI packages
+         are deliberately not referenced: the SPA is the only update UI. -->
+    <PackageReference Include="NetSparkleUpdater.SparkleUpdater" Version="3.1.0" />
     <ProjectReference Include="..\EQDeeps.Core\EQDeeps.Core.csproj" />
     <PackageReference Include="Microsoft.Win32.Registry" Version="5.0.0" />
     <PackageReference Include="Microsoft.Extensions.FileProviders.Embedded" Version="8.0.8" />

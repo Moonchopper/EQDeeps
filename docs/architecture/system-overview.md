@@ -88,8 +88,8 @@ Root: `%AppData%\EQDeeps\` (path-provider abstraction; no hardcoding scattered a
 
 ## Packaging & distribution (P1)
 
-- `dotnet publish` self-contained single-file exe embedding the built SPA (ASP.NET static assets). Launch → start Kestrel on a free localhost port → open default browser (and/or tray icon with open/exit).
-- Update check against GitHub Releases (compare tag to assembly version; link/download installer). No auto-install without consent.
+- `dotnet publish` self-contained, with the built SPA embedded in the assembly (ASP.NET static assets). Shipped two ways (ADR-010): an Inno Setup installer (per-user by default, directory page, Start Menu entry) and a portable zip. Launch → start Kestrel on a free localhost port → open the WebView2 shell window (ADR-009).
+- Update check against GitHub Releases. Installed builds download and install updates; **never without consent** — the default is to ask per release, with "not now", "skip this version", "don't ask again on this build", and an opt-in "always update automatically". Updates are staged and applied on exit, never mid-session. Portable builds only notify. Verified twice before executing: Ed25519 over the app cast and installer, then Authenticode. See ADR-010.
 - Version scheme: SemVer, tag-driven releases, CI builds the publish artifact.
 
 ## Non-functional requirements

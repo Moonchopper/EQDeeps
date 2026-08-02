@@ -1,13 +1,18 @@
 import { useState } from "react";
-import type { DiscoveredLog, SessionInfo, VersionInfo } from "../api";
+import type { DiscoveredLog, SessionInfo, UpdateMode, UpdateState } from "../api";
 import type { BackfillEvent } from "../live";
+import { UpdateSettings } from "./UpdateSettings";
 
 interface Props {
   sessions: SessionInfo[];
   activeId: string | null;
   backfill: BackfillEvent | null;
   discovered: DiscoveredLog[];
-  version: VersionInfo | null;
+  update: UpdateState | null;
+  onShowUpdatePrompt: () => void;
+  onApplyUpdate: () => void;
+  onSetUpdateMode: (mode: UpdateMode) => void;
+  onCheckForUpdate: () => void;
   petRollup: boolean;
   onTogglePetRollup: (on: boolean) => void;
   onOpen: (path: string) => void;
@@ -33,7 +38,11 @@ export function SessionBar({
   activeId,
   backfill,
   discovered,
-  version,
+  update,
+  onShowUpdatePrompt,
+  onApplyUpdate,
+  onSetUpdateMode,
+  onCheckForUpdate,
   petRollup,
   onTogglePetRollup,
   onOpen,
@@ -136,22 +145,73 @@ export function SessionBar({
         </span>
       )}
       {error && <span className="error">{error}</span>}
-      {version && (
+      {update && (
         <span className="version">
-          v{version.version}
-          {version.updateAvailable && version.releaseUrl && (
-            <a
-              className="update-pill"
-              href={version.releaseUrl}
-              target="_blank"
-              rel="noreferrer"
-              title="A new release is available — open the download page"
-            >
-              <span className="update-star">★</span> v{version.latestVersion} available
-            </a>
-          )}
+          <UpdateSettings
+            state={update}
+            onSetMode={onSetUpdateMode}
+            onCheckNow={onCheckForUpdate}
+          />
+          <UpdatePill
+            state={update}
+            onShowPrompt={onShowUpdatePrompt}
+            onApply={onApplyUpdate}
+          />
         </span>
       )}
     </header>
   );
+}
+
+/**
+ * The persistent reminder next to the version number. It mirrors whichever
+ * stage the update is in, so the download never happens invisibly and a staged
+ * install always has a way to be applied on demand.
+ */
+function UpdatePill({
+  state,
+  onShowPrompt,
+  onApply,
+}: {
+  state: UpdateState;
+  onShowPrompt: () => void;
+  onApply: () => void;
+}) {
+  if (state.stage === "downloading") {
+    return (
+      <span className="update-pill update-pill-quiet" title="Downloading the update">
+        ↓ updating {state.downloadPercent}%
+      </span>
+    );
+  }
+
+  if (state.restartRequired) {
+    return (
+      <button
+        className="update-pill"
+        onClick={onApply}
+        title={
+          state.requiresElevation
+            ? "Installs now — Windows will ask for permission, since EQDeeps lives in a protected folder"
+            : "Installs when you close EQDeeps. Click to do it now."
+        }
+      >
+        <span className="update-star">★</span> restart to update
+      </button>
+    );
+  }
+
+  if (state.latestVersion && state.stage === "available") {
+    return (
+      <button
+        className="update-pill"
+        onClick={onShowPrompt}
+        title="A new release is available"
+      >
+        <span className="update-star">★</span> v{state.latestVersion} available
+      </button>
+    );
+  }
+
+  return null;
 }

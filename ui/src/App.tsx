@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { api, type DiscoveredLog, type FightInfo, type SessionInfo, type VersionInfo } from "./api";
 import { createLiveConnection, type BackfillEvent, type TickEvent } from "./live";
 import { describeAge, SessionBar } from "./components/SessionBar";
+import { markAnnounced, shouldAnnounce, UpdateNotice } from "./components/UpdateNotice";
 import { FightList } from "./components/FightList";
 import { SummaryTable } from "./components/SummaryTable";
 import { DpsChart } from "./components/DpsChart";
@@ -31,6 +32,7 @@ export default function App() {
   const [petRollup, setPetRollup] = useState(() => localStorage.getItem("eqdeeps.petRollup") !== "off");
   const [discovered, setDiscovered] = useState<DiscoveredLog[]>([]);
   const [version, setVersion] = useState<VersionInfo | null>(null);
+  const [showUpdateNotice, setShowUpdateNotice] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dashboards, setDashboards] = useState<DashboardDef[]>([]);
   const [hiddenPresets, setHiddenPresets] = useState<string[]>([]);
@@ -277,8 +279,26 @@ export default function App() {
     }
   }
 
+  // Announce a new release once per version; the gold pill in the session bar
+  // stays as the persistent reminder after dismissal.
+  useEffect(() => {
+    if (version && shouldAnnounce(version)) {
+      setShowUpdateNotice(true);
+    }
+  }, [version]);
+
+  function dismissUpdateNotice() {
+    if (version) {
+      markAnnounced(version);
+    }
+    setShowUpdateNotice(false);
+  }
+
   return (
     <div className="app">
+      {showUpdateNotice && version && (
+        <UpdateNotice version={version} onDismiss={dismissUpdateNotice} />
+      )}
       <SessionBar
         sessions={sessions}
         activeId={activeId}

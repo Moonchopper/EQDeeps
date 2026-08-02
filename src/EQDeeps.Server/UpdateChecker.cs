@@ -7,7 +7,8 @@ public sealed record VersionInfo(
     string Version,
     bool UpdateAvailable,
     string? LatestVersion,
-    string? ReleaseUrl);
+    string? ReleaseUrl,
+    string? ReleaseNotes = null);
 
 /// <summary>
 /// Checks GitHub Releases for a newer tag — the app's only outbound call,
@@ -45,7 +46,16 @@ public sealed class UpdateChecker
                 return;
             }
 
-            _info = new VersionInfo(CurrentVersion, IsNewer(tag, CurrentVersion), tag.TrimStart('v'), url);
+            // The release body (auto-generated notes) feeds the in-app "what's
+            // new" popup; cap it so a giant hand-written changelog can't bloat
+            // /api/version.
+            var notes = doc.RootElement.TryGetProperty("body", out var b) ? b.GetString() : null;
+            if (notes is { Length: > 4000 })
+            {
+                notes = notes[..4000];
+            }
+
+            _info = new VersionInfo(CurrentVersion, IsNewer(tag, CurrentVersion), tag.TrimStart('v'), url, notes);
         }
         catch (Exception)
         {

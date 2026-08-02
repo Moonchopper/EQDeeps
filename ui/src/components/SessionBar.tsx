@@ -122,12 +122,15 @@ export function SessionBar({
         <span className="version">
           v{version.version}
           {version.updateAvailable && version.releaseUrl && (
-            <>
-              {" · "}
-              <a href={version.releaseUrl} target="_blank" rel="noreferrer">
-                v{version.latestVersion} available ↗
-              </a>
-            </>
+            <a
+              className="update-pill"
+              href={version.releaseUrl}
+              target="_blank"
+              rel="noreferrer"
+              title="A new release is available — open the download page"
+            >
+              <span className="update-star">★</span> v{version.latestVersion} available
+            </a>
           )}
         </span>
       )}

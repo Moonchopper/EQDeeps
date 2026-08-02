@@ -36,12 +36,19 @@ export function UpdateSettings({
 
   return (
     <span className="update-settings" ref={wrapper}>
+      {/* The version alone read as static text; the gear is what tells people
+          there is anything to adjust here. */}
       <button
         className="link-btn version-btn"
         onClick={() => setOpen((v) => !v)}
         title="Update preferences"
+        aria-label="Update preferences"
+        aria-expanded={open}
       >
         v{state.version}
+        <span className="gear-icon" aria-hidden="true">
+          ⚙
+        </span>
       </button>
       {open && (
         <div className="update-menu">

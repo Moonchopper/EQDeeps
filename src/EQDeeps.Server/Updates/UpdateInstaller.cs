@@ -14,7 +14,7 @@ namespace EQDeeps.Server.Updates;
 /// under our control (NetSparkle's own path needs the AppCastItem in hand,
 /// which a fresh process resuming an interrupted update does not have).
 /// </summary>
-public sealed class UpdateInstaller
+public class UpdateInstaller
 {
     private readonly Func<string, (bool Trusted, string Reason)> _verify;
 
@@ -65,7 +65,11 @@ public sealed class UpdateInstaller
     /// </summary>
     /// <param name="pending">The staged installer.</param>
     /// <param name="relaunch">Restart EQDeeps once the install finishes.</param>
-    public bool TryApply(PendingUpdate pending, bool relaunch, out string error)
+    /// <remarks>
+    /// Virtual so tests can assert the surrounding orchestration — notably that
+    /// applying actually shuts the app down — without spawning a real installer.
+    /// </remarks>
+    public virtual bool TryApply(PendingUpdate pending, bool relaunch, out string error)
     {
         var (trusted, reason) = _verify(pending.InstallerPath);
         if (!trusted)

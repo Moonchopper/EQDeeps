@@ -384,6 +384,59 @@ button.update-pill {
   text-underline-offset: 2px;
 }
 
+.gear-icon {
+  margin-left: 4px;
+  opacity: 0.75;
+}
+
+.version-btn:hover .gear-icon {
+  opacity: 1;
+  color: var(--ink);
+}
+
+/* On-demand update check, beside the version. */
+.check-btn {
+  margin-left: 6px;
+  padding: 0 3px;
+  color: var(--muted);
+  line-height: 1;
+}
+
+.check-btn:hover:enabled {
+  color: var(--ink);
+}
+
+.check-btn:disabled {
+  cursor: default;
+}
+
+.check-icon {
+  display: inline-block;
+  font-size: 13px;
+}
+
+.spinning {
+  animation: spin 900ms linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Transient outcome of a manual check, so the button never looks inert. */
+.check-note {
+  margin-left: 6px;
+  color: var(--muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinning {
+    animation: none;
+  }
+}
+
 .update-menu {
   position: absolute;
   top: 22px;

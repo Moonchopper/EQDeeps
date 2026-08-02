@@ -30,6 +30,7 @@ public sealed record UpdateState(
     bool RestartRequired = false,
     bool RequiresElevation = false,
     bool CanSelfInstall = true,
+    DateTimeOffset? LastCheckedUtc = null,
     string? Error = null);
 
 /// <summary>
@@ -66,11 +67,29 @@ public sealed class UpdateService : IDisposable
 
     private const string ReleasesPage = "https://github.com/Moonchopper/EQDeeps/releases/latest";
 
-    private static readonly TimeSpan CheckInterval = TimeSpan.FromHours(6);
+    /// <summary>
+    /// How often a long-running session re-checks. EQDeeps is commonly left
+    /// open for days, so this loop is the only thing that tells such a session
+    /// a release exists.
+    ///
+    /// Five minutes looks aggressive and isn't: installed builds fetch a ~2 KB
+    /// app cast from a release asset, which is CDN-served and carries no API
+    /// rate limit, so this is ~24 KB an hour. Frequent checking also cannot
+    /// turn into nagging — a declined release is remembered for the run, and
+    /// auto mode stages a given release once — so the only thing that changes
+    /// is how quickly a new release is noticed.
+    ///
+    /// The one shape with a ceiling is the portable/source fallback, which uses
+    /// the GitHub REST API (60 requests/hour per IP unauthenticated). At this
+    /// interval that is 12/hour per instance; several portable copies on one
+    /// machine would start to eat into it, and a failed check is silent anyway.
+    /// </summary>
+    private static readonly TimeSpan CheckInterval = TimeSpan.FromMinutes(5);
 
     private readonly UpdatePreferenceStore _preferences;
     private readonly PendingUpdateStore _pending;
     private readonly UpdateInstaller _installer;
+    private readonly IHostApplicationLifetime _lifetime;
     private readonly ILogger<UpdateService> _log;
     private readonly SparkleUpdater? _sparkle;
     private readonly HashSet<string> _declinedThisRun = new(StringComparer.OrdinalIgnoreCase);
@@ -81,15 +100,20 @@ public sealed class UpdateService : IDisposable
     private UpdateState _state;
     private AppCastItem? _offered;
 
+    /// <summary>Set when the user chose "update now" rather than "on exit".</summary>
+    private volatile bool _applyWhenReady;
+
     public UpdateService(
         UpdatePreferenceStore preferences,
         PendingUpdateStore pending,
         UpdateInstaller installer,
+        IHostApplicationLifetime lifetime,
         ILogger<UpdateService> log)
     {
         _preferences = preferences;
         _pending = pending;
         _installer = installer;
+        _lifetime = lifetime;
         _log = log;
 
         var mode = preferences.Read().Mode;
@@ -207,17 +231,22 @@ public sealed class UpdateService : IDisposable
                     Stage = s.RestartRequired ? UpdateStage.Staged : UpdateStage.Idle,
                     LatestVersion = latest,
                     PromptRequired = false,
+                    LastCheckedUtc = DateTimeOffset.UtcNow,
                 });
                 return;
             }
 
             Mutate(s => s with
             {
-                Stage = UpdateStage.Available,
+                // An already-staged update stays staged: a check that merely
+                // re-confirms the same release must not lose the fact that its
+                // installer is downloaded and waiting.
+                Stage = s.RestartRequired ? UpdateStage.Staged : UpdateStage.Available,
                 LatestVersion = latest,
                 ReleaseNotes = _offered?.Description,
                 ReleaseUrl = ReleasesPage,
                 PromptRequired = action == UpdateAction.Prompt,
+                LastCheckedUtc = DateTimeOffset.UtcNow,
             });
 
             if (action == UpdateAction.Stage)
@@ -275,9 +304,25 @@ public sealed class UpdateService : IDisposable
         return doc.RootElement.TryGetProperty("tag_name", out var tag) ? tag.GetString() : null;
     }
 
-    /// <summary>The user said yes (or auto mode never asked): download and stage.</summary>
-    public async Task StageAsync()
+    /// <summary>
+    /// The user said yes (or auto mode never asked): download and stage.
+    /// </summary>
+    /// <param name="applyWhenReady">
+    /// True for "update now" — install and relaunch the moment the download
+    /// lands, instead of waiting for the user to close the app.
+    /// </param>
+    public async Task StageAsync(bool applyWhenReady = false)
     {
+        // Already downloaded and waiting: "update now" applies what is on disk
+        // rather than fetching 60 MB again. Checked before anything that needs
+        // the app cast, so this still works with no network — which is rather
+        // the point of having staged it in advance.
+        if (applyWhenReady && _state.Stage != UpdateStage.Downloading && _pending.Read() is not null)
+        {
+            ApplyNow(out _);
+            return;
+        }
+
         if (_sparkle is null || _offered is null)
         {
             return;
@@ -289,8 +334,13 @@ public sealed class UpdateService : IDisposable
         // report would snap back to 0% mid-download.
         if (_state.Stage == UpdateStage.Downloading)
         {
+            // A second call can still upgrade "on exit" to "now" — the user may
+            // have changed their mind while the bytes were coming down.
+            _applyWhenReady |= applyWhenReady;
             return;
         }
+
+        _applyWhenReady = applyWhenReady;
 
         // Size comes from the app cast so the UI can show "12.4 / 57.8 MB"
         // from the very first frame, before any progress event has fired.
@@ -370,6 +420,13 @@ public sealed class UpdateService : IDisposable
         }
 
         _pending.Clear();
+
+        // The handoff script is sitting in a loop waiting for this process to
+        // exit before it can replace our files — so we have to actually go.
+        // Without this the installer never runs, the script times out after two
+        // minutes, and "restart to update" looks like it did nothing at all.
+        _log.LogInformation("Applying update v{Version} now; shutting down", pending.Version);
+        _lifetime.StopApplication();
         return true;
     }
 
@@ -423,6 +480,12 @@ public sealed class UpdateService : IDisposable
             RequiresElevation = UpdateInstaller.RequiresElevation(),
         });
         _log.LogInformation("Update v{Version} staged at {Path}", item.Version, path);
+
+        if (_applyWhenReady)
+        {
+            _applyWhenReady = false;
+            ApplyNow(out _);
+        }
     }
 
     private void OnDownloadError(AppCastItem item, string? path, Exception exception)

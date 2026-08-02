@@ -45,6 +45,7 @@ export default function App() {
   const [discovered, setDiscovered] = useState<DiscoveredLog[]>([]);
   const [update, setUpdate] = useState<UpdateState | null>(null);
   const [showUpdateNotice, setShowUpdateNotice] = useState(false);
+  const [checkNote, setCheckNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [dashboards, setDashboards] = useState<DashboardDef[]>([]);
   const [hiddenPresets, setHiddenPresets] = useState<string[]>([]);
@@ -330,7 +331,7 @@ export default function App() {
         setUpdate(await api.setUpdateMode("auto"));
       }
 
-      setUpdate(await api.stageUpdate());
+      setUpdate(await api.stageUpdate(choice.now));
     } catch {
       // A failed consent call is not worth a red banner over the app; the
       // next poll re-reads the real state from the server.
@@ -356,12 +357,26 @@ export default function App() {
   // An explicit check clears every standing decline server-side, so this is
   // also the way back for someone who chose "don't ask again".
   async function checkForUpdateNow() {
+    setCheckNote(null);
     try {
-      setUpdate(await api.checkForUpdate());
+      const next = await api.checkForUpdate();
+      setUpdate(next);
+      // Silence would read as a broken button, so say something either way.
+      // When there IS an update the consent dialog opens on its own.
+      if (!next.promptRequired) {
+        setCheckNote(next.restartRequired ? "update ready" : "up to date");
+      }
     } catch {
-      // Offline: the state simply stays as it was.
+      setCheckNote("check failed");
     }
   }
+
+  // Clear the transient check result a few seconds after it appears.
+  useEffect(() => {
+    if (!checkNote) return;
+    const timer = window.setTimeout(() => setCheckNote(null), 4000);
+    return () => window.clearTimeout(timer);
+  }, [checkNote]);
 
   return (
     <div className="app">
@@ -378,6 +393,7 @@ export default function App() {
         onApplyUpdate={applyUpdateNow}
         onSetUpdateMode={setUpdateMode}
         onCheckForUpdate={checkForUpdateNow}
+        checkNote={checkNote}
         petRollup={petRollup}
         onTogglePetRollup={togglePetRollup}
         onOpen={openLog}

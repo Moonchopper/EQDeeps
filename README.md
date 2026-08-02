@@ -42,17 +42,26 @@ per release** before doing anything. The prompt offers:
 | | What it does |
 | --- | --- |
 | **Update** | Downloads in the background; installs the next time you close EQDeeps |
+| **Update & restart now** | Installs straight away and reopens on the new version |
 | **Not right now** | Asks again next launch |
 | **Skip this version** | Silent until something newer than that release ships |
 | **Don't ask again for vX.Y.Z** | Silent until you're running a different version |
 | **Update automatically from now on** | Stops asking; every release installs itself |
 
-Updates are **never applied mid-session** — a download is staged quietly and the
-swap happens after you close the app, so a raid parse is never interrupted. The
-pill beside the version number shows what's happening and offers **restart to
-update** if you want it sooner. Nothing is executed until it passes both an
-Ed25519 signature check against a key built into the app and a Windows
-Authenticode check.
+By default updates are **never applied mid-session** — a download is staged
+quietly and the swap happens after you close the app, so a raid parse is never
+interrupted. The pill beside the version number shows what's happening and
+offers **restart to update** if you want it sooner. Nothing is executed until it
+passes both an Ed25519 signature check against a key built into the app and a
+Windows Authenticode check.
+
+Beside the version number, **⚙** opens update preferences (ask each time /
+automatic / never check) and **⟳** checks on demand. A manual check overrides
+every standing "no", including automatic mode — it always asks before installing,
+so it's the way back if you've chosen "don't ask again". EQDeeps also re-checks
+every few minutes on its own, so you never have to restart to find out a release
+exists. That won't nag: declining a release is remembered, so a shorter interval
+only changes how quickly an update is noticed.
 
 Prefer no network calls at all? `--no-update-check` disables the whole thing for
 a run, and the in-app setting has a "never check" mode.

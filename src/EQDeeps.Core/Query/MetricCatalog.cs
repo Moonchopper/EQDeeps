@@ -29,12 +29,16 @@ public static class MetricCatalog
 
     public static readonly IReadOnlyList<string> DeathDefaults = ["deaths"];
 
+    public static readonly IReadOnlyList<string> ExperienceDefaults =
+        ["xpPercent", "xpPerHour", "xpGains", "aaPoints"];
+
     public static IReadOnlyList<string> DefaultsFor(QuerySource source) => source switch
     {
         QuerySource.Healing => HealingDefaults,
         QuerySource.Tanking => TankingDefaults,
         QuerySource.Casts => CastDefaults,
         QuerySource.Deaths => DeathDefaults,
+        QuerySource.Experience => ExperienceDefaults,
         _ => DamageDefaults,
     };
 
@@ -96,6 +100,10 @@ public static class MetricCatalog
             "interrupts" => bag.CastInterrupts,
             "fizzles" => bag.CastFizzles,
             "taunts" => bag.Taunts,
+            "xpPercent" => bag.XpPercent,
+            "xpPerHour" => Ratio(bag.XpPercent * 3600, raidSeconds),
+            "xpGains" => bag.XpGains,
+            "aaPoints" => bag.AaPoints,
             _ => 0,
         };
     }

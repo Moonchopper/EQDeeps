@@ -2,7 +2,7 @@ using EQDeeps.Core.Events;
 
 namespace EQDeeps.Core.Parsing;
 
-/// <summary>Taunts, zone transitions, spell resists, membership, and /who lines.</summary>
+/// <summary>Taunts, zone transitions, spell resists, membership, /who, and experience lines.</summary>
 public static class MiscParser
 {
     public static GameEvent? Parse(string action, ParserOptions options)
@@ -10,8 +10,70 @@ public static class MiscParser
         return ParseTaunt(action, options)
             ?? ParseZone(action)
             ?? ParseResist(action, options)
+            ?? ParseExperience(action)
             ?? ParseMembership(action, options)
             ?? ParseWho(action);
+    }
+
+    private static GameEvent? ParseExperience(string action)
+    {
+        // "You gain experience! (5.472%)" / "You gain party experience! (1.812%)"
+        // — modern servers append the level-progress delta; classic servers
+        // write "You gain experience!!" with no number.
+        if (action.StartsWith("You gain ", StringComparison.Ordinal))
+        {
+            var rest = action.AsSpan("You gain ".Length);
+            var party = rest.StartsWith("party ", StringComparison.Ordinal);
+            if (party)
+            {
+                rest = rest["party ".Length..];
+            }
+
+            if (!rest.StartsWith("experience!", StringComparison.Ordinal))
+            {
+                return null; // "You gain a rune for …" and friends
+            }
+
+            rest = rest["experience!".Length..].TrimStart('!').Trim();
+            if (rest.Length == 0)
+            {
+                return new ExperienceEvent(Percent: null, party);
+            }
+
+            if (rest[0] == '(' && rest[^1] == ')' && rest.Length > 3 && rest[^2] == '%' &&
+                double.TryParse(rest[1..^2], System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture, out var percent))
+            {
+                return new ExperienceEvent(percent, party);
+            }
+
+            return null; // trailing text that isn't a percent: not this grammar
+        }
+
+        // "You have gained an ability point!  You now have 2 ability points."
+        if (action.StartsWith("You have gained an ability point!", StringComparison.Ordinal))
+        {
+            int? total = null;
+            var i = action.IndexOf("You now have ", StringComparison.Ordinal);
+            if (i > 0)
+            {
+                var digits = action.AsSpan(i + "You now have ".Length);
+                var end = 0;
+                while (end < digits.Length && char.IsAsciiDigit(digits[end]))
+                {
+                    end++;
+                }
+
+                if (end > 0 && int.TryParse(digits[..end], out var parsed))
+                {
+                    total = parsed;
+                }
+            }
+
+            return new ExperienceEvent(Percent: null, Party: false, AaPoint: true, AaTotal: total);
+        }
+
+        return null;
     }
 
     private static GameEvent? ParseMembership(string action, ParserOptions options)

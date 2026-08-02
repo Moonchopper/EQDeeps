@@ -1,0 +1,38 @@
+[
+  {
+    "line": "You gain experience! (5.472%)",
+    "expect": { "type": "experience", "percent": 5.472, "party": false, "aaPoint": false }
+  },
+  {
+    "line": "You gain party experience! (1.812%)",
+    "expect": { "type": "experience", "percent": 1.812, "party": true, "aaPoint": false }
+  },
+  {
+    "line": "You gain experience! (0.977%)",
+    "expect": { "type": "experience", "percent": 0.977, "party": false, "aaPoint": false }
+  },
+  {
+    "line": "You gain experience!!",
+    "expect": { "type": "experience", "percent": null, "party": false, "aaPoint": false }
+  },
+  {
+    "line": "You gain party experience!!",
+    "expect": { "type": "experience", "percent": null, "party": true, "aaPoint": false }
+  },
+  {
+    "line": "You have gained an ability point!  You now have 2 ability points.",
+    "expect": { "type": "experience", "aaPoint": true, "aaTotal": 2, "party": false }
+  },
+  {
+    "line": "You have gained an ability point!  You now have 1 ability point.",
+    "expect": { "type": "experience", "aaPoint": true, "aaTotal": 1, "party": false }
+  },
+  {
+    "line": "You have gained an ability point!",
+    "expect": { "type": "experience", "aaPoint": true, "aaTotal": null, "party": false }
+  },
+  {
+    "line": "Soandso says, 'You gain experience!!'",
+    "expect": { "type": "chat", "channel": "say", "sender": "Soandso", "text": "You gain experience!!" }
+  }
+]

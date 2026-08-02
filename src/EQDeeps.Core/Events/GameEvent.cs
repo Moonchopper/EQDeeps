@@ -138,3 +138,12 @@ public sealed record WhoEvent(string Player, int? Level, string? ClassText) : Ga
 
 /// <summary>A spell resist. Caster perspective is always the log owner in current grammars.</summary>
 public sealed record ResistEvent(string Caster, string? Resister, string Spell) : GameEvent;
+
+/// <summary>
+/// Experience gained by the log owner. Modern servers log the level-progress
+/// delta ("You gain party experience! (1.812%)"); classic servers only
+/// announce the event, so <see cref="Percent"/> is null there. AA points are
+/// their own line and carry a running total when the server prints one.
+/// </summary>
+public sealed record ExperienceEvent(
+    double? Percent, bool Party, bool AaPoint = false, int? AaTotal = null) : GameEvent;

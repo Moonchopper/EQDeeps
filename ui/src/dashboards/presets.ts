@@ -12,7 +12,7 @@ import { defaultPanel, type DashboardDef, type LayoutRect, type PanelDef } from 
  * rewrites them to this pristine definition, which is idempotent.
  */
 export function presetDashboards(): DashboardDef[] {
-  return [raidDps(), healing(), tanking(), rightNow()];
+  return [raidDps(), healing(), tanking(), rightNow(), experience()];
 }
 
 export const PRESET_IDS = new Set(presetDashboards().map((d) => d.id));
@@ -294,6 +294,70 @@ function rightNow(): DashboardDef {
         metrics: ["total", "dps", "overhealRate"],
       },
       { x: 8, y: 10, w: 4, h: 8 },
+    ],
+  ]);
+}
+
+// XP arrives at kills but also outside fights entirely (quests, turn-ins), so
+// every panel scopes to the whole log rather than the fight selection.
+function experience(): DashboardDef {
+  return build("preset-experience", "Experience", [
+    [
+      {
+        title: "XP over time",
+        viz: "line",
+        source: "experience",
+        scopeMode: "all",
+        groupBy: ["character"],
+        primaryMetric: "xpPercent",
+        bucketSeconds: 60,
+        windowSec: 300,
+      },
+      { x: 0, y: 0, w: 8, h: 10 },
+    ],
+    [
+      {
+        title: "XP gained",
+        viz: "tile",
+        source: "experience",
+        scopeMode: "all",
+        groupBy: ["character"],
+        primaryMetric: "xpPercent",
+      },
+      { x: 8, y: 0, w: 4, h: 4 },
+    ],
+    [
+      {
+        title: "XP per hour",
+        viz: "tile",
+        source: "experience",
+        scopeMode: "all",
+        groupBy: ["character"],
+        primaryMetric: "xpPerHour",
+      },
+      { x: 8, y: 4, w: 4, h: 3 },
+    ],
+    [
+      {
+        title: "AA points",
+        viz: "tile",
+        source: "experience",
+        scopeMode: "all",
+        groupBy: ["character"],
+        primaryMetric: "aaPoints",
+      },
+      { x: 8, y: 7, w: 4, h: 3 },
+    ],
+    [
+      {
+        title: "By kind",
+        viz: "table",
+        source: "experience",
+        scopeMode: "all",
+        groupBy: ["spell"],
+        metrics: ["xpPercent", "xpPerHour", "xpGains", "aaPoints"],
+      },
+      { x: 0, y: 10, w: 8, h: 8 },
     ],
   ]);
 }

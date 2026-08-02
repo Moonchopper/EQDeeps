@@ -70,6 +70,10 @@ export const METRIC_LABELS: Record<string, string> = {
   casts: "Casts",
   interrupts: "Interrupts",
   fizzles: "Fizzles",
+  xpPercent: "XP %",
+  xpPerHour: "XP %/hr",
+  xpGains: "Gains",
+  aaPoints: "AA points",
 };
 
 export const RATE_METRICS = new Set([

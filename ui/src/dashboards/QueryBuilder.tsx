@@ -8,7 +8,7 @@ interface Props {
   onCancel: () => void;
 }
 
-const SOURCES: QuerySource[] = ["damage", "healing", "tanking", "casts", "deaths"];
+const SOURCES: QuerySource[] = ["damage", "healing", "tanking", "casts", "deaths", "experience"];
 
 /**
  * The query editor — every panel is metric × dimensions × filters × scope ×

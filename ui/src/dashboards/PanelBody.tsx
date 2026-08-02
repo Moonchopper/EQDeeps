@@ -18,7 +18,9 @@ function fmtMetric(metric: string, value: number): string {
   if (RATE_METRICS.has(metric)) return fmtRate(value);
   if (metric === "hits" || metric === "deaths" || metric === "casts" ||
       metric === "interrupts" || metric === "fizzles" || metric === "activeSeconds" ||
-      metric === "xpGains" || metric === "aaPoints") {
+      metric === "xpGains" || metric === "aaPoints" ||
+      metric === "factionNet" || metric === "factionUps" ||
+      metric === "factionDowns" || metric === "factionCapped") {
     return String(Math.round(value));
   }
   if (metric === "xpPercent" || metric === "xpPerHour") {

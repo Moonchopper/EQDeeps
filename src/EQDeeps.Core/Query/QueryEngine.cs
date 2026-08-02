@@ -93,10 +93,10 @@ public sealed class QueryEngine
                 units.Add(new ScopeUnit(range, null));
             }
         }
-        else if (source is QuerySource.Experience && scope.FightIds is null)
+        else if (source is QuerySource.Experience or QuerySource.Faction && scope.FightIds is null)
         {
-            // XP largely arrives outside fights (quests, turn-ins) and its
-            // rate metric needs the real timeline, so an unrestricted scope
+            // XP and faction largely arrive outside fights (quests, turn-ins)
+            // and rate metrics need the real timeline, so an unrestricted scope
             // means the whole record stream — not the union of fight spans.
             if (_records.Count > 0)
             {
@@ -139,10 +139,11 @@ public sealed class QueryEngine
             units = result;
         }
 
-        // Healing/casts/deaths/experience aggregate over the merged time ranges,
-        // not per fight — collapse to the union so overlaps don't double-count.
+        // Healing/casts/deaths/experience/faction aggregate over the merged time
+        // ranges, not per fight — collapse to the union so overlaps don't
+        // double-count.
         if (source is QuerySource.Healing or QuerySource.Casts or QuerySource.Deaths
-            or QuerySource.Experience)
+            or QuerySource.Experience or QuerySource.Faction)
         {
             var union = new TimeSegments();
             foreach (var unit in units)
@@ -275,6 +276,15 @@ public sealed class QueryEngine
                 actor = _character; // XP always belongs to the log owner
                 break;
 
+            case QuerySource.Faction:
+                if (record.Event is not FactionEvent factionEvent)
+                {
+                    return;
+                }
+
+                actor = factionEvent.Faction; // rows rank the factions themselves
+                break;
+
             default:
                 return;
         }
@@ -362,6 +372,10 @@ public sealed class QueryEngine
         {
             node.Bag.Add(xp);
         }
+        else if (record.Event is FactionEvent faction)
+        {
+            node.Bag.Add(faction);
+        }
 
         if (node.UnitSpans.TryGetValue(unitIndex, out var span))
         {
@@ -377,6 +391,8 @@ public sealed class QueryEngine
             double? amount = damage is not null ? damage.Amount
                 : heal is not null ? heal.Landed
                 : record.Event is ExperienceEvent bucketXp ? bucketXp.Percent ?? 0
+                : record.Event is FactionEvent bucketFaction
+                    ? bucketFaction.Capped ? 0 : bucketFaction.Delta ?? (bucketFaction.Better ? 1 : -1)
                 : null;
             if (amount is { } value)
             {
@@ -452,6 +468,7 @@ public sealed class QueryEngine
                 HealEvent h => h.Spell ?? "Unknown",
                 CastEvent c => c.Spell ?? "Unknown",
                 ExperienceEvent x => x.AaPoint ? "AA point" : x.Party ? "party" : "solo",
+                FactionEvent f => f.Capped ? "capped" : f.Better ? "up" : "down",
                 _ => "Unknown",
             },
             Dimension.DamageType => evt is DamageEvent dt

@@ -69,6 +69,12 @@ public sealed class CounterBag
     public long XpGains;
     public long AaPoints;
 
+    /// <summary>Signed faction sum; classic no-number lines count as ±1.</summary>
+    public long FactionNet;
+    public long FactionUps;
+    public long FactionDowns;
+    public long FactionCapped;
+
     public readonly TimeSegments ActiveTime = new();
 
     public void Add(ExperienceEvent xp)
@@ -81,6 +87,25 @@ public sealed class CounterBag
 
         XpGains++;
         XpPercent += xp.Percent ?? 0;
+    }
+
+    public void Add(FactionEvent faction)
+    {
+        if (faction.Capped)
+        {
+            FactionCapped++; // standing didn't move
+            return;
+        }
+
+        FactionNet += faction.Delta ?? (faction.Better ? 1 : -1);
+        if (faction.Better)
+        {
+            FactionUps++;
+        }
+        else
+        {
+            FactionDowns++;
+        }
     }
 
     public void Add(DamageEvent damage)

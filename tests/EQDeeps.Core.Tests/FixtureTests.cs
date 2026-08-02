@@ -140,6 +140,21 @@ public class FixtureTests
                 }
 
                 break;
+            case "faction":
+                var faction = Assert.IsType<FactionEvent>(evt);
+                AssertString(expect, "faction", faction.Faction, context);
+                AssertBool(expect, "better", faction.Better, context);
+                AssertBool(expect, "capped", faction.Capped, context);
+                if (expect.TryGetProperty("delta", out var delta))
+                {
+                    var expectedDelta = delta.ValueKind == JsonValueKind.Null
+                        ? (int?)null
+                        : delta.GetInt32();
+                    Assert.True(expectedDelta == faction.Delta,
+                        $"{context} — delta expected {expectedDelta} got {faction.Delta}");
+                }
+
+                break;
             case "who":
                 var who = Assert.IsType<WhoEvent>(evt);
                 AssertString(expect, "player", who.Player, context);

@@ -32,6 +32,9 @@ public static class MetricCatalog
     public static readonly IReadOnlyList<string> ExperienceDefaults =
         ["xpPercent", "xpPerHour", "xpGains", "aaPoints"];
 
+    public static readonly IReadOnlyList<string> FactionDefaults =
+        ["factionNet", "factionUps", "factionDowns", "factionCapped"];
+
     public static IReadOnlyList<string> DefaultsFor(QuerySource source) => source switch
     {
         QuerySource.Healing => HealingDefaults,
@@ -39,6 +42,7 @@ public static class MetricCatalog
         QuerySource.Casts => CastDefaults,
         QuerySource.Deaths => DeathDefaults,
         QuerySource.Experience => ExperienceDefaults,
+        QuerySource.Faction => FactionDefaults,
         _ => DamageDefaults,
     };
 
@@ -104,6 +108,10 @@ public static class MetricCatalog
             "xpPerHour" => Ratio(bag.XpPercent * 3600, raidSeconds),
             "xpGains" => bag.XpGains,
             "aaPoints" => bag.AaPoints,
+            "factionNet" => bag.FactionNet,
+            "factionUps" => bag.FactionUps,
+            "factionDowns" => bag.FactionDowns,
+            "factionCapped" => bag.FactionCapped,
             _ => 0,
         };
     }

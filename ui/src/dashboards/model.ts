@@ -74,6 +74,10 @@ export const METRIC_LABELS: Record<string, string> = {
   xpPerHour: "XP %/hr",
   xpGains: "Gains",
   aaPoints: "AA points",
+  factionNet: "Net",
+  factionUps: "Gains",
+  factionDowns: "Losses",
+  factionCapped: "Capped",
 };
 
 export const RATE_METRICS = new Set([

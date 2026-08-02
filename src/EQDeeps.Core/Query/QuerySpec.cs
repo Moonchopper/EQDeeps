@@ -11,6 +11,7 @@ public enum QuerySource
     Casts,
     Deaths,
     Experience,
+    Faction,
 }
 
 public enum Dimension

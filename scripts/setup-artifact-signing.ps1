@@ -126,18 +126,40 @@ if (-not $sp) {
 
 # Federated credential: tokens are only honored from this repo's "release"
 # environment — release.yml's signing job must declare `environment: release`.
+#
+# The subject must match the presented claim byte for byte or login fails with
+# AADSTS700213. Don't assume "repo:<owner>/<name>": GitHub now emits ID-qualified
+# subjects by default (repo:owner@<ownerId>/name@<repoId>) so that renaming or
+# recreating a repo can't be used to impersonate it. Ask GitHub for the prefix
+# instead of guessing which form is in play.
 $fedName = "github-release-environment"
-$existing = az ad app federated-credential list --id $appId --query "[?name=='$fedName'] | length(@)" -o tsv
-if ($existing -eq "0") {
+$subPrefix = $null
+try { $subPrefix = gh api "repos/$Repo/actions/oidc/customization/sub" --jq '.sub_claim_prefix' 2>$null } catch { $subPrefix = $null }
+if (-not $subPrefix) {
+    Write-Warning "Could not read the OIDC subject prefix from GitHub; falling back to the legacy 'repo:$Repo' form. If signing fails with AADSTS700213, copy the subject from the Azure login step's log into the federated credential."
+    $subPrefix = "repo:$Repo"
+}
+$subject = "${subPrefix}:environment:release"
+Write-Host "  federated subject: $subject"
+
+# Compare the subject, not just the name — a credential left over from an earlier
+# run can carry a stale subject, and that fails in CI rather than here.
+$existingSubject = az ad app federated-credential list --id $appId --query "[?name=='$fedName'].subject | [0]" -o tsv
+if ($existingSubject -ne $subject) {
     $fed = @{
         name      = $fedName
         issuer    = "https://token.actions.githubusercontent.com"
-        subject   = "repo:${Repo}:environment:release"
+        subject   = $subject
         audiences = @("api://AzureADTokenExchange")
     } | ConvertTo-Json -Compress
     $fedFile = Join-Path $env:TEMP "eqdeeps-fed.json"
     Set-Content -Path $fedFile -Value $fed -Encoding ascii
-    az ad app federated-credential create --id $appId --parameters "@$fedFile"
+    if ($existingSubject) {
+        Write-Host "  updating stale subject (was: $existingSubject)"
+        az ad app federated-credential update --id $appId --federated-credential-id $fedName --parameters "@$fedFile"
+    } else {
+        az ad app federated-credential create --id $appId --parameters "@$fedFile"
+    }
     Remove-Item $fedFile
 }
 

@@ -131,6 +131,25 @@ powershell -File scripts/setup-artifact-signing.ps1 -IdentityValidationId <guid>
 
 That creates the `eqdeeps-public` certificate profile. Setup done.
 
+### If signing fails with AADSTS700213
+
+`No matching federated identity record found for presented assertion subject`
+means the federated credential's subject doesn't match what GitHub actually sent.
+The Azure login step logs the presented claim — copy it verbatim into the
+credential.
+
+Most likely cause: GitHub emits **ID-qualified** subjects by default, e.g.
+
+```
+repo:Moonchopper@4328018/EQDeeps@1317763446:environment:release
+```
+
+rather than the `repo:<owner>/<name>:...` form most documentation shows. The
+database IDs make the claim survive renames, so a renamed or recreated repo
+can't impersonate this one. Phase 1 reads the correct prefix from
+`repos/<repo>/actions/oidc/customization/sub` and repairs a stale subject on
+re-run, so the fix is usually just running phase 1 again.
+
 ### Step 5 — Wire CI
 
 Tell Claude the profile exists. The follow-up work (separate PRs): a signing

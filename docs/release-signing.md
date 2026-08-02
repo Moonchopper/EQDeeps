@@ -1,54 +1,119 @@
-# Release signing (Azure Trusted Signing)
+# Release signing (Azure Artifact Signing)
 
 Why: signed releases stop the SmartScreen "unknown publisher" warning (after a
 short reputation ramp) and make in-app auto-update safe — the updater can
 verify a downloaded exe is genuinely ours before swapping it in.
 
 Cost: Basic tier, ~$9.99/month. The setup script and this doc get you from
-nothing to "CI signs every release" with three manual steps that only the
-account owner can perform.
+nothing to "CI signs every release" with two manual steps that only the account
+owner can perform.
+
+> The service was renamed from **Trusted Signing** to **Azure Artifact Signing**.
+> Same service, same `Microsoft.CodeSigning` resource provider — but the CLI
+> extension is now `artifact-signing` and the RBAC roles are `Artifact Signing
+> Identity Verifier` / `Artifact Signing Certificate Profile Signer`. Older blog
+> posts and the `trustedsigning` extension are stale.
+
+## What ends up public
+
+Signing publishes your validated legal identity. Anyone who downloads a release
+can read the certificate subject from the exe's Properties → Digital Signatures,
+and public scanners like VirusTotal index it permanently:
+
+```
+CN = <your legal name>
+L  = <city>
+S  = <state>
+C  = <country>
+```
+
+Street address and postal code are opt-in via `--include-street-address` /
+`--include-postal-code`; the script deliberately sets neither. Email and phone
+are never included in the certificate under any setting.
+
+There is no anonymous or pseudonymous option — CA/Browser Forum baseline
+requirements force the subject to be the validated legal identity, so custom CN
+and custom O aren't supported. Signing as a company instead requires
+Organization validation, which needs **3+ years of verifiable business history**;
+a newly formed LLC can't onboard.
+
+## Before you start
+
+These are the traps. None are fixable after the fact — signing resources can't
+be migrated between subscriptions, tenants, or resource groups, so getting one
+wrong means deleting everything and revalidating.
+
+- **A paid subscription.** Free, trial, and sponsored subscriptions are rejected;
+  account creation fails with a portal error. Pay-as-you-go or EA only.
+- **Billing account type must match the validation type.** Individual validation
+  requires a billing account whose Account Type is `Individual`. Check with
+  `az billing account list` — phase 1 of the script also warns on this.
+- **The billing account *is* the certificate.** The identity validation form is
+  read-only and auto-populated from the billing account's "sold to" details.
+  Legal name and address must match the government ID you'll verify with, and
+  watch the casing — `region: "nc"` lands on the certificate as `S=nc`. Edit via
+  Cost Management + Billing → Properties, or `az billing account update --sold-to`.
+- **Individual validation is US/Canada only.** (Organizations get a wider list.)
 
 ## One-time setup
 
-### Step 1 — Azure account (manual, ~10 min)
+### Step 1 — Azure subscription (manual, ~10 min)
 
-Create one at <https://portal.azure.com> (needs a credit card; you'll be on
-pay-as-you-go — the only charge from this setup is the Trusted Signing Basic
-tier). If you already have a subscription, skip ahead.
+Sign in at <https://portal.azure.com> with the account you want to own this, then
+Subscriptions → Add → **Pay-As-You-Go**. If the flow pushes you through Free
+Trial first, upgrade to pay-as-you-go before continuing.
+
+Keep this separate from any tenant you share with other people. A Microsoft
+account's default directory (`<you>.onmicrosoft.com`) is a tenant of one and is
+exactly right for this.
 
 ### Step 2 — Log in and run phase 1 (~5 min)
 
 ```powershell
-az login                                          # opens the browser
-powershell -File scripts/setup-trusted-signing.ps1
+az login --use-device-code                        # pick the right account explicitly
+powershell -File scripts/setup-artifact-signing.ps1
 ```
 
-This creates the `eqdeeps-signing` resource group and Trusted Signing account
-(East US), a GitHub OIDC app registration federated to this repo's `release`
-environment (so CI signs with short-lived tokens — no secret to leak), the
-minimal role assignment, and the repo secrets/variables CI will use.
+Plain `az login` silently reuses whatever Microsoft session your browser already
+has, which is an easy way to provision into the wrong tenant.
 
-### Step 3 — Identity validation (manual, then a wait)
+Phase 1 creates the `eqdeeps-signing` resource group and signing account (East
+US), a GitHub OIDC app registration federated to this repo's `release`
+environment (so CI signs with short-lived tokens — no secret to leak), the role
+assignments, and the repo secrets/variables CI will use.
 
-This is Microsoft verifying you're a real person — it's what SmartScreen's
-trust is anchored to, and no script can do it for you:
+### Step 3 — Identity validation (manual, ~15 min)
 
-1. Portal → search "Trusted Signing accounts" → `eqdeeps-signing`.
-2. Left menu → **Identity validations** → **New identity** → **Individual**.
-3. Fill in your legal name/address; you'll be sent through a government-ID
-   verification flow (Au10tix).
-4. Wait for the validation to show **Completed** — typically 1–3 business
-   days; watch for follow-up emails asking for more documentation.
+Microsoft verifying you're a real person — it's what SmartScreen's trust is
+anchored to, and it can only be done in the portal:
 
-> Individual (non-organization) validation availability varies by country.
-> If the portal only offers "Organization", that's the blocker to raise.
+1. Portal → search "Artifact Signing accounts" → `eqdeeps-signing`.
+2. Left menu → **Identity validations** → switch the dropdown from Organization
+   to **Individual** → **New identity** → **Public**.
+3. Select your billing account. The name and address fields populate read-only
+   from it — if anything is wrong, fix the billing account and come back.
+4. **Certificate subject preview** shows exactly what will be published. Read it.
+5. Create. Status goes **In Progress**, then **Action Required** — click your
+   name, then the verification link.
+6. Complete the Microsoft Verified ID flow: email PIN, phone, then a QR-code
+   handoff to your phone for government-ID capture (Au10tix) and a face check.
+   You'll need the Microsoft Authenticator app.
+7. Status changes to **Completed** a few minutes later.
+
+> Sign in to the verification link with the **same email** as the validation
+> request's primary email, or it fails with "You don't have permission to access
+> this page".
+
+If the **New identity** button is greyed out, the `Artifact Signing Identity
+Verifier` role hasn't landed — phase 1 assigns it, but it needs Reader at
+subscription scope too.
 
 ### Step 4 — Run phase 2 (~1 min)
 
 Open the completed identity validation, copy its ID (a GUID), then:
 
 ```powershell
-powershell -File scripts/setup-trusted-signing.ps1 -IdentityValidationId <guid>
+powershell -File scripts/setup-artifact-signing.ps1 -IdentityValidationId <guid>
 ```
 
 That creates the `eqdeeps-public` certificate profile. Setup done.
@@ -56,13 +121,17 @@ That creates the `eqdeeps-public` certificate profile. Setup done.
 ### Step 5 — Wire CI
 
 Tell Claude the profile exists. The follow-up work (separate PRs): a signing
-step in `release.yml` (sign `EQDeeps.Server.exe` between publish and zip,
-under `environment: release`), then the in-app auto-updater (download →
-verify our Authenticode signature → swap on restart), then delete the
-SmartScreen note from the README once reputation settles.
+step in `release.yml` (sign `EQDeeps.Server.exe` between publish and zip, under
+`environment: release`), then the in-app auto-updater (download → verify our
+Authenticode signature → swap on restart), then delete the SmartScreen note from
+the README once reputation settles.
 
 ## Ongoing
 
-Nothing. Certificates are short-lived and rotate automatically inside the
-service; CI authenticates per-run via OIDC. If you ever stop paying, releases
-just go back to unsigned — the app keeps working.
+Nothing month-to-month. Certificates are short-lived and rotate automatically
+inside the service; CI authenticates per-run via OIDC. If you ever stop paying,
+releases just go back to unsigned — the app keeps working.
+
+One recurring item: **identity validation expires.** Microsoft emails reminders
+starting 60 days out. Let it lapse and certificate renewal stops, which stops
+signing until a new validation is created and attached to the profile.

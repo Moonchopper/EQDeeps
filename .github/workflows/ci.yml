@@ -51,8 +51,15 @@ jobs:
           key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', 'Directory.Build.props') }}
           restore-keys: nuget-${{ runner.os }}-
 
-      # Restored separately from the build so a cache hit is visible in the log
-      # and `dotnet test` below can skip its own implicit restore.
+      # One restore for the whole solution, so the --no-restore/--no-build flags
+      # below skip work that provably already ran here — same job, same tree,
+      # same RID. That "same RID" caveat is why publish in release.yml still
+      # restores for itself: a RID-less restore does not satisfy -r win-x64.
+      #
+      # Lock files (+ --locked-mode) would be the textbook hardening here, but
+      # RestorePackagesWithLockFile is incompatible with this repo's global
+      # TargetFramework in Directory.Build.props — it fails solution restore with
+      # "Invalid framework identifier ''". It buys no time either; don't retry it.
       - name: Restore
         run: dotnet restore
 

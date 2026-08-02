@@ -378,11 +378,7 @@ export function DpsChart({
         </span>
       </div>
       <div className="chart-wrap">
-        <div
-          ref={divRef}
-          className="chart"
-          title="Drag to zoom a time range · scroll to zoom · double-click to reset"
-        />
+        <div ref={divRef} className="chart" />
         {isZoomed && (
           <button
             className="zoom-reset"

@@ -193,7 +193,7 @@ export function SessionBar({
           className="mini-btn"
           onClick={onResetDefaults}
           disabled={isDefaultState(frame, chartDefaults, fightLabelPx)}
-          title="Back to the opening state: live, 10 s window, 2 m span"
+          title="Back to the opening state: live, 10 s window, 15 m span"
         >
           reset
         </button>

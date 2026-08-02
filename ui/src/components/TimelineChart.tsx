@@ -375,12 +375,7 @@ export function TimelineChart({ sessionId, frame, refreshKey, character, fights 
         <div className="empty">No spell or ability activity in this selection</div>
       )}
       <div className="chart-wrap">
-        <div
-          ref={divRef}
-          className="chart"
-          style={{ height }}
-          title="Drag to zoom a time range · scroll to zoom · double-click to reset"
-        />
+        <div ref={divRef} className="chart" style={{ height }} />
         {isZoomed && (
           <button
             className="zoom-reset"

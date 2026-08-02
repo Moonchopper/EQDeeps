@@ -4,6 +4,7 @@ import type { BackfillEvent } from "../live";
 import { UpdateSettings } from "./UpdateSettings";
 import { TimeControls, type ChartSettings } from "../timeControls";
 import { frameLabel, isDefaultState, type TimeFrame } from "../timeFrame";
+import { LABEL_SIZE_CHOICES } from "../fightOverlay";
 
 interface Props {
   sessions: SessionInfo[];
@@ -26,6 +27,9 @@ interface Props {
   frame: TimeFrame;
   fights: FightInfo[];
   onResetDefaults: () => void;
+  /** Mob-name size on the fight bands; 0 hides them. */
+  fightLabelPx: number;
+  onFightLabelPx: (px: number) => void;
   onOpen: (path: string) => void;
   onRefreshDiscovered: () => void;
   onActivate: (id: string) => void;
@@ -62,6 +66,8 @@ export function SessionBar({
   frame,
   fights,
   onResetDefaults,
+  fightLabelPx,
+  onFightLabelPx,
   onOpen,
   onRefreshDiscovered,
   onActivate,
@@ -170,10 +176,23 @@ export function SessionBar({
           {frameLabel(frame, fights)}
         </span>
         <TimeControls settings={chartDefaults} bucketSeconds={1} onChange={onChartDefaults} />
+        <label className="time-controls" title="Size of the mob names on the fight bands">
+          names
+          <select
+            value={fightLabelPx}
+            onChange={(e) => onFightLabelPx(Number(e.target.value))}
+          >
+            {LABEL_SIZE_CHOICES.map((c) => (
+              <option key={c.value} value={c.value}>
+                {c.label}
+              </option>
+            ))}
+          </select>
+        </label>
         <button
           className="mini-btn"
           onClick={onResetDefaults}
-          disabled={isDefaultState(frame, chartDefaults)}
+          disabled={isDefaultState(frame, chartDefaults, fightLabelPx)}
           title="Back to the opening state: live, 10 s window, 2 m span"
         >
           reset

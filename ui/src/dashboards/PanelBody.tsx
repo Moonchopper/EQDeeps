@@ -14,6 +14,8 @@ export interface PanelContext {
   frame: TimeFrame;
   /** For the fight bands drawn behind time charts. */
   fights: FightInfo[];
+  /** Mob-name size on those bands; 0 hides them. */
+  fightLabelPx: number;
   refreshKey: number;
   petRollup: boolean;
   colors: EntityColors;
@@ -349,7 +351,7 @@ function LinePanel({
     // XP trough reads as "between pulls" rather than an unexplained gap.
     const plotHeight = (divRef.current?.clientHeight ?? 0) - 26 - 24; // grid top/bottom
     const markArea = extentRef.current
-      ? fightMarkArea(ctx.fights, extentRef.current[0], extentRef.current[1], plotHeight)
+      ? fightMarkArea(ctx.fights, extentRef.current[0], extentRef.current[1], plotHeight, ctx.fightLabelPx)
       : undefined;
     if (markArea) {
       series.push({
@@ -432,7 +434,7 @@ function LinePanel({
       key: "dataZoomSelect",
       dataZoomSelectActive: true,
     });
-  }, [result, panel.source, panel.bucketSeconds, windowSec, spanSec, isZoomed, ctx.fights]);
+  }, [result, panel.source, panel.bucketSeconds, windowSec, spanSec, isZoomed, ctx.fights, ctx.fightLabelPx]);
 
   if (result === "no-selection") return <div className="empty">Select a fight</div>;
   return (

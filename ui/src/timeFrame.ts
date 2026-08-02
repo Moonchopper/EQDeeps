@@ -1,5 +1,6 @@
 import type { FightInfo, QuerySpec } from "./api";
 import { DEFAULT_CHART_SETTINGS, type ChartSettings, type Span } from "./timeControls";
+import { DEFAULT_LABEL_PX } from "./fightOverlay";
 
 /**
  * What slice of the log the whole app is looking at. There is exactly one of
@@ -127,10 +128,15 @@ export function frameLabel(frame: TimeFrame, fights: FightInfo[]): string {
 }
 
 /** True when nothing has been changed from the app's opening state. */
-export function isDefaultState(frame: TimeFrame, settings: ChartSettings): boolean {
+export function isDefaultState(
+  frame: TimeFrame,
+  settings: ChartSettings,
+  fightLabelPx: number,
+): boolean {
   return (
     frame.kind === "live" &&
     frame.spanSec === DEFAULT_CHART_SETTINGS.spanSec &&
-    settings.windowSec === DEFAULT_CHART_SETTINGS.windowSec
+    settings.windowSec === DEFAULT_CHART_SETTINGS.windowSec &&
+    fightLabelPx === DEFAULT_LABEL_PX
   );
 }

@@ -19,6 +19,8 @@ interface Props {
   frame: TimeFrame;
   /** For the fight bands drawn behind the line. */
   fights: FightInfo[];
+  /** Mob-name size on the bands; 0 hides them. */
+  fightLabelPx: number;
   refreshKey: number;
   petRollup: boolean;
   colors: EntityColors;
@@ -48,6 +50,7 @@ export function DpsChart({
   sessionId,
   frame,
   fights,
+  fightLabelPx,
   refreshKey,
   petRollup,
   colors,
@@ -229,7 +232,7 @@ export function DpsChart({
     // against, so a trough reads as "between pulls" instead of just a gap.
     const plotHeight = (divRef.current?.clientHeight ?? 0) - 30 - 40; // grid top/bottom
     const markArea = extentRef.current
-      ? fightMarkArea(fights, extentRef.current[0], extentRef.current[1], plotHeight)
+      ? fightMarkArea(fights, extentRef.current[0], extentRef.current[1], plotHeight, fightLabelPx)
       : undefined;
     if (markArea) {
       series.push({
@@ -322,7 +325,7 @@ export function DpsChart({
       key: "dataZoomSelect",
       dataZoomSelectActive: true,
     });
-  }, [result, windowSec, span, colors, isZoomed, fights]);
+  }, [result, windowSec, span, colors, isZoomed, fights, fightLabelPx]);
 
   return (
     <div className="panel chart-panel">

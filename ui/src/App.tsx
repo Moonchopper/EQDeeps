@@ -28,6 +28,7 @@ import {
   stripStandardViews,
 } from "./dashboards/standardViews";
 import { DEFAULT_CHART_SETTINGS, type ChartSettings } from "./timeControls";
+import { DEFAULT_LABEL_PX } from "./fightOverlay";
 import {
   DEFAULT_FRAME,
   frameFromFights,
@@ -67,6 +68,13 @@ export default function App() {
     } catch {
       return DEFAULT_CHART_SETTINGS;
     }
+  });
+  // Size of the mob names on the fight bands; 0 hides them. App-wide for the
+  // same reason window and span are: it is how you read a chart, not a
+  // property of any one of them.
+  const [fightLabelPx, setFightLabelPx] = useState<number>(() => {
+    const stored = Number(localStorage.getItem("eqdeeps.fightLabelPx"));
+    return Number.isFinite(stored) && stored >= 0 ? stored : DEFAULT_LABEL_PX;
   });
   const [discovered, setDiscovered] = useState<DiscoveredLog[]>([]);
   const [update, setUpdate] = useState<UpdateState | null>(null);
@@ -115,6 +123,12 @@ export default function App() {
     setFrame(DEFAULT_FRAME);
     setChartDefaults(DEFAULT_CHART_SETTINGS);
     localStorage.setItem("eqdeeps.chartDefaults", JSON.stringify(DEFAULT_CHART_SETTINGS));
+    updateFightLabelPx(DEFAULT_LABEL_PX);
+  }
+
+  function updateFightLabelPx(px: number) {
+    setFightLabelPx(px);
+    localStorage.setItem("eqdeeps.fightLabelPx", String(px));
   }
 
   function togglePetRollup(on: boolean) {
@@ -467,6 +481,8 @@ export default function App() {
         frame={frame}
         fights={fights}
         onResetDefaults={resetToDefaults}
+        fightLabelPx={fightLabelPx}
+        onFightLabelPx={updateFightLabelPx}
         onOpen={openLog}
         onRefreshDiscovered={refreshDiscovered}
         onActivate={activate}
@@ -559,7 +575,7 @@ export default function App() {
                 return std ? (
                   <DashboardView
                     dashboard={std}
-                    ctx={{ sessionId: activeId, frame, fights, refreshKey, petRollup, colors: entityColors }}
+                    ctx={{ sessionId: activeId, frame, fights, fightLabelPx, refreshKey, petRollup, colors: entityColors }}
                     chartDefaults={chartDefaults}
                     onChange={() => undefined}
                     readOnly
@@ -600,6 +616,7 @@ export default function App() {
                     sessionId={activeId}
                     frame={frame}
                     fights={fights}
+                    fightLabelPx={fightLabelPx}
                     refreshKey={refreshKey}
                     petRollup={petRollup}
                     colors={entityColors}
@@ -627,7 +644,7 @@ export default function App() {
                 return dashboard ? (
                   <DashboardView
                     dashboard={dashboard}
-                    ctx={{ sessionId: activeId, frame, fights, refreshKey, petRollup, colors: entityColors }}
+                    ctx={{ sessionId: activeId, frame, fights, fightLabelPx, refreshKey, petRollup, colors: entityColors }}
                     chartDefaults={chartDefaults}
                     onChange={(next) =>
                       updateDashboards(dashboards.map((d) => (d.id === next.id ? next : d)))

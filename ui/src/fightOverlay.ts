@@ -14,8 +14,22 @@ import type { FightInfo } from "./api";
 /** Past this many bands the shading is noise rather than context. */
 const MAX_BANDS = 120;
 
-/** And past this many, the names stop fitting and start overlapping. */
-const MAX_LABELS = 18;
+/**
+ * How many names fit before they start colliding, at the reference size.
+ * Bigger text needs more room, so the cap scales down with it — otherwise
+ * turning the size up would turn the labels into a smear.
+ */
+const MAX_LABELS_AT_9PX = 18;
+
+export const DEFAULT_LABEL_PX = 9;
+
+/** Sizes offered in the top bar. 0 is off: shading with no names. */
+export const LABEL_SIZE_CHOICES: { value: number; label: string }[] = [
+  { value: 0, label: "off" },
+  { value: 9, label: "small" },
+  { value: 11, label: "medium" },
+  { value: 14, label: "large" },
+];
 
 // Alternating tints so two pulls that touch are still distinguishable.
 const TINT_A = "rgba(255, 255, 255, 0.05)";
@@ -39,6 +53,8 @@ export function fightMarkArea(
   toMs: number,
   /** Height of the plot area, so a name can never run off the top of it. */
   plotHeightPx: number,
+  /** Name size in px; 0 draws the bands without naming them. */
+  labelPx: number = DEFAULT_LABEL_PX,
 ): MarkArea | undefined {
   const bands: { begin: number; end: number; name: string }[] = [];
   for (const fight of fights) {
@@ -58,10 +74,15 @@ export function fightMarkArea(
     return undefined;
   }
 
+  // `|| DEFAULT` keeps the divisor sane when the size is 0 (off).
+  const maxLabels = Math.max(
+    4,
+    Math.round((MAX_LABELS_AT_9PX * DEFAULT_LABEL_PX) / (labelPx || DEFAULT_LABEL_PX)),
+  );
   return {
     silent: true,
     label: {
-      show: bands.length <= MAX_LABELS,
+      show: labelPx > 0 && bands.length <= maxLabels,
       // Anchored at the BOTTOM and read upward. Rotated text grows along the
       // rotated x-axis, which points up — so anchoring at the top sent every
       // name straight out of the plot and the chart clipped it. Growing up
@@ -74,7 +95,7 @@ export function fightMarkArea(
       align: "left",
       verticalAlign: "middle",
       color: "#898781",
-      fontSize: 9,
+      fontSize: labelPx || DEFAULT_LABEL_PX,
       overflow: "truncate",
       width: Math.max(24, plotHeightPx - 24),
     },

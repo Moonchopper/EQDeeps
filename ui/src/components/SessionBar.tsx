@@ -30,6 +30,9 @@ interface Props {
   /** Fight overlay: -1 off, 0 bands only, otherwise the name size in px. */
   fightLabelPx: number;
   onFightLabelPx: (px: number) => void;
+  /** Whether charts follow the wall clock through quiet time. */
+  liveScroll: boolean;
+  onLiveScroll: (on: boolean) => void;
   onOpen: (path: string) => void;
   onRefreshDiscovered: () => void;
   onActivate: (id: string) => void;
@@ -68,6 +71,8 @@ export function SessionBar({
   onResetDefaults,
   fightLabelPx,
   onFightLabelPx,
+  liveScroll,
+  onLiveScroll,
   onOpen,
   onRefreshDiscovered,
   onActivate,
@@ -188,6 +193,17 @@ export function SessionBar({
               </option>
             ))}
           </select>
+        </label>
+        <label
+          className="toggle"
+          title="Keep the charts moving with the clock when the log goes quiet, drawing the idle time as zero. Off pins them to the newest record."
+        >
+          <input
+            type="checkbox"
+            checked={liveScroll}
+            onChange={(e) => onLiveScroll(e.target.checked)}
+          />
+          scroll
         </label>
         <button
           className="mini-btn"

@@ -4,7 +4,7 @@ import { api, type FightInfo, type QuerySource, type QueryResult, type QueryRow 
 import { fmtNum, fmtRate, OTHER_COLOR, SERIES_COLORS } from "../format";
 import { buildSpec, METRIC_LABELS, RATE_METRICS, type PanelDef } from "./model";
 import type { EntityColors } from "../colors";
-import { attachWheelZoom, offsetTooltip } from "../chartInteractions";
+import { attachWheelZoom, bucketAlignedWindow, offsetTooltip } from "../chartInteractions";
 import type { ChartSettings } from "../timeControls";
 import type { TimeFrame } from "../timeFrame";
 import { fightMarkArea } from "../fightOverlay";
@@ -16,6 +16,8 @@ export interface PanelContext {
   fights: FightInfo[];
   /** Mob-name size on those bands; 0 hides them. */
   fightLabelPx: number;
+  /** Wall clock while scrolling; null when the window should sit still. */
+  scrollNowMs: number | null;
   refreshKey: number;
   petRollup: boolean;
   colors: EntityColors;
@@ -211,6 +213,12 @@ function LinePanel({
   const { windowSec, spanSec } = settings;
   const result = usePanelQuery(panel, ctx, settings);
   const [isZoomed, setIsZoomed] = useState(false);
+  // See DpsChart: "fit" and an active zoom both mean the viewport is not the
+  // clock's to move.
+  const scrollWindow: [number, number] | null =
+    ctx.scrollNowMs !== null && spanSec !== "fit" && !isZoomed
+      ? bucketAlignedWindow(ctx.scrollNowMs, spanSec + windowSec, panel.bucketSeconds)
+      : null;
   const suppressZoomEventRef = useRef(false);
   const extentRef = useRef<[number, number] | null>(null);
 
@@ -268,14 +276,16 @@ function LinePanel({
     const timeline = [...allSeconds].sort((a, b) => a - b);
 
     const step = Math.max(1, panel.bucketSeconds) * 1000;
-    // One continuous line: a bucket with nothing in it reads as zero rather
-    // than a hole, so idle stretches sag to the axis instead of chopping the
-    // chart into start/stop fragments. The guard is the only reason segments
-    // still exist — filling a multi-day range at a 1-second bucket would be
-    // millions of points, so past the cap fall back to breaking on gaps
-    // wider than two buckets rather than locking up the browser.
+    // Scrolling with the wall clock: the window IS [now - span, now], so the
+    // segment is that window rather than whatever the data happens to cover.
+    // Buckets with nothing in them read as zero, so quiet time draws as a line
+    // along the floor that keeps moving — and the rolling mean decays into it
+    // instead of freezing at the last value. Bounded by the span, so the point
+    // count cannot run away no matter how stale the log is.
     const segments: [number, number][] = [];
-    if (timeline.length > 0) {
+    if (scrollWindow) {
+      segments.push(scrollWindow);
+    } else if (timeline.length > 0) {
       const first = timeline[0];
       const last = timeline[timeline.length - 1];
       if ((last - first) / step + 1 <= MAX_FILLED_POINTS) {
@@ -354,7 +364,7 @@ function LinePanel({
     let axisMin: number | null = null;
     let axisMax: number | null = null;
     if (spanSec !== "fit" && segments.length > 0 && !isZoomed) {
-      axisMax = segments[segments.length - 1][1];
+      axisMax = scrollWindow ? scrollWindow[1] : segments[segments.length - 1][1];
       axisMin = axisMax - spanSec * 1000;
     }
 
@@ -442,7 +452,7 @@ function LinePanel({
       key: "dataZoomSelect",
       dataZoomSelectActive: true,
     });
-  }, [result, panel.source, panel.bucketSeconds, windowSec, spanSec, isZoomed, ctx.fights, ctx.fightLabelPx]);
+  }, [result, panel.source, panel.bucketSeconds, windowSec, spanSec, isZoomed, ctx.fights, ctx.fightLabelPx, ctx.scrollNowMs]);
 
   if (result === "no-selection") return <div className="empty">Select a fight</div>;
   return (

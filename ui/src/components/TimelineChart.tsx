@@ -321,7 +321,10 @@ export function TimelineChart({ sessionId, frame, refreshKey, character, fights 
           max: rangeEnd,
           axisLine: { lineStyle: { color: "#383835" } },
           axisLabel: { color: "#898781", fontSize: 11 },
-          splitLine: { show: false },
+          // Lanes here are categories, not values, so without vertical rules
+          // there is nothing to read a mark's time against but the axis at the
+          // bottom — which is far away by the time you are on the fourth lane.
+          splitLine: { show: true, lineStyle: { color: "#2c2c2a" } },
         },
         yAxis: {
           type: "category",

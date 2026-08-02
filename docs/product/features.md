@@ -87,7 +87,7 @@ Combat still aggregates per fight *within* the frame, so DPS over a framed stret
 
 A single **reset** in the top bar returns the frame to live and the window/span to their defaults; "back to live" in the fight list releases a range without touching the settings.
 
-Every time chart draws **fight bands** behind the line: faint alternating shading over the stretches where something was being fought, labelled with the mob. Without them a trough reads the same whether you were between pulls, running to the next camp, or fighting something that did not hurt. The bands are capped — names drop out past ~18 fights in view, and the shading stops entirely past ~120, because solid shading is not context.
+Every time chart draws **fight bands** behind the line: faint alternating shading over the stretches where something was being fought, labelled with the mob. Without them a trough reads the same whether you were between pulls, running to the next camp, or fighting something that did not hurt. Names are anchored at the floor and read upward, clamped to the plot height so a long mob name truncates rather than running off the top. The bands are capped — names drop out past ~18 fights in view, and the shading stops entirely past ~120, because solid shading is not context.
 
 - AC: Selecting fights changes what every panel shows, including Experience, Faction and Loot.
 - AC: A frame covering isolated sequential fights reports the same total, active seconds and DPS as selecting those fights directly.
@@ -96,7 +96,7 @@ Every time chart draws **fight bands** behind the line: faint alternating shadin
 
 ### F7b. Standard views
 
-Overview is a section, not a page: a row of sub-tabs holds Summary (the F7 dashboard) plus the specialized standard views — Raid DPS, Healing, Tanking, Right now, Experience, Faction, Loot. These ship with the app rather than being provisioned into the user's dashboard store, so they are read-only and cannot drift, be deleted, or be confused with something the user built. "Customize a copy" clones one into a custom dashboard (F8) that the user then owns.
+Overview is a section, not a page: a row of sub-tabs holds Summary (the F7 dashboard) plus the specialized standard views — Healing, Tanking, Experience, Faction, Loot. Damage rankings and a live "right now" view are deliberately absent: Summary already carries both, and a standard view has to earn its tab. These ship with the app rather than being provisioned into the user's dashboard store, so they are read-only and cannot drift, be deleted, or be confused with something the user built. "Customize a copy" clones one into a custom dashboard (F8) that the user then owns.
 
 Window and span are presentation, not properties of a panel, so no panel definition carries them: there is exactly one default (`DEFAULT_CHART_SETTINGS`) and every chart in the app starts there. The top bar owns it — a control beside the version number — and changing it pushes down to every chart, Summary's DPS chart included. The setting persists across restarts.
 

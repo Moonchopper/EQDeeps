@@ -37,6 +37,8 @@ export function fightMarkArea(
   fights: FightInfo[],
   fromMs: number,
   toMs: number,
+  /** Height of the plot area, so a name can never run off the top of it. */
+  plotHeightPx: number,
 ): MarkArea | undefined {
   const bands: { begin: number; end: number; name: string }[] = [];
   for (const fight of fights) {
@@ -60,15 +62,21 @@ export function fightMarkArea(
     silent: true,
     label: {
       show: bands.length <= MAX_LABELS,
-      position: "insideTop",
-      distance: 4,
+      // Anchored at the BOTTOM and read upward. Rotated text grows along the
+      // rotated x-axis, which points up — so anchoring at the top sent every
+      // name straight out of the plot and the chart clipped it. Growing up
+      // from the floor keeps it inside by construction, and the explicit
+      // width (the run length of the text, vertical once rotated) stops a
+      // long mob name reaching the ceiling.
+      position: "insideBottom",
+      distance: 6,
       rotate: 90,
       align: "left",
       verticalAlign: "middle",
       color: "#898781",
       fontSize: 9,
       overflow: "truncate",
-      width: 90,
+      width: Math.max(24, plotHeightPx - 24),
     },
     data: bands.map((band, i) => [
       {

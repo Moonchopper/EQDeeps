@@ -163,9 +163,9 @@ export function buildSpec(
   settings: ChartSettings,
 ): QuerySpec {
   const warmup = panel.viz === "line" ? settings.windowSec : 0;
-  // "recent" panels keep a fixed window of their own — that is the whole
-  // identity of the Right now view. Everything else reports over the app's
-  // one time frame.
+  // A "recent" panel keeps a fixed window of its own, independent of the
+  // frame. No standard view uses it now, but the query builder still offers
+  // it for a custom panel that wants a fixed trailing window.
   const scope: QuerySpec["scope"] =
     panel.scopeMode === "recent"
       ? { lastSeconds: panel.lastSeconds + warmup }

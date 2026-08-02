@@ -2,10 +2,12 @@ import { defaultPanel, newId, type DashboardDef, type LayoutRect, type PanelDef 
 
 /**
  * The standard views: specialized breakdowns that ship with EQDeeps and sit
- * as sub-tabs under Overview. They cover what the parsing community actually
- * argues about — damage rankings, healing with overheal, tanking with the
- * defensive rates, a fight-agnostic "right now", and the progression sources
- * (experience, faction, loot).
+ * as sub-tabs under Overview — healing with overheal, tanking with the
+ * defensive rates, and the progression sources (experience, faction, loot).
+ *
+ * Damage rankings and a "right now" view used to be here and are not, because
+ * Summary already answers both: it carries the damage summary and a DPS chart
+ * that follows live by default. A standard view has to earn its tab.
  *
  * These are DEFINED IN CODE and never stored. They used to be provisioned
  * into the user's dashboard store with stable ids, which is precisely why
@@ -15,10 +17,19 @@ import { defaultPanel, newId, type DashboardDef, type LayoutRect, type PanelDef 
  * user owns (see `cloneForCustomizing`).
  */
 export function standardViews(): DashboardDef[] {
-  return [raidDps(), healing(), tanking(), rightNow(), experience(), faction(), loot()];
+  return [healing(), tanking(), experience(), faction(), loot()];
 }
 
 export const STANDARD_VIEW_IDS = new Set(standardViews().map((d) => d.id));
+
+/**
+ * Views that used to ship and no longer do. They stay listed because the
+ * store migration has to keep recognising them: an install that never ran the
+ * build which stripped provisioned presets would otherwise find them
+ * resurrected as the user's own dashboards, which is not where they came from
+ * and not what "removed" should mean.
+ */
+const RETIRED_VIEW_IDS = ["preset-raid-dps", "preset-right-now"];
 
 /** The sub-tab that shows the hand-built Overview, not a standard view. */
 export const SUMMARY_VIEW = "summary";
@@ -36,7 +47,9 @@ export interface MigrationResult {
  * standard-view id.
  */
 export function stripStandardViews(stored: DashboardDef[]): MigrationResult {
-  const dashboards = stored.filter((d) => !STANDARD_VIEW_IDS.has(d.id));
+  const dashboards = stored.filter(
+    (d) => !STANDARD_VIEW_IDS.has(d.id) && !RETIRED_VIEW_IDS.includes(d.id),
+  );
   return { dashboards, changed: dashboards.length !== stored.length };
 }
 
@@ -73,72 +86,6 @@ function build(
   });
 
   return { id, name, panels, layout };
-}
-
-function raidDps(): DashboardDef {
-  return build("preset-raid-dps", "Raid DPS", [
-    [
-      {
-        title: "Damage rankings",
-        viz: "table",
-        source: "damage",
-        groupBy: ["player", "spell"],
-        metrics: ["total", "dps", "sdps", "percentOfTotal", "critRate", "twincastRate", "maxHit"],
-      },
-      { x: 0, y: 0, w: 7, h: 10 },
-    ],
-    [
-      {
-        title: "DPS over time",
-        viz: "line",
-        source: "damage",
-        groupBy: ["player"],
-        bucketSeconds: 1,
-      },
-      { x: 7, y: 0, w: 5, h: 10 },
-    ],
-    [
-      {
-        title: "Damage by ability",
-        viz: "bar",
-        source: "damage",
-        groupBy: ["spell"],
-        primaryMetric: "total",
-      },
-      { x: 0, y: 10, w: 7, h: 8 },
-    ],
-    [
-      {
-        title: "Total damage",
-        viz: "tile",
-        source: "damage",
-        groupBy: ["player"],
-        primaryMetric: "total",
-      },
-      { x: 7, y: 10, w: 2, h: 4 },
-    ],
-    [
-      {
-        title: "Raid deaths",
-        viz: "tile",
-        source: "deaths",
-        groupBy: ["player"],
-        primaryMetric: "deaths",
-      },
-      { x: 9, y: 10, w: 3, h: 4 },
-    ],
-    [
-      {
-        title: "Kill shots excluded",
-        viz: "table",
-        source: "damage",
-        groupBy: ["player"],
-        metrics: ["total", "sdps", "percentOfTotal"],
-        excludeFlags: ["headshot", "assassinate", "finishingBlow", "slayUndead"],
-      },
-      { x: 7, y: 14, w: 5, h: 4 },
-    ],
-  ]);
 }
 
 function healing(): DashboardDef {
@@ -237,59 +184,6 @@ function tanking(): DashboardDef {
         metrics: ["deaths"],
       },
       { x: 9, y: 10, w: 3, h: 8 },
-    ],
-  ]);
-}
-
-function rightNow(): DashboardDef {
-  return build("preset-right-now", "Right now", [
-    [
-      {
-        title: "Rolling DPS — last 2 minutes",
-        viz: "line",
-        source: "damage",
-        scopeMode: "recent",
-        lastSeconds: 120,
-        groupBy: ["player"],
-        bucketSeconds: 1,
-      },
-      { x: 0, y: 0, w: 8, h: 10 },
-    ],
-    [
-      {
-        title: "Damage — last 60 s",
-        viz: "table",
-        source: "damage",
-        scopeMode: "recent",
-        lastSeconds: 60,
-        groupBy: ["player"],
-        metrics: ["total", "dps", "percentOfTotal"],
-      },
-      { x: 8, y: 0, w: 4, h: 10 },
-    ],
-    [
-      {
-        title: "Abilities — last 60 s",
-        viz: "bar",
-        source: "damage",
-        scopeMode: "recent",
-        lastSeconds: 60,
-        groupBy: ["spell"],
-        primaryMetric: "total",
-      },
-      { x: 0, y: 10, w: 8, h: 8 },
-    ],
-    [
-      {
-        title: "Healing — last 60 s",
-        viz: "table",
-        source: "healing",
-        scopeMode: "recent",
-        lastSeconds: 60,
-        groupBy: ["player"],
-        metrics: ["total", "dps", "overhealRate"],
-      },
-      { x: 8, y: 10, w: 4, h: 8 },
     ],
   ]);
 }

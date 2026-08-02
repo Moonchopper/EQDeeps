@@ -347,8 +347,9 @@ function LinePanel({
 
     // Fight bands behind the line — same backdrop the DPS chart gets, so an
     // XP trough reads as "between pulls" rather than an unexplained gap.
+    const plotHeight = (divRef.current?.clientHeight ?? 0) - 26 - 24; // grid top/bottom
     const markArea = extentRef.current
-      ? fightMarkArea(ctx.fights, extentRef.current[0], extentRef.current[1])
+      ? fightMarkArea(ctx.fights, extentRef.current[0], extentRef.current[1], plotHeight)
       : undefined;
     if (markArea) {
       series.push({

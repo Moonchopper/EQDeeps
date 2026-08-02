@@ -227,8 +227,9 @@ export function DpsChart({
 
     // Fight bands behind the line: which mob each stretch of output was
     // against, so a trough reads as "between pulls" instead of just a gap.
+    const plotHeight = (divRef.current?.clientHeight ?? 0) - 30 - 40; // grid top/bottom
     const markArea = extentRef.current
-      ? fightMarkArea(fights, extentRef.current[0], extentRef.current[1])
+      ? fightMarkArea(fights, extentRef.current[0], extentRef.current[1], plotHeight)
       : undefined;
     if (markArea) {
       series.push({

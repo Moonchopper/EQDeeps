@@ -184,6 +184,8 @@ export default function App() {
             bumpRefreshThrottled();
           }
         },
+        onConnectionLost: () =>
+          setError("Lost connection to the EQDeeps server — relaunch EQDeeps.Server.exe and refresh this page."),
       }),
     [],
   );

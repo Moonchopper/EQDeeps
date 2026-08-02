@@ -7,11 +7,13 @@ A modern, real-time EverQuest combat-log analytics app — a clean-room successo
 ## Run it
 
 **From a release zip**: run `EQDeeps.Server.exe` — it starts the local server and
-opens your browser. No install, no .NET required. Closing the last browser tab
-shuts the app down a few seconds later (reopening backfills from the log, so
-nothing is lost). Flags: `--no-browser`, `--no-update-check`, `--stay-alive`
-(keep parsing with no UI open), `--urls http://127.0.0.1:PORT`; launching it
-again focuses the running instance.
+opens your browser. No install, no .NET required. Deliberately closing the last
+browser tab shuts the app down a few seconds later (reopening backfills from the
+log, so nothing is lost); tabs merely backgrounded, put to sleep by the browser,
+or interrupted by system sleep do **not** stop it — the tab reconnects when you
+return. Flags: `--no-browser`, `--no-update-check`, `--stay-alive` (keep parsing
+with no UI open), `--urls http://127.0.0.1:PORT`; launching it again focuses the
+running instance.
 
 **From source**:
 

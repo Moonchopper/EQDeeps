@@ -51,6 +51,13 @@ public static class ServerApp
 
         app.MapGet("/api/version", (UpdateChecker updates) => Results.Ok(updates.Info));
 
+        // pagehide beacon from a genuinely closing tab (see ClientTracker).
+        app.MapPost("/api/ui/goodbye", (ClientTracker clients) =>
+        {
+            clients.OnGoodbye();
+            return Results.NoContent();
+        });
+
         app.MapGet("/api/logs/discovered", () => Results.Ok(LogDiscovery.Discover()));
 
         app.MapGet("/api/store/{key}", (string key, DocumentStore store) =>

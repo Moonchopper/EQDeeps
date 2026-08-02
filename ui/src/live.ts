@@ -23,6 +23,8 @@ export interface LiveHandlers {
   onBackfill?: (e: BackfillEvent) => void;
   onFights?: (e: FightsEvent) => void;
   onTick?: (e: TickEvent) => void;
+  /** The hub gave up reconnecting — the server has likely exited. */
+  onConnectionLost?: () => void;
 }
 
 /** One hub connection for the app; per-session subscriptions via groups. */
@@ -35,6 +37,17 @@ export function createLiveConnection(handlers: LiveHandlers) {
   connection.on("backfill", (e: BackfillEvent) => handlers.onBackfill?.(e));
   connection.on("fights", (e: FightsEvent) => handlers.onFights?.(e));
   connection.on("tick", (e: TickEvent) => handlers.onTick?.(e));
+  connection.onclose(() => handlers.onConnectionLost?.());
+
+  // Tell the server this was a genuine close (tab/window closed or navigated
+  // away) as opposed to the browser discarding or freezing the tab — the
+  // server only ties its lifetime to deliberate closes. Back/forward-cache
+  // stashing sets `persisted` and is not a close.
+  window.addEventListener("pagehide", (e) => {
+    if (!e.persisted) {
+      navigator.sendBeacon("/api/ui/goodbye");
+    }
+  });
 
   const subscribed = new Set<string>();
 

@@ -61,9 +61,11 @@ if (!stayAlive)
 await app.WaitForShutdownAsync();
 return;
 
-// Once a UI has connected, exit when the last one has been gone for a grace
-// period (long enough for refreshes and reconnects). Headless usage never
-// connects a client, so it is never auto-exited.
+// Once a UI has connected, exit when the last one has been *deliberately*
+// closed (pagehide goodbye) and gone past a grace period. Disconnects without
+// a goodbye — tab discarded by the browser's memory saver, tab frozen, system
+// sleep — leave the server running so the returning tab can reconnect.
+// Headless usage never connects a client, so it is never auto-exited.
 static async Task MonitorUiClientsAsync(WebApplication app)
 {
     var clients = app.Services.GetRequiredService<ClientTracker>();
@@ -75,6 +77,7 @@ static async Task MonitorUiClientsAsync(WebApplication app)
         while (await timer.WaitForNextTickAsync(lifetime.ApplicationStopping))
         {
             if (clients.EverConnected && clients.Count == 0 &&
+                clients.LastCloseWasDeliberate &&
                 DateTime.UtcNow - clients.LastDisconnectUtc > grace)
             {
                 Console.WriteLine(

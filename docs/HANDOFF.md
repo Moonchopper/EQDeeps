@@ -1,5 +1,14 @@
 # EQDeeps — Implementation Handoff
 
+> **Status (2026-08-01): all eight build-order phases below are complete** —
+> parser core, ingestion, session state, query engine, API + live loop, SPA,
+> composable dashboards, packaging — each with its exit criteria verified in
+> tests and its decisions recorded in `docs/architecture/adr-001…008`. See
+> `docs/product/features.md` for per-feature status. The main open items:
+> real-log validation against EQLogParser (the release gate), the spell-DB
+> work (class detection, bane, lands-on resolution — reference data files not
+> yet copied), identity-registry disk persistence, and the P1/P2 backlog.
+
 You are picking up a **documented, greenfield** project: a clean-room, modern successor to EQLogParser. Everything you need to know about *what* to build and *what the data means* is in these docs; *how* to build it is largely yours, within the locked decisions.
 
 ## Read in this order

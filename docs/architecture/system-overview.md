@@ -1,6 +1,13 @@
 # EQDeeps — System Overview (Architecture Guidance)
 
-Status: **guidance, not prescription.** The stack and component boundaries below are decided; internal designs are open — improve on them where you see a better way, and record significant choices in short ADR notes under `docs/architecture/`.
+Status: **guidance, now largely implemented.** The stack and component
+boundaries below are built as described; the open choices this doc left have
+been resolved and recorded in ADRs: realtime = SignalR (ADR-005), ingestion
+design (ADR-002), fight/identity semantics (ADR-003), query engine + caching
+(ADR-004), dashboards/persistence (ADR-007), packaging (ADR-008). Known gap
+vs. this doc: the identity registry is per-server and snapshot-serializable
+but not yet written to disk; reference data files (spells/npcs/petnames) are
+not yet shipped.
 
 ## Locked decisions
 

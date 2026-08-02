@@ -2,6 +2,17 @@
 
 Priorities: **P0** = first working pass, **P1** = v1 public release, **P2** = later. Each feature has acceptance criteria (AC). The feature inventory is informed by the reference implementation (EQLogParser); v1 deliberately drops its overlay/trigger/audio subsystems.
 
+**Implementation status (2026-08-01):** ✅ shipped — F1, F2, F3, F4, F5, F6, F7,
+F8, F14. Beyond spec: log autodetection (running process/registry/known paths),
+aggregate selection stats, by-target grouping, rolling-window + zoomable DPS
+charts, ability breakdown chart with per-attacker stacks, app-wide pet-rollup
+toggle, cross-panel entity colors with tinted table rows, preset dashboards.
+⏳ pending — F9 (death recap), F10 (spell/cast analytics — needs the spell DB),
+F11, F12, F13 (identity persists in-memory per server with serializable
+snapshots; the disk read/write wiring remains), F15–F21. Release gate still
+open: real-log validation against EQLogParser. Design decisions live in
+`docs/architecture/adr-00*.md`.
+
 ---
 
 ## P0 — First working pass

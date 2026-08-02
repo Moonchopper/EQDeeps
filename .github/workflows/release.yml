@@ -45,7 +45,9 @@ jobs:
 
       - name: Zip artifact
         shell: pwsh
-        run: Compress-Archive -Path artifacts/win-x64/* -DestinationPath "EQDeeps-${{ steps.version.outputs.version }}-win-x64.zip"
+        run: |
+          Copy-Item NOTICE artifacts/win-x64/NOTICE.txt
+          Compress-Archive -Path artifacts/win-x64/* -DestinationPath "EQDeeps-${{ steps.version.outputs.version }}-win-x64.zip"
 
       - name: Create release
         uses: softprops/action-gh-release@v2

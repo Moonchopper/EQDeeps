@@ -1,5 +1,7 @@
 EQDeeps
 
+== Reference data & fixtures ==
+
 Portions of the test fixture data (real EverQuest log lines and their expected
 parse results, under tests/EQDeeps.Core.Tests/Fixtures/) are derived from the
 parser unit tests of EQLogParser (https://github.com/kauffman12/EQLogParser),
@@ -9,3 +11,23 @@ Log lines themselves are EverQuest game output.
 No source code from EQLogParser has been ported; EQDeeps is a clean-room
 implementation. Behavior fidelity comes from documented grammars and the
 fixture corpus above.
+
+== Distributed third-party software ==
+
+The published EQDeeps binary embeds or includes the following permissively
+licensed components:
+
+- Apache ECharts (https://echarts.apache.org) — Apache License 2.0,
+  Copyright the Apache Software Foundation.
+- React and ReactDOM (https://react.dev) — MIT License, Copyright Meta
+  Platforms, Inc. and affiliates.
+- @microsoft/signalr (https://github.com/dotnet/aspnetcore) — MIT License,
+  Copyright .NET Foundation and Contributors.
+- react-grid-layout (https://github.com/react-grid-layout/react-grid-layout)
+  — MIT License, Copyright Samuel Reed.
+- .NET runtime and ASP.NET Core, including Microsoft.Extensions.* and
+  Microsoft.Win32.Registry packages (https://github.com/dotnet) — MIT
+  License, Copyright .NET Foundation and Contributors.
+
+EverQuest is a registered trademark of Daybreak Game Company LLC. EQDeeps is
+an unaffiliated fan-made tool and includes no game assets.

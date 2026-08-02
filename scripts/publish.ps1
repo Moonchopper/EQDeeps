@@ -21,6 +21,9 @@ try {
         -o "artifacts/$Runtime"
     if ($LASTEXITCODE -ne 0) { throw "publish failed" }
 
+    # Attribution ships with every distributed copy (see NOTICE).
+    Copy-Item NOTICE "artifacts/$Runtime/NOTICE.txt"
+
     Get-ChildItem "artifacts/$Runtime" | Format-Table Name, @{ n = "MB"; e = { [math]::Round($_.Length / 1MB, 1) } }
     Write-Host "Done: artifacts/$Runtime/EQDeeps.Server.exe"
 }

@@ -25,9 +25,17 @@ const LABEL_CLEARANCE_PX = 3;
 
 export const DEFAULT_LABEL_PX = 14;
 
-/** Sizes offered in the top bar. 0 is off: shading with no names. */
+/** No overlay at all — not even the shading. */
+export const OVERLAY_OFF = -1;
+
+/**
+ * One control for the whole overlay, because it is one feature: whether the
+ * bands are there, and how loudly they are named. 0 keeps the shading and
+ * drops the names, which is the useful middle ground on a dense chart.
+ */
 export const LABEL_SIZE_CHOICES: { value: number; label: string }[] = [
-  { value: 0, label: "off" },
+  { value: OVERLAY_OFF, label: "off" },
+  { value: 0, label: "bands" },
   { value: 9, label: "small" },
   { value: 11, label: "medium" },
   { value: 14, label: "large" },
@@ -60,6 +68,10 @@ export function fightMarkArea(
   /** Name size in px; 0 draws the bands without naming them. */
   labelPx: number = DEFAULT_LABEL_PX,
 ): MarkArea | undefined {
+  if (labelPx <= OVERLAY_OFF) {
+    return undefined; // overlay switched off entirely
+  }
+
   const bands: { begin: number; end: number; name: string }[] = [];
   for (const fight of fights) {
     const begin = new Date(fight.beginTime).getTime();

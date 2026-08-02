@@ -78,6 +78,9 @@ export default function App() {
     const stored = Number(localStorage.getItem("eqdeeps.fightLabelPx"));
     return Number.isFinite(stored) && stored >= 0 ? stored : DEFAULT_LABEL_PX;
   });
+  const [fightsCollapsed, setFightsCollapsed] = useState(
+    () => localStorage.getItem("eqdeeps.fightsCollapsed") === "on",
+  );
   const [discovered, setDiscovered] = useState<DiscoveredLog[]>([]);
   const [update, setUpdate] = useState<UpdateState | null>(null);
   const [showUpdateNotice, setShowUpdateNotice] = useState(false);
@@ -132,6 +135,13 @@ export default function App() {
   function updateFightLabelPx(px: number) {
     setFightLabelPx(px);
     localStorage.setItem("eqdeeps.fightLabelPx", String(px));
+  }
+
+  function toggleFightsCollapsed() {
+    setFightsCollapsed((on) => {
+      localStorage.setItem("eqdeeps.fightsCollapsed", on ? "off" : "on");
+      return !on;
+    });
   }
 
   function togglePetRollup(on: boolean) {
@@ -575,13 +585,15 @@ export default function App() {
               colors: entityColors,
             };
             return (
-          <main className="dashboard">
+          <main className={"dashboard" + (fightsCollapsed ? " fights-collapsed" : "")}>
             <FightList
               fights={fights}
               selected={framedFightIds(frame)}
               live={isLive(frame)}
               onSelect={selectFights}
               onReset={backToLive}
+              collapsed={fightsCollapsed}
+              onToggleCollapsed={toggleFightsCollapsed}
             />
             {/* Three cases: a standard view, the hand-built Summary that
                 Overview opens on, or one of the user's own dashboards. */}
@@ -627,25 +639,19 @@ export default function App() {
                       colors={entityColors}
                       chartDefaults={chartDefaults}
                     />
-                    <AbilityChart
-                      sessionId={activeId}
-                      frame={frame}
-                      refreshKey={refreshKey}
-                      petRollup={petRollup}
-                      colors={entityColors}
-                    />
-                    {summaryTrends.map((p) => (
-                      <div key={p.id} className="panel chart-panel">
-                        <div className="panel-title">
-                          <span className="panel-name">{p.title}</span>
+                    {/* Faction and coin side by side: both are slow-moving
+                        progression lines that read fine at half width, and
+                        pairing them keeps the DPS chart's full-width slot. */}
+                    <div className="summary-pair">
+                      {summaryTrends.map((p) => (
+                        <div key={p.id} className="panel chart-panel">
+                          <div className="panel-title">
+                            <span className="panel-name">{p.title}</span>
+                          </div>
+                          <PanelBody panel={p} ctx={panelCtx} settings={chartDefaults} />
                         </div>
-                        <PanelBody
-                          panel={p}
-                          ctx={panelCtx}
-                          settings={chartDefaults}
-                        />
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                     <TimelineChart
                       sessionId={activeId}
                       frame={frame}
@@ -663,6 +669,13 @@ export default function App() {
                       onToggleDamageShields={setExcludeDs}
                       petRollup={petRollup}
                       onOpenInBuilder={openInBuilder}
+                      colors={entityColors}
+                    />
+                    <AbilityChart
+                      sessionId={activeId}
+                      frame={frame}
+                      refreshKey={refreshKey}
+                      petRollup={petRollup}
                       colors={entityColors}
                     />
                     <LiveMeter tick={tick} colorFor={entityColors.claim} petRollup={petRollup} />

@@ -583,6 +583,48 @@ button.update-pill {
   min-height: 0;
 }
 
+/* Collapsed to a spine. It stays on screen rather than vanishing because the
+   frame it set is still in force, and there has to be a way back. */
+.dashboard.fights-collapsed {
+  grid-template-columns: 26px 1fr;
+}
+
+.fight-list.collapsed {
+  align-items: center;
+  justify-content: flex-start;
+  padding: 10px 0;
+  cursor: pointer;
+}
+
+.fight-list.collapsed:hover {
+  border-color: var(--accent);
+}
+
+.fight-spine {
+  writing-mode: vertical-rl;
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}
+
+.fight-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.fight-collapse {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 4px 0 0;
+}
+
+.fight-collapse:hover {
+  color: var(--ink);
+}
+
 .dashboard-main {
   display: flex;
   flex-direction: column;
@@ -596,7 +638,10 @@ button.update-pill {
    charts and five stacked charts never push the tables off screen. */
 .summary-body {
   display: grid;
-  grid-template-columns: 1fr 360px;
+  /* The divider sits a third of the way in rather than hugging the right
+     edge: the rail now carries the ability chart as well as the tables, and a
+     bar chart in a 360px column is a stack of stubs. */
+  grid-template-columns: 2fr minmax(340px, 1fr);
   gap: 10px;
   flex: 1;
   min-height: 0;
@@ -625,6 +670,30 @@ button.update-pill {
 .summary-rail > * {
   flex: 0 0 auto;
   max-height: 45%;
+}
+
+/* A chart in the rail is not a table: it has no natural height to size to, so
+   it claims a floor and takes the room the tables leave. */
+.summary-rail > .chart-panel {
+  flex: 1 0 260px;
+  max-height: none;
+}
+
+/* Two trends abreast. They collapse to one column when the left side is too
+   narrow to give either of them a readable time axis. */
+.summary-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  flex: 1 0 300px;
+  min-height: 0;
+}
+
+@media (max-width: 1200px) {
+  .summary-pair {
+    grid-template-columns: 1fr;
+    flex-basis: 600px;
+  }
 }
 
 .panel {

@@ -9,6 +9,8 @@ interface Props {
   live: boolean;
   onSelect: (ids: number[]) => void;
   onReset: () => void;
+  collapsed: boolean;
+  onToggleCollapsed: () => void;
 }
 
 /**
@@ -22,7 +24,15 @@ interface Props {
  * frame — the window between the first and last fight chosen, downtime
  * included — so every panel reports over it.
  */
-export function FightList({ fights, selected, live, onSelect, onReset }: Props) {
+export function FightList({
+  fights,
+  selected,
+  live,
+  onSelect,
+  onReset,
+  collapsed,
+  onToggleCollapsed,
+}: Props) {
   const selectedSet = new Set(selected);
   // Where a shift-click measures from. Kept as a ref so extending the range
   // repeatedly always reaches back to the same anchor.
@@ -99,10 +109,29 @@ export function FightList({ fights, selected, live, onSelect, onReset }: Props) 
     );
   }
 
+  // Collapsed, the pane is a spine you click to get back — the frame it set
+  // is still in force, so it has to stay visible rather than disappear.
+  if (collapsed) {
+    return (
+      <button
+        className="panel fight-list collapsed"
+        onClick={onToggleCollapsed}
+        title="Show the fight list"
+      >
+        <span className="fight-spine">Fights ›</span>
+      </button>
+    );
+  }
+
   return (
     <div className="panel fight-list">
       <div className="panel-title">
-        <span>Fights</span>
+        <span className="fight-title">
+          <button className="fight-collapse" onClick={onToggleCollapsed} title="Hide the fight list">
+            ‹
+          </button>
+          Fights
+        </span>
         <span className="fight-actions">
           <button
             className="mini-btn"

@@ -27,7 +27,7 @@ interface Props {
   frame: TimeFrame;
   fights: FightInfo[];
   onResetDefaults: () => void;
-  /** Mob-name size on the fight bands; 0 hides them. */
+  /** Fight overlay: -1 off, 0 bands only, otherwise the name size in px. */
   fightLabelPx: number;
   onFightLabelPx: (px: number) => void;
   onOpen: (path: string) => void;
@@ -176,8 +176,8 @@ export function SessionBar({
           {frameLabel(frame, fights)}
         </span>
         <TimeControls settings={chartDefaults} bucketSeconds={1} onChange={onChartDefaults} />
-        <label className="time-controls" title="Size of the mob names on the fight bands">
-          names
+        <label className="time-controls" title="Fight overlay: off, shaded bands only, or bands with mob names at this size">
+          fights
           <select
             value={fightLabelPx}
             onChange={(e) => onFightLabelPx(Number(e.target.value))}

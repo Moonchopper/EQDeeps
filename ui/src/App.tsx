@@ -559,7 +559,7 @@ export default function App() {
                 return std ? (
                   <DashboardView
                     dashboard={std}
-                    ctx={{ sessionId: activeId, frame, refreshKey, petRollup, colors: entityColors }}
+                    ctx={{ sessionId: activeId, frame, fights, refreshKey, petRollup, colors: entityColors }}
                     chartDefaults={chartDefaults}
                     onChange={() => undefined}
                     readOnly
@@ -599,6 +599,7 @@ export default function App() {
                   <DpsChart
                     sessionId={activeId}
                     frame={frame}
+                    fights={fights}
                     refreshKey={refreshKey}
                     petRollup={petRollup}
                     colors={entityColors}
@@ -608,7 +609,6 @@ export default function App() {
                     sessionId={activeId}
                     frame={frame}
                     refreshKey={refreshKey}
-                    character={sessions.find((s) => s.id === activeId)?.character ?? ""}
                     petRollup={petRollup}
                     colors={entityColors}
                   />
@@ -627,7 +627,7 @@ export default function App() {
                 return dashboard ? (
                   <DashboardView
                     dashboard={dashboard}
-                    ctx={{ sessionId: activeId, frame, refreshKey, petRollup, colors: entityColors }}
+                    ctx={{ sessionId: activeId, frame, fights, refreshKey, petRollup, colors: entityColors }}
                     chartDefaults={chartDefaults}
                     onChange={(next) =>
                       updateDashboards(dashboards.map((d) => (d.id === next.id ? next : d)))

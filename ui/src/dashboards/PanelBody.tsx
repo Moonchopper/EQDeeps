@@ -1,16 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import * as echarts from "echarts";
-import { api, type QuerySource, type QueryResult, type QueryRow } from "../api";
+import { api, type FightInfo, type QuerySource, type QueryResult, type QueryRow } from "../api";
 import { fmtNum, fmtRate, OTHER_COLOR, SERIES_COLORS } from "../format";
 import { buildSpec, METRIC_LABELS, RATE_METRICS, type PanelDef } from "./model";
 import type { EntityColors } from "../colors";
 import { attachWheelZoom, offsetTooltip } from "../chartInteractions";
 import type { ChartSettings } from "../timeControls";
 import type { TimeFrame } from "../timeFrame";
+import { fightMarkArea } from "../fightOverlay";
 
 export interface PanelContext {
   sessionId: string;
   frame: TimeFrame;
+  /** For the fight bands drawn behind time charts. */
+  fights: FightInfo[];
   refreshKey: number;
   petRollup: boolean;
   colors: EntityColors;
@@ -171,6 +174,9 @@ function TablePanel({ panel, ctx, settings }: { panel: PanelDef; ctx: PanelConte
 // ---- line ------------------------------------------------------------------
 
 const BREAK_MS = 30_000;
+
+/** Series name carrying the fight bands; kept out of the legend by name. */
+const FIGHT_BANDS = "__fights";
 
 // Ceiling on a zero-filled line before it stops being worth drawing. 20k
 // points is still smooth at any panel size; a whole multi-day log at a
@@ -339,6 +345,21 @@ function LinePanel({
       });
     }
 
+    // Fight bands behind the line — same backdrop the DPS chart gets, so an
+    // XP trough reads as "between pulls" rather than an unexplained gap.
+    const markArea = extentRef.current
+      ? fightMarkArea(ctx.fights, extentRef.current[0], extentRef.current[1])
+      : undefined;
+    if (markArea) {
+      series.push({
+        name: FIGHT_BANDS,
+        type: "line",
+        data: [],
+        silent: true,
+        markArea,
+      } as echarts.SeriesOption);
+    }
+
     // A fixed span pins the axis to [latest − span, latest]: constant width,
     // sliding right edge, so the chart doesn't rescale as points arrive. The
     // right edge is the newest data point rather than wall clock, so replayed
@@ -375,6 +396,7 @@ function LinePanel({
         legend: {
           type: "scroll",
           top: 0,
+          data: top.map((row) => row.label).concat(rest.length > 0 ? [`Other (${rest.length})`] : []),
           textStyle: { color: "#c3c2b7", fontSize: 10 },
           inactiveColor: "#52514e",
         },
@@ -409,7 +431,7 @@ function LinePanel({
       key: "dataZoomSelect",
       dataZoomSelectActive: true,
     });
-  }, [result, panel.source, panel.bucketSeconds, windowSec, spanSec, isZoomed]);
+  }, [result, panel.source, panel.bucketSeconds, windowSec, spanSec, isZoomed, ctx.fights]);
 
   if (result === "no-selection") return <div className="empty">Select a fight</div>;
   return (

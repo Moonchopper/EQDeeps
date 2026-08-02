@@ -87,9 +87,12 @@ Combat still aggregates per fight *within* the frame, so DPS over a framed stret
 
 A single **reset** in the top bar returns the frame to live and the window/span to their defaults; "back to live" in the fight list releases a range without touching the settings.
 
+Every time chart draws **fight bands** behind the line: faint alternating shading over the stretches where something was being fought, labelled with the mob. Without them a trough reads the same whether you were between pulls, running to the next camp, or fighting something that did not hurt. The bands are capped — names drop out past ~18 fights in view, and the shading stops entirely past ~120, because solid shading is not context.
+
 - AC: Selecting fights changes what every panel shows, including Experience, Faction and Loot.
 - AC: A frame covering isolated sequential fights reports the same total, active seconds and DPS as selecting those fights directly.
 - AC: A live frame updates as records arrive, with nothing to re-select.
+- AC: A chart zoomed to a few pulls names the mobs behind the line; one zoomed out to a whole evening shades without naming, and one showing days shades not at all.
 
 ### F7b. Standard views
 

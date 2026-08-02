@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import * as echarts from "echarts";
-import { api, type QueryResult, type QueryRow } from "../api";
+import { api, type FightInfo, type QueryResult, type QueryRow } from "../api";
 import { fmtNum, OTHER_COLOR } from "../format";
 import type { EntityColors } from "../colors";
 import { attachWheelZoom, offsetTooltip } from "../chartInteractions";
@@ -12,10 +12,13 @@ import {
   type Span,
 } from "../timeControls";
 import { frameScope, isLive, type TimeFrame } from "../timeFrame";
+import { fightMarkArea } from "../fightOverlay";
 
 interface Props {
   sessionId: string;
   frame: TimeFrame;
+  /** For the fight bands drawn behind the line. */
+  fights: FightInfo[];
   refreshKey: number;
   petRollup: boolean;
   colors: EntityColors;
@@ -30,6 +33,9 @@ const SPAN_CHOICES = spanChoices(1);
 /** Gaps longer than this are dead time between pulls — the line breaks. */
 const BREAK_MS = 30_000;
 
+/** Series name carrying the fight bands; kept out of the legend by name. */
+const FIGHT_BANDS = "__fights";
+
 /**
  * DPS over time with a user-adjustable rolling window. Seconds with no landed
  * damage inside a combat segment count as zero rather than leaving holes, so
@@ -41,6 +47,7 @@ const BREAK_MS = 30_000;
 export function DpsChart({
   sessionId,
   frame,
+  fights,
   refreshKey,
   petRollup,
   colors,
@@ -218,6 +225,21 @@ export function DpsChart({
       });
     }
 
+    // Fight bands behind the line: which mob each stretch of output was
+    // against, so a trough reads as "between pulls" instead of just a gap.
+    const markArea = extentRef.current
+      ? fightMarkArea(fights, extentRef.current[0], extentRef.current[1])
+      : undefined;
+    if (markArea) {
+      series.push({
+        name: FIGHT_BANDS,
+        type: "line",
+        data: [],
+        silent: true,
+        markArea,
+      } as echarts.SeriesOption);
+    }
+
     // A fixed span pins the axis to [latest − span, latest]: constant width,
     // sliding right edge — no rescaling as points arrive. The right edge is
     // the newest data second (not wall clock), so replayed logs behave too.
@@ -257,6 +279,9 @@ export function DpsChart({
         legend: {
           type: "scroll",
           top: 0,
+          // The bands ride on their own series; it has no line to toggle, so
+          // naming the real series keeps it out of the legend.
+          data: top.map((row) => row.label).concat(rest.length > 0 ? [`Other (${rest.length})`] : []),
           textStyle: { color: "#c3c2b7", fontSize: 11 },
           inactiveColor: "#52514e",
         },
@@ -296,7 +321,7 @@ export function DpsChart({
       key: "dataZoomSelect",
       dataZoomSelectActive: true,
     });
-  }, [result, windowSec, span, colors, isZoomed]);
+  }, [result, windowSec, span, colors, isZoomed, fights]);
 
   return (
     <div className="panel chart-panel">

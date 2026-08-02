@@ -10,7 +10,6 @@ interface Props {
   sessionId: string;
   frame: TimeFrame;
   refreshKey: number;
-  character: string;
   petRollup: boolean;
   colors: EntityColors;
 }
@@ -32,15 +31,16 @@ const MAX_STACK_ATTACKERS = 8;
  * and a legend carries identity. Flat mode stays single-hue — there the
  * category axis already names each bar.
  */
-export function AbilityChart({ sessionId, frame, refreshKey, character, petRollup, colors }: Props) {
+export function AbilityChart({ sessionId, frame, refreshKey, petRollup, colors }: Props) {
   const divRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<echarts.ECharts | null>(null);
   const [players, setPlayers] = useState<QueryResult | null>(null);
-  // null = not chosen yet (auto-default to the log owner); "" = explicitly
-  // "everyone" — an explicit choice must survive live refreshes.
-  const [player, setPlayer] = useState<string | null>(null);
+  // "" is everyone, which is where this opens: the raid-wide ability mix is
+  // the more useful first read, and picking one actor is one click away.
+  // A non-empty value is an explicit choice and survives live refreshes.
+  const [player, setPlayer] = useState<string>("");
   const [mode, setMode] = useState<"dps" | "total">("dps");
-  const [split, setSplit] = useState(false);
+  const [split, setSplit] = useState(true);
   const [abilities, setAbilities] = useState<QueryResult | null>(null);
   const selectionKey = JSON.stringify(frame);
   const splitActive = player === "" && split;
@@ -72,17 +72,17 @@ export function AbilityChart({ sessionId, frame, refreshKey, character, petRollu
       .then((r) => {
         if (cancelled) return;
         setPlayers(r);
-        setPlayer((current) => {
-          if (current === "") return current; // "everyone" is an explicit choice
-          if (current !== null && r.rows.some((row) => row.key === current)) return current;
-          return r.rows.some((row) => row.key === character) ? character : "";
-        });
+        // Keep a chosen actor only while they are still in the frame;
+        // otherwise fall back to everyone rather than an empty chart.
+        setPlayer((current) =>
+          current === "" || r.rows.some((row) => row.key === current) ? current : "",
+        );
       })
       .catch(() => undefined);
     return () => {
       cancelled = true;
     };
-  }, [sessionId, selectionKey, refreshKey, character, petRollup]);
+  }, [sessionId, selectionKey, refreshKey, petRollup]);
 
   useEffect(() => {
     let cancelled = false;
@@ -284,7 +284,7 @@ export function AbilityChart({ sessionId, frame, refreshKey, character, petRollu
         <span className="title-controls">
           <select
             className="panel-select"
-            value={player ?? ""}
+            value={player}
             onChange={(e) => setPlayer(e.target.value)}
             title="Whose abilities to break down"
           >

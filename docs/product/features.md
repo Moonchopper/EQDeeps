@@ -83,11 +83,14 @@ Window and span are presentation, not properties of a panel, so no panel definit
 
 Individual charts can still deviate: each time panel repeats the same controls in its header, with "apply to all" to put the rest of that view on its footing. A deviation lasts until the parent setting changes, which clears it rather than leaving some charts silently behind. Both ladders are multiples of the panel's bucket width, so a minute-bucketed chart offers minute-scale windows rather than the 1-second chart's seconds.
 
+The span is the query, not just the picture: a whole-log panel is scoped to the span being viewed, so a total or a table beside a chart counts exactly the seconds the chart draws. Span "fit" means the whole log. Time charts fetch one extra rolling window of history beyond the span so the mean is warm at the left edge; that history sits outside the drawn axis.
+
 Panels keep `bucketSeconds`, which is a different thing: it is a query parameter deciding what the server aggregates, not how the result is read.
 
 - AC: The standard views cannot be edited, deleted or exported in place; "customize a copy" produces an editable dashboard and leaves the standard view unchanged.
 - AC: A fresh profile opens every time chart — Summary's and every standard view's — on the same window and span.
 - AC: Changing the top-bar setting moves every chart in the app, discarding per-panel deviations.
+- AC: Every panel in a view reports over the same time frame — narrowing the span lowers the totals and tables, it does not merely crop the charts.
 - AC: Changing window or span on one chart and pressing "apply to all" moves every other time chart in that view to the same setting.
 - AC: Time charts draw one continuous line — a bucket with no events reads as zero, not a hole — so idle stretches sag to the axis instead of fragmenting the chart. Ranges too large to fill point-by-point fall back to breaking on long gaps rather than degrading.
 - AC: The chosen sub-tab survives a restart.

@@ -35,10 +35,10 @@ function fmtMetric(metric: string, value: number): string {
 function usePanelQuery(
   panel: PanelDef,
   ctx: PanelContext,
-  windowSec = 0,
+  settings: ChartSettings,
 ): QueryResult | null | "no-selection" {
   const [result, setResult] = useState<QueryResult | null>(null);
-  const spec = buildSpec(panel, ctx.fightIds, ctx.petRollup, windowSec);
+  const spec = buildSpec(panel, ctx.fightIds, ctx.petRollup, settings);
   const specKey = JSON.stringify(spec);
   const noSelection = panel.scopeMode === "selection" && ctx.fightIds.length === 0;
 
@@ -67,25 +67,29 @@ export function PanelBody({
 }: {
   panel: PanelDef;
   ctx: PanelContext;
-  /** Window and span for a time chart — app-wide default, or this panel's override. */
+  /**
+   * The time frame every panel here reports over — app-wide, or this panel's
+   * override. Not just the charts: a total is as much a reading of a time
+   * frame as a line is.
+   */
   settings: ChartSettings;
 }) {
   switch (panel.viz) {
     case "table":
-      return <TablePanel panel={panel} ctx={ctx} />;
+      return <TablePanel panel={panel} ctx={ctx} settings={settings} />;
     case "line":
       return <LinePanel panel={panel} ctx={ctx} settings={settings} />;
     case "bar":
-      return <BarPanel panel={panel} ctx={ctx} />;
+      return <BarPanel panel={panel} ctx={ctx} settings={settings} />;
     default:
-      return <TilePanel panel={panel} ctx={ctx} />;
+      return <TilePanel panel={panel} ctx={ctx} settings={settings} />;
   }
 }
 
 // ---- table -----------------------------------------------------------------
 
-function TablePanel({ panel, ctx }: { panel: PanelDef; ctx: PanelContext }) {
-  const result = usePanelQuery(panel, ctx);
+function TablePanel({ panel, ctx, settings }: { panel: PanelDef; ctx: PanelContext; settings: ChartSettings }) {
+  const result = usePanelQuery(panel, ctx, settings);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   if (result === "no-selection") return <div className="empty">Select a fight</div>;
   if (!result) return <div className="empty">Loading…</div>;
@@ -201,7 +205,7 @@ function LinePanel({
   const divRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<echarts.ECharts | null>(null);
   const { windowSec, spanSec } = settings;
-  const result = usePanelQuery(panel, ctx, windowSec);
+  const result = usePanelQuery(panel, ctx, settings);
   const [isZoomed, setIsZoomed] = useState(false);
   const suppressZoomEventRef = useRef(false);
   const extentRef = useRef<[number, number] | null>(null);
@@ -434,10 +438,10 @@ function LinePanel({
 
 // ---- bar -------------------------------------------------------------------
 
-function BarPanel({ panel, ctx }: { panel: PanelDef; ctx: PanelContext }) {
+function BarPanel({ panel, ctx, settings }: { panel: PanelDef; ctx: PanelContext; settings: ChartSettings }) {
   const divRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<echarts.ECharts | null>(null);
-  const result = usePanelQuery(panel, ctx);
+  const result = usePanelQuery(panel, ctx, settings);
   const metric = panel.primaryMetric;
 
   useEffect(() => {
@@ -512,8 +516,8 @@ function BarPanel({ panel, ctx }: { panel: PanelDef; ctx: PanelContext }) {
 
 // ---- tile ------------------------------------------------------------------
 
-function TilePanel({ panel, ctx }: { panel: PanelDef; ctx: PanelContext }) {
-  const result = usePanelQuery(panel, ctx);
+function TilePanel({ panel, ctx, settings }: { panel: PanelDef; ctx: PanelContext; settings: ChartSettings }) {
+  const result = usePanelQuery(panel, ctx, settings);
   if (result === "no-selection") return <div className="empty">Select a fight</div>;
   const value = result?.totals[panel.primaryMetric] ?? 0;
   return (

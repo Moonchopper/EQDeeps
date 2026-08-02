@@ -1,4 +1,5 @@
 import type { Dimension, QueryFilter, QuerySource, QuerySpec } from "../api";
+import type { ChartSettings } from "../timeControls";
 
 // The user-facing panel definition: a QuerySpec plus presentation. This is
 // what dashboards persist and what export/import moves between machines.
@@ -143,19 +144,29 @@ export function newDashboard(name: string): DashboardDef {
 
 /**
  * Binds a panel's stored definition to the live context at render time.
- * `windowSec` is the app-wide rolling window: a "recent"-scoped time chart
- * fetches that much extra history so the mean is already warm at the left
- * edge of the viewport instead of ramping up from nothing.
+ *
+ * The time frame is the query, not just the picture. A whole-log panel is
+ * scoped to the span the user is looking at, so the tile beside a chart
+ * counts exactly the seconds the chart draws — a "2 m" span with an all-time
+ * total next to it is just two different questions sharing a panel border.
+ * Span "fit" means the whole log, which is where these started.
+ *
+ * Time charts additionally fetch one rolling window of extra history, so the
+ * mean is already warm at the left edge of the viewport instead of ramping up
+ * from nothing. That history sits outside the drawn axis range.
  */
 export function buildSpec(
   panel: PanelDef,
   fightIds: number[],
   petRollup: boolean,
-  windowSec: number,
+  settings: ChartSettings,
 ): QuerySpec {
+  const warmup = panel.viz === "line" ? settings.windowSec : 0;
   const scope: QuerySpec["scope"] = {};
   if (panel.scopeMode === "recent") {
-    scope.lastSeconds = panel.lastSeconds + (panel.viz === "line" ? windowSec : 0);
+    scope.lastSeconds = panel.lastSeconds + warmup;
+  } else if (panel.scopeMode === "all" && settings.spanSec !== "fit") {
+    scope.lastSeconds = settings.spanSec + warmup;
   } else {
     if (panel.scopeMode === "selection") {
       scope.fightIds = fightIds;

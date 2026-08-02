@@ -27,8 +27,10 @@ public sealed class ServerIntegrationTests : IAsyncLifetime
     public async Task InitializeAsync()
     {
         Directory.CreateDirectory(_dir);
-        // recentLogsRoot: keep the MRU file inside the test sandbox, not %AppData%.
-        _app = ServerApp.Build(["--urls", "http://127.0.0.1:0", "--recentLogsRoot", _dir]);
+        // recentLogsRoot/sampleLogRoot: keep the MRU file and the extracted
+        // demo log inside the test sandbox, not %AppData%.
+        _app = ServerApp.Build(
+            ["--urls", "http://127.0.0.1:0", "--recentLogsRoot", _dir, "--sampleLogRoot", _dir]);
         await _app.StartAsync();
         _baseUrl = _app.Urls.First();
         _http = new HttpClient { BaseAddress = new Uri(_baseUrl) };
@@ -245,6 +247,31 @@ public sealed class ServerIntegrationTests : IAsyncLifetime
         Assert.Equal(JsonValueKind.Object, entry.ValueKind);
         Assert.Equal("recent", entry.GetProperty("source").GetString());
         Assert.Equal("Kizant", entry.GetProperty("character").GetString());
+    }
+
+    [Fact]
+    public async Task SampleLogIsServedLastOpensAndStaysOutOfRecents()
+    {
+        // Discovery always pins the bundled demo log last, source "sample".
+        var discovered = await _http.GetFromJsonAsync<JsonElement>("/api/logs/discovered");
+        var entries = discovered.EnumerateArray().ToList();
+        var sample = Assert.Single(entries, d => d.GetProperty("source").GetString() == "sample");
+        Assert.Equal("sample", entries[^1].GetProperty("source").GetString());
+        var samplePath = sample.GetProperty("path").GetString()!;
+        Assert.True(File.Exists(samplePath));
+        Assert.Equal("SampleCharacter", sample.GetProperty("character").GetString());
+        Assert.Equal("demo", sample.GetProperty("server").GetString());
+
+        // Opening it works like any log, but never enters the recent-logs MRU —
+        // the sample entry itself is the only place it is ever offered.
+        var response = await _http.PostAsJsonAsync("/api/sessions", new { path = samplePath });
+        response.EnsureSuccessStatusCode();
+        var info = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("SampleCharacter", info.GetProperty("character").GetString());
+        Assert.Empty(new RecentLogs(_dir).List());
+
+        var close = await _http.DeleteAsync($"/api/sessions/{info.GetProperty("id").GetString()}");
+        Assert.Equal(System.Net.HttpStatusCode.NoContent, close.StatusCode);
     }
 
     [Fact]

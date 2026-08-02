@@ -38,6 +38,8 @@ public static class ServerApp
         builder.Services.AddSingleton<WindowBridge>();
         // --recentLogsRoot redirects the MRU file (tests); default: %AppData%\EQDeeps.
         builder.Services.AddSingleton(_ => new RecentLogs(builder.Configuration["recentLogsRoot"]));
+        // --sampleLogRoot likewise redirects the extracted demo log (tests).
+        builder.Services.AddSingleton(_ => new SampleLog(builder.Configuration["sampleLogRoot"]));
 
         var app = builder.Build();
 
@@ -69,21 +71,31 @@ public static class ServerApp
 
         // Install-discovery plus the persisted recently-opened list, deduped
         // by path — so previously tracked logs come back even when the game
-        // isn't running and discovery alone would find nothing.
-        app.MapGet("/api/logs/discovered", (RecentLogs recents) =>
+        // isn't running and discovery alone would find nothing. The bundled
+        // demo log is pinned last with source "sample": always available,
+        // never competing with (or mistakable for) the player's real logs.
+        app.MapGet("/api/logs/discovered", (RecentLogs recents, SampleLog sample) =>
         {
             var results = LogDiscovery.Discover();
             var seen = new HashSet<string>(
                 results.Select(r => r.Path), StringComparer.OrdinalIgnoreCase);
             foreach (var recent in recents.List())
             {
-                if (!seen.Contains(recent) && LogDiscovery.Describe(recent, "recent") is { } log)
+                if (!seen.Contains(recent) && !sample.IsSamplePath(recent) &&
+                    LogDiscovery.Describe(recent, "recent") is { } log)
                 {
                     results.Add(log);
                 }
             }
 
-            return Results.Ok(results.OrderByDescending(r => r.LastWriteTime).ToList());
+            var ordered = results.OrderByDescending(r => r.LastWriteTime).ToList();
+            if (sample.TryEnsureExtracted() is { } samplePath &&
+                LogDiscovery.Describe(samplePath, "sample") is { } sampleLog)
+            {
+                ordered.Add(sampleLog);
+            }
+
+            return Results.Ok(ordered);
         });
 
         app.MapGet("/api/store/{key}", (string key, DocumentStore store) =>

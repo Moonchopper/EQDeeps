@@ -8,3 +8,4 @@ artifacts/
 node_modules/
 src/EQDeeps.Server/wwwroot/
 *.tsbuildinfo
+.claude/worktrees/

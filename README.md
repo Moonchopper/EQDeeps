@@ -20,9 +20,10 @@ seconds later — backgrounded or slept tabs do **not** stop it. Flags:
 `--no-browser` (headless, no UI), `--no-update-check`, `--stay-alive` (keep
 parsing with no UI open), `--urls http://127.0.0.1:PORT`.
 
-> **First run:** the exe is unsigned, so Windows SmartScreen shows
-> "Windows protected your PC". Click **More info → Run anyway** — that's
-> expected for a small unsigned app and only happens once.
+> **First run:** releases are signed, but Windows SmartScreen builds reputation
+> per file hash, so a brand-new release can still show "Windows protected your
+> PC" until enough people have run it. Click **More info → Run anyway**; the
+> prompt stops appearing as a release circulates.
 
 **From source**:
 
@@ -65,6 +66,7 @@ attached (see `.github/workflows/release.yml`) — that's how
 | [docs/architecture/system-overview.md](docs/architecture/system-overview.md) | Stack, components, the QuerySpec model |
 | [docs/architecture/log-ingestion-brief.md](docs/architecture/log-ingestion-brief.md) | Design brief for the file-reading layer |
 | [docs/architecture/adr-001…009](docs/architecture/) | Decisions per phase: parser, ingestion, session state, query engine, API/live, SPA, dashboards, packaging, windowed shell |
+| [docs/release-signing.md](docs/release-signing.md) | Azure Artifact Signing setup for signed releases and auto-update |
 
 Locked decisions: .NET 8 backend + React/TypeScript SPA, realtime via SignalR, multi-character monitoring from day one, permissive-license dependencies only (attribution in [NOTICE](NOTICE)), Windows-first, public release as the end goal.
 

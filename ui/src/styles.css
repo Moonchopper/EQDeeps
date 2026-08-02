@@ -14,6 +14,7 @@
   --danger: #e66767;
   --live: #63cf82;
   --gold: #f5c542;
+  --sample: #b07fe8;
 }
 
 * {
@@ -180,6 +181,32 @@ button {
   color: var(--muted);
   font-size: 11px;
   font-family: ui-monospace, Consolas, monospace;
+}
+
+/* The bundled demo log: violet + dashed so it never reads as a real log. */
+.sample-callout {
+  margin-top: 18px;
+}
+
+.sample-row {
+  border-style: dashed;
+  margin-top: 6px;
+}
+
+.sample-row:hover {
+  border-color: var(--sample);
+}
+
+.sample-badge {
+  display: inline-block;
+  padding: 1px 7px;
+  border: 1px solid var(--sample);
+  border-radius: 6px;
+  color: var(--sample);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
 .error {

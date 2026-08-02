@@ -217,9 +217,15 @@ export function DpsChart({ sessionId, fightIds, refreshKey, followLive, petRollu
         backgroundColor: "transparent",
         animation: false,
         grid: { left: 52, right: 12, top: 30, bottom: 40 },
-        // Hidden toolbox hosts the brush; the cursor is activated below so a
-        // plain click-drag selects a time range to zoom into.
-        toolbox: { show: false, feature: { dataZoom: { yAxisIndex: "none", filterMode: "none" } } },
+        // The zoom brush lives inside the toolbox's dataZoom feature, and
+        // ECharts skips feature creation entirely when show:false — so the
+        // toolbox is rendered but parked off-canvas, and the select cursor is
+        // armed below so a plain click-drag zooms into a time range.
+        toolbox: {
+          show: true,
+          top: -1000,
+          feature: { dataZoom: { yAxisIndex: "none", filterMode: "none" } },
+        },
         dataZoom: [
           {
             type: "inside",

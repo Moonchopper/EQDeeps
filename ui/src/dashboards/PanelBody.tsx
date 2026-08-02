@@ -252,7 +252,13 @@ function LinePanel({ panel, ctx }: { panel: PanelDef; ctx: PanelContext }) {
         backgroundColor: "transparent",
         animation: false,
         grid: { left: 48, right: 10, top: 26, bottom: 24 },
-        toolbox: { show: false, feature: { dataZoom: { yAxisIndex: "none", filterMode: "none" } } },
+        // Rendered-but-off-canvas toolbox: ECharts only instantiates the zoom
+        // brush when the toolbox is shown (see DpsChart).
+        toolbox: {
+          show: true,
+          top: -1000,
+          feature: { dataZoom: { yAxisIndex: "none", filterMode: "none" } },
+        },
         dataZoom: [
           {
             type: "inside",

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type CSSProperties } from "react";
 import type { DiscoveredLog, SessionInfo, UpdateMode, UpdateState } from "../api";
 import type { BackfillEvent } from "../live";
 import { UpdateSettings } from "./UpdateSettings";
@@ -163,6 +163,8 @@ export function SessionBar({
   );
 }
 
+const mb = (bytes: number) => (bytes / 1_048_576).toFixed(1);
+
 /**
  * The persistent reminder next to the version number. It mirrors whichever
  * stage the update is in, so the download never happens invisibly and a staged
@@ -177,10 +179,42 @@ function UpdatePill({
   onShowPrompt: () => void;
   onApply: () => void;
 }) {
-  if (state.stage === "downloading") {
+  if (state.stage === "checking") {
     return (
-      <span className="update-pill update-pill-quiet" title="Downloading the update">
-        ↓ updating {state.downloadPercent}%
+      <span className="update-pill update-pill-quiet" title="Checking for a new release">
+        checking…
+      </span>
+    );
+  }
+
+  if (state.stage === "downloading") {
+    // The bar is the point: this is a ~60 MB download, and a bare percentage
+    // reads as frozen on a slow connection.
+    const size = state.downloadSizeBytes
+      ? ` · ${mb(state.downloadedBytes)}/${mb(state.downloadSizeBytes)} MB`
+      : "";
+    return (
+      <span
+        className="update-pill update-pill-progress"
+        style={{ "--pct": `${state.downloadPercent}%` } as CSSProperties}
+        title={`Downloading v${state.latestVersion} in the background`}
+      >
+        <span className="update-pill-label">
+          ↓ {state.downloadPercent}%{size}
+        </span>
+      </span>
+    );
+  }
+
+  if (state.stage === "failed") {
+    // Silence here would be the worst outcome: the user clicked Update and
+    // would otherwise see the pill simply vanish.
+    return (
+      <span
+        className="update-pill update-pill-failed"
+        title={state.error ?? "The update could not be completed."}
+      >
+        ! update failed
       </span>
     );
   }

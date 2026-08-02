@@ -15,13 +15,15 @@ import type { FightInfo } from "./api";
 const MAX_BANDS = 120;
 
 /**
- * How many names fit before they start colliding, at the reference size.
- * Bigger text needs more room, so the cap scales down with it — otherwise
- * turning the size up would turn the labels into a smear.
+ * Clearance a rotated name needs beside itself. Rotated text is only about as
+ * WIDE as its font size — the length runs vertically — so whether two names
+ * collide depends on how many pixels its band spans, not on how many bands
+ * are on screen. Counting bands was the wrong model: it hid names at 15
+ * minutes where they had 70-odd pixels each to sit in.
  */
-const MAX_LABELS_AT_9PX = 18;
+const LABEL_CLEARANCE_PX = 3;
 
-export const DEFAULT_LABEL_PX = 9;
+export const DEFAULT_LABEL_PX = 14;
 
 /** Sizes offered in the top bar. 0 is off: shading with no names. */
 export const LABEL_SIZE_CHOICES: { value: number; label: string }[] = [
@@ -53,6 +55,8 @@ export function fightMarkArea(
   toMs: number,
   /** Height of the plot area, so a name can never run off the top of it. */
   plotHeightPx: number,
+  /** Width of the plot area, for deciding which bands have room to be named. */
+  plotWidthPx: number,
   /** Name size in px; 0 draws the bands without naming them. */
   labelPx: number = DEFAULT_LABEL_PX,
 ): MarkArea | undefined {
@@ -74,15 +78,16 @@ export function fightMarkArea(
     return undefined;
   }
 
-  // `|| DEFAULT` keeps the divisor sane when the size is 0 (off).
-  const maxLabels = Math.max(
-    4,
-    Math.round((MAX_LABELS_AT_9PX * DEFAULT_LABEL_PX) / (labelPx || DEFAULT_LABEL_PX)),
-  );
+  // A band earns its name when it is wider on screen than the name is thick.
+  const pxPerMs = toMs > fromMs ? plotWidthPx / (toMs - fromMs) : 0;
+  const minBandPx = labelPx + LABEL_CLEARANCE_PX;
+  const fits = (band: { begin: number; end: number }) =>
+    labelPx > 0 && (band.end - band.begin) * pxPerMs >= minBandPx;
+
   return {
     silent: true,
     label: {
-      show: labelPx > 0 && bands.length <= maxLabels,
+      show: labelPx > 0,
       // Anchored at the BOTTOM and read upward. Rotated text grows along the
       // rotated x-axis, which points up — so anchoring at the top sent every
       // name straight out of the plot and the chart clipped it. Growing up
@@ -104,6 +109,9 @@ export function fightMarkArea(
         xAxis: band.begin,
         name: band.name,
         itemStyle: { color: i % 2 === 0 ? TINT_A : TINT_B },
+        // Per band, so a wide pull is still named on a chart where the short
+        // ones around it have no room.
+        label: { show: fits(band) },
       },
       { xAxis: band.end },
     ]),

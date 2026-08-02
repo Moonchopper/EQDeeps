@@ -228,11 +228,29 @@ export function DpsChart({
       });
     }
 
+    // A fixed span pins the axis to [latest − span, latest]: constant width,
+    // sliding right edge — no rescaling as points arrive. The right edge is
+    // the newest data second (not wall clock), so replayed logs behave too.
+    let axisMin: number | null = null;
+    let axisMax: number | null = null;
+    if (span !== "fit" && segments.length > 0 && !isZoomed) {
+      axisMax = segments[segments.length - 1][1];
+      axisMin = axisMax - effectiveSpan * 1000;
+    }
+
     // Fight bands behind the line: which mob each stretch of output was
     // against, so a trough reads as "between pulls" instead of just a gap.
     const plotHeight = (divRef.current?.clientHeight ?? 0) - 30 - 40; // grid top/bottom
+    const plotWidth = (divRef.current?.clientWidth ?? 0) - 52 - 12; // grid left/right
     const markArea = extentRef.current
-      ? fightMarkArea(fights, extentRef.current[0], extentRef.current[1], plotHeight, fightLabelPx)
+      ? fightMarkArea(
+          fights,
+          axisMin ?? extentRef.current[0],
+          axisMax ?? extentRef.current[1],
+          plotHeight,
+          plotWidth,
+          fightLabelPx,
+        )
       : undefined;
     if (markArea) {
       series.push({
@@ -242,16 +260,6 @@ export function DpsChart({
         silent: true,
         markArea,
       } as echarts.SeriesOption);
-    }
-
-    // A fixed span pins the axis to [latest − span, latest]: constant width,
-    // sliding right edge — no rescaling as points arrive. The right edge is
-    // the newest data second (not wall clock), so replayed logs behave too.
-    let axisMin: number | null = null;
-    let axisMax: number | null = null;
-    if (span !== "fit" && segments.length > 0 && !isZoomed) {
-      axisMax = segments[segments.length - 1][1];
-      axisMin = axisMax - effectiveSpan * 1000;
     }
 
     chartRef.current.setOption(

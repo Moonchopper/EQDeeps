@@ -4,11 +4,15 @@ using Microsoft.Extensions.DependencyInjection;
 
 // Launch behavior (feature F14): start on the default localhost port, fall
 // back to a dynamic port when it's taken by something else, reuse an already
-// running EQDeeps instead of starting twice, and open the default browser.
-// Flags: --no-browser, --no-update-check, --urls <url> (standard ASP.NET).
+// running EQDeeps instead of starting twice, open the default browser, and
+// exit shortly after the last browser tab closes (the log is the source of
+// truth — reopening backfills instantly, so nothing is worth orphaning a
+// background process for). Flags: --no-browser, --no-update-check,
+// --stay-alive (keep running with no UI connected), --urls <url>.
 
 var noBrowser = args.Contains("--no-browser");
 var noUpdateCheck = args.Contains("--no-update-check");
+var stayAlive = args.Contains("--stay-alive");
 var explicitUrls = args.Any(a => a.StartsWith("--urls", StringComparison.OrdinalIgnoreCase)) ||
                    Environment.GetEnvironmentVariable("ASPNETCORE_URLS") is not null;
 
@@ -49,8 +53,41 @@ if (!noBrowser)
     OpenBrowser(url);
 }
 
+if (!stayAlive)
+{
+    _ = MonitorUiClientsAsync(app);
+}
+
 await app.WaitForShutdownAsync();
 return;
+
+// Once a UI has connected, exit when the last one has been gone for a grace
+// period (long enough for refreshes and reconnects). Headless usage never
+// connects a client, so it is never auto-exited.
+static async Task MonitorUiClientsAsync(WebApplication app)
+{
+    var clients = app.Services.GetRequiredService<ClientTracker>();
+    var lifetime = app.Services.GetRequiredService<Microsoft.Extensions.Hosting.IHostApplicationLifetime>();
+    var grace = TimeSpan.FromSeconds(10);
+    try
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(2));
+        while (await timer.WaitForNextTickAsync(lifetime.ApplicationStopping))
+        {
+            if (clients.EverConnected && clients.Count == 0 &&
+                DateTime.UtcNow - clients.LastDisconnectUtc > grace)
+            {
+                Console.WriteLine(
+                    "Browser closed — exiting. (Run with --stay-alive to keep parsing without a UI.)");
+                lifetime.StopApplication();
+                return;
+            }
+        }
+    }
+    catch (OperationCanceledException)
+    {
+    }
+}
 
 static async Task<bool> IsEqdeepsAlreadyRunningAsync(string url)
 {

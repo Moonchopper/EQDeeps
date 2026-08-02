@@ -9,6 +9,13 @@ namespace EQDeeps.Server;
 /// </summary>
 public sealed class LiveHub : Hub
 {
+    private readonly ClientTracker _clients;
+
+    public LiveHub(ClientTracker clients)
+    {
+        _clients = clients;
+    }
+
     public static string GroupName(string sessionId) => "session-" + sessionId;
 
     public Task Subscribe(string sessionId) =>
@@ -16,4 +23,16 @@ public sealed class LiveHub : Hub
 
     public Task Unsubscribe(string sessionId) =>
         Groups.RemoveFromGroupAsync(Context.ConnectionId, GroupName(sessionId));
+
+    public override Task OnConnectedAsync()
+    {
+        _clients.OnConnected();
+        return base.OnConnectedAsync();
+    }
+
+    public override Task OnDisconnectedAsync(Exception? exception)
+    {
+        _clients.OnDisconnected();
+        return base.OnDisconnectedAsync(exception);
+    }
 }

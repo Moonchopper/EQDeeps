@@ -34,6 +34,7 @@ public static class ServerApp
         builder.Services.AddSingleton<SessionManager>();
         builder.Services.AddSingleton<DocumentStore>();
         builder.Services.AddSingleton<UpdateChecker>();
+        builder.Services.AddSingleton<ClientTracker>();
 
         var app = builder.Build();
 

@@ -23,6 +23,9 @@
     <PackageReference Include="Microsoft.Extensions.FileProviders.Embedded" Version="8.0.8" />
   </ItemGroup>
   <ItemGroup>
+    <!-- The demo log ships inside the exe (see SampleLog); pre-gzipped so the
+         binary stays small and git stores one compact blob. -->
+    <EmbeddedResource Include="Assets\sample-log.txt.gz" />
     <EmbeddedResource Include="wwwroot\**" />
     <!-- Don't also copy wwwroot beside the exe on publish; it ships embedded. -->
     <Content Remove="wwwroot\**" />

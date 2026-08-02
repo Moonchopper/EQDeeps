@@ -13,15 +13,17 @@ public sealed class SessionManager : IAsyncDisposable
 {
     private readonly IHubContext<LiveHub> _hub;
     private readonly RecentLogs _recents;
+    private readonly SampleLog _sample;
     private readonly ConcurrentDictionary<string, SessionHost> _sessions = new();
     private readonly ConcurrentDictionary<string, IdentityRegistry> _registries =
         new(StringComparer.OrdinalIgnoreCase);
     private int _nextId;
 
-    public SessionManager(IHubContext<LiveHub> hub, RecentLogs recents)
+    public SessionManager(IHubContext<LiveHub> hub, RecentLogs recents, SampleLog sample)
     {
         _hub = hub;
         _recents = recents;
+        _sample = sample;
     }
 
     public SessionHost Open(OpenSessionRequest request)
@@ -43,7 +45,13 @@ public sealed class SessionManager : IAsyncDisposable
         var id = "s" + Interlocked.Increment(ref _nextId);
         var host = new SessionHost(id, session, _hub);
         _sessions[id] = host;
-        _recents.Touch(Path.GetFullPath(request.Path));
+        if (!_sample.IsSamplePath(request.Path))
+        {
+            // The demo log is always offered by the sample entry itself; letting
+            // it into the MRU would make it look like a log the player uses.
+            _recents.Touch(Path.GetFullPath(request.Path));
+        }
+
         return host;
     }
 

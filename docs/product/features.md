@@ -27,6 +27,7 @@ open: real-log validation against EQLogParser. Design decisions live in
 Open, monitor, and close multiple EverQuest log files concurrently. Files follow the `eqlog_<Character>_<server>.txt` naming convention; character and server are parsed from the filename. Support plain `.txt` and gzipped archives (`.gz`) for historical viewing. Remember recently opened files and re-open monitored files on startup.
 
 - AC: Two logs monitored simultaneously produce independent, correctly attributed fight data; character/server shown per session.
+- AC: A remembered log can be removed from the recent list (test files, one-off copies) without deleting the file; the removal survives a restart. Installed-log discovery is unaffected — only logs listed with source `recent` can be removed, since anything found by scanning an EverQuest install would reappear on the next scan.
 - AC: Reopening the app restores the previously monitored files without user action.
 - AC: A log being actively written by EverQuest can be opened without error (EQ holds a write handle; the file must be opened with shared read/write/delete access).
 - AC: Historical backfill offers "load last N hours/days" as well as "entire file."

@@ -293,6 +293,19 @@ export default function App() {
     }
   }
 
+  // Remove a log from the recently-opened list. The row disappears at once —
+  // waiting on a round trip for a delete the user just asked for reads as a
+  // stall — and comes back if the server refuses.
+  async function forgetLog(path: string) {
+    setDiscovered((list) => list.filter((d) => d.path !== path));
+    try {
+      await api.forgetRecentLog(path);
+    } catch (e) {
+      setError(String(e));
+      refreshDiscovered();
+    }
+  }
+
   async function closeSession(id: string) {
     await api.closeSession(id);
     await live.unsubscribe(id);
@@ -541,20 +554,35 @@ export default function App() {
               <p>Recent and detected EverQuest logs — click one to start:</p>
               <div className="discovered-list">
                 {realLogs.map((d) => (
-                  <button key={d.path} className="discovered-row" onClick={() => openLog(d.path)}>
-                    <span className="discovered-name">
-                      {d.character} <span className="subtle">@{d.server}</span>
-                    </span>
-                    <span className="discovered-meta">
-                      last written {describeAge(d.lastWriteTime)} · {(d.sizeBytes / 1048576).toFixed(1)} MB ·{" "}
-                      {d.source}
-                    </span>
-                    <span className="discovered-path">{d.path}</span>
-                  </button>
+                  <div key={d.path} className="discovered-item">
+                    <button className="discovered-row" onClick={() => openLog(d.path)}>
+                      <span className="discovered-name">
+                        {d.character} <span className="subtle">@{d.server}</span>
+                      </span>
+                      <span className="discovered-meta">
+                        last written {describeAge(d.lastWriteTime)} · {(d.sizeBytes / 1048576).toFixed(1)} MB ·{" "}
+                        {d.source}
+                      </span>
+                      <span className="discovered-path">{d.path}</span>
+                    </button>
+                    {/* Only "recent" rows can be forgotten: the others come from
+                        scanning the install, so they would reappear immediately. */}
+                    {d.source === "recent" && (
+                      <button
+                        className="discovered-forget"
+                        title="Remove from this list (the log file is not deleted)"
+                        aria-label={`Remove ${d.character} from recent logs`}
+                        onClick={() => forgetLog(d.path)}
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
                 ))}
               </div>
               <p className="subtle">
                 Logging must be on in game (<code>/log</code>). You can also paste any log path above.
+                Logs marked <em>recent</em> can be removed from this list with ✕.
               </p>
             </>
           ) : (

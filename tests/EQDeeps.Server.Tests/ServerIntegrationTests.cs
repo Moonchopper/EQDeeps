@@ -255,6 +255,25 @@ public sealed class ServerIntegrationTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task ForgettingARecentLogDropsItFromDiscoveryButKeepsTheFile()
+    {
+        var path = WriteLog(Line(0, "An ice giant died."));
+        await OpenSessionAsync(path);
+
+        var forget = await _http.DeleteAsync($"/api/logs/recent?path={Uri.EscapeDataString(path)}");
+        Assert.Equal(System.Net.HttpStatusCode.NoContent, forget.StatusCode);
+
+        var discovered = await _http.GetFromJsonAsync<JsonElement>("/api/logs/discovered");
+        Assert.DoesNotContain(discovered.EnumerateArray(), d =>
+            string.Equals(d.GetProperty("path").GetString(), path, StringComparison.OrdinalIgnoreCase));
+        Assert.True(File.Exists(path)); // the list entry went, not the log
+
+        // Forgetting something that isn't listed is a 404, not a silent no-op.
+        var again = await _http.DeleteAsync($"/api/logs/recent?path={Uri.EscapeDataString(path)}");
+        Assert.Equal(System.Net.HttpStatusCode.NotFound, again.StatusCode);
+    }
+
+    [Fact]
     public async Task SampleLogIsServedLastOpensAndStaysOutOfRecents()
     {
         // Discovery always pins the bundled demo log last, source "sample".

@@ -8,7 +8,9 @@ namespace EQDeeps.Server;
 /// can offer previously tracked logs back even when the game isn't running
 /// and discovery finds nothing — EMU logs, copies, files opened by hand.
 /// Capped MRU; missing files are filtered when served, so deleted logs age
-/// out naturally. Writes are atomic (temp + move), matching DocumentStore.
+/// out naturally. Entries can also be dropped by hand (<see cref="Forget"/>)
+/// for logs the player never wants offered again — test files, one-off copies.
+/// Writes are atomic (temp + move), matching DocumentStore.
 /// </summary>
 public sealed class RecentLogs
 {
@@ -37,10 +39,28 @@ public sealed class RecentLogs
                 list.RemoveRange(Cap, list.Count - Cap);
             }
 
-            Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
-            var temp = _path + ".tmp";
-            File.WriteAllText(temp, JsonSerializer.Serialize(list));
-            File.Move(temp, _path, overwrite: true);
+            WriteLocked(list);
+        }
+    }
+
+    /// <summary>
+    /// Drop a path from the list. Returns false when it wasn't there. Only the
+    /// MRU entry goes away — the file is untouched, and deliberately opening it
+    /// again brings it back, which is the behaviour a "remove from this list"
+    /// button should have.
+    /// </summary>
+    public bool Forget(string path)
+    {
+        lock (_gate)
+        {
+            var list = ReadLocked();
+            if (list.RemoveAll(p => string.Equals(p, path, StringComparison.OrdinalIgnoreCase)) == 0)
+            {
+                return false;
+            }
+
+            WriteLocked(list);
+            return true;
         }
     }
 
@@ -51,6 +71,14 @@ public sealed class RecentLogs
         {
             return ReadLocked();
         }
+    }
+
+    private void WriteLocked(List<string> list)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
+        var temp = _path + ".tmp";
+        File.WriteAllText(temp, JsonSerializer.Serialize(list));
+        File.Move(temp, _path, overwrite: true);
     }
 
     private List<string> ReadLocked()

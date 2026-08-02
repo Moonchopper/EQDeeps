@@ -44,7 +44,17 @@ export function SessionBar({
 }: Props) {
   const [path, setPath] = useState("");
   const openPaths = new Set(sessions.map((s) => s.path.toLowerCase()));
-  const available = discovered.filter((d) => !openPaths.has(d.path.toLowerCase()));
+  // The demo log (source "sample") is kept apart from the player's real logs:
+  // its own labeled dropdown entry, and a badge on its session tab.
+  const samplePaths = new Set(
+    discovered.filter((d) => d.source === "sample").map((d) => d.path.toLowerCase()),
+  );
+  const available = discovered.filter(
+    (d) => !openPaths.has(d.path.toLowerCase()) && d.source !== "sample",
+  );
+  const sample = discovered.find(
+    (d) => d.source === "sample" && !openPaths.has(d.path.toLowerCase()),
+  );
 
   return (
     <header className="session-bar">
@@ -53,6 +63,9 @@ export function SessionBar({
         {sessions.map((s) => (
           <span key={s.id} className={"session-tab" + (s.id === activeId ? " on" : "")}>
             <button className="session-name" onClick={() => onActivate(s.id)}>
+              {samplePaths.has(s.path.toLowerCase()) && (
+                <span className="sample-badge">sample</span>
+              )}{" "}
               {s.character} <span className="subtle">@{s.server}</span>
             </button>
             <button className="session-close" title="Close" onClick={() => onClose(s.id)}>
@@ -61,7 +74,7 @@ export function SessionBar({
           </span>
         ))}
       </div>
-      {available.length > 0 && (
+      {(available.length > 0 || sample) && (
         <select
           className="detected-select"
           value=""
@@ -78,6 +91,11 @@ export function SessionBar({
               {d.character} @{d.server} — {describeAge(d.lastWriteTime)} ({d.source})
             </option>
           ))}
+          {sample && (
+            <option value={sample.path}>
+              {sample.character} — bundled demo data, not yours
+            </option>
+          )}
         </select>
       )}
       <button className="detect-refresh" title="Re-scan for log files" onClick={onRefreshDiscovered}>

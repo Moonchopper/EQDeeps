@@ -230,6 +230,11 @@ export default function App() {
       .catch(() => setDiscovered([]));
   }
 
+  // The bundled demo log is listed by the server with source "sample"; it gets
+  // its own affordances everywhere so it never reads as one of the player's logs.
+  const sampleLog = discovered.find((d) => d.source === "sample");
+  const realLogs = discovered.filter((d) => d.source !== "sample");
+
   async function refreshFights(id: string) {
     try {
       const list = await api.getFights(id);
@@ -440,11 +445,11 @@ export default function App() {
       ) : (
         <main className="welcome">
           <h1>No log open</h1>
-          {discovered.length > 0 ? (
+          {realLogs.length > 0 ? (
             <>
               <p>Recent and detected EverQuest logs — click one to start:</p>
               <div className="discovered-list">
-                {discovered.map((d) => (
+                {realLogs.map((d) => (
                   <button key={d.path} className="discovered-row" onClick={() => openLog(d.path)}>
                     <span className="discovered-name">
                       {d.character} <span className="subtle">@{d.server}</span>
@@ -468,6 +473,27 @@ export default function App() {
               immediately; while the game runs, everything updates live. If EverQuest is running,
               press ↻ to re-scan for its log files.
             </p>
+          )}
+          {sampleLog && (
+            <div className="sample-callout">
+              <p className="subtle">
+                {realLogs.length > 0
+                  ? "Or just look around first:"
+                  : "No log handy? Look around with demo data:"}
+              </p>
+              <button
+                className="discovered-row sample-row"
+                onClick={() => openLog(sampleLog.path)}
+              >
+                <span className="discovered-name">
+                  <span className="sample-badge">sample</span> {sampleLog.character}{" "}
+                  <span className="subtle">@{sampleLog.server}</span> — not your data
+                </span>
+                <span className="discovered-meta">
+                  two days of real gameplay bundled with EQDeeps · {(sampleLog.sizeBytes / 1048576).toFixed(1)} MB
+                </span>
+              </button>
+            </div>
           )}
         </main>
       )}

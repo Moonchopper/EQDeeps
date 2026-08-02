@@ -69,30 +69,32 @@ export function cloneForCustomizing(view: DashboardDef): DashboardDef {
 }
 
 /**
- * Progression trends the Summary page borrows. They are panel definitions
- * rather than bespoke components so they run the same query path, get the same
- * fight bands and honour the same time frame as everything else — Summary just
- * renders them next to the combat charts.
+ * The trends the Summary page carries beside the DPS chart. Healing and damage
+ * taken are the other two halves of the same question a parse asks — output,
+ * upkeep, and what the mob did back — so they belong on the landing view next
+ * to damage rather than a tab away.
+ *
+ * They are panel definitions rather than bespoke components so they run the
+ * same query path, get the same fight bands, and honour the same time frame
+ * and window as everything else.
  */
 export function summaryTrendPanels(): PanelDef[] {
   return [
-    panel("summary-faction", {
-      title: "Faction standing over time",
+    panel("summary-healing", {
+      title: "Healing over time",
       viz: "line",
-      source: "faction",
+      source: "healing",
       scopeMode: "all",
       groupBy: ["player"],
-      primaryMetric: "factionNet",
-      bucketSeconds: 60,
+      bucketSeconds: 1,
     }),
-    panel("summary-loot", {
-      title: "Coin over time",
+    panel("summary-tanking", {
+      title: "Damage taken over time",
       viz: "line",
-      source: "loot",
+      source: "tanking",
       scopeMode: "all",
-      groupBy: ["character"],
-      primaryMetric: "platinum",
-      bucketSeconds: 60,
+      groupBy: ["player"],
+      bucketSeconds: 1,
     }),
   ];
 }

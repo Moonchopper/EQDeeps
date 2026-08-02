@@ -639,9 +639,8 @@ export default function App() {
                       colors={entityColors}
                       chartDefaults={chartDefaults}
                     />
-                    {/* Faction and coin side by side: both are slow-moving
-                        progression lines that read fine at half width, and
-                        pairing them keeps the DPS chart's full-width slot. */}
+                    {/* Healing and damage taken abreast, under the DPS chart:
+                        output, upkeep and what came back, all on one axis. */}
                     <div className="summary-pair">
                       {summaryTrends.map((p) => (
                         <div key={p.id} className="panel chart-panel">

@@ -177,7 +177,7 @@ export function SessionBar({
         </span>
         <TimeControls settings={chartDefaults} bucketSeconds={1} onChange={onChartDefaults} />
         <label className="time-controls" title="Fight overlay: off, shaded bands only, or bands with mob names at this size">
-          fights
+          overlay
           <select
             value={fightLabelPx}
             onChange={(e) => onFightLabelPx(Number(e.target.value))}

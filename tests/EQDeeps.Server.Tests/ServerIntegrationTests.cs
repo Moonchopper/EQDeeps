@@ -27,7 +27,8 @@ public sealed class ServerIntegrationTests : IAsyncLifetime
     public async Task InitializeAsync()
     {
         Directory.CreateDirectory(_dir);
-        _app = ServerApp.Build(["--urls", "http://127.0.0.1:0"]);
+        // recentLogsRoot: keep the MRU file inside the test sandbox, not %AppData%.
+        _app = ServerApp.Build(["--urls", "http://127.0.0.1:0", "--recentLogsRoot", _dir]);
         await _app.StartAsync();
         _baseUrl = _app.Urls.First();
         _http = new HttpClient { BaseAddress = new Uri(_baseUrl) };
@@ -200,6 +201,20 @@ public sealed class ServerIntegrationTests : IAsyncLifetime
         Assert.True(median < medianBudgetMs,
             $"median append→push latency {median:F0} ms, budget {medianBudgetMs} ms " +
             $"(all: {string.Join(", ", latencies.Select(l => l.ToString("F0")))})");
+    }
+
+    [Fact]
+    public async Task OpenedLogsReappearAsRecentInDiscovery()
+    {
+        var path = WriteLog(Line(0, "An ice giant died."));
+        await OpenSessionAsync(path);
+
+        var discovered = await _http.GetFromJsonAsync<JsonElement>("/api/logs/discovered");
+        var entry = discovered.EnumerateArray().SingleOrDefault(d =>
+            string.Equals(d.GetProperty("path").GetString(), path, StringComparison.OrdinalIgnoreCase));
+        Assert.Equal(JsonValueKind.Object, entry.ValueKind);
+        Assert.Equal("recent", entry.GetProperty("source").GetString());
+        Assert.Equal("Kizant", entry.GetProperty("character").GetString());
     }
 
     [Fact]

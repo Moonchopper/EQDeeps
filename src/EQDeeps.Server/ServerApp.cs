@@ -36,6 +36,8 @@ public static class ServerApp
         builder.Services.AddSingleton<UpdateChecker>();
         builder.Services.AddSingleton<ClientTracker>();
         builder.Services.AddSingleton<WindowBridge>();
+        // --recentLogsRoot redirects the MRU file (tests); default: %AppData%\EQDeeps.
+        builder.Services.AddSingleton(_ => new RecentLogs(builder.Configuration["recentLogsRoot"]));
 
         var app = builder.Build();
 
@@ -65,7 +67,24 @@ public static class ServerApp
         app.MapPost("/api/ui/focus", (WindowBridge bridge) =>
             bridge.TryFocus() ? Results.NoContent() : Results.NotFound());
 
-        app.MapGet("/api/logs/discovered", () => Results.Ok(LogDiscovery.Discover()));
+        // Install-discovery plus the persisted recently-opened list, deduped
+        // by path — so previously tracked logs come back even when the game
+        // isn't running and discovery alone would find nothing.
+        app.MapGet("/api/logs/discovered", (RecentLogs recents) =>
+        {
+            var results = LogDiscovery.Discover();
+            var seen = new HashSet<string>(
+                results.Select(r => r.Path), StringComparer.OrdinalIgnoreCase);
+            foreach (var recent in recents.List())
+            {
+                if (!seen.Contains(recent) && LogDiscovery.Describe(recent, "recent") is { } log)
+                {
+                    results.Add(log);
+                }
+            }
+
+            return Results.Ok(results.OrderByDescending(r => r.LastWriteTime).ToList());
+        });
 
         app.MapGet("/api/store/{key}", (string key, DocumentStore store) =>
             !DocumentStore.IsValidKey(key)

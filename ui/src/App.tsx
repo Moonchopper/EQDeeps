@@ -442,7 +442,7 @@ export default function App() {
           <h1>No log open</h1>
           {discovered.length > 0 ? (
             <>
-              <p>Found these EverQuest logs on this machine — click one to start:</p>
+              <p>Recent and detected EverQuest logs — click one to start:</p>
               <div className="discovered-list">
                 {discovered.map((d) => (
                   <button key={d.path} className="discovered-row" onClick={() => openLog(d.path)}>

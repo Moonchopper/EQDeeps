@@ -3,7 +3,7 @@ import * as echarts from "echarts";
 import { api, type FightInfo, type TimelineItem, type TimelineResult } from "../api";
 import { attachWheelZoom, offsetTooltip } from "../chartInteractions";
 import { fmtNum } from "../format";
-import { fightsInFrame, type TimeFrame } from "../timeFrame";
+import { frameScope, type TimeFrame } from "../timeFrame";
 
 interface Props {
   sessionId: string;
@@ -77,6 +77,13 @@ const INSTANT_KINDS: {
 
 const ROW_HEIGHT = 20;
 
+/**
+ * Floor on how often the timeline refetches. Every other panel can follow the
+ * live tick because its query is small; this one returns every cast, ability
+ * and death in the window.
+ */
+const TIMELINE_MIN_REFRESH_MS = 5000;
+
 interface Row {
   /** Actor name shown on the axis — only on the actor's first row. */
   label: string;
@@ -89,7 +96,19 @@ interface Row {
  * concurrent buffs need (greedy interval packing). Log owner first, then other
  * players, then NPCs (anything sharing a fight name).
  */
-function buildRows(items: TimelineItem[], character: string, npcNames: Set<string>): Row[] {
+/**
+ * Lanes drawn at once. The chart sizes itself at ROW_HEIGHT per lane, so this
+ * is a height cap as much as a legibility one: 185 actors — which a 24-hour
+ * range really does produce — is a 3,700px canvas inside a 300px panel, and
+ * nobody reads a timeline that tall anyway.
+ */
+const MAX_LANES = 24;
+
+function buildRows(
+  items: TimelineItem[],
+  character: string,
+  npcNames: Set<string>,
+): { rows: Row[]; omitted: number } {
   const byActor = new Map<string, TimelineItem[]>();
   for (const item of items) {
     const list = byActor.get(item.actor);
@@ -106,8 +125,22 @@ function buildRows(items: TimelineItem[], character: string, npcNames: Set<strin
     return rank(a) - rank(b) || a.localeCompare(b);
   });
 
+  // Which actors survive the cap is decided by how much they did; the ORDER
+  // they are drawn in stays you-then-players-then-NPCs, so the reading order
+  // never shuffles. Dropping by activity beats dropping by alphabet.
+  const kept = new Set(
+    [...actors]
+      .sort((a, b) => (byActor.get(b)?.length ?? 0) - (byActor.get(a)?.length ?? 0))
+      .slice(0, MAX_LANES),
+  );
+  const omitted = actors.length - kept.size;
+
   const rows: Row[] = [];
   for (const actor of actors) {
+    if (!kept.has(actor)) {
+      continue;
+    }
+
     const all = byActor.get(actor)!;
     const instants = all.filter((i) => !i.end);
     const spans = all.filter((i) => i.end).sort((a, b) => a.start.localeCompare(b.start));
@@ -134,7 +167,7 @@ function buildRows(items: TimelineItem[], character: string, npcNames: Set<strin
     }
   }
 
-  return rows;
+  return { rows, omitted };
 }
 
 function fmtTime(iso: string): string {
@@ -174,9 +207,11 @@ export function TimelineChart({
   fights,
   onAdoptRange,
 }: Props) {
-  // The timeline draws per-combatant lanes, so it is inherently fight-shaped:
-  // it takes the fights the frame covers rather than the frame itself.
-  const fightIds = fightsInFrame(frame, fights);
+  // Ask by scope, not by enumerating the frame's fights. At a 24-hour range
+  // that list is 1,300 ids and 55 KB of request body describing a window the
+  // server can derive from 79 bytes — and it churns every time a fight is
+  // added, refetching for a reason that has nothing to do with the window.
+  const scopeKey = JSON.stringify(frameScope(frame));
   const divRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<echarts.ECharts | null>(null);
   const [result, setResult] = useState<TimelineResult | null>(null);
@@ -184,7 +219,6 @@ export function TimelineChart({
   const suppressZoomEventRef = useRef(false);
   const extentRef = useRef<[number, number] | null>(null);
   const zoomRangeRef = useRef<[number, number] | null>(null);
-  const selectionKey = fightIds.join(",");
 
   const resetZoom = useCallback(() => {
     const chart = chartRef.current;
@@ -225,27 +259,48 @@ export function TimelineChart({
 
   useEffect(() => {
     resetZoom();
-  }, [selectionKey, resetZoom]);
+  }, [scopeKey, resetZoom]);
+
+  // A new window is answered at once; a live tick is not. refreshKey bumps
+  // about once a second, and at a long range this query is ~1 MB and ~800 ms,
+  // so following it 1:1 means never finishing one before starting the next
+  // and redrawing thousands of marks in between. The timeline is a detail
+  // view — a few seconds stale costs nothing.
+  const lastFetchRef = useRef(0);
+  const lastScopeRef = useRef(scopeKey);
+  if (lastScopeRef.current !== scopeKey) {
+    lastScopeRef.current = scopeKey;
+    lastFetchRef.current = 0; // a window the user just chose is not "recent"
+  }
 
   useEffect(() => {
-    if (fightIds.length === 0) {
-      setResult(null);
-      chartRef.current?.clear();
-      return;
-    }
     let cancelled = false;
-    api
-      .timeline(sessionId, { fightIds })
-      .then((r) => !cancelled && setResult(r))
-      .catch(() => undefined);
+    let timer: number | undefined;
+    const run = () => {
+      lastFetchRef.current = Date.now();
+      api
+        .timeline(sessionId, JSON.parse(scopeKey))
+        .then((r) => !cancelled && setResult(r))
+        .catch(() => undefined);
+    };
+
+    const since = Date.now() - lastFetchRef.current;
+    if (since >= TIMELINE_MIN_REFRESH_MS) {
+      run();
+    } else {
+      timer = window.setTimeout(run, TIMELINE_MIN_REFRESH_MS - since);
+    }
+
     return () => {
       cancelled = true;
+      if (timer !== undefined) window.clearTimeout(timer);
     };
-  }, [sessionId, selectionKey, refreshKey]);
+  }, [sessionId, scopeKey, refreshKey]);
 
   const npcNames = useMemo(() => new Set(fights.map((f) => f.name)), [fights]);
-  const rows = useMemo(
-    () => (result ? buildRows(result.items, character, npcNames) : []),
+  const { rows, omitted } = useMemo(
+    () =>
+      result ? buildRows(result.items, character, npcNames) : { rows: [], omitted: 0 },
     [result, character, npcNames],
   );
 
@@ -442,6 +497,15 @@ export function TimelineChart({
       <div className="panel-title">
         <span>Timeline</span>
         <span className="title-controls">
+          {/* Silent truncation would read as "these are all the actors". */}
+          {omitted > 0 && (
+            <span
+              className="subtle"
+              title="Only the busiest lanes are drawn — narrow the time range to see the rest"
+            >
+              +{omitted} more
+            </span>
+          )}
           <span
             className="subtle"
             title={
@@ -454,8 +518,7 @@ export function TimelineChart({
           </span>
         </span>
       </div>
-      {fightIds.length === 0 && <div className="empty">Select a fight</div>}
-      {fightIds.length > 0 && result && rows.length === 0 && (
+      {result && rows.length === 0 && (
         <div className="empty">No spell or ability activity in this selection</div>
       )}
       <div className="chart-wrap">

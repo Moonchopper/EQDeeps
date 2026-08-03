@@ -34,6 +34,7 @@ import { DEFAULT_LABEL_PX } from "./fightOverlay";
 import {
   DEFAULT_FRAME,
   frameFromFights,
+  frameFromRange,
   framedFightIds,
   fightsInFrame,
   isLive,
@@ -141,6 +142,15 @@ export default function App() {
   /** Frame the fights the list just handed us; an empty pick returns to live. */
   function selectFights(ids: number[]) {
     setFrame(frameFromFights(fights, ids) ?? { kind: "live", spanSec: chartDefaults.spanSec });
+  }
+
+  /**
+   * Adopt a window a chart was zoomed into as the app's time range. This is
+   * the way to frame something that is not a pull — a wipe, a lull, the two
+   * minutes either side of a death — without hunting for it in the fight list.
+   */
+  function adoptRange(beginMs: number, endMs: number) {
+    setFrame(frameFromRange(beginMs, endMs));
   }
 
   /** Release a fixed range without disturbing the window/span settings. */
@@ -626,6 +636,7 @@ export default function App() {
               // null when there is nothing to scroll toward, so every chart
               // makes the same call without repeating the condition.
               scrollNowMs: scrolling ? nowMs : null,
+              onAdoptRange: adoptRange,
             };
             return (
           <main className={"dashboard" + (fightsCollapsed ? " fights-collapsed" : "")}>
@@ -682,6 +693,7 @@ export default function App() {
                       colors={entityColors}
                       chartDefaults={chartDefaults}
                       scrollNowMs={panelCtx.scrollNowMs}
+                      onAdoptRange={adoptRange}
                     />
                     {/* Healing and damage taken abreast, under the DPS chart:
                         output, upkeep and what came back, all on one axis. */}
@@ -701,6 +713,7 @@ export default function App() {
                       refreshKey={refreshKey}
                       character={sessions.find((s) => s.id === activeId)?.character ?? ""}
                       fights={fights}
+                      onAdoptRange={adoptRange}
                     />
                   </div>
                   <div className="summary-rail">

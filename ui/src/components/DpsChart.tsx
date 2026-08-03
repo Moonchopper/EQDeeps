@@ -28,6 +28,8 @@ interface Props {
   fightLabelPx: number;
   /** Wall clock while scrolling; null when the window should sit still. */
   scrollNowMs: number | null;
+  /** Promote a zoomed window to the app-wide time range. */
+  onAdoptRange: (beginMs: number, endMs: number) => void;
   refreshKey: number;
   petRollup: boolean;
   colors: EntityColors;
@@ -59,6 +61,7 @@ export function DpsChart({
   fights,
   fightLabelPx,
   scrollNowMs,
+  onAdoptRange,
   refreshKey,
   petRollup,
   colors,
@@ -92,6 +95,7 @@ export function DpsChart({
   // the first frame of a new scope would still be drawn on the old scale.
   const axisMaxRef = useRef(0);
   const axisScopeRef = useRef("");
+  const zoomRangeRef = useRef<[number, number] | null>(null);
 
   // "fit" means show everything there is, which cannot also mean "and keep
   // sliding past it", so scrolling only applies to a fixed span. Zooming
@@ -130,6 +134,14 @@ export function DpsChart({
       const p = params as { start?: number; end?: number; batch?: { start?: number; end?: number }[] };
       const window = p.batch?.[0] ?? p;
       setIsZoomed(!(window.start === 0 && window.end === 100));
+      // Remember what the zoom actually landed on, so it can be promoted to
+      // the app-wide time range. ECharts fills startValue/endValue on the
+      // dataZoom component once a real range has been brushed.
+      const dz = (chart.getOption() as { dataZoom?: { startValue?: number; endValue?: number }[] })
+        .dataZoom?.[0];
+      if (typeof dz?.startValue === "number" && typeof dz?.endValue === "number") {
+        zoomRangeRef.current = [dz.startValue, dz.endValue];
+      }
     });
     chart.getZr().on("dblclick", resetZoom);
     const detachWheelZoom = attachWheelZoom(chart, { left: 52, right: 12 }, () => extentRef.current);
@@ -435,13 +447,25 @@ export function DpsChart({
       <div className="chart-wrap">
         <div ref={divRef} className="chart" />
         {isZoomed && (
-          <button
-            className="zoom-reset"
-            onClick={resetZoom}
-            title="Back to the full view (or double-click the chart)"
-          >
-            ↺ reset zoom
-          </button>
+          <span className="zoom-actions">
+            <button
+              className="zoom-reset"
+              onClick={() => {
+                const range = zoomRangeRef.current;
+                if (range) onAdoptRange(range[0], range[1]);
+              }}
+              title="Make this zoomed window the time range every panel reports over"
+            >
+              ⤢ set as time range
+            </button>
+            <button
+              className="zoom-reset"
+              onClick={resetZoom}
+              title="Back to the full view (or double-click the chart)"
+            >
+              ↺ reset zoom
+            </button>
+          </span>
         )}
       </div>
     </div>

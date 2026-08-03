@@ -23,6 +23,8 @@ export interface PanelContext {
   fightLabelPx: number;
   /** Wall clock while scrolling; null when the window should sit still. */
   scrollNowMs: number | null;
+  /** Promote a zoomed window to the app-wide time range. */
+  onAdoptRange: (beginMs: number, endMs: number) => void;
   refreshKey: number;
   petRollup: boolean;
   colors: EntityColors;
@@ -230,6 +232,7 @@ function LinePanel({
   // previous one's scale.
   const axisMaxRef = useRef(0);
   const axisScopeRef = useRef("");
+  const zoomRangeRef = useRef<[number, number] | null>(null);
 
   const axisScope = `${JSON.stringify(ctx.frame)}|${spanSec}|${windowSec}`;
   if (axisScopeRef.current !== axisScope) {
@@ -259,6 +262,11 @@ function LinePanel({
       const p = params as { start?: number; end?: number; batch?: { start?: number; end?: number }[] };
       const window = p.batch?.[0] ?? p;
       setIsZoomed(!(window.start === 0 && window.end === 100));
+      const dz = (chart.getOption() as { dataZoom?: { startValue?: number; endValue?: number }[] })
+        .dataZoom?.[0];
+      if (typeof dz?.startValue === "number" && typeof dz?.endValue === "number") {
+        zoomRangeRef.current = [dz.startValue, dz.endValue];
+      }
     });
     chart.getZr().on("dblclick", resetZoom);
     const detachWheelZoom = attachWheelZoom(chart, { left: 48, right: 10 }, () => extentRef.current);
@@ -493,13 +501,25 @@ function LinePanel({
     <div className="chart-wrap">
       <div ref={divRef} className="chart" />
       {isZoomed && (
-        <button
-          className="zoom-reset"
-          onClick={resetZoom}
-          title="Back to the full view (or double-click the chart)"
-        >
-          ↺ reset zoom
-        </button>
+        <span className="zoom-actions">
+          <button
+            className="zoom-reset"
+            onClick={() => {
+              const range = zoomRangeRef.current;
+              if (range) ctx.onAdoptRange(range[0], range[1]);
+            }}
+            title="Make this zoomed window the time range every panel reports over"
+          >
+            ⤢ set as time range
+          </button>
+          <button
+            className="zoom-reset"
+            onClick={resetZoom}
+            title="Back to the full view (or double-click the chart)"
+          >
+            ↺ reset zoom
+          </button>
+        </span>
       )}
     </div>
   );

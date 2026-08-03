@@ -4,8 +4,11 @@
  * build their choice lists from here so the two can never drift into offering
  * different options for the same idea.
  *
- *  window — width of the rolling mean.
- *  span   — width of the visible viewport; "fit" shows everything there is.
+ *  window     — width of the rolling mean.
+ *  time range — how much time is on screen and reported over; "fit" is
+ *               everything there is. Called `spanSec` in the code, since a
+ *               fixed range picked off a chart or the fight list is a
+ *               different thing (see TimeFrame).
  *
  * Both ladders are expressed as MULTIPLES OF THE BUCKET, not fixed seconds: a
  * 5-second window means nothing on a chart bucketed at a minute. At the
@@ -16,7 +19,9 @@
 export type Span = number | "fit";
 
 const WINDOW_MULTIPLES = [1, 3, 5, 10, 30, 60];
-const SPAN_MULTIPLES = [30, 60, 120, 300, 900, 3600];
+// Reaches from half a minute to a day at the 1-second bucket, so a window can
+// be picked outright rather than only by selecting fights.
+const SPAN_MULTIPLES = [30, 60, 120, 300, 900, 1800, 3600, 7200, 21600, 86400];
 
 export function fmtDuration(seconds: number): string {
   if (seconds < 60) return `${Math.round(seconds)}s`;
@@ -94,7 +99,7 @@ export function TimeControls({ settings, bucketSeconds, onChange, onApplyToAll }
         </select>
       </label>
       <label>
-        span
+        time range
         <select
           value={String(settings.spanSec)}
           onChange={(e) =>

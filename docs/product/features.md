@@ -83,6 +83,8 @@ Time is the primary axis, not fights. Every record has a timestamp, and much of 
 
 The frame is either a **live tail** — the trailing span of the record stream, anchored to the newest record, which is what "following live" amounts to — or a **fixed range**, produced by the fight list. There is no separate follow-live flag: a live frame is already following.
 
+The range need not come from the fight list. Any zoomed chart offers **set as time range**, which promotes the window it is showing to the app-wide frame — the way to frame a wipe, a lull, or the two minutes either side of a death, none of which is a pull. The top-bar ladder also reaches from 30 seconds to a day, so a plain trailing window can be picked outright.
+
 The fight list is a **range selector**, not a filter. Click frames one fight, shift-click extends to frame everything between in list order, ctrl/cmd-click adds or removes one, a group header frames the pull chain. What is picked becomes the window between the first and last fight chosen, downtime included. Because it is a window, combat from other fights inside it counts too — concurrent mobs, or a long pull straddling the edge.
 
 Combat still aggregates per fight *within* the frame, so DPS over a framed stretch means what it meant when those fights were selected directly, rather than damage averaged across the downtime between them. Progression sources take the frame whole, which is what makes a range worth having.

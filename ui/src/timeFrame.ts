@@ -17,7 +17,8 @@ import { DEFAULT_LABEL_PX } from "./fightOverlay";
  *  live  — the trailing `spanSec` of the record stream, anchored to the newest
  *          record. Inherently follows live play: new records move the window.
  *          `spanSec: "fit"` is the whole log.
- *  range — a fixed window, produced by selecting fights. Does not follow.
+ *  range — a fixed window. Comes from the fight list, or straight off a chart
+ *          the user zoomed into. Does not follow.
  */
 export type TimeFrame =
   | { kind: "live"; spanSec: Span }
@@ -72,6 +73,31 @@ export function frameFromFights(fights: FightInfo[], ids: number[]): TimeFrame |
   return { kind: "range", fightIds: [...ids], begin, end };
 }
 
+/**
+ * The server parses timeRanges as LOCAL DateTime, matching the timestamps it
+ * emits — so an epoch millisecond has to be written out in local parts.
+ * `toISOString()` would hand it UTC and silently shift the window by the whole
+ * UTC offset.
+ */
+function localIso(ms: number): string {
+  const d = new Date(ms);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return (
+    `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` +
+    `T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+  );
+}
+
+/**
+ * A frame from an arbitrary window — what a chart hands over when the user
+ * zooms into something interesting and promotes it. No fights attached: the
+ * window is the statement, and it need not line up with any pull.
+ */
+export function frameFromRange(beginMs: number, endMs: number): TimeFrame {
+  const [from, to] = beginMs <= endMs ? [beginMs, endMs] : [endMs, beginMs];
+  return { kind: "range", fightIds: [], begin: localIso(from), end: localIso(to) };
+}
+
 /** Inclusive index range between two fight-list positions, in either order. */
 export function fightIdsBetween(fights: FightInfo[], anchorId: number, targetId: number): number[] {
   const a = fights.findIndex((f) => f.id === anchorId);
@@ -124,6 +150,14 @@ export function frameLabel(frame: TimeFrame, fights: FightInfo[]): string {
     : seconds >= 60
       ? `${Math.round(seconds / 60)}m`
       : `${seconds}s`;
+
+  // A hand-picked window has no fights to name, so say when it is instead.
+  if (frame.fightIds.length === 0) {
+    const at = new Date(frame.begin);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${pad(at.getHours())}:${pad(at.getMinutes())} · ${length}`;
+  }
+
   return `${chosen.length || frame.fightIds.length} fights · ${length}`;
 }
 

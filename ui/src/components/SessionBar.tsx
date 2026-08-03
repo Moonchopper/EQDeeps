@@ -176,7 +176,7 @@ export function SessionBar({
       {/* The parent window/span for every chart in the app. It sits up here
           rather than on a panel precisely because it belongs to none of them:
           changing it pushes down and clears any per-panel deviation. */}
-      <span className="global-time-controls" title="Rolling window and viewport for every chart">
+      <span className="global-time-controls" title="Rolling window and time range for every chart">
         <span className="frame-readout" title="What every panel is currently reporting over">
           {frameLabel(frame, fights)}
         </span>
@@ -209,7 +209,7 @@ export function SessionBar({
           className="mini-btn"
           onClick={onResetDefaults}
           disabled={isDefaultState(frame, chartDefaults, fightLabelPx)}
-          title="Back to the opening state: live, 10 s window, 15 m span"
+          title="Back to the opening state: live, 10 s window, 15 m time range"
         >
           reset
         </button>

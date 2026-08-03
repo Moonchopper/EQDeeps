@@ -282,6 +282,20 @@ optgroup {
 }
 
 /* What the app is currently reporting over: "live", a mob name, or a range. */
+/* The two zoom actions ride together at the chart's top-right. */
+.zoom-actions {
+  position: absolute;
+  top: 28px;
+  right: 14px;
+  display: flex;
+  gap: 6px;
+  z-index: 2;
+}
+
+.zoom-actions .zoom-reset {
+  position: static;
+}
+
 .frame-readout {
   color: var(--ink);
   font-size: 11px;

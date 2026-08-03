@@ -11,6 +11,8 @@ interface Props {
   refreshKey: number;
   character: string;
   fights: FightInfo[];
+  /** Promote a zoomed window to the app-wide time range. */
+  onAdoptRange: (beginMs: number, endMs: number) => void;
 }
 
 /**
@@ -164,7 +166,14 @@ function instantTooltip(item: TimelineItem, kindName: string): string {
  * plus buff spans derived from the owner's cast → "worn off" pairs. Spell-DB
  * integration will add received buffs and true durations later.
  */
-export function TimelineChart({ sessionId, frame, refreshKey, character, fights }: Props) {
+export function TimelineChart({
+  sessionId,
+  frame,
+  refreshKey,
+  character,
+  fights,
+  onAdoptRange,
+}: Props) {
   // The timeline draws per-combatant lanes, so it is inherently fight-shaped:
   // it takes the fights the frame covers rather than the frame itself.
   const fightIds = fightsInFrame(frame, fights);
@@ -174,6 +183,7 @@ export function TimelineChart({ sessionId, frame, refreshKey, character, fights 
   const [isZoomed, setIsZoomed] = useState(false);
   const suppressZoomEventRef = useRef(false);
   const extentRef = useRef<[number, number] | null>(null);
+  const zoomRangeRef = useRef<[number, number] | null>(null);
   const selectionKey = fightIds.join(",");
 
   const resetZoom = useCallback(() => {
@@ -195,6 +205,11 @@ export function TimelineChart({ sessionId, frame, refreshKey, character, fights 
       const p = params as { start?: number; end?: number; batch?: { start?: number; end?: number }[] };
       const window = p.batch?.[0] ?? p;
       setIsZoomed(!(window.start === 0 && window.end === 100));
+      const dz = (chart.getOption() as { dataZoom?: { startValue?: number; endValue?: number }[] })
+        .dataZoom?.[0];
+      if (typeof dz?.startValue === "number" && typeof dz?.endValue === "number") {
+        zoomRangeRef.current = [dz.startValue, dz.endValue];
+      }
     });
     chart.getZr().on("dblclick", resetZoom);
     const detachWheelZoom = attachWheelZoom(chart, { left: 100, right: 12 }, () => extentRef.current);
@@ -446,13 +461,25 @@ export function TimelineChart({ sessionId, frame, refreshKey, character, fights 
       <div className="chart-wrap">
         <div ref={divRef} className="chart" style={{ height }} />
         {isZoomed && (
-          <button
-            className="zoom-reset"
-            onClick={resetZoom}
-            title="Back to the full view (or double-click the chart)"
-          >
-            ↺ reset zoom
-          </button>
+          <span className="zoom-actions">
+            <button
+              className="zoom-reset"
+              onClick={() => {
+                const range = zoomRangeRef.current;
+                if (range) onAdoptRange(range[0], range[1]);
+              }}
+              title="Make this zoomed window the time range every panel reports over"
+            >
+              ⤢ set as time range
+            </button>
+            <button
+              className="zoom-reset"
+              onClick={resetZoom}
+              title="Back to the full view (or double-click the chart)"
+            >
+              ↺ reset zoom
+            </button>
+          </span>
         )}
       </div>
     </div>

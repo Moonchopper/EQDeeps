@@ -30,6 +30,14 @@ const DEATH_X =
 const SPAN_COLOR = "#3987e5"; // buffs
 
 /**
+ * Stances get their own hue and their own lane. A stance is not a buff you
+ * happened to cast — it is the state everything else in the lane happened
+ * under, so reading it as a separate band under your own marks is the point:
+ * the switch is where one band ends and the next begins.
+ */
+const STANCE_COLOR = "#c98b1e";
+
+/**
  * Magnitude rides on SIZE, because hue is already spent on what a mark is.
  * Area is the readable channel for "how big", so the radius follows a square
  * root — a 4× hit must not look 16× larger. The floor is the base size rather
@@ -89,6 +97,12 @@ interface Row {
   label: string;
   instants: TimelineItem[];
   spans: TimelineItem[];
+  /** Held stances; their own band, never mixed with buff spans. */
+  stances: TimelineItem[];
+}
+
+function emptyRow(fill: Partial<Row>): Row {
+  return { label: "", instants: [], spans: [], stances: [], ...fill };
 }
 
 /**
@@ -143,22 +157,33 @@ function buildRows(
 
     const all = byActor.get(actor)!;
     const instants = all.filter((i) => !i.end);
-    const spans = all.filter((i) => i.end).sort((a, b) => a.start.localeCompare(b.start));
+    const byStart = (a: TimelineItem, b: TimelineItem) => a.start.localeCompare(b.start);
+    const stances = all.filter((i) => i.end && i.kind === "stance").sort(byStart);
+    const spans = all.filter((i) => i.end && i.kind !== "stance").sort(byStart);
 
     const actorRows: Row[] = [];
     if (instants.length > 0) {
-      actorRows.push({ label: "", instants, spans: [] });
+      actorRows.push(emptyRow({ instants }));
     }
+    // Stances tile the timeline without overlapping, so however many switches
+    // there were they are one band — and it gets a row of its own, because the
+    // state you fought in is not one more thing you cast.
+    if (stances.length > 0) {
+      actorRows.push(emptyRow({ stances }));
+    }
+
+    // Buff rows start below whatever the two rows above claimed.
+    const offset = actorRows.length;
     const rowEnds: number[] = [];
     for (const span of spans) {
       const start = new Date(span.start).getTime();
       const slot = rowEnds.findIndex((end) => start >= end + 1000);
       if (slot >= 0) {
         rowEnds[slot] = new Date(span.end!).getTime();
-        actorRows[instants.length > 0 ? slot + 1 : slot].spans.push(span);
+        actorRows[offset + slot].spans.push(span);
       } else {
         rowEnds.push(new Date(span.end!).getTime());
-        actorRows.push({ label: "", instants: [], spans: [span] });
+        actorRows.push(emptyRow({ spans: [span] }));
       }
     }
     if (actorRows.length > 0) {
@@ -182,6 +207,13 @@ function spanTooltip(item: TimelineItem): string {
     `<b>${item.label}</b><br/>buff on ${item.actor}<br/>` +
     `${from} → ${to} · ${seconds}s shown`
   );
+}
+
+function stanceTooltip(item: TimelineItem): string {
+  const seconds = Math.round((new Date(item.end!).getTime() - new Date(item.start).getTime()) / 1000);
+  const from = item.startsBefore ? "before selection" : fmtTime(item.start);
+  const to = item.endsAfter ? "beyond selection" : fmtTime(item.end!);
+  return `<b>${item.label} stance</b><br/>${from} → ${to} · ${seconds}s shown`;
 }
 
 function instantTooltip(item: TimelineItem, kindName: string): string {
@@ -329,12 +361,19 @@ export function TimelineChart({
     const labels = rows.map((r) => r.label);
 
     const spanData: { value: [number, number, number]; item: TimelineItem }[] = [];
+    const stanceData: { value: [number, number, number]; item: TimelineItem }[] = [];
     const instantData = new Map<string, { value: [number, number]; item: TimelineItem }[]>();
     rows.forEach((row, rowIndex) => {
       for (const span of row.spans) {
         spanData.push({
           value: [new Date(span.start).getTime(), new Date(span.end!).getTime(), rowIndex],
           item: span,
+        });
+      }
+      for (const stance of row.stances) {
+        stanceData.push({
+          value: [new Date(stance.start).getTime(), new Date(stance.end!).getTime(), rowIndex],
+          item: stance,
         });
       }
       for (const instant of row.instants) {
@@ -397,6 +436,51 @@ export function TimelineChart({
         tooltip: {
           formatter: (p: unknown) =>
             spanTooltip((p as { data: { item: TimelineItem } }).data.item),
+        },
+      },
+      {
+        name: "stances",
+        type: "custom",
+        color: STANCE_COLOR,
+        renderItem: (params, apiArg) => {
+          const start = apiArg.coord([apiArg.value(0), apiArg.value(2)]);
+          const end = apiArg.coord([apiArg.value(1), apiArg.value(2)]);
+          const coords = (params as unknown as {
+            coordSys: { x: number; y: number; width: number; height: number };
+          }).coordSys;
+          const barHeight = 14;
+          const rect = echarts.graphic.clipRectByRect(
+            {
+              x: start[0],
+              y: start[1] - barHeight / 2,
+              width: Math.max(end[0] - start[0], 2),
+              height: barHeight,
+            },
+            coords,
+          );
+          if (!rect) {
+            return;
+          }
+
+          const item = stanceData[(params as { dataIndex: number }).dataIndex]?.item;
+          // A band nobody can name is just a colour. It gets its name when
+          // there is room for it; the tooltip answers when there isn't.
+          const text = rect.width >= 52 ? item?.label ?? "" : "";
+          return {
+            type: "rect",
+            shape: { ...rect, r: 3 },
+            style: { fill: STANCE_COLOR, opacity: 0.85 },
+            textContent: text
+              ? { style: { text, fill: "#1c1a15", fontSize: 10, fontWeight: 600 } }
+              : undefined,
+            textConfig: { position: "inside" },
+          };
+        },
+        encode: { x: [0, 1], y: 2 },
+        data: stanceData,
+        tooltip: {
+          formatter: (p: unknown) =>
+            stanceTooltip((p as { data: { item: TimelineItem } }).data.item),
         },
       },
       ...INSTANT_KINDS.filter((k) => instantData.has(k.key)).map(

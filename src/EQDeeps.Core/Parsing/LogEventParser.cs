@@ -71,6 +71,13 @@ public sealed class LogEventParser
             return cast;
         }
 
+        var stance = StanceParser.Parse(action, _options);
+        if (stance is not null)
+        {
+            recognized = true;
+            return stance;
+        }
+
         var misc = MiscParser.Parse(action, _options);
         if (misc is not null)
         {

@@ -46,12 +46,21 @@ public static class CastParser
                 CastKind.Begin);
         }
 
-        // "Your Burst of Flames spell is interrupted."
-        if (action.StartsWith("Your ", StringComparison.Ordinal) &&
-            action.EndsWith(" spell is interrupted.", StringComparison.Ordinal))
+        // "Your Burst of Flames spell is interrupted." — and the nameless
+        // "Your spell is interrupted.", where the game omits the spell and the
+        // two fixed parts share their space. That line is common (thousands per
+        // log) and used to take the whole session down with it, so the bound
+        // here is load-bearing, not defensive dressing.
+        const string Your = "Your ";
+        const string Interrupted = " spell is interrupted.";
+        if (action.StartsWith(Your, StringComparison.Ordinal) &&
+            action.EndsWith(Interrupted, StringComparison.Ordinal))
         {
-            var spell = action["Your ".Length..^" spell is interrupted.".Length];
-            return new CastEvent(options.PlayerName, spell.Length > 0 ? spell : null, CastKind.Interrupted);
+            var end = action.Length - Interrupted.Length;
+            return new CastEvent(
+                options.PlayerName,
+                end > Your.Length ? action[Your.Length..end] : null,
+                CastKind.Interrupted);
         }
 
         i = action.IndexOf("'s casting is interrupted!", StringComparison.Ordinal);

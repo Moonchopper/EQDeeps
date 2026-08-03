@@ -61,7 +61,8 @@ public sealed class SessionHost : IAsyncDisposable
             return new SessionInfo(
                 Id, Session.Path, Session.Character, Session.Server,
                 Session.BackfillComplete, Session.Records.Count, Session.Fights.Fights.Count,
-                Session.UnrecognizedLines, Session.Ingestion.MalformedLines);
+                Session.UnrecognizedLines, Session.Ingestion.MalformedLines,
+                Session.StanceSwitches);
         }
     }
 

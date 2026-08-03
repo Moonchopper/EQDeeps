@@ -3,7 +3,8 @@ import type { DiscoveredLog, FightInfo, SessionInfo, UpdateMode, UpdateState } f
 import type { BackfillEvent } from "../live";
 import { UpdateSettings } from "./UpdateSettings";
 import { TimeControls, type ChartSettings } from "../timeControls";
-import { frameLabel, isDefaultState, type TimeFrame } from "../timeFrame";
+import { isDefaultState, type TimeFrame } from "../timeFrame";
+import { TimeRangePicker } from "./TimeRangePicker";
 import { LABEL_SIZE_CHOICES } from "../fightOverlay";
 
 interface Props {
@@ -33,6 +34,8 @@ interface Props {
   /** Whether charts follow the wall clock through quiet time. */
   liveScroll: boolean;
   onLiveScroll: (on: boolean) => void;
+  /** Absolute window straight from the picker. */
+  onAbsoluteRange: (beginMs: number, endMs: number) => void;
   onOpen: (path: string) => void;
   onRefreshDiscovered: () => void;
   onActivate: (id: string) => void;
@@ -73,6 +76,7 @@ export function SessionBar({
   onFightLabelPx,
   liveScroll,
   onLiveScroll,
+  onAbsoluteRange,
   onOpen,
   onRefreshDiscovered,
   onActivate,
@@ -177,10 +181,19 @@ export function SessionBar({
           rather than on a panel precisely because it belongs to none of them:
           changing it pushes down and clears any per-panel deviation. */}
       <span className="global-time-controls" title="Rolling window and time range for every chart">
-        <span className="frame-readout" title="What every panel is currently reporting over">
-          {frameLabel(frame, fights)}
-        </span>
-        <TimeControls settings={chartDefaults} bucketSeconds={1} onChange={onChartDefaults} />
+        <TimeRangePicker
+          frame={frame}
+          spanSec={chartDefaults.spanSec}
+          fights={fights}
+          onSpan={(span) => onChartDefaults({ ...chartDefaults, spanSec: span })}
+          onAbsolute={onAbsoluteRange}
+        />
+        <TimeControls
+          settings={chartDefaults}
+          bucketSeconds={1}
+          showSpan={false}
+          onChange={onChartDefaults}
+        />
         <label className="time-controls" title="Fight overlay: off, shaded bands only, or bands with mob names at this size">
           overlay
           <select

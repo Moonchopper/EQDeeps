@@ -546,6 +546,7 @@ export default function App() {
         onFightLabelPx={updateFightLabelPx}
         liveScroll={liveScroll}
         onLiveScroll={toggleLiveScroll}
+        onAbsoluteRange={adoptRange}
         onOpen={openLog}
         onRefreshDiscovered={refreshDiscovered}
         onActivate={activate}

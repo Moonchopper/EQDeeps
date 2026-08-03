@@ -282,6 +282,117 @@ optgroup {
 }
 
 /* What the app is currently reporting over: "live", a mob name, or a range. */
+/* ---- time range picker ---- */
+.range-picker {
+  position: relative;
+  display: inline-flex;
+}
+
+.range-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 190px;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--page);
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.range-trigger:hover {
+  border-color: var(--accent);
+}
+
+.range-caret {
+  color: var(--muted);
+}
+
+.range-menu {
+  position: absolute;
+  top: 24px;
+  right: 0;
+  z-index: 40;
+  width: 250px;
+  padding: 8px 10px 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  text-align: left;
+}
+
+.range-section {
+  color: var(--muted);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  margin: 6px 0 4px;
+}
+
+.range-section:first-child {
+  margin-top: 0;
+}
+
+.range-quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.range-chip {
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--ink-2);
+  font-size: 11px;
+}
+
+.range-chip:hover {
+  border-color: var(--accent);
+  color: var(--ink);
+}
+
+.range-chip.on {
+  border-color: var(--accent);
+  color: var(--ink);
+  background: var(--page);
+}
+
+.range-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.range-row input {
+  flex: 1;
+  min-width: 0;
+  background: var(--page);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--ink);
+  padding: 3px 6px;
+  font: inherit;
+  font-size: 11px;
+}
+
+.range-note {
+  color: var(--muted);
+  font-size: 10px;
+  margin: -1px 0 2px;
+}
+
+.range-note.bad {
+  color: var(--danger);
+}
+
 /* The two zoom actions ride together at the chart's top-right. */
 .zoom-actions {
   position: absolute;
@@ -294,16 +405,6 @@ optgroup {
 
 .zoom-actions .zoom-reset {
   position: static;
-}
-
-.frame-readout {
-  color: var(--ink);
-  font-size: 11px;
-  font-weight: 600;
-  max-width: 180px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 /* The fight list is a range selector; say so once, quietly, under the rows. */

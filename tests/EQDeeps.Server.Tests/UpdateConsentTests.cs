@@ -15,6 +15,10 @@ public class AppVersionTests
     [InlineData("v0.1.0+build5", "0.1.0", false)]
     [InlineData("garbage", "0.1.0", false)]
     [InlineData("v2", "1.0.0", true)]
+    // Double-digit patch: a lexical compare would read "0.4.10" as older than
+    // "0.4.9" and silently stop offering updates from 0.4.9 onward.
+    [InlineData("v0.4.10", "0.4.9", true)]
+    [InlineData("v0.4.9", "0.4.10", false)]
     public void IsNewerComparesSemverishTags(string tag, string current, bool expected)
     {
         Assert.Equal(expected, AppVersion.IsNewer(tag, current));

@@ -129,17 +129,25 @@ export default function App() {
     liveScroll && isLive(frame) && newestRecordMs > 0 && nowMs - newestRecordMs < LIVE_LOG_GRACE_MS;
 
   /*
-   * How often every panel refetches, derived from the bucket the charts query
-   * at rather than fixed at a second.
+   * How often every panel refetches: once per bucket, backing off in step with
+   * how far out you are looking.
    *
-   * A chart cannot change faster than its bucket closes: at a 24-hour range
+   * A chart cannot change faster than its bucket closes. At a 24-hour range
    * that bucket is a minute, so a second of new data moves nothing anyone can
-   * see, and refetching every panel for it costs a megabyte a second. Short
-   * ranges bucket at a second and keep refreshing at a second, so live play
-   * is exactly as responsive as before. Capped so nothing ever feels frozen.
+   * see, and refetching nine panels to find that out costs a megabyte. Short
+   * ranges bucket at a second and keep refreshing at a second, so live play is
+   * exactly as responsive as it ever was.
+   *
+   * The ceiling is not about the charts — live scrolling advances their
+   * viewport every second with no fetch at all, so the view never looks
+   * frozen, and the live meter runs straight off the hub tick and is never
+   * throttled at all. It is for the tables and tiles, which have no bucket to
+   * hide behind and would otherwise sit on five-minute-old totals at the
+   * longest ranges.
    */
+  const MAX_REFRESH_MS = 30_000;
   const refreshIntervalMs = Math.min(
-    10_000,
+    MAX_REFRESH_MS,
     Math.max(
       1000,
       queryBucketSeconds(1, frameSpanSeconds(frame, chartDefaults.spanSec, logSpanSeconds)) * 1000,

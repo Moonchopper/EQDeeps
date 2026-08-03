@@ -325,6 +325,10 @@ function faction(): DashboardDef {
 
 // Loot lands after the kill (outside fight spans) — whole-log scope. Items
 // group on the spell dimension, their source corpse on target.
+//
+// The two tables are the same data read from both ends and sit side by side on
+// purpose: "what dropped this item" and "what does this mob drop" are the two
+// questions a loot log gets asked, and neither answers the other.
 function loot(): DashboardDef {
   return build("preset-loot", "Loot", [
     [
@@ -336,7 +340,18 @@ function loot(): DashboardDef {
         groupBy: ["spell", "target"],
         metrics: ["loots", "platinum"],
       },
-      { x: 0, y: 0, w: 8, h: 10 },
+      { x: 0, y: 0, w: 6, h: 12 },
+    ],
+    [
+      {
+        title: "Drops by mob",
+        viz: "droprate",
+        source: "loot",
+        scopeMode: "all",
+        groupBy: ["target", "spell"],
+        metrics: ["loots"],
+      },
+      { x: 6, y: 0, w: 6, h: 12 },
     ],
     [
       {
@@ -347,7 +362,7 @@ function loot(): DashboardDef {
         groupBy: ["player"],
         primaryMetric: "platinum",
       },
-      { x: 8, y: 0, w: 4, h: 4 },
+      { x: 0, y: 12, w: 2, h: 4 },
     ],
     [
       {
@@ -358,7 +373,7 @@ function loot(): DashboardDef {
         groupBy: ["player"],
         primaryMetric: "platPerHour",
       },
-      { x: 8, y: 4, w: 4, h: 3 },
+      { x: 0, y: 16, w: 2, h: 4 },
     ],
     [
       {
@@ -370,7 +385,7 @@ function loot(): DashboardDef {
         primaryMetric: "platinum",
         bucketSeconds: 60,
       },
-      { x: 0, y: 10, w: 12, h: 8 },
+      { x: 2, y: 12, w: 10, h: 8 },
     ],
   ]);
 }

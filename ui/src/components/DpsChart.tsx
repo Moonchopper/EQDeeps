@@ -3,7 +3,12 @@ import * as echarts from "echarts";
 import { api, type FightInfo, type QueryResult, type QueryRow } from "../api";
 import { fmtNum, OTHER_COLOR } from "../format";
 import type { EntityColors } from "../colors";
-import { attachWheelZoom, bucketAlignedWindow, offsetTooltip } from "../chartInteractions";
+import {
+  attachWheelZoom,
+  bucketAlignedWindow,
+  offsetTooltip,
+  stableAxisMax,
+} from "../chartInteractions";
 import {
   fmtDuration,
   spanChoices,
@@ -82,10 +87,21 @@ export function DpsChart({
   const [isZoomed, setIsZoomed] = useState(false);
   const suppressZoomEventRef = useRef(false);
   const extentRef = useRef<[number, number] | null>(null);
+  // Held across renders so the axis can refuse to follow every wobble. Reset
+  // during render rather than in an effect: an effect runs AFTER the draw, so
+  // the first frame of a new scope would still be drawn on the old scale.
+  const axisMaxRef = useRef(0);
+  const axisScopeRef = useRef("");
 
   // "fit" means show everything there is, which cannot also mean "and keep
   // sliding past it", so scrolling only applies to a fixed span. Zooming
   // suspends it too — the viewport belongs to the user until they reset.
+  const axisScope = `${frameKey}|${span}|${windowSec}`;
+  if (axisScopeRef.current !== axisScope) {
+    axisScopeRef.current = axisScope;
+    axisMaxRef.current = 0;
+  }
+
   const scrollWindow: [number, number] | null =
     scrollNowMs !== null && span !== "fit" && !isZoomed
       ? bucketAlignedWindow(scrollNowMs, span + windowSec, 1)
@@ -247,6 +263,20 @@ export function DpsChart({
       });
     }
 
+
+    // Axis top from what is actually plotted, held steady by stableAxisMax.
+    let dataMax = 0;
+    let dataMin = 0;
+    for (const s of series) {
+      for (const point of (s.data as [number, number | null][] | undefined) ?? []) {
+        if (point[1] === null) continue;
+        dataMax = Math.max(dataMax, point[1]);
+        dataMin = Math.min(dataMin, point[1]);
+      }
+    }
+
+    axisMaxRef.current = stableAxisMax(dataMax, axisMaxRef.current);
+
     // A fixed span pins the axis to [latest − span, latest]: constant width,
     // sliding right edge — no rescaling as points arrive. The right edge is
     // the newest data second (not wall clock), so replayed logs behave too.
@@ -337,6 +367,10 @@ export function DpsChart({
         },
         yAxis: {
           type: "value",
+          // Anchored at zero unless the data actually goes below it, so the
+          // floor never drifts either.
+          min: dataMin < 0 ? undefined : 0,
+          max: axisMaxRef.current,
           axisLabel: {
             color: "#898781",
             fontSize: 11,

@@ -7,7 +7,7 @@ F8, F14. Beyond spec: log autodetection (running process/registry/known paths),
 aggregate selection stats, by-target grouping, rolling-window + zoomable DPS
 charts, ability breakdown chart with per-attacker stacks, app-wide pet-rollup
 toggle, cross-panel entity colors with tinted table rows, one app-wide time frame (F7a), standard views (F7b),
-Gantt-style event timeline (per-PC/NPC lanes: casts, activated abilities,
+Gantt-style event timeline (per-PC/NPC lanes with alternating banding and a time grid; cast marks are sized by what the cast landed, paired from the following damage/heal records, damage and healing on separate frame-wide scales and split by hue so a large mark is never ambiguous: casts, activated abilities,
 deaths, resists, plus buff spans paired from the owner's cast → named
 "worn off" messages; `POST /api/sessions/{id}/timeline` is the seed of the
 event system that will annotate DPS/heal charts — spell-DB integration adds

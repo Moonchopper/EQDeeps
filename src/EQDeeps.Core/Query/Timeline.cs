@@ -22,6 +22,14 @@ public enum TimelineItemKind
 /// requested range — <see cref="StartsBefore"/>/<see cref="EndsAfter"/> say a
 /// clipped edge continues beyond it.
 /// </summary>
+/// <summary>What a cast turned out to do, for sizing its mark.</summary>
+public enum TimelineEffect
+{
+    None,
+    Damage,
+    Heal,
+}
+
 public sealed record TimelineItem(
     string Actor,
     TimelineItemKind Kind,
@@ -29,7 +37,10 @@ public sealed record TimelineItem(
     DateTime Start,
     DateTime? End = null,
     bool StartsBefore = false,
-    bool EndsAfter = false);
+    bool EndsAfter = false,
+    /// <summary>Total landed by this cast, when it could be paired. Null otherwise.</summary>
+    double? Amount = null,
+    TimelineEffect Effect = TimelineEffect.None);
 
 public sealed record TimelineResult(
     DateTime? RangeBegin,
@@ -142,8 +153,163 @@ public static class TimelineBuilder
         }
 
         items.AddRange(fades);
+        AttachCastAmounts(records, items, rangeEnd);
         items.Sort((a, b) => a.Start.CompareTo(b.Start));
         return new TimelineResult(rangeBegin, rangeEnd, items, version);
+    }
+
+    /// <summary>
+    /// How long after "begins casting X" the result may still arrive. Long
+    /// enough for a slow cast plus travel time, short enough that it is still
+    /// plausibly THIS cast's doing.
+    /// </summary>
+    private static readonly TimeSpan LandingWindow = TimeSpan.FromSeconds(12);
+
+    /// <summary>
+    /// Joins each cast to what it did, so the UI can size the mark by it.
+    ///
+    /// The cast line fires when the spell STARTS, and carries no numbers — the
+    /// damage or healing arrives later as its own record. So the amount has to
+    /// be inferred: sum everything that actor landed under that spell's name
+    /// inside <see cref="LandingWindow"/>, stopping early if they recast it,
+    /// since past that point the credit is ambiguous.
+    ///
+    /// Known and accepted: a damage-over-time spell is credited only with the
+    /// ticks inside the window, not its lifetime total, and a multi-target
+    /// spell sums every target it hit — which is what "what did that cast do"
+    /// should mean. Casts that never land anything keep a null amount and the
+    /// UI draws them at its base size rather than at zero.
+    /// </summary>
+    private static void AttachCastAmounts(
+        RecordStore records, List<TimelineItem> items, DateTime rangeEnd)
+    {
+        var landings = new Dictionary<(string Actor, string Spell), List<(DateTime At, double Amount, bool Heal)>>(
+            CastKeyComparer.Instance);
+
+        void Land(string? actor, string? spell, DateTime at, double amount, bool heal)
+        {
+            if (actor is null || string.IsNullOrEmpty(spell) || amount <= 0)
+            {
+                return;
+            }
+
+            var key = (actor, spell);
+            if (!landings.TryGetValue(key, out var list))
+            {
+                landings[key] = list = [];
+            }
+
+            list.Add((at, amount, heal));
+        }
+
+        // Reach past the range's end: a cast at the last second still lands
+        // after it, and that result belongs to the cast the user can see.
+        foreach (var (timestamp, evt) in records.Range(records.Count > 0 ? records[0].Timestamp : rangeEnd,
+                     rangeEnd + LandingWindow))
+        {
+            switch (evt)
+            {
+                case DamageEvent { AttackerIsSpell: false } d when d.Kind is not DamageKind.DamageShield:
+                    Land(d.Attacker, d.SubType, timestamp, d.Amount, heal: false);
+                    break;
+                case HealEvent h:
+                    Land(h.Healer, h.Spell, timestamp, h.Landed, heal: true);
+                    break;
+            }
+        }
+
+        // A recast closes the previous cast's window early.
+        var nextCast = new Dictionary<(string, string), List<DateTime>>(CastKeyComparer.Instance);
+        foreach (var item in items)
+        {
+            if (item.Kind is TimelineItemKind.Cast or TimelineItemKind.Song)
+            {
+                var key = (item.Actor, item.Label);
+                if (!nextCast.TryGetValue(key, out var times))
+                {
+                    nextCast[key] = times = [];
+                }
+
+                times.Add(item.Start);
+            }
+        }
+
+        foreach (var times in nextCast.Values)
+        {
+            times.Sort();
+        }
+
+        for (var i = 0; i < items.Count; i++)
+        {
+            var item = items[i];
+            if (item.Kind is not (TimelineItemKind.Cast or TimelineItemKind.Song))
+            {
+                continue;
+            }
+
+            var key = (item.Actor, item.Label);
+            if (!landings.TryGetValue(key, out var candidates))
+            {
+                continue;
+            }
+
+            var windowEnd = item.Start + LandingWindow;
+            if (nextCast.TryGetValue(key, out var castTimes))
+            {
+                foreach (var other in castTimes)
+                {
+                    if (other > item.Start && other < windowEnd)
+                    {
+                        windowEnd = other;
+                        break;
+                    }
+                }
+            }
+
+            double damage = 0;
+            double healed = 0;
+            foreach (var (at, amount, heal) in candidates)
+            {
+                if (at < item.Start || at >= windowEnd)
+                {
+                    continue;
+                }
+
+                if (heal)
+                {
+                    healed += amount;
+                }
+                else
+                {
+                    damage += amount;
+                }
+            }
+
+            // A spell that both damages and heals (a lifetap) is reported as
+            // whichever it did more of — one mark, one size, one scale.
+            if (damage <= 0 && healed <= 0)
+            {
+                continue;
+            }
+
+            items[i] = damage >= healed
+                ? item with { Amount = damage, Effect = TimelineEffect.Damage }
+                : item with { Amount = healed, Effect = TimelineEffect.Heal };
+        }
+    }
+
+    private sealed class CastKeyComparer : IEqualityComparer<(string Actor, string Spell)>
+    {
+        public static readonly CastKeyComparer Instance = new();
+
+        public bool Equals((string Actor, string Spell) a, (string Actor, string Spell) b) =>
+            string.Equals(a.Actor, b.Actor, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(a.Spell, b.Spell, StringComparison.OrdinalIgnoreCase);
+
+        public int GetHashCode((string Actor, string Spell) key) =>
+            HashCode.Combine(
+                StringComparer.OrdinalIgnoreCase.GetHashCode(key.Actor),
+                StringComparer.OrdinalIgnoreCase.GetHashCode(key.Spell));
     }
 
     /// <summary>Same scope semantics as the query engine's merged-range sources.</summary>

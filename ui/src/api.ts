@@ -86,6 +86,9 @@ export interface TimelineItem {
   end?: string;
   startsBefore?: boolean;
   endsAfter?: boolean;
+  /** What this cast landed, when it could be paired. Absent when unknown. */
+  amount?: number;
+  effect?: "none" | "damage" | "heal";
 }
 
 export interface TimelineResult {

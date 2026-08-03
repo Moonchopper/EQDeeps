@@ -40,6 +40,15 @@ import {
   type TimeFrame,
 } from "./timeFrame";
 
+/**
+ * How stale the log can get before wall-clock scrolling stops making sense.
+ * Opening a log written days ago with the charts still chasing the clock would
+ * show a window of pure zeros — the data is there, just hours to the left. An
+ * hour is generous enough for any AFK and short enough that reviewing an
+ * archive pins to the data instead.
+ */
+const LIVE_LOG_GRACE_MS = 60 * 60 * 1000;
+
 /** Update polling: rare when nothing is happening, brisk while it is. */
 const IDLE_POLL_MS = 15_000;
 const ACTIVE_POLL_MS = 700;
@@ -78,6 +87,14 @@ export default function App() {
     const stored = Number(localStorage.getItem("eqdeeps.fightLabelPx"));
     return Number.isFinite(stored) && stored >= 0 ? stored : DEFAULT_LABEL_PX;
   });
+  // Wall-clock scrolling. The server anchors a trailing window to the newest
+  // RECORD, so with the log quiet the picture freezes — which reads as "the
+  // chart broke" rather than "nothing is happening". With this on the charts
+  // keep advancing and the quiet time draws as the zero it is.
+  const [liveScroll, setLiveScroll] = useState(
+    () => localStorage.getItem("eqdeeps.liveScroll") !== "off",
+  );
+  const [nowMs, setNowMs] = useState(() => Date.now());
   const [fightsCollapsed, setFightsCollapsed] = useState(
     () => localStorage.getItem("eqdeeps.fightsCollapsed") === "on",
   );
@@ -95,6 +112,13 @@ export default function App() {
     () => localStorage.getItem("eqdeeps.stdView") ?? SUMMARY_VIEW,
   );
   const standard = useMemo(() => standardViews(), []);
+  // Scrolling needs a live tail AND a log that is still being written; see
+  // LIVE_LOG_GRACE_MS.
+  const newestRecordMs = fights.length
+    ? new Date(fights[fights.length - 1].lastDamageTime).getTime()
+    : 0;
+  const scrolling =
+    liveScroll && isLive(frame) && newestRecordMs > 0 && nowMs - newestRecordMs < LIVE_LOG_GRACE_MS;
   const summaryTrends = useMemo(() => summaryTrendPanels(), []);
 
   function selectStdView(id: string) {
@@ -135,6 +159,12 @@ export default function App() {
   function updateFightLabelPx(px: number) {
     setFightLabelPx(px);
     localStorage.setItem("eqdeeps.fightLabelPx", String(px));
+  }
+
+  function toggleLiveScroll(on: boolean) {
+    setLiveScroll(on);
+    localStorage.setItem("eqdeeps.liveScroll", on ? "on" : "off");
+    setNowMs(Date.now()); // catch up immediately rather than at the next tick
   }
 
   function toggleFightsCollapsed() {
@@ -318,6 +348,14 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // One clock for every scrolling chart, ticking only while the feature is on
+  // and the frame is a live tail — a fixed range has nothing to scroll toward.
+  useEffect(() => {
+    if (!liveScroll || !isLive(frame)) return;
+    const timer = window.setInterval(() => setNowMs(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [liveScroll, frame]);
+
   // While something is actually happening, poll fast enough for the progress
   // bar to move. At the idle interval a download finishes between two polls,
   // so the update appears to do nothing and then be done.
@@ -496,6 +534,8 @@ export default function App() {
         onResetDefaults={resetToDefaults}
         fightLabelPx={fightLabelPx}
         onFightLabelPx={updateFightLabelPx}
+        liveScroll={liveScroll}
+        onLiveScroll={toggleLiveScroll}
         onOpen={openLog}
         onRefreshDiscovered={refreshDiscovered}
         onActivate={activate}
@@ -583,6 +623,9 @@ export default function App() {
               refreshKey,
               petRollup,
               colors: entityColors,
+              // null when there is nothing to scroll toward, so every chart
+              // makes the same call without repeating the condition.
+              scrollNowMs: scrolling ? nowMs : null,
             };
             return (
           <main className={"dashboard" + (fightsCollapsed ? " fights-collapsed" : "")}>
@@ -638,6 +681,7 @@ export default function App() {
                       petRollup={petRollup}
                       colors={entityColors}
                       chartDefaults={chartDefaults}
+                      scrollNowMs={panelCtx.scrollNowMs}
                     />
                     {/* Healing and damage taken abreast, under the DPS chart:
                         output, upkeep and what came back, all on one axis. */}

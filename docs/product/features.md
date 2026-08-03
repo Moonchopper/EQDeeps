@@ -7,7 +7,7 @@ F8, F14. Beyond spec: log autodetection (running process/registry/known paths),
 aggregate selection stats, by-target grouping, rolling-window + zoomable DPS
 charts, ability breakdown chart with per-attacker stacks, app-wide pet-rollup
 toggle, cross-panel entity colors with tinted table rows, one app-wide time frame (F7a), standard views (F7b),
-Gantt-style event timeline (per-PC/NPC lanes: casts, activated abilities,
+Gantt-style event timeline (per-PC/NPC lanes with alternating banding and a time grid; cast marks are sized by what the cast landed, paired from the following damage/heal records, damage and healing on separate frame-wide scales and split by hue so a large mark is never ambiguous: casts, activated abilities,
 deaths, resists, plus buff spans paired from the owner's cast → named
 "worn off" messages; `POST /api/sessions/{id}/timeline` is the seed of the
 event system that will annotate DPS/heal charts — spell-DB integration adds
@@ -86,6 +86,8 @@ The frame is either a **live tail** — the trailing span of the record stream, 
 The fight list is a **range selector**, not a filter. Click frames one fight, shift-click extends to frame everything between in list order, ctrl/cmd-click adds or removes one, a group header frames the pull chain. What is picked becomes the window between the first and last fight chosen, downtime included. Because it is a window, combat from other fights inside it counts too — concurrent mobs, or a long pull straddling the edge.
 
 Combat still aggregates per fight *within* the frame, so DPS over a framed stretch means what it meant when those fights were selected directly, rather than damage averaged across the downtime between them. Progression sources take the frame whole, which is what makes a range worth having.
+
+A live frame can also follow the **wall clock** rather than the newest record (a "scroll" toggle in the top bar, on by default). The server anchors a trailing window to the newest record, so with the log quiet the picture freezes — which reads as a broken chart rather than as nothing happening. Scrolling keeps the window advancing and draws the quiet time as the zero it is, with the rolling mean decaying into it. It stops when the log has gone an hour without a line, since chasing the clock across an archived log would show a window of pure zeros with the data hours to the left, and it yields to an active zoom.
 
 A single **reset** in the top bar returns the frame to live and the window/span to their defaults; "back to live" in the fight list releases a range without touching the settings.
 

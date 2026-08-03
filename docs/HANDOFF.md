@@ -8,7 +8,7 @@
 > sample log, Azure Artifact Signing for releases
 > (`docs/release-signing.md`), and consent-driven auto-updating shipped as an
 > Inno Setup installer alongside the portable zip (ADR-010, feature F22).
-> Currently at **v0.4.9**. See `docs/product/features.md` for per-feature
+> Currently at **v0.4.10**. See `docs/product/features.md` for per-feature
 > status. The main open items: real-log validation against EQLogParser (the
 > release gate), the spell-DB work (class detection, bane, lands-on
 > resolution — reference data files not yet copied), identity-registry disk

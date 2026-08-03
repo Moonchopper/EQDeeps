@@ -101,3 +101,25 @@ export function attachWheelZoom(
     zr.off("mousewheel", onWheel);
   };
 }
+
+/**
+ * A [start, end] window ending at `nowMs`, with BOTH ends snapped down to the
+ * bucket grid.
+ *
+ * This alignment is load-bearing, not tidiness. Smoothing walks the window in
+ * bucket-sized steps and looks each timestamp up in a map keyed by the
+ * server's bucket starts, which are whole seconds. Start from an unaligned
+ * `Date.now()` and every single lookup misses, so a chart full of data draws
+ * as a flat line of zeros. The server floors in local time and every real UTC
+ * offset is a whole number of minutes, so flooring epoch milliseconds lands on
+ * the same grid.
+ */
+export function bucketAlignedWindow(
+  nowMs: number,
+  lengthSec: number,
+  bucketSeconds: number,
+): [number, number] {
+  const step = Math.max(1, bucketSeconds) * 1000;
+  const end = Math.floor(nowMs / step) * step;
+  return [end - Math.ceil((lengthSec * 1000) / step) * step, end];
+}

@@ -3,7 +3,7 @@ import * as echarts from "echarts";
 import { api, type FightInfo, type QueryResult, type QueryRow } from "../api";
 import { fmtNum, OTHER_COLOR } from "../format";
 import type { EntityColors } from "../colors";
-import { attachWheelZoom, offsetTooltip } from "../chartInteractions";
+import { attachWheelZoom, bucketAlignedWindow, offsetTooltip } from "../chartInteractions";
 import {
   fmtDuration,
   spanChoices,
@@ -21,6 +21,8 @@ interface Props {
   fights: FightInfo[];
   /** Mob-name size on the bands; 0 hides them. */
   fightLabelPx: number;
+  /** Wall clock while scrolling; null when the window should sit still. */
+  scrollNowMs: number | null;
   refreshKey: number;
   petRollup: boolean;
   colors: EntityColors;
@@ -51,6 +53,7 @@ export function DpsChart({
   frame,
   fights,
   fightLabelPx,
+  scrollNowMs,
   refreshKey,
   petRollup,
   colors,
@@ -79,6 +82,14 @@ export function DpsChart({
   const [isZoomed, setIsZoomed] = useState(false);
   const suppressZoomEventRef = useRef(false);
   const extentRef = useRef<[number, number] | null>(null);
+
+  // "fit" means show everything there is, which cannot also mean "and keep
+  // sliding past it", so scrolling only applies to a fixed span. Zooming
+  // suspends it too — the viewport belongs to the user until they reset.
+  const scrollWindow: [number, number] | null =
+    scrollNowMs !== null && span !== "fit" && !isZoomed
+      ? bucketAlignedWindow(scrollNowMs, span + windowSec, 1)
+      : null;
 
   const resetZoom = useCallback(() => {
     const chart = chartRef.current;
@@ -174,12 +185,20 @@ export function DpsChart({
     }
     const timeline = [...allSeconds].sort((a, b) => a - b);
     const segments: [number, number][] = [];
-    for (const t of timeline) {
-      const last = segments[segments.length - 1];
-      if (last && t - last[1] <= BREAK_MS) {
-        last[1] = t;
-      } else {
-        segments.push([t, t]);
+    if (scrollWindow) {
+      // Scrolling with the wall clock: the window IS [now - span, now], so
+      // that is the segment. Seconds with nothing in them read as zero, so
+      // quiet time draws as a line along the floor that keeps moving and the
+      // rolling mean decays into it rather than freezing at its last value.
+      segments.push(scrollWindow);
+    } else {
+      for (const t of timeline) {
+        const last = segments[segments.length - 1];
+        if (last && t - last[1] <= BREAK_MS) {
+          last[1] = t;
+        } else {
+          segments.push([t, t]);
+        }
       }
     }
 
@@ -234,7 +253,9 @@ export function DpsChart({
     let axisMin: number | null = null;
     let axisMax: number | null = null;
     if (span !== "fit" && segments.length > 0 && !isZoomed) {
-      axisMax = segments[segments.length - 1][1];
+      // While scrolling the right edge is the clock; otherwise it is the
+      // newest record, so a replayed or finished log still behaves.
+      axisMax = scrollWindow ? scrollWindow[1] : segments[segments.length - 1][1];
       axisMin = axisMax - effectiveSpan * 1000;
     }
 
@@ -333,7 +354,7 @@ export function DpsChart({
       key: "dataZoomSelect",
       dataZoomSelectActive: true,
     });
-  }, [result, windowSec, span, colors, isZoomed, fights, fightLabelPx]);
+  }, [result, windowSec, span, colors, isZoomed, fights, fightLabelPx, scrollNowMs]);
 
   return (
     <div className="panel chart-panel">

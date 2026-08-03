@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as echarts from "echarts";
-import { api, type FightInfo, type TimelineItem, type TimelineItemKind, type TimelineResult } from "../api";
+import { api, type FightInfo, type TimelineItem, type TimelineResult } from "../api";
 import { attachWheelZoom, offsetTooltip } from "../chartInteractions";
+import { fmtNum } from "../format";
 import { fightsInFrame, type TimeFrame } from "../timeFrame";
 
 interface Props {
@@ -13,31 +14,63 @@ interface Props {
 }
 
 /**
- * Kind → mark styling. Only three categorical hues (buffs, casts, abilities)
- * so every pair stays distinguishable; the "nothing happened / ended" marks
- * (interrupt, fizzle, fade, resist) share a neutral gray and rely on their
- * symbol + the legend, and deaths wear the reserved status red with an ✕.
+ * Mark styling, keyed by kind — except casts, which split by what they did so
+ * a large mark is never ambiguous between a big hit and a big heal. Four
+ * categorical hues (buffs, damage casts, abilities, heal casts), validated
+ * together against the panel surface rather than eyeballed; the "nothing
+ * happened / ended" marks (interrupt, fizzle, fade, resist) share a neutral
+ * gray and rely on their symbol + the legend, and deaths wear the reserved
+ * status red with an ✕.
  */
 const DEATH_X =
   "path://M2,0 L5,3 L8,0 L10,2 L7,5 L10,8 L8,10 L5,7 L2,10 L0,8 L3,5 L0,2 Z";
 
 const SPAN_COLOR = "#3987e5"; // buffs
 
+/**
+ * Magnitude rides on SIZE, because hue is already spent on what a mark is.
+ * Area is the readable channel for "how big", so the radius follows a square
+ * root — a 4× hit must not look 16× larger. The floor is the base size rather
+ * than zero: a small hit still has to be visible and hoverable, which costs
+ * strict area-proportionality at the bottom of the scale and is worth it.
+ */
+const MARK_MIN_PX = 9;
+const MARK_MAX_PX = 22;
+
+function markSize(item: TimelineItem, peakDamage: number, peakHeal: number): number {
+  const peak = item.effect === "heal" ? peakHeal : peakDamage;
+  if (!item.amount || peak <= 0) {
+    return MARK_MIN_PX;
+  }
+
+  const scaled = Math.sqrt(Math.min(item.amount, peak) / peak);
+  return MARK_MIN_PX + (MARK_MAX_PX - MARK_MIN_PX) * scaled;
+}
+
+/** Casts split on effect; everything else is its bare kind. */
+function markKey(item: TimelineItem): string {
+  return (item.kind === "cast" || item.kind === "song") && item.effect === "heal"
+    ? `${item.kind}:heal`
+    : item.kind;
+}
+
 const INSTANT_KINDS: {
-  kind: TimelineItemKind;
+  key: string;
   name: string;
   color: string;
   symbol: string;
   rotate?: number;
 }[] = [
-  { kind: "cast", name: "casts", color: "#d95926", symbol: "triangle" },
-  { kind: "song", name: "songs", color: "#d95926", symbol: "diamond" },
-  { kind: "ability", name: "abilities", color: "#199e70", symbol: "rect" },
-  { kind: "interrupt", name: "interrupts", color: "#898781", symbol: "triangle", rotate: 180 },
-  { kind: "fizzle", name: "fizzles", color: "#898781", symbol: "emptyCircle" },
-  { kind: "fade", name: "fades", color: "#898781", symbol: "emptyDiamond" },
-  { kind: "resist", name: "resists", color: "#898781", symbol: "pin" },
-  { kind: "death", name: "deaths", color: "#d03b3b", symbol: DEATH_X },
+  { key: "cast", name: "casts", color: "#d95926", symbol: "triangle" },
+  { key: "cast:heal", name: "heal casts", color: "#9163d9", symbol: "triangle" },
+  { key: "song", name: "songs", color: "#d95926", symbol: "diamond" },
+  { key: "song:heal", name: "heal songs", color: "#9163d9", symbol: "diamond" },
+  { key: "ability", name: "abilities", color: "#199e70", symbol: "rect" },
+  { key: "interrupt", name: "interrupts", color: "#898781", symbol: "triangle", rotate: 180 },
+  { key: "fizzle", name: "fizzles", color: "#898781", symbol: "emptyCircle" },
+  { key: "fade", name: "fades", color: "#898781", symbol: "emptyDiamond" },
+  { key: "resist", name: "resists", color: "#898781", symbol: "pin" },
+  { key: "death", name: "deaths", color: "#d03b3b", symbol: DEATH_X },
 ];
 
 const ROW_HEIGHT = 20;
@@ -117,7 +150,12 @@ function spanTooltip(item: TimelineItem): string {
 }
 
 function instantTooltip(item: TimelineItem, kindName: string): string {
-  return `<b>${item.label}</b><br/>${kindName.replace(/s$/, "")} · ${item.actor} · ${fmtTime(item.start)}`;
+  // The size says "big"; the tooltip has to say how big, since a size read off
+  // a scale with no axis is an ordering, not a number.
+  const landed = item.amount
+    ? ` · ${fmtNum(item.amount)} ${item.effect === "heal" ? "healed" : "damage"}`
+    : "";
+  return `<b>${item.label}</b><br/>${kindName.replace(/s$/, "")} · ${item.actor} · ${fmtTime(item.start)}${landed}`;
 }
 
 /**
@@ -211,7 +249,7 @@ export function TimelineChart({ sessionId, frame, refreshKey, character, fights 
     const labels = rows.map((r) => r.label);
 
     const spanData: { value: [number, number, number]; item: TimelineItem }[] = [];
-    const instantData = new Map<TimelineItemKind, { value: [number, number]; item: TimelineItem }[]>();
+    const instantData = new Map<string, { value: [number, number]; item: TimelineItem }[]>();
     rows.forEach((row, rowIndex) => {
       for (const span of row.spans) {
         spanData.push({
@@ -220,14 +258,30 @@ export function TimelineChart({ sessionId, frame, refreshKey, character, fights 
         });
       }
       for (const instant of row.instants) {
-        let list = instantData.get(instant.kind);
+        const key = markKey(instant);
+        let list = instantData.get(key);
         if (!list) {
           list = [];
-          instantData.set(instant.kind, list);
+          instantData.set(key, list);
         }
         list.push({ value: [new Date(instant.start).getTime(), rowIndex], item: instant });
       }
     });
+
+    // Frame-wide peaks: the scale must not be re-derived per lane, or two
+    // equal-looking marks could be 400 and 5,000.
+    let peakDamage = 0;
+    let peakHeal = 0;
+    for (const row of rows) {
+      for (const instant of row.instants) {
+        if (!instant.amount) continue;
+        if (instant.effect === "heal") {
+          peakHeal = Math.max(peakHeal, instant.amount);
+        } else if (instant.effect === "damage") {
+          peakDamage = Math.max(peakDamage, instant.amount);
+        }
+      }
+    }
 
     const series: echarts.SeriesOption[] = [
       {
@@ -265,15 +319,19 @@ export function TimelineChart({ sessionId, frame, refreshKey, character, fights 
             spanTooltip((p as { data: { item: TimelineItem } }).data.item),
         },
       },
-      ...INSTANT_KINDS.filter((k) => instantData.has(k.kind)).map(
+      ...INSTANT_KINDS.filter((k) => instantData.has(k.key)).map(
         (k): echarts.SeriesOption => ({
           name: k.name,
           type: "scatter",
           color: k.color,
           symbol: k.symbol,
-          symbolSize: 9,
+          // One scale per measure across the whole frame, so a mark of a given
+          // size means the same number in every lane. Damage and healing are
+          // scaled apart — 5,000 of each is not the same quantity.
+          symbolSize: (_v: unknown, p: unknown) =>
+            markSize((p as { data: { item: TimelineItem } }).data.item, peakDamage, peakHeal),
           symbolRotate: k.rotate,
-          data: instantData.get(k.kind)!,
+          data: instantData.get(k.key)!,
           tooltip: {
             formatter: (p: unknown) =>
               instantTooltip((p as { data: { item: TimelineItem } }).data.item, k.name),
@@ -321,7 +379,10 @@ export function TimelineChart({ sessionId, frame, refreshKey, character, fights 
           max: rangeEnd,
           axisLine: { lineStyle: { color: "#383835" } },
           axisLabel: { color: "#898781", fontSize: 11 },
-          splitLine: { show: false },
+          // Lanes here are categories, not values, so without vertical rules
+          // there is nothing to read a mark's time against but the axis at the
+          // bottom — which is far away by the time you are on the fourth lane.
+          splitLine: { show: true, lineStyle: { color: "#2c2c2a" } },
         },
         yAxis: {
           type: "category",
@@ -336,7 +397,15 @@ export function TimelineChart({ sessionId, frame, refreshKey, character, fights 
             overflow: "truncate" as const,
             formatter: (value: string) => labels[Number(value)] ?? "",
           },
-          splitLine: { lineStyle: { color: "#2c2c2a" } },
+          // Banding, not lines: a mark far from the axis needs its row carried
+          // across to the name, and alternating washes do that without adding
+          // rules that compete with the vertical time grid. Both steps are
+          // barely-there on purpose — the events are the subject.
+          splitArea: {
+            show: true,
+            areaStyle: { color: ["rgba(255,255,255,0.022)", "rgba(255,255,255,0.055)"] },
+          },
+          splitLine: { show: false },
         },
         series,
       },

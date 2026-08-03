@@ -41,6 +41,7 @@ The most disputed numbers in parsing come down to denominators. The reference se
 - **Raid time** = union of *everyone's* segments over the selection (total encounter duration).
 - Time segments are unions of `[begin, end]` ranges with overlap merging — a fight selection where two fights overlap in wall-clock time must not double-count seconds.
 - A **min/max time trim** may be applied to the selection ("only the first 60 s of the fight", "skip the first 10 s") before computing anything.
+- **Stance time** is a third denominator, used only by the stance breakdown: the union of the stance's spans clipped to the scope. It counts every second the stance was *held*, including the ones that produced nothing. Active time would refund exactly those seconds, which is the cost a slower stance is being weighed for — so `stanceDps = total ÷ stance time` is the fair comparison and plain `dps` is shown beside it rather than instead of it. A stance span with no records in scope is not counted (it has no row either).
 
 ## 5. Derived metric catalog (formulas)
 
@@ -69,6 +70,9 @@ For each player (and each subtype under them):
 | Overheal % (`ExtraRate`) | `Extra / (Total + Extra) × 100` | healing views |
 | Resist rate % | `resists / (SpellHits + resists) × 100` | per spell |
 | % of total | `playerTotal / grandTotal × 100` | within current scope |
+| Per second held (`stanceDps`) | `Total / stanceSeconds` | stance breakdown; see §4 for why not `activeSeconds` |
+| Time held (`stanceSeconds`) | union of the stance's spans ∩ scope | rendered as a duration, not a count |
+| Uptime % (`stanceUptime`) | `stanceSeconds / scope stanceSeconds × 100` | share of *tracked stance time*, so the column sums to 100% |
 
 Formatting conventions: large numbers abbreviate K/M/B with one decimal (`126.2K`, `1.6M`); rates one decimal place. The "parse to chat" text format ranks by SDPS (damage) or total (healing/tanking).
 

@@ -191,6 +191,21 @@ Your Spirit of Wolf spell has worn off.             (wear-off)
 - "Begins casting/singing" → cast record (who, what). "Lands on you/other" and "has worn off" messages are how received buffs/debuffs are tracked — but these messages carry the spell's *lands-on text*, not its name, so resolution requires the **spell database** (§6): a longest-prefix match from lands-on/wear-off message → candidate spells.
 - Zoning: `LOADING, PLEASE WAIT...` and `Welcome to EverQuest!` mark zone transitions (used to close fights, trigger archive points, and split sessions). `You have entered <Zone Name>.` names the zone.
 
+### 3.9a Combat stances
+
+```
+You begin to change your stance.                    (switch announced)
+You assume a defensive stance.                      (switch lands, ~1 s later)
+You assume a berserker stance.
+You assume an evasive fighting style.               (classic discipline wording)
+You return to your normal stance.
+```
+
+- Stances are **mutually exclusive**: assuming one ends whichever was held. The log records the change, never the duration, so spans are derived by pairing each switch with the next (`StanceTimeline`) — they tile the session with no gaps and no overlaps.
+- The state moves on the "assume" line. "Begin to change" is the announcement and is deliberately ignored, so the ~1 s of switching is credited to the stance being left.
+- Parsed by **shape, not by a list of known stances**: servers keep adding them, and an unrecognized stance must appear as itself rather than vanish. Anything of the form `You assume a[n] <name> stance.` / `… fighting style.` is a switch.
+- Only the **log owner's** stance is knowable — everyone else's switches were written to their own log — so records belonging to other players key to `(not you)` rather than being attributed to whatever the owner was holding.
+
 ### 3.10 Taunts
 
 ```

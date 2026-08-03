@@ -36,6 +36,8 @@ import { fightMarkArea } from "../fightOverlay";
 
 export interface PanelContext {
   sessionId: string;
+  /** The open log's character — resolves `ownerOnly` panels. */
+  character: string;
   frame: TimeFrame;
   /** For the fight bands drawn behind time charts. */
   fights: FightInfo[];
@@ -62,6 +64,13 @@ function fmtMetric(metric: string, value: number): string {
       metric === "loots" || metric === "considers" || metric === "conLevel") {
     return String(Math.round(value));
   }
+  // Stance time is a duration, and "1.2K" seconds is not a duration anyone
+  // reads. Minutes past a minute, seconds below it.
+  if (metric === "stanceSeconds") {
+    return value >= 60
+      ? `${Math.floor(value / 60)}m ${Math.round(value % 60)}s`
+      : `${Math.round(value)}s`;
+  }
   if (metric === "xpPercent" || metric === "xpPerHour") {
     // Level-progress points, not a ratio: show two decimals (gains are tiny).
     return value.toFixed(2);
@@ -75,7 +84,8 @@ function usePanelQuery(
   settings: ChartSettings,
 ): QueryResult | null | "no-selection" {
   const [result, setResult] = useState<QueryResult | null>(null);
-  const spec = buildSpec(panel, ctx.frame, ctx.petRollup, settings, ctx.logSpanSeconds);
+  const spec = buildSpec(
+    panel, ctx.frame, ctx.petRollup, settings, ctx.logSpanSeconds, ctx.character);
   const specKey = JSON.stringify(spec);
 
   useEffect(() => {
@@ -795,6 +805,7 @@ function useKillCounts(
       excludeFlags: [],
       playerFilter: [],
       spellFilter: [],
+      ownerOnly: false, // rows are mob names here, not players
     },
     ctx.frame,
     false,

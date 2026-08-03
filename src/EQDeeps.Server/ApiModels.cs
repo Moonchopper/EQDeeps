@@ -42,7 +42,9 @@ public sealed record SessionInfo(
     int RecordCount,
     int FightCount,
     long UnrecognizedLines,
-    long MalformedLines);
+    long MalformedLines,
+    /// <summary>Stance switches by this character — gates the Stances view.</summary>
+    long StanceSwitches = 0);
 
 public sealed record FightInfo(
     int Id,

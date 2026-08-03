@@ -83,6 +83,19 @@ public sealed class CounterBag
 
     public readonly TimeSegments ActiveTime = new();
 
+    /// <summary>
+    /// Time the row's stance was actually held, within scope — populated only
+    /// for queries that ask about stances (see MetricCatalog's stance metrics).
+    ///
+    /// Distinct from <see cref="ActiveTime"/> on purpose. Active time is the
+    /// span between a row's first and last record, which measures when it was
+    /// DOING something; stance time measures how long the state was held,
+    /// including the seconds it produced nothing. That difference is the whole
+    /// question — a stance you swing less often in should show as lower damage
+    /// per second, not get its idle seconds quietly refunded.
+    /// </summary>
+    public readonly TimeSegments StanceTime = new();
+
     public void Add(ExperienceEvent xp)
     {
         if (xp.AaPoint)

@@ -34,6 +34,15 @@ export interface PanelDef {
   playerFilter: string[];
   spellFilter: string[];
   /**
+   * Restrict the panel to the log's own character (and their pets).
+   *
+   * A name filter cannot express this in a saved panel: the panel outlives the
+   * session it was built in, and a dashboard exported from one character would
+   * report on that character forever. This resolves against whichever log is
+   * open, which is what "me" has to mean for a stored view.
+   */
+  ownerOnly?: boolean;
+  /**
    * Line panels: the server-side bucket width. This is a QUERY parameter —
    * it decides what the server aggregates. The rolling window and the
    * viewport span are presentation and live in the app-wide chart settings
@@ -96,12 +105,15 @@ export const METRIC_LABELS: Record<string, string> = {
   platPerHour: "Plat/hr",
   considers: "Considers",
   conLevel: "Level",
+  stanceSeconds: "Time held",
+  stanceDps: "Per s held",
+  stanceUptime: "Uptime %",
 };
 
 export const RATE_METRICS = new Set([
   "percentOfTotal", "critRate", "luckyRate", "twincastRate", "flurryRate",
   "riposteRate", "strikethroughRate", "meleeHitRate", "meleeAccuracy",
-  "undefendedRate", "overhealRate",
+  "undefendedRate", "overhealRate", "stanceUptime",
 ]);
 
 export const DIMENSIONS: { value: Dimension; label: string }[] = [
@@ -110,6 +122,7 @@ export const DIMENSIONS: { value: Dimension; label: string }[] = [
   { value: "target", label: "target" },
   { value: "damageType", label: "damage type" },
   { value: "character", label: "character" },
+  { value: "stance", label: "your stance" },
 ];
 
 export const VALIDITY_FLAGS: { value: string; label: string }[] = [
@@ -142,6 +155,7 @@ export function defaultPanel(): PanelDef {
     excludeFlags: [],
     playerFilter: [],
     spellFilter: [],
+    ownerOnly: false,
     bucketSeconds: 1,
   };
 }
@@ -204,6 +218,8 @@ export function buildSpec(
   petRollup: boolean,
   settings: ChartSettings,
   logSpanSeconds: number,
+  /** The open log's character, for panels marked `ownerOnly`. */
+  character = "",
 ): QuerySpec {
   const warmup =
     panel.viz === "line" ? panelWindowSeconds(panel, frame, settings, logSpanSeconds) : 0;
@@ -227,6 +243,11 @@ export function buildSpec(
     flag: flag as QueryFilter["flag"],
     exclude: true,
   }));
+  // Pet rollup maps a pet's records onto its owner before the filter is
+  // tested, so "me" already includes my pets — no need to name them.
+  if (panel.ownerOnly && character) {
+    filters.push({ dim: "player", values: [character] });
+  }
   if (panel.playerFilter.length > 0) {
     filters.push({ dim: "player", values: panel.playerFilter });
   }

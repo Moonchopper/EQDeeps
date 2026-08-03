@@ -37,9 +37,11 @@ import {
   frameFromRange,
   framedFightIds,
   fightsInFrame,
+  frameSpanSeconds,
   isLive,
   type TimeFrame,
 } from "./timeFrame";
+import { queryBucketSeconds } from "./chartInteractions";
 
 /**
  * How stale the log can get before wall-clock scrolling stops making sense.
@@ -125,6 +127,24 @@ export default function App() {
     : 0;
   const scrolling =
     liveScroll && isLive(frame) && newestRecordMs > 0 && nowMs - newestRecordMs < LIVE_LOG_GRACE_MS;
+
+  /*
+   * How often every panel refetches, derived from the bucket the charts query
+   * at rather than fixed at a second.
+   *
+   * A chart cannot change faster than its bucket closes: at a 24-hour range
+   * that bucket is a minute, so a second of new data moves nothing anyone can
+   * see, and refetching every panel for it costs a megabyte a second. Short
+   * ranges bucket at a second and keep refreshing at a second, so live play
+   * is exactly as responsive as before. Capped so nothing ever feels frozen.
+   */
+  const refreshIntervalMs = Math.min(
+    10_000,
+    Math.max(
+      1000,
+      queryBucketSeconds(1, frameSpanSeconds(frame, chartDefaults.spanSec, logSpanSeconds)) * 1000,
+    ),
+  );
   const summaryTrends = useMemo(() => summaryTrendPanels(), []);
 
   function selectStdView(id: string) {
@@ -334,9 +354,15 @@ export default function App() {
   );
 
   const lastRefresh = useRef(0);
+  // Read through a ref: the live connection is built once and closes over the
+  // first render's function, so the value has to be reachable rather than
+  // captured.
+  const refreshIntervalRef = useRef(1000);
+  refreshIntervalRef.current = refreshIntervalMs;
+
   function bumpRefreshThrottled() {
     const now = Date.now();
-    if (now - lastRefresh.current > 1000) {
+    if (now - lastRefresh.current > refreshIntervalRef.current) {
       lastRefresh.current = now;
       setRefreshKey((k) => k + 1);
     }

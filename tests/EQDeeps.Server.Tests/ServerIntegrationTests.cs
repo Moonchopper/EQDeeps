@@ -27,14 +27,15 @@ public sealed class ServerIntegrationTests : IAsyncLifetime
     public async Task InitializeAsync()
     {
         Directory.CreateDirectory(_dir);
-        // recentLogsRoot/sampleLogRoot/updateRoot: keep the MRU file, the
-        // extracted demo log and the update preferences inside the test
-        // sandbox, not %AppData%.
+        // recentLogsRoot/sampleLogRoot/updateRoot/gearRoot: keep the MRU file,
+        // the extracted demo log, the update preferences and the gear history
+        // inside the test sandbox, not %AppData%.
         _app = ServerApp.Build([
             "--urls", "http://127.0.0.1:0",
             "--recentLogsRoot", _dir,
             "--sampleLogRoot", _dir,
             "--updateRoot", _dir,
+            "--gearRoot", _dir,
         ]);
         await _app.StartAsync();
         _baseUrl = _app.Urls.First();

@@ -1,3 +1,4 @@
+using EQDeeps.Core.Gear;
 using EQDeeps.Core.Query;
 using EQDeeps.Core.Sessions;
 using EQDeeps.Server.Updates;
@@ -43,6 +44,31 @@ public sealed record SessionInfo(
     int FightCount,
     long UnrecognizedLines,
     long MalformedLines);
+
+/// <summary>
+/// Whether we can say anything about this character's gear, and what to tell
+/// them if not.
+///
+/// <para><paramref name="ExpectedPath"/> and <paramref name="Command"/> travel
+/// with the status deliberately: when a player types the command and nothing
+/// appears, the useful answer is the exact path being watched, not "no gear
+/// found".</para>
+///
+/// <para><paramref name="FightsSince"/> is the honest measure of staleness —
+/// gear can change at any time without a trace in the log, so the only true
+/// statement is how much combat has happened since the last proof.</para>
+/// </summary>
+public sealed record GearStatus(
+    bool HasSnapshot,
+    DateTime? CapturedAt,
+    int FightsSince,
+    string ExpectedPath,
+    string Command);
+
+public sealed record GearReport(
+    List<GearSnapshot> Snapshots,
+    List<GearChange> Changes,
+    GearStatus Status);
 
 public sealed record FightInfo(
     int Id,

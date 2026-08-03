@@ -53,4 +53,46 @@ public sealed class LogDiscoveryTests : IDisposable
         var results = LogDiscovery.Discover();
         Assert.NotNull(results);
     }
+
+    [Fact]
+    public void InstallRootsNeverThrows()
+    {
+        // Same contract as Discover: enumerating drives and registry hives is
+        // allowed to find nothing, never to blow up.
+        Assert.NotNull(LogDiscovery.InstallRoots());
+    }
+
+    [Fact]
+    public void FindsInstallsByProductFolderRatherThanExactName()
+    {
+        // The bug this encodes: the install is "EverQuest Legends", not
+        // "EverQuest", and hardcoding the latter made it invisible whenever the
+        // game wasn't already running.
+        var parent = Path.Combine(Path.GetDirectoryName(_dir)!, "Installed Games");
+        Directory.CreateDirectory(Path.Combine(parent, "EverQuest Legends", "Logs"));
+        Directory.CreateDirectory(Path.Combine(parent, "EverQuest"));
+        File.WriteAllText(Path.Combine(parent, "EverQuest", "eqgame.exe"), "stub");
+
+        var found = LogDiscovery.ScanInstalledGames(parent);
+
+        Assert.Equal(2, found.Count);
+        Assert.Contains(found, d => Path.GetFileName(d) == "EverQuest Legends");
+        Assert.Contains(found, d => Path.GetFileName(d) == "EverQuest");
+    }
+
+    [Fact]
+    public void SkipsUnrelatedAndEmptyGameFolders()
+    {
+        var parent = Path.Combine(Path.GetDirectoryName(_dir)!, "Installed Games");
+        Directory.CreateDirectory(Path.Combine(parent, "PlanetSide 2", "Logs"));  // not EverQuest
+        Directory.CreateDirectory(Path.Combine(parent, "EverQuest Next"));        // no Logs, no exe
+
+        Assert.Empty(LogDiscovery.ScanInstalledGames(parent));
+    }
+
+    [Fact]
+    public void MissingInstalledGamesParentYieldsNothing()
+    {
+        Assert.Empty(LogDiscovery.ScanInstalledGames(Path.Combine(_dir, "nope")));
+    }
 }

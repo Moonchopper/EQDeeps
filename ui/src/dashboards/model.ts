@@ -6,7 +6,13 @@ import { queryBucketSeconds, scaledWindowSeconds } from "../chartInteractions";
 // The user-facing panel definition: a QuerySpec plus presentation. This is
 // what dashboards persist and what export/import moves between machines.
 
-export type PanelViz = "table" | "line" | "bar" | "tile";
+/**
+ * "droprate" is the one viz that is not a plain reading of its own query: it
+ * joins the loot rows to a kill count from the death source (see DropRatePanel).
+ * It still carries an ordinary QuerySpec, so it queries, scopes and filters
+ * like everything else.
+ */
+export type PanelViz = "table" | "line" | "bar" | "tile" | "droprate";
 export type PanelScopeMode = "selection" | "all" | "recent";
 
 export interface PanelDef {
@@ -233,9 +239,13 @@ export function buildSpec(
     scope,
     groupBy: panel.groupBy,
     metrics:
-      panel.viz === "table"
-        ? panel.metrics
-        : [...new Set([panel.primaryMetric, "total"])],
+      panel.viz === "droprate"
+        ? // Fixed columns, so the query asks for exactly what they need — and
+          // "loots" first, which is what the server ranks the rows by.
+          ["loots"]
+        : panel.viz === "table"
+          ? panel.metrics
+          : [...new Set([panel.primaryMetric, "total"])],
     filters,
     bucketSeconds:
       panel.viz === "line"

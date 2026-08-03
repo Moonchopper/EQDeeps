@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as echarts from "echarts";
 import { api, type FightInfo, type QuerySource, type QueryResult, type QueryRow } from "../api";
 import { fmtNum, fmtRate, OTHER_COLOR, SERIES_COLORS } from "../format";
@@ -10,6 +10,18 @@ import {
   RATE_METRICS,
   type PanelDef,
 } from "./model";
+import {
+  filterTree,
+  heatColor,
+  Highlight,
+  meterStyle,
+  NAME_SORT,
+  SharePct,
+  SortHeader,
+  sortTree,
+  TableSearch,
+  type SortState,
+} from "./tableTools";
 import type { EntityColors } from "../colors";
 import {
   attachWheelZoom,
@@ -101,62 +113,129 @@ export function PanelBody({
       return <LinePanel panel={panel} ctx={ctx} settings={settings} />;
     case "bar":
       return <BarPanel panel={panel} ctx={ctx} settings={settings} />;
+    case "droprate":
+      return <DropRatePanel panel={panel} ctx={ctx} settings={settings} />;
     default:
       return <TilePanel panel={panel} ctx={ctx} settings={settings} />;
   }
 }
 
+/**
+ * Keeps the expander open on rows the search opened for the user, without
+ * taking the expander away from them: the auto-opened paths are merged INTO
+ * the expanded set rather than OR'd with it at render time, so a row opened by
+ * a search can still be closed by hand.
+ */
+function useAutoExpand(
+  autoOpen: Set<string>,
+  setExpanded: React.Dispatch<React.SetStateAction<Set<string>>>,
+) {
+  useEffect(() => {
+    if (autoOpen.size === 0) {
+      return;
+    }
+    setExpanded((current) => {
+      const next = new Set(current);
+      for (const path of autoOpen) {
+        next.add(path);
+      }
+      return next.size === current.size ? current : next;
+    });
+  }, [autoOpen, setExpanded]);
+}
+
+function toggle(set: Set<string>, path: string): Set<string> {
+  const next = new Set(set);
+  if (!next.delete(path)) {
+    next.add(path);
+  }
+  return next;
+}
+
 // ---- table -----------------------------------------------------------------
+
+/**
+ * The metric a table draws its meter bars from. "total" where the source has
+ * one; otherwise the first non-rate column, which is the same metric the
+ * server ranked the rows by — so the bars agree with the order they arrive in.
+ */
+function barMetricFor(panel: PanelDef): string | null {
+  if (panel.metrics.includes("total")) return "total";
+  return panel.metrics.find((m) => !RATE_METRICS.has(m)) ?? null;
+}
 
 function TablePanel({ panel, ctx, settings }: { panel: PanelDef; ctx: PanelContext; settings: ChartSettings }) {
   const result = usePanelQuery(panel, ctx, settings);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [query, setQuery] = useState("");
+  const [sort, setSort] = useState<SortState | null>(null);
+
+  const rows = result && result !== "no-selection" ? result.rows : EMPTY_ROWS;
+  const filtered = useMemo(() => filterTree(rows, query), [rows, query]);
+  // Relevance is the ordering while searching, unless a column was clicked:
+  // an explicit sort is an instruction and outranks the match score.
+  const view = useMemo(() => sortTree(filtered.rows, sort), [filtered.rows, sort]);
+  useAutoExpand(filtered.autoOpen, setExpanded);
+
   if (result === "no-selection") return <div className="empty">Select a fight</div>;
   if (!result) return <div className="empty">Loading…</div>;
 
-  const barMetric = panel.viz === "table" && panel.metrics.includes("total") ? "total" : null;
+  const barMetric = barMetricFor(panel);
   const maxBar = barMetric
-    ? result.rows.reduce((max, r) => Math.max(max, r.metrics[barMetric] ?? 0), 0)
+    ? rows.reduce((max, r) => Math.max(max, r.metrics[barMetric] ?? 0), 0)
     : 0;
   const playerRows = panel.groupBy[0] === "player";
 
-  const renderRow = (row: QueryRow, depth: number, path: string): JSX.Element[] => {
+  const renderRow = (
+    row: QueryRow,
+    depth: number,
+    path: string,
+    parentValue: number,
+    maxSibling: number,
+  ): JSX.Element[] => {
     const hasChildren = (row.children?.length ?? 0) > 0;
     const isOpen = expanded.has(path);
+    const value = barMetric ? row.metrics[barMetric] ?? 0 : 0;
     let rowStyle: React.CSSProperties | undefined;
     let chip: JSX.Element | null = null;
-    if (depth === 0 && barMetric && maxBar > 0) {
+    let share: JSX.Element | null = null;
+    if (depth === 0) {
+      // Identity, not rank: the entity keeps its color across every panel.
       const color = playerRows ? ctx.colors.claim(row.key) : ctx.colors.lookup(row.key);
-      const pct = ((row.metrics[barMetric] ?? 0) / maxBar) * 100;
-      rowStyle = {
-        background: `linear-gradient(to right, ${color}2e ${pct.toFixed(1)}%, transparent ${pct.toFixed(1)}%)`,
-      };
-      chip = <span className="color-chip" style={{ background: color }} />;
+      if (barMetric && maxBar > 0) {
+        rowStyle = meterStyle(color, (value / maxBar) * 100);
+        chip = <span className="color-chip" style={{ background: color }} />;
+      }
+    } else if (barMetric && maxSibling > 0) {
+      // Rank within the breakdown, hue and length together: the biggest slice
+      // fills the row and reads green, the tail stays short and red.
+      const heat = value / maxSibling;
+      rowStyle = meterStyle(heatColor(heat), heat * 100, HEAT_ALPHA);
+      if (parentValue > 0) {
+        share = (
+          <SharePct
+            pct={(value / parentValue) * 100}
+            title={`${fmtMetric(barMetric, value)} of ${fmtMetric(barMetric, parentValue)} ${
+              METRIC_LABELS[barMetric] ?? barMetric
+            }`}
+          />
+        );
+      }
     }
 
     const out = [
       <tr key={path} className={depth > 0 ? "child-row" : undefined} style={rowStyle}>
         <td style={{ paddingLeft: depth * 16 + 8 }}>
           {hasChildren ? (
-            <button
-              className="expander"
-              onClick={() => {
-                const next = new Set(expanded);
-                if (isOpen) {
-                  next.delete(path);
-                } else {
-                  next.add(path);
-                }
-                setExpanded(next);
-              }}
-            >
+            <button className="expander" onClick={() => setExpanded(toggle(expanded, path))}>
               {isOpen ? "▾" : "▸"}
             </button>
           ) : (
             <span className="expander-spacer" />
           )}
           {chip}
-          {row.label}
+          <Highlight text={row.label} hit={filtered.hits.get(path)} />
+          {share}
         </td>
         {panel.metrics.map((m) => (
           <td key={m} className="num">
@@ -166,30 +245,61 @@ function TablePanel({ panel, ctx, settings }: { panel: PanelDef; ctx: PanelConte
       </tr>,
     ];
     if (hasChildren && isOpen) {
-      for (const child of row.children!) {
-        out.push(...renderRow(child, depth + 1, `${path}/${child.key}`));
+      const children = row.children!;
+      const maxChild = barMetric ? maxOf(children, barMetric) : 0;
+      for (const child of children) {
+        out.push(...renderRow(child, depth + 1, `${path}/${child.key}`, value, maxChild));
       }
     }
     return out;
   };
 
   return (
-    <div className="table-scroll">
-      <table>
-        <thead>
-          <tr>
-            <th>Name</th>
-            {panel.metrics.map((m) => (
-              <th key={m} className="num">
-                {METRIC_LABELS[m] ?? m}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>{result.rows.flatMap((row) => renderRow(row, 0, row.key))}</tbody>
-      </table>
+    <div className="table-panel">
+      <TableSearch
+        value={query}
+        onChange={setQuery}
+        placeholder="Filter rows…"
+        shown={filtered.rows.length}
+        total={filtered.totalRows}
+      />
+      <div className="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <SortHeader label="Name" sortKey={NAME_SORT} sort={sort} onSort={setSort} />
+              {panel.metrics.map((m) => (
+                <SortHeader
+                  key={m}
+                  label={METRIC_LABELS[m] ?? m}
+                  sortKey={m}
+                  sort={sort}
+                  onSort={setSort}
+                  numeric
+                />
+              ))}
+            </tr>
+          </thead>
+          <tbody>{view.flatMap((row) => renderRow(row, 0, row.key, 0, 0))}</tbody>
+        </table>
+        {view.length === 0 && <div className="empty">No rows match “{query}”</div>}
+      </div>
     </div>
   );
+}
+
+/** Stable identity, so the filter memo doesn't rebuild on every render. */
+const EMPTY_ROWS: QueryRow[] = [];
+
+/**
+ * Heat rows carry their meaning in the hue, not just the length, so they sit a
+ * little stronger than the entity-colored rows above them — where the tint is
+ * a secondary cue on top of a name and a color chip.
+ */
+const HEAT_ALPHA = "4d";
+
+function maxOf(rows: QueryRow[], metric: string): number {
+  return rows.reduce((max, r) => Math.max(max, r.metrics[metric] ?? 0), 0);
 }
 
 // ---- line ------------------------------------------------------------------
@@ -623,6 +733,253 @@ function TilePanel({ panel, ctx, settings }: { panel: PanelDef; ctx: PanelContex
     <div className="tile-body">
       <span className="tile-value">{result ? fmtMetric(panel.primaryMetric, value) : "…"}</span>
       <span className="tile-label">{METRIC_LABELS[panel.primaryMetric] ?? panel.primaryMetric}</span>
+    </div>
+  );
+}
+
+// ---- drop rate -------------------------------------------------------------
+
+/**
+ * Loot per kill, by mob.
+ *
+ * A drop rate needs a denominator the loot source does not carry: how many of
+ * that mob died. That number lives in the death source, so this panel runs two
+ * queries over the same scope and joins them on the mob's name — the one place
+ * in the app where a panel is more than a single query, and the reason it is a
+ * viz of its own rather than a table with extra columns.
+ *
+ * The join is case-insensitive because the two sources disagree on the case of
+ * an NPC's leading article: the loot grammar keeps the corpse's name verbatim
+ * ("a bandit") while the death grammar normalizes it ("A bandit").
+ */
+interface DropColumn {
+  key: string;
+  label: string;
+  /** Blank where the column has no meaning at that depth. */
+  format: (row: QueryRow, depth: number) => string;
+}
+
+const DROP_COLUMNS: DropColumn[] = [
+  {
+    key: "kills",
+    label: "Kills",
+    format: (row, depth) => (depth > 0 ? "" : String(Math.round(row.metrics.kills ?? 0))),
+  },
+  {
+    key: "loots",
+    label: "Drops",
+    format: (row) => String(Math.round(row.metrics.loots ?? 0)),
+  },
+  {
+    key: "dropRate",
+    label: "Per kill",
+    format: (row) => (row.metrics.kills === 0 ? "—" : fmtRate(row.metrics.dropRate ?? 0)),
+  },
+];
+
+function useKillCounts(
+  panel: PanelDef,
+  ctx: PanelContext,
+  settings: ChartSettings,
+): Map<string, number> | null {
+  const [kills, setKills] = useState<Map<string, number> | null>(null);
+  // Same scope as the loot query, so the rate is over one window of time. Pet
+  // rollup stays off: it merges owners with pets, and these keys are mob names.
+  const spec = buildSpec(
+    {
+      ...panel,
+      viz: "table",
+      source: "deaths",
+      groupBy: ["player"],
+      metrics: ["deaths"],
+      excludeFlags: [],
+      playerFilter: [],
+      spellFilter: [],
+    },
+    ctx.frame,
+    false,
+    settings,
+    ctx.logSpanSeconds,
+  );
+  const specKey = JSON.stringify(spec);
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .query(ctx.sessionId, JSON.parse(specKey))
+      .then((r) => {
+        if (!cancelled) {
+          setKills(
+            new Map(r.rows.map((row) => [row.key.toLowerCase(), row.metrics.deaths ?? 0])),
+          );
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [ctx.sessionId, specKey, ctx.refreshKey]);
+
+  return kills;
+}
+
+function DropRatePanel({
+  panel,
+  ctx,
+  settings,
+}: {
+  panel: PanelDef;
+  ctx: PanelContext;
+  settings: ChartSettings;
+}) {
+  const result = usePanelQuery(panel, ctx, settings);
+  const kills = useKillCounts(panel, ctx, settings);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [query, setQuery] = useState("");
+  const [sort, setSort] = useState<SortState | null>(null);
+
+  const rows = useMemo(() => {
+    if (!result || result === "no-selection" || !kills) {
+      return EMPTY_ROWS;
+    }
+    const out: QueryRow[] = [];
+    for (const mob of result.rows) {
+      const drops = mob.metrics.loots ?? 0;
+      if (drops <= 0) {
+        continue; // a coin-only corpse is not a drop table
+      }
+      const killCount = kills.get(mob.key.toLowerCase()) ?? 0;
+      const children = (mob.children ?? [])
+        .filter((item) => (item.metrics.loots ?? 0) > 0)
+        .map((item) => ({
+          ...item,
+          children: undefined,
+          metrics: {
+            ...item.metrics,
+            kills: killCount,
+            dropRate: killCount > 0 ? ((item.metrics.loots ?? 0) / killCount) * 100 : 0,
+          },
+        }));
+      out.push({
+        ...mob,
+        children,
+        metrics: {
+          ...mob.metrics,
+          kills: killCount,
+          dropRate: killCount > 0 ? (drops / killCount) * 100 : 0,
+        },
+      });
+    }
+    return out;
+  }, [result, kills]);
+
+  const filtered = useMemo(() => filterTree(rows, query), [rows, query]);
+  const view = useMemo(() => sortTree(filtered.rows, sort), [filtered.rows, sort]);
+  useAutoExpand(filtered.autoOpen, setExpanded);
+
+  if (panel.source !== "loot") {
+    return <div className="empty">Drop rates need the loot source</div>;
+  }
+  if (result === "no-selection") return <div className="empty">Select a fight</div>;
+  if (!result || !kills) return <div className="empty">Loading…</div>;
+
+  const maxDrops = maxOf(rows, "loots");
+
+  const renderRow = (
+    row: QueryRow,
+    depth: number,
+    path: string,
+    maxSibling: number,
+  ): JSX.Element[] => {
+    const hasChildren = (row.children?.length ?? 0) > 0;
+    const isOpen = expanded.has(path);
+    const drops = row.metrics.loots ?? 0;
+    let rowStyle: React.CSSProperties | undefined;
+    let chip: JSX.Element | null = null;
+    if (depth === 0) {
+      const color = ctx.colors.lookup(row.key);
+      rowStyle = meterStyle(color, maxDrops > 0 ? (drops / maxDrops) * 100 : 0);
+      chip = <span className="color-chip" style={{ background: color }} />;
+    } else if (maxSibling > 0) {
+      // Kills are fixed within a mob, so ranking by drops and ranking by drop
+      // rate are the same ordering — the meter reads as either.
+      const heat = drops / maxSibling;
+      rowStyle = meterStyle(heatColor(heat), heat * 100, HEAT_ALPHA);
+    }
+
+    const out = [
+      <tr
+        key={path}
+        className={depth > 0 ? "child-row" : undefined}
+        style={rowStyle}
+        title={
+          depth > 0 && (row.metrics.kills ?? 0) > 0
+            ? `${Math.round(drops)} in ${Math.round(row.metrics.kills ?? 0)} kills`
+            : undefined
+        }
+      >
+        <td style={{ paddingLeft: depth * 16 + 8 }}>
+          {hasChildren ? (
+            <button className="expander" onClick={() => setExpanded(toggle(expanded, path))}>
+              {isOpen ? "▾" : "▸"}
+            </button>
+          ) : (
+            <span className="expander-spacer" />
+          )}
+          {chip}
+          <Highlight text={row.label} hit={filtered.hits.get(path)} />
+        </td>
+        {DROP_COLUMNS.map((c) => (
+          <td key={c.key} className="num">
+            {c.format(row, depth)}
+          </td>
+        ))}
+      </tr>,
+    ];
+    if (hasChildren && isOpen) {
+      const children = row.children!;
+      const maxChild = maxOf(children, "loots");
+      for (const child of children) {
+        out.push(...renderRow(child, depth + 1, `${path}/${child.key}`, maxChild));
+      }
+    }
+    return out;
+  };
+
+  return (
+    <div className="table-panel">
+      <TableSearch
+        value={query}
+        onChange={setQuery}
+        placeholder="Filter mobs or items…"
+        shown={filtered.rows.length}
+        total={filtered.totalRows}
+      />
+      <div className="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <SortHeader label="Mob" sortKey={NAME_SORT} sort={sort} onSort={setSort} />
+              {DROP_COLUMNS.map((c) => (
+                <SortHeader
+                  key={c.key}
+                  label={c.label}
+                  sortKey={c.key}
+                  sort={sort}
+                  onSort={setSort}
+                  numeric
+                />
+              ))}
+            </tr>
+          </thead>
+          <tbody>{view.flatMap((row) => renderRow(row, 0, row.key, 0))}</tbody>
+        </table>
+        {view.length === 0 && (
+          <div className="empty">
+            {rows.length === 0 ? "No item drops in range" : `No rows match “${query}”`}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

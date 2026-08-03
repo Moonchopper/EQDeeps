@@ -955,6 +955,91 @@ button.update-pill {
   min-height: 0;
 }
 
+/* Search strip above the scroller, so the header row stays sticky under it. */
+.table-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.table-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px 5px 10px;
+  border-bottom: 1px solid var(--grid);
+  flex: none;
+}
+
+.search-input {
+  flex: 1;
+  min-width: 0;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--ink);
+  font-size: 12px;
+  padding: 3px 7px;
+}
+
+.search-input::placeholder {
+  color: var(--muted);
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.search-count {
+  color: var(--muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.search-hit {
+  background: none;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+th.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+th.sortable:hover {
+  color: var(--ink);
+}
+
+th.sorted {
+  color: var(--ink);
+}
+
+/* Reserved width, so the header does not jump as the caret appears. */
+.sort-caret {
+  display: inline-block;
+  width: 12px;
+  margin-left: 3px;
+  font-size: 9px;
+  color: var(--muted);
+}
+
+th.sorted .sort-caret {
+  color: var(--accent);
+}
+
+/* A breakdown row's share of its parent. The bar is the row's own background
+   fill (see meterStyle), so this is just the number beside the name — set
+   quiet, because the fill already carries the comparison. */
+.share-pct {
+  margin-left: 8px;
+  color: var(--muted);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;

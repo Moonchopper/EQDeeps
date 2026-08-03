@@ -45,7 +45,7 @@ export function QueryBuilder({ panel, onSave, onCancel }: Props) {
 
           <label>Show as</label>
           <div className="radio-row">
-            {(["table", "line", "bar", "tile"] as const).map((v) => (
+            {(["table", "line", "bar", "tile", "droprate"] as const).map((v) => (
               <label key={v}>
                 <input
                   type="radio"
@@ -168,7 +168,15 @@ export function QueryBuilder({ panel, onSave, onCancel }: Props) {
             </select>
           </div>
 
-          {draft.viz === "table" ? (
+          {draft.viz === "droprate" ? (
+            <>
+              <label>Columns</label>
+              <div className="subtle">
+                Fixed: kills, drops, and drops per kill. Needs the loot source, grouped
+                by target then ability/spell.
+              </div>
+            </>
+          ) : draft.viz === "table" ? (
             <>
               <label>Columns</label>
               <div className="check-grid">

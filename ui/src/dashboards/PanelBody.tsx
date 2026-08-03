@@ -8,7 +8,7 @@ import {
   attachWheelZoom,
   bucketAlignedWindow,
   offsetTooltip,
-  stableAxisMax,
+  heldAxisMax,
 } from "../chartInteractions";
 import type { ChartSettings } from "../timeControls";
 import type { TimeFrame } from "../timeFrame";
@@ -228,18 +228,10 @@ function LinePanel({
       : null;
   const suppressZoomEventRef = useRef(false);
   const extentRef = useRef<[number, number] | null>(null);
-  // See DpsChart: reset during render so a new scope is never drawn on the
-  // previous one's scale.
-  const axisMaxRef = useRef(0);
-  const axisScopeRef = useRef("");
   const zoomRangeRef = useRef<[number, number] | null>(null);
-
-  const axisScope = `${JSON.stringify(ctx.frame)}|${spanSec}|${windowSec}`;
-  if (axisScopeRef.current !== axisScope) {
-    axisScopeRef.current = axisScope;
-    axisMaxRef.current = 0;
-  }
-
+  // Identity + scope, so the ceiling survives a remount but not a real change
+  // of what is being plotted.
+  const axisKey = `${panel.id}|${JSON.stringify(ctx.frame)}|${spanSec}|${windowSec}`;
 
   const resetZoom = useCallback(() => {
     const chart = chartRef.current;
@@ -393,7 +385,7 @@ function LinePanel({
       }
     }
 
-    axisMaxRef.current = stableAxisMax(dataMax, axisMaxRef.current);
+    const axisTop = heldAxisMax(axisKey, dataMax);
 
     // A fixed span pins the axis to [latest − span, latest]: constant width,
     // sliding right edge, so the chart doesn't rescale as points arrive. The
@@ -480,7 +472,7 @@ function LinePanel({
           // Faction standing genuinely goes negative, so zero is only the
           // floor when the data says it is.
           min: dataMin < 0 ? undefined : 0,
-          max: axisMaxRef.current,
+          max: axisTop,
           axisLabel: { color: "#898781", fontSize: 10, formatter: (v: number) => fmtLineValue(v) },
           splitLine: { lineStyle: { color: "#2c2c2a" } },
         },

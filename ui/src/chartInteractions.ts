@@ -175,3 +175,27 @@ export function stableAxisMax(dataMax: number, held: number): number {
 
   return target <= held / 2 ? target : held;
 }
+
+/**
+ * Axis ceilings, held OUTSIDE the component.
+ *
+ * A ref resets when the component remounts, and a remount takes the ceiling
+ * with it — the next draw starts from zero and snaps to whatever the current
+ * data needs, which is the jump the hysteresis exists to prevent. Since the
+ * ceiling describes the data rather than the mounted instance, it lives here
+ * and is keyed by chart identity plus scope: a genuine change of scope still
+ * forgets it, a remount does not.
+ */
+const axisCeilings = new Map<string, number>();
+
+/** The stabilised ceiling for `key`, advanced by this render's data. */
+export function heldAxisMax(key: string, dataMax: number): number {
+  const next = stableAxisMax(dataMax, axisCeilings.get(key) ?? 0);
+  axisCeilings.set(key, next);
+  // Bounded: one entry per chart per scope, and scopes are few.
+  if (axisCeilings.size > 200) {
+    axisCeilings.clear();
+  }
+
+  return next;
+}

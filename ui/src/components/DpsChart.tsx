@@ -7,7 +7,7 @@ import {
   attachWheelZoom,
   bucketAlignedWindow,
   offsetTooltip,
-  stableAxisMax,
+  heldAxisMax,
 } from "../chartInteractions";
 import {
   fmtDuration,
@@ -90,21 +90,13 @@ export function DpsChart({
   const [isZoomed, setIsZoomed] = useState(false);
   const suppressZoomEventRef = useRef(false);
   const extentRef = useRef<[number, number] | null>(null);
-  // Held across renders so the axis can refuse to follow every wobble. Reset
-  // during render rather than in an effect: an effect runs AFTER the draw, so
-  // the first frame of a new scope would still be drawn on the old scale.
-  const axisMaxRef = useRef(0);
-  const axisScopeRef = useRef("");
   const zoomRangeRef = useRef<[number, number] | null>(null);
 
   // "fit" means show everything there is, which cannot also mean "and keep
   // sliding past it", so scrolling only applies to a fixed span. Zooming
   // suspends it too — the viewport belongs to the user until they reset.
-  const axisScope = `${frameKey}|${span}|${windowSec}`;
-  if (axisScopeRef.current !== axisScope) {
-    axisScopeRef.current = axisScope;
-    axisMaxRef.current = 0;
-  }
+  // Identity + scope: survives a remount, forgets a real scope change.
+  const axisKey = `dps|${frameKey}|${span}|${windowSec}`;
 
   const scrollWindow: [number, number] | null =
     scrollNowMs !== null && span !== "fit" && !isZoomed
@@ -289,7 +281,7 @@ export function DpsChart({
       }
     }
 
-    axisMaxRef.current = stableAxisMax(dataMax, axisMaxRef.current);
+    const axisTop = heldAxisMax(axisKey, dataMax);
 
     // A fixed span pins the axis to [latest − span, latest]: constant width,
     // sliding right edge — no rescaling as points arrive. The right edge is
@@ -384,7 +376,7 @@ export function DpsChart({
           // Anchored at zero unless the data actually goes below it, so the
           // floor never drifts either.
           min: dataMin < 0 ? undefined : 0,
-          max: axisMaxRef.current,
+          max: axisTop,
           axisLabel: {
             color: "#898781",
             fontSize: 11,

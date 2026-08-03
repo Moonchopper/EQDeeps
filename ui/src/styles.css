@@ -777,7 +777,12 @@ button.update-pill {
   gap: 10px;
   min-height: 0;
   overflow-y: auto;
-  /* Room for the scrollbar so it never sits on top of a chart's right edge. */
+  /* The gutter is reserved whether or not it is needed. With `auto` alone, a
+     column whose content sits near the container height toggles its scrollbar
+     on and off — and each toggle changes the width, which re-lays out every
+     chart in it, which changes their height, which toggles the scrollbar. The
+     charts visibly breathe. Reserving the space breaks the loop. */
+  scrollbar-gutter: stable;
   padding-right: 2px;
 }
 

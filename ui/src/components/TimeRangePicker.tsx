@@ -86,12 +86,22 @@ export function TimeRangePicker({ frame, spanSec, fights, onSpan, onAbsolute }: 
 
   return (
     <span className="range-picker" ref={rootRef}>
+      {/* Named like every other control in this bar. Without it the trigger is
+          an unlabelled chip reading "15m", and there is nothing to say what it
+          governs until a fixed range makes the text self-describing. */}
+      <span className="range-label">time range</span>
       <button
         className="range-trigger"
         onClick={() => setOpen((o) => !o)}
         title="Time range: quick picks, a typed window like -6h or 90m, or exact from/to"
       >
-        {frame.kind === "range" ? frameLabel(frame, fights) : spanSec === "fit" ? "fit" : fmtDuration(spanSec)}
+        {/* And say which kind of window it is: a trailing one reads "last 15m",
+            a fixed one names when it starts and how long it runs. */}
+        {frame.kind === "range"
+          ? frameLabel(frame, fights)
+          : spanSec === "fit"
+            ? "everything"
+            : `last ${fmtDuration(spanSec)}`}
         <span className="range-caret">▾</span>
       </button>
 

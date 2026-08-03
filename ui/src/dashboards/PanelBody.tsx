@@ -6,6 +6,7 @@ import {
   buildSpec,
   METRIC_LABELS,
   panelBucketSeconds,
+  panelWindowSeconds,
   RATE_METRICS,
   type PanelDef,
 } from "./model";
@@ -15,6 +16,7 @@ import {
   bucketAlignedWindow,
   offsetTooltip,
   heldAxisMax,
+  fightBandsKey,
 } from "../chartInteractions";
 import type { ChartSettings } from "../timeControls";
 import type { TimeFrame } from "../timeFrame";
@@ -232,11 +234,15 @@ function LinePanel({
   // step size, window length, alignment — has to use this and not the panel's
   // nominal width, or the chart walks a grid the data is not on.
   const bucketSeconds = panelBucketSeconds(panel, ctx.frame, settings, ctx.logSpanSeconds);
+  // Scaled with the bucket, so a long range keeps the same shape of smoothing
+  // instead of quietly falling back to one raw bucket.
+  const smoothingSec = panelWindowSeconds(panel, ctx.frame, settings, ctx.logSpanSeconds);
+  const bandsKey = fightBandsKey(ctx.fights, bucketSeconds);
   // See DpsChart: "fit" and an active zoom both mean the viewport is not the
   // clock's to move.
   const scrollWindow: [number, number] | null =
     ctx.scrollNowMs !== null && spanSec !== "fit" && !isZoomed
-      ? bucketAlignedWindow(ctx.scrollNowMs, spanSec + windowSec, bucketSeconds)
+      ? bucketAlignedWindow(ctx.scrollNowMs, spanSec + smoothingSec, bucketSeconds)
       : null;
   const suppressZoomEventRef = useRef(false);
   const extentRef = useRef<[number, number] | null>(null);
@@ -337,7 +343,7 @@ function LinePanel({
     // Rate sources average to a per-second figure; amount sources stay in
     // their own units as a rolling mean per bucket.
     const perBucket = RATE_SOURCES.has(panel.source) ? Math.max(1, bucketSeconds) : 1;
-    const windowBuckets = Math.max(1, Math.round(windowSec / Math.max(1, bucketSeconds)));
+    const windowBuckets = Math.max(1, Math.round(smoothingSec / Math.max(1, bucketSeconds)));
     const smoothed = (rows: QueryRow[]) => {
       const bySecond = new Map<number, number>();
       for (const row of rows) {
@@ -498,7 +504,7 @@ function LinePanel({
       key: "dataZoomSelect",
       dataZoomSelectActive: true,
     });
-  }, [result, panel.source, bucketSeconds, windowSec, spanSec, isZoomed, ctx.fights, ctx.fightLabelPx, ctx.scrollNowMs]);
+  }, [result, panel.source, bucketSeconds, smoothingSec, spanSec, isZoomed, bandsKey, ctx.fightLabelPx, ctx.scrollNowMs]);
 
   if (result === "no-selection") return <div className="empty">Select a fight</div>;
   return (

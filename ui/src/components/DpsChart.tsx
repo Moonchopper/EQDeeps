@@ -9,6 +9,8 @@ import {
   offsetTooltip,
   heldAxisMax,
   queryBucketSeconds,
+  scaledWindowSeconds,
+  fightBandsKey,
 } from "../chartInteractions";
 import {
   fmtDuration,
@@ -110,10 +112,14 @@ export function DpsChart({
   // This chart is bucketed at a second, coarsened when the range is long
   // enough that a second would fetch more points than it can draw.
   const bucketSeconds = queryBucketSeconds(1, frameSpanSeconds(frame, span, logSpanSeconds));
+  // The window is set in seconds but means a count of buckets; scale it with
+  // the bucket or a long range silently loses its smoothing entirely.
+  const smoothingSec = scaledWindowSeconds(windowSec, 1, bucketSeconds);
+  const bandsKey = fightBandsKey(fights, bucketSeconds);
 
   const scrollWindow: [number, number] | null =
     scrollNowMs !== null && span !== "fit" && !isZoomed
-      ? bucketAlignedWindow(scrollNowMs, span + windowSec, bucketSeconds)
+      ? bucketAlignedWindow(scrollNowMs, span + smoothingSec, bucketSeconds)
       : null;
 
   const resetZoom = useCallback(() => {
@@ -173,7 +179,7 @@ export function DpsChart({
         // never outruns the data behind it (see frameAtSpan). The extra
         // windowSec of lookback warms up the rolling mean so the left edge of
         // the viewport is already smoothed.
-        scope: frameScope(frameAtSpan(frame, span), windowSec),
+        scope: frameScope(frameAtSpan(frame, span), smoothingSec),
         groupBy: ["player"],
         metrics: ["total"],
         bucketSeconds,
@@ -184,7 +190,7 @@ export function DpsChart({
     return () => {
       cancelled = true;
     };
-  }, [sessionId, frameKey, refreshKey, windowSec, span, bucketSeconds, petRollup]);
+  }, [sessionId, frameKey, refreshKey, smoothingSec, span, bucketSeconds, petRollup]);
 
   useEffect(() => {
     if (!chartRef.current) return;
@@ -224,7 +230,7 @@ export function DpsChart({
     // is not always one second: at a long range the bucket is coarser, and
     // stepping by 1000 ms would miss every lookup and draw a flat zero line.
     const step = Math.max(1, bucketSeconds) * 1000;
-    const windowBuckets = Math.max(1, Math.round(windowSec / Math.max(1, bucketSeconds)));
+    const windowBuckets = Math.max(1, Math.round(smoothingSec / Math.max(1, bucketSeconds)));
 
     const segments: [number, number][] = [];
     if (scrollWindow) {
@@ -421,7 +427,7 @@ export function DpsChart({
       key: "dataZoomSelect",
       dataZoomSelectActive: true,
     });
-  }, [result, windowSec, span, colors, isZoomed, fights, fightLabelPx, scrollNowMs]);
+  }, [result, smoothingSec, span, colors, isZoomed, bandsKey, fightLabelPx, scrollNowMs]);
 
   return (
     <div className="panel chart-panel">

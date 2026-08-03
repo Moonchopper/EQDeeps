@@ -234,3 +234,43 @@ export function queryBucketSeconds(baseSeconds: number, spanSeconds: number): nu
 
   return BUCKET_LADDER.find((step) => step >= needed && step >= base) ?? Math.ceil(needed);
 }
+
+/**
+ * The rolling window, scaled the way the bucket was.
+ *
+ * The window is set in seconds, but what it means to a chart is a number of
+ * buckets. Coarsen the bucket for a long range and a 10-second window becomes
+ * `round(10 / 60)` = one bucket — no smoothing at all, silently, exactly where
+ * a noisy long view needs it most. Scaling by the same factor keeps the shape
+ * of the line constant across ranges: ten buckets of mean at every zoom.
+ */
+export function scaledWindowSeconds(
+  windowSec: number,
+  baseBucketSeconds: number,
+  effectiveBucketSeconds: number,
+): number {
+  const base = Math.max(1, baseBucketSeconds);
+  return Math.max(1, Math.round(windowSec * (Math.max(1, effectiveBucketSeconds) / base)));
+}
+
+/**
+ * A cheap stand-in for "the fight bands would look different".
+ *
+ * The fights array is replaced on every hub push, so depending on it directly
+ * redraws every chart several times a second while combat is live. What the
+ * bands actually show is where fights start and end, and neither can move
+ * visibly faster than one bucket — so the count plus the newest end, rounded
+ * to the bucket, captures every change worth repainting for.
+ */
+export function fightBandsKey(
+  fights: { lastDamageTime: string }[],
+  bucketSeconds: number,
+): string {
+  if (fights.length === 0) {
+    return "0";
+  }
+
+  const step = Math.max(1, bucketSeconds) * 1000;
+  const newest = new Date(fights[fights.length - 1].lastDamageTime).getTime();
+  return `${fights.length}|${Math.floor(newest / step)}`;
+}

@@ -297,7 +297,17 @@ export function TimelineChart({
     };
   }, [sessionId, scopeKey, refreshKey]);
 
-  const npcNames = useMemo(() => new Set(fights.map((f) => f.name)), [fights]);
+  // Keyed on the count and the newest name, NOT the array. The fights array is
+  // replaced on every hub push, and depending on it rebuilt this Set, which
+  // rebuilt every row, which redrew the whole timeline several times a second
+  // — regardless of how rarely the data behind it was refetched. Fights only
+  // ever append, so a new name can only arrive with a new fight.
+  const npcKey = `${fights.length}|${fights[fights.length - 1]?.name ?? ""}`;
+  const npcNames = useMemo(
+    () => new Set(fights.map((f) => f.name)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [npcKey],
+  );
   const { rows, omitted } = useMemo(
     () =>
       result ? buildRows(result.items, character, npcNames) : { rows: [], omitted: 0 },

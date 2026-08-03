@@ -175,3 +175,102 @@ export function stableAxisMax(dataMax: number, held: number): number {
 
   return target <= held / 2 ? target : held;
 }
+
+/**
+ * Axis ceilings, held OUTSIDE the component.
+ *
+ * A ref resets when the component remounts, and a remount takes the ceiling
+ * with it — the next draw starts from zero and snaps to whatever the current
+ * data needs, which is the jump the hysteresis exists to prevent. Since the
+ * ceiling describes the data rather than the mounted instance, it lives here
+ * and is keyed by chart identity plus scope: a genuine change of scope still
+ * forgets it, a remount does not.
+ */
+const axisCeilings = new Map<string, number>();
+
+/** The stabilised ceiling for `key`, advanced by this render's data. */
+export function heldAxisMax(key: string, dataMax: number): number {
+  const next = stableAxisMax(dataMax, axisCeilings.get(key) ?? 0);
+  axisCeilings.set(key, next);
+  // Bounded: one entry per chart per scope, and scopes are few.
+  if (axisCeilings.size > 200) {
+    axisCeilings.clear();
+  }
+
+  return next;
+}
+
+/**
+ * Roughly how many points are worth fetching for one line. A chart is about a
+ * thousand pixels wide, so beyond this every extra point is smaller than a
+ * pixel — invisible, but still queried, serialised, transferred and parsed.
+ */
+const TARGET_POINTS = 1500;
+
+/** Bucket widths worth snapping to, so the choice is stable and readable. */
+const BUCKET_LADDER = [1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600];
+
+/**
+ * The bucket a query should actually use: the panel's own width, or coarser
+ * when the range is long enough that its width would produce more points than
+ * anyone can see.
+ *
+ * Measured on a real log, damage by player over 24 hours: at a 1-second bucket
+ * that is 26,113 points, 1.2 MB and 827 ms; at a minute it is 1,090 points,
+ * 56 KB and 114 ms. The picture is the same either way — the extra points land
+ * 26-deep on a single pixel. Ranges short enough to fetch honestly are left
+ * exactly as they were, so the default 15-minute view is untouched.
+ */
+export function queryBucketSeconds(baseSeconds: number, spanSeconds: number): number {
+  const base = Math.max(1, Math.round(baseSeconds));
+  if (!(spanSeconds > 0)) {
+    return base;
+  }
+
+  const needed = spanSeconds / TARGET_POINTS;
+  if (needed <= base) {
+    return base;
+  }
+
+  return BUCKET_LADDER.find((step) => step >= needed && step >= base) ?? Math.ceil(needed);
+}
+
+/**
+ * The rolling window, scaled the way the bucket was.
+ *
+ * The window is set in seconds, but what it means to a chart is a number of
+ * buckets. Coarsen the bucket for a long range and a 10-second window becomes
+ * `round(10 / 60)` = one bucket — no smoothing at all, silently, exactly where
+ * a noisy long view needs it most. Scaling by the same factor keeps the shape
+ * of the line constant across ranges: ten buckets of mean at every zoom.
+ */
+export function scaledWindowSeconds(
+  windowSec: number,
+  baseBucketSeconds: number,
+  effectiveBucketSeconds: number,
+): number {
+  const base = Math.max(1, baseBucketSeconds);
+  return Math.max(1, Math.round(windowSec * (Math.max(1, effectiveBucketSeconds) / base)));
+}
+
+/**
+ * A cheap stand-in for "the fight bands would look different".
+ *
+ * The fights array is replaced on every hub push, so depending on it directly
+ * redraws every chart several times a second while combat is live. What the
+ * bands actually show is where fights start and end, and neither can move
+ * visibly faster than one bucket — so the count plus the newest end, rounded
+ * to the bucket, captures every change worth repainting for.
+ */
+export function fightBandsKey(
+  fights: { lastDamageTime: string }[],
+  bucketSeconds: number,
+): string {
+  if (fights.length === 0) {
+    return "0";
+  }
+
+  const step = Math.max(1, bucketSeconds) * 1000;
+  const newest = new Date(fights[fights.length - 1].lastDamageTime).getTime();
+  return `${fights.length}|${Math.floor(newest / step)}`;
+}

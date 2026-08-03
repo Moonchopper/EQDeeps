@@ -1,6 +1,7 @@
 import type { Dimension, QueryFilter, QuerySource, QuerySpec } from "../api";
 import type { ChartSettings } from "../timeControls";
-import { frameAtSpan, frameScope, type TimeFrame } from "../timeFrame";
+import { frameAtSpan, frameScope, frameSpanSeconds, type TimeFrame } from "../timeFrame";
+import { queryBucketSeconds, scaledWindowSeconds } from "../chartInteractions";
 
 // The user-facing panel definition: a QuerySpec plus presentation. This is
 // what dashboards persist and what export/import moves between machines.
@@ -160,13 +161,46 @@ export function newDashboard(name: string): DashboardDef {
  * over that span, so a live frame is taken at the panel's span rather than the
  * app's (see frameAtSpan). Without an override the two are the same value.
  */
+/**
+ * The bucket a time panel queries at: its own width, coarsened when the range
+ * is long enough that its width would fetch more points than a chart can show.
+ * Exported so the panel draws on exactly the grid it asked for.
+ */
+/** The rolling window a time panel actually smooths over, at its query bucket. */
+export function panelWindowSeconds(
+  panel: PanelDef,
+  frame: TimeFrame,
+  settings: ChartSettings,
+  logSpanSeconds: number,
+): number {
+  return scaledWindowSeconds(
+    settings.windowSec,
+    panel.bucketSeconds,
+    panelBucketSeconds(panel, frame, settings, logSpanSeconds),
+  );
+}
+
+export function panelBucketSeconds(
+  panel: PanelDef,
+  frame: TimeFrame,
+  settings: ChartSettings,
+  logSpanSeconds: number,
+): number {
+  return queryBucketSeconds(
+    panel.bucketSeconds,
+    frameSpanSeconds(frame, settings.spanSec, logSpanSeconds),
+  );
+}
+
 export function buildSpec(
   panel: PanelDef,
   frame: TimeFrame,
   petRollup: boolean,
   settings: ChartSettings,
+  logSpanSeconds: number,
 ): QuerySpec {
-  const warmup = panel.viz === "line" ? settings.windowSec : 0;
+  const warmup =
+    panel.viz === "line" ? panelWindowSeconds(panel, frame, settings, logSpanSeconds) : 0;
   // A "recent" panel keeps a fixed window of its own, independent of the
   // frame. No standard view uses it now, but the query builder still offers
   // it for a custom panel that wants a fixed trailing window.
@@ -203,7 +237,10 @@ export function buildSpec(
         ? panel.metrics
         : [...new Set([panel.primaryMetric, "total"])],
     filters,
-    bucketSeconds: panel.viz === "line" ? panel.bucketSeconds : undefined,
+    bucketSeconds:
+      panel.viz === "line"
+        ? panelBucketSeconds(panel, frame, settings, logSpanSeconds)
+        : undefined,
     petRollup,
   };
 }

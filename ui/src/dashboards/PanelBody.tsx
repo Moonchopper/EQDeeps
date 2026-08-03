@@ -2,13 +2,21 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import * as echarts from "echarts";
 import { api, type FightInfo, type QuerySource, type QueryResult, type QueryRow } from "../api";
 import { fmtNum, fmtRate, OTHER_COLOR, SERIES_COLORS } from "../format";
-import { buildSpec, METRIC_LABELS, RATE_METRICS, type PanelDef } from "./model";
+import {
+  buildSpec,
+  METRIC_LABELS,
+  panelBucketSeconds,
+  panelWindowSeconds,
+  RATE_METRICS,
+  type PanelDef,
+} from "./model";
 import type { EntityColors } from "../colors";
 import {
   attachWheelZoom,
   bucketAlignedWindow,
   offsetTooltip,
-  stableAxisMax,
+  heldAxisMax,
+  fightBandsKey,
 } from "../chartInteractions";
 import type { ChartSettings } from "../timeControls";
 import type { TimeFrame } from "../timeFrame";
@@ -21,6 +29,8 @@ export interface PanelContext {
   fights: FightInfo[];
   /** Mob-name size on those bands; 0 hides them. */
   fightLabelPx: number;
+  /** Length of the whole log, for sizing buckets when the range is "fit". */
+  logSpanSeconds: number;
   /** Wall clock while scrolling; null when the window should sit still. */
   scrollNowMs: number | null;
   /** Promote a zoomed window to the app-wide time range. */
@@ -53,7 +63,7 @@ function usePanelQuery(
   settings: ChartSettings,
 ): QueryResult | null | "no-selection" {
   const [result, setResult] = useState<QueryResult | null>(null);
-  const spec = buildSpec(panel, ctx.frame, ctx.petRollup, settings);
+  const spec = buildSpec(panel, ctx.frame, ctx.petRollup, settings, ctx.logSpanSeconds);
   const specKey = JSON.stringify(spec);
 
   useEffect(() => {
@@ -220,26 +230,26 @@ function LinePanel({
   const { windowSec, spanSec } = settings;
   const result = usePanelQuery(panel, ctx, settings);
   const [isZoomed, setIsZoomed] = useState(false);
+  // The bucket the server actually aggregated at. Everything downstream —
+  // step size, window length, alignment — has to use this and not the panel's
+  // nominal width, or the chart walks a grid the data is not on.
+  const bucketSeconds = panelBucketSeconds(panel, ctx.frame, settings, ctx.logSpanSeconds);
+  // Scaled with the bucket, so a long range keeps the same shape of smoothing
+  // instead of quietly falling back to one raw bucket.
+  const smoothingSec = panelWindowSeconds(panel, ctx.frame, settings, ctx.logSpanSeconds);
+  const bandsKey = fightBandsKey(ctx.fights, bucketSeconds);
   // See DpsChart: "fit" and an active zoom both mean the viewport is not the
   // clock's to move.
   const scrollWindow: [number, number] | null =
     ctx.scrollNowMs !== null && spanSec !== "fit" && !isZoomed
-      ? bucketAlignedWindow(ctx.scrollNowMs, spanSec + windowSec, panel.bucketSeconds)
+      ? bucketAlignedWindow(ctx.scrollNowMs, spanSec + smoothingSec, bucketSeconds)
       : null;
   const suppressZoomEventRef = useRef(false);
   const extentRef = useRef<[number, number] | null>(null);
-  // See DpsChart: reset during render so a new scope is never drawn on the
-  // previous one's scale.
-  const axisMaxRef = useRef(0);
-  const axisScopeRef = useRef("");
   const zoomRangeRef = useRef<[number, number] | null>(null);
-
-  const axisScope = `${JSON.stringify(ctx.frame)}|${spanSec}|${windowSec}`;
-  if (axisScopeRef.current !== axisScope) {
-    axisScopeRef.current = axisScope;
-    axisMaxRef.current = 0;
-  }
-
+  // Identity + scope, so the ceiling survives a remount but not a real change
+  // of what is being plotted.
+  const axisKey = `${panel.id}|${JSON.stringify(ctx.frame)}|${spanSec}|${windowSec}`;
 
   const resetZoom = useCallback(() => {
     const chart = chartRef.current;
@@ -299,7 +309,7 @@ function LinePanel({
     }
     const timeline = [...allSeconds].sort((a, b) => a - b);
 
-    const step = Math.max(1, panel.bucketSeconds) * 1000;
+    const step = Math.max(1, bucketSeconds) * 1000;
     // Scrolling with the wall clock: the window IS [now - span, now], so the
     // segment is that window rather than whatever the data happens to cover.
     // Buckets with nothing in them read as zero, so quiet time draws as a line
@@ -332,8 +342,8 @@ function LinePanel({
 
     // Rate sources average to a per-second figure; amount sources stay in
     // their own units as a rolling mean per bucket.
-    const perBucket = RATE_SOURCES.has(panel.source) ? Math.max(1, panel.bucketSeconds) : 1;
-    const windowBuckets = Math.max(1, Math.round(windowSec / Math.max(1, panel.bucketSeconds)));
+    const perBucket = RATE_SOURCES.has(panel.source) ? Math.max(1, bucketSeconds) : 1;
+    const windowBuckets = Math.max(1, Math.round(smoothingSec / Math.max(1, bucketSeconds)));
     const smoothed = (rows: QueryRow[]) => {
       const bySecond = new Map<number, number>();
       for (const row of rows) {
@@ -393,7 +403,7 @@ function LinePanel({
       }
     }
 
-    axisMaxRef.current = stableAxisMax(dataMax, axisMaxRef.current);
+    const axisTop = heldAxisMax(axisKey, dataMax);
 
     // A fixed span pins the axis to [latest − span, latest]: constant width,
     // sliding right edge, so the chart doesn't rescale as points arrive. The
@@ -480,7 +490,7 @@ function LinePanel({
           // Faction standing genuinely goes negative, so zero is only the
           // floor when the data says it is.
           min: dataMin < 0 ? undefined : 0,
-          max: axisMaxRef.current,
+          max: axisTop,
           axisLabel: { color: "#898781", fontSize: 10, formatter: (v: number) => fmtLineValue(v) },
           splitLine: { lineStyle: { color: "#2c2c2a" } },
         },
@@ -494,7 +504,7 @@ function LinePanel({
       key: "dataZoomSelect",
       dataZoomSelectActive: true,
     });
-  }, [result, panel.source, panel.bucketSeconds, windowSec, spanSec, isZoomed, ctx.fights, ctx.fightLabelPx, ctx.scrollNowMs]);
+  }, [result, panel.source, bucketSeconds, smoothingSec, spanSec, isZoomed, bandsKey, ctx.fightLabelPx, ctx.scrollNowMs]);
 
   if (result === "no-selection") return <div className="empty">Select a fight</div>;
   return (

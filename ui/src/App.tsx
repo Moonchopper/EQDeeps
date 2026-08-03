@@ -37,9 +37,11 @@ import {
   frameFromRange,
   framedFightIds,
   fightsInFrame,
+  frameSpanSeconds,
   isLive,
   type TimeFrame,
 } from "./timeFrame";
+import { queryBucketSeconds } from "./chartInteractions";
 
 /**
  * How stale the log can get before wall-clock scrolling stops making sense.
@@ -118,8 +120,39 @@ export default function App() {
   const newestRecordMs = fights.length
     ? new Date(fights[fights.length - 1].lastDamageTime).getTime()
     : 0;
+  // How much log there is, so a "fit" range can size its buckets against
+  // something real instead of asking for a point per second across days.
+  const logSpanSeconds = fights.length
+    ? Math.max(1, Math.round((newestRecordMs - new Date(fights[0].beginTime).getTime()) / 1000))
+    : 0;
   const scrolling =
     liveScroll && isLive(frame) && newestRecordMs > 0 && nowMs - newestRecordMs < LIVE_LOG_GRACE_MS;
+
+  /*
+   * How often every panel refetches: once per bucket, backing off in step with
+   * how far out you are looking.
+   *
+   * A chart cannot change faster than its bucket closes. At a 24-hour range
+   * that bucket is a minute, so a second of new data moves nothing anyone can
+   * see, and refetching nine panels to find that out costs a megabyte. Short
+   * ranges bucket at a second and keep refreshing at a second, so live play is
+   * exactly as responsive as it ever was.
+   *
+   * The ceiling is not about the charts — live scrolling advances their
+   * viewport every second with no fetch at all, so the view never looks
+   * frozen, and the live meter runs straight off the hub tick and is never
+   * throttled at all. It is for the tables and tiles, which have no bucket to
+   * hide behind and would otherwise sit on five-minute-old totals at the
+   * longest ranges.
+   */
+  const MAX_REFRESH_MS = 30_000;
+  const refreshIntervalMs = Math.min(
+    MAX_REFRESH_MS,
+    Math.max(
+      1000,
+      queryBucketSeconds(1, frameSpanSeconds(frame, chartDefaults.spanSec, logSpanSeconds)) * 1000,
+    ),
+  );
   const summaryTrends = useMemo(() => summaryTrendPanels(), []);
 
   function selectStdView(id: string) {
@@ -329,9 +362,15 @@ export default function App() {
   );
 
   const lastRefresh = useRef(0);
+  // Read through a ref: the live connection is built once and closes over the
+  // first render's function, so the value has to be reachable rather than
+  // captured.
+  const refreshIntervalRef = useRef(1000);
+  refreshIntervalRef.current = refreshIntervalMs;
+
   function bumpRefreshThrottled() {
     const now = Date.now();
-    if (now - lastRefresh.current > 1000) {
+    if (now - lastRefresh.current > refreshIntervalRef.current) {
       lastRefresh.current = now;
       setRefreshKey((k) => k + 1);
     }
@@ -638,6 +677,7 @@ export default function App() {
               // makes the same call without repeating the condition.
               scrollNowMs: scrolling ? nowMs : null,
               onAdoptRange: adoptRange,
+              logSpanSeconds,
             };
             return (
           <main className={"dashboard" + (fightsCollapsed ? " fights-collapsed" : "")}>
@@ -695,6 +735,7 @@ export default function App() {
                       chartDefaults={chartDefaults}
                       scrollNowMs={panelCtx.scrollNowMs}
                       onAdoptRange={adoptRange}
+                      logSpanSeconds={logSpanSeconds}
                     />
                     {/* Healing and damage taken abreast, under the DPS chart:
                         output, upkeep and what came back, all on one axis. */}

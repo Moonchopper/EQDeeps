@@ -74,6 +74,25 @@ export function frameScope(frame: TimeFrame, warmupSec = 0): QuerySpec["scope"] 
 }
 
 /**
+ * Seconds one chart's query will cover — what the bucket width has to be
+ * chosen against. Mirrors frameAtSpan: a fixed range is its own length, and a
+ * live tail follows the chart's span rather than the frame's. "fit" is however
+ * long the log is.
+ */
+export function frameSpanSeconds(
+  frame: TimeFrame,
+  spanSec: Span,
+  logSpanSeconds: number,
+): number {
+  if (frame.kind === "range") {
+    const ms = new Date(frame.end).getTime() - new Date(frame.begin).getTime();
+    return Math.max(1, Math.round(ms / 1000));
+  }
+
+  return spanSec === "fit" ? Math.max(1, logSpanSeconds) : spanSec;
+}
+
+/**
  * The frame as one chart sees it.
  *
  * A time chart carries its own span — the panel header's control, or the DPS

@@ -199,3 +199,38 @@ export function heldAxisMax(key: string, dataMax: number): number {
 
   return next;
 }
+
+/**
+ * Roughly how many points are worth fetching for one line. A chart is about a
+ * thousand pixels wide, so beyond this every extra point is smaller than a
+ * pixel — invisible, but still queried, serialised, transferred and parsed.
+ */
+const TARGET_POINTS = 1500;
+
+/** Bucket widths worth snapping to, so the choice is stable and readable. */
+const BUCKET_LADDER = [1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 900, 1800, 3600];
+
+/**
+ * The bucket a query should actually use: the panel's own width, or coarser
+ * when the range is long enough that its width would produce more points than
+ * anyone can see.
+ *
+ * Measured on a real log, damage by player over 24 hours: at a 1-second bucket
+ * that is 26,113 points, 1.2 MB and 827 ms; at a minute it is 1,090 points,
+ * 56 KB and 114 ms. The picture is the same either way — the extra points land
+ * 26-deep on a single pixel. Ranges short enough to fetch honestly are left
+ * exactly as they were, so the default 15-minute view is untouched.
+ */
+export function queryBucketSeconds(baseSeconds: number, spanSeconds: number): number {
+  const base = Math.max(1, Math.round(baseSeconds));
+  if (!(spanSeconds > 0)) {
+    return base;
+  }
+
+  const needed = spanSeconds / TARGET_POINTS;
+  if (needed <= base) {
+    return base;
+  }
+
+  return BUCKET_LADDER.find((step) => step >= needed && step >= base) ?? Math.ceil(needed);
+}

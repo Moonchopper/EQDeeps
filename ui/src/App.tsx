@@ -118,6 +118,11 @@ export default function App() {
   const newestRecordMs = fights.length
     ? new Date(fights[fights.length - 1].lastDamageTime).getTime()
     : 0;
+  // How much log there is, so a "fit" range can size its buckets against
+  // something real instead of asking for a point per second across days.
+  const logSpanSeconds = fights.length
+    ? Math.max(1, Math.round((newestRecordMs - new Date(fights[0].beginTime).getTime()) / 1000))
+    : 0;
   const scrolling =
     liveScroll && isLive(frame) && newestRecordMs > 0 && nowMs - newestRecordMs < LIVE_LOG_GRACE_MS;
   const summaryTrends = useMemo(() => summaryTrendPanels(), []);
@@ -638,6 +643,7 @@ export default function App() {
               // makes the same call without repeating the condition.
               scrollNowMs: scrolling ? nowMs : null,
               onAdoptRange: adoptRange,
+              logSpanSeconds,
             };
             return (
           <main className={"dashboard" + (fightsCollapsed ? " fights-collapsed" : "")}>
@@ -695,6 +701,7 @@ export default function App() {
                       chartDefaults={chartDefaults}
                       scrollNowMs={panelCtx.scrollNowMs}
                       onAdoptRange={adoptRange}
+                      logSpanSeconds={logSpanSeconds}
                     />
                     {/* Healing and damage taken abreast, under the DPS chart:
                         output, upkeep and what came back, all on one axis. */}

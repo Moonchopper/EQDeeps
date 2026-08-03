@@ -8,6 +8,7 @@ import {
   bucketAlignedWindow,
   offsetTooltip,
   heldAxisMax,
+  queryBucketSeconds,
 } from "../chartInteractions";
 import {
   fmtDuration,
@@ -16,7 +17,13 @@ import {
   type ChartSettings,
   type Span,
 } from "../timeControls";
-import { frameAtSpan, frameScope, isLive, type TimeFrame } from "../timeFrame";
+import {
+  frameAtSpan,
+  frameScope,
+  frameSpanSeconds,
+  isLive,
+  type TimeFrame,
+} from "../timeFrame";
 import { fightMarkArea } from "../fightOverlay";
 
 interface Props {
@@ -30,6 +37,8 @@ interface Props {
   scrollNowMs: number | null;
   /** Promote a zoomed window to the app-wide time range. */
   onAdoptRange: (beginMs: number, endMs: number) => void;
+  /** Length of the whole log, for sizing buckets when the range is "fit". */
+  logSpanSeconds: number;
   refreshKey: number;
   petRollup: boolean;
   colors: EntityColors;
@@ -62,6 +71,7 @@ export function DpsChart({
   fightLabelPx,
   scrollNowMs,
   onAdoptRange,
+  logSpanSeconds,
   refreshKey,
   petRollup,
   colors,
@@ -97,10 +107,13 @@ export function DpsChart({
   // suspends it too — the viewport belongs to the user until they reset.
   // Identity + scope: survives a remount, forgets a real scope change.
   const axisKey = `dps|${frameKey}|${span}|${windowSec}`;
+  // This chart is bucketed at a second, coarsened when the range is long
+  // enough that a second would fetch more points than it can draw.
+  const bucketSeconds = queryBucketSeconds(1, frameSpanSeconds(frame, span, logSpanSeconds));
 
   const scrollWindow: [number, number] | null =
     scrollNowMs !== null && span !== "fit" && !isZoomed
-      ? bucketAlignedWindow(scrollNowMs, span + windowSec, 1)
+      ? bucketAlignedWindow(scrollNowMs, span + windowSec, bucketSeconds)
       : null;
 
   const resetZoom = useCallback(() => {
@@ -163,7 +176,7 @@ export function DpsChart({
         scope: frameScope(frameAtSpan(frame, span), windowSec),
         groupBy: ["player"],
         metrics: ["total"],
-        bucketSeconds: 1,
+        bucketSeconds,
         petRollup,
       })
       .then((r) => !cancelled && setResult(r))
@@ -171,7 +184,7 @@ export function DpsChart({
     return () => {
       cancelled = true;
     };
-  }, [sessionId, frameKey, refreshKey, windowSec, span, petRollup]);
+  }, [sessionId, frameKey, refreshKey, windowSec, span, bucketSeconds, petRollup]);
 
   useEffect(() => {
     if (!chartRef.current) return;
@@ -206,6 +219,13 @@ export function DpsChart({
       }
     }
     const timeline = [...allSeconds].sort((a, b) => a - b);
+
+    // Everything below walks the bucket grid the server aggregated on, which
+    // is not always one second: at a long range the bucket is coarser, and
+    // stepping by 1000 ms would miss every lookup and draw a flat zero line.
+    const step = Math.max(1, bucketSeconds) * 1000;
+    const windowBuckets = Math.max(1, Math.round(windowSec / Math.max(1, bucketSeconds)));
+
     const segments: [number, number][] = [];
     if (scrollWindow) {
       // Scrolling with the wall clock: the window IS [now - span, now], so
@@ -214,9 +234,14 @@ export function DpsChart({
       // rolling mean decays into it rather than freezing at its last value.
       segments.push(scrollWindow);
     } else {
+      // A break is a hole in the DATA, so it is measured in buckets: at a
+      // coarse bucket even back-to-back samples sit further apart than the
+      // flat 30 s threshold, which would make every bucket its own segment
+      // and leave nothing for connectNulls to join.
+      const breakMs = Math.max(BREAK_MS, step * 2);
       for (const t of timeline) {
         const last = segments[segments.length - 1];
-        if (last && t - last[1] <= BREAK_MS) {
+        if (last && t - last[1] <= breakMs) {
           last[1] = t;
         } else {
           segments.push([t, t]);
@@ -230,20 +255,22 @@ export function DpsChart({
     const smoothed = (bySecond: Map<number, number>) => {
       const points: [number, number | null][] = [];
       for (const [start, end] of segments) {
-        // Rolling mean over the last `windowSec` seconds; early seconds of a
+        // Rolling mean over the last `windowSec` of data; early buckets of a
         // segment divide by elapsed time so ramp-up isn't artificially low.
+        // Each bucket holds `bucketSeconds` of damage, so the divisor carries
+        // that too — this chart reads in damage per second, not per bucket.
         const ring: number[] = [];
         let sum = 0;
-        for (let t = start; t <= end; t += 1000) {
+        for (let t = start; t <= end; t += step) {
           const raw = bySecond.get(t) ?? 0;
           ring.push(raw);
           sum += raw;
-          if (ring.length > windowSec) {
+          if (ring.length > windowBuckets) {
             sum -= ring.shift()!;
           }
-          points.push([t, sum / ring.length]);
+          points.push([t, sum / (ring.length * Math.max(1, bucketSeconds))]);
         }
-        points.push([end + 500, null]); // break before the next segment
+        points.push([end + step / 2, null]); // break before the next segment
       }
       return points;
     };

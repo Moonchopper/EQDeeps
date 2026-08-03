@@ -65,9 +65,15 @@ A live view (dashboard panel) of the current/recent fights: per-player damage or
 
 The heart of the product (see `docs/architecture/system-overview.md` for the spec sketch). Users can create or edit a view by choosing: metric (damage, healing, tanking, DPS, crit rate, hit count…), grouping dimensions (player, spell, target, character, class, damage type…), filters (players, classes, spell names, damage-validity toggles like bane/damage-shield, min/max time window within the selection), and bucketing (per-second, N-second, whole-fight).
 
+A result table is a list you interrogate, not a ranking you read top-down, so every table panel carries a fuzzy search box and sortable columns. Both work over the rows already fetched — a panel returns its whole grouped tree in one response — so filtering is a re-render rather than a round trip, and the list keeps up with typing. Matching a row and matching only its children mean different things: match a row and its full breakdown stays, match only a descendant and the row narrows to the matching children and opens itself, because the answer is the thing a level down. Sorting cycles to "off" as well as both directions, since "off" is the server's own ranking and losing the way back would make sorting a one-way door.
+
+Rows carry a meter fill sized against the biggest value at their level. Top-level rows fill in their entity color — identity, never rank, per the cross-panel color rule. Breakdown rows fill in a heat ramp instead, because under an expanded row the entity is already named by the parent and "which of these is the big one" is the whole question. The ramp runs the palette's danger → gold → live rather than red straight to green, so lightness moves with hue and the ordering survives red-green color blindness.
+
 - AC: The damage-validity toggles (bane, damage shield, headshot, assassinate, finishing blow, slay undead) are query-time filters — flipping one updates the view without reparsing.
 - AC: "Damage by spell for player X" and "healing received by player X" are constructible from the UI in under a minute by a novice.
 - AC: A query can be saved with a name and reused across panels/dashboards.
+- AC: Typing in a table's search box narrows it without a server round trip; a query matching only a child row surfaces its parent already expanded.
+- AC: Clicking a column header sorts every level of the tree, and a third click restores the server's ranking.
 
 ### F7. Default dashboard
 
@@ -114,7 +120,10 @@ The span is the query, not just the picture: a whole-log panel is scoped to the 
 
 Panels keep `bucketSeconds`, which is a different thing: it is a query parameter deciding what the server aggregates, not how the result is read.
 
+Loot carries the same data read from both ends, side by side, because "what dropped this item" and "what does this mob drop" are the two questions a loot log gets asked and neither answers the other. The by-mob half is the one panel in the app that is not a plain reading of its own query: a drop rate needs a denominator the loot source does not carry — how many of that mob died — so it joins loot rows to a kill count from the death source over the same scope. That is why it is a viz of its own (`droprate`) rather than a table with extra columns. The join is case-insensitive, because the loot grammar keeps a corpse's name verbatim (`a bandit`) while the death grammar normalizes it (`A bandit`); loot's `target` dimension is inconsistent with every other source's until that is fixed at the parser.
+
 - AC: The standard views cannot be edited, deleted or exported in place; "customize a copy" produces an editable dashboard and leaves the standard view unchanged.
+- AC: Expanding a mob on the Loot view shows each item's drops per kill, over the same time frame every other panel reports on.
 - AC: A fresh profile opens every time chart — Summary's and every standard view's — on the same window and span.
 - AC: Changing the top-bar setting moves every chart in the app, discarding per-panel deviations.
 - AC: Every panel in a view reports over the same time frame — narrowing the span lowers the totals and tables, it does not merely crop the charts.

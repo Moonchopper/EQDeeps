@@ -54,6 +54,24 @@ export function frameScope(frame: TimeFrame, warmupSec = 0): QuerySpec["scope"] 
 }
 
 /**
+ * The frame as one chart sees it.
+ *
+ * A time chart carries its own span — the panel header's control, or the DPS
+ * chart's own — and that span is what it puts on screen: the viewport is
+ * [latest − span, latest], zero-filled, so quiet time draws along the floor.
+ * Query the frame's span instead and a chart set wider than the frame draws a
+ * window it never fetched: the part beyond the frame is zero-filled with
+ * nothing, which reads as "no XP was gained" rather than "not asked for". A
+ * live tail therefore follows the chart's span, not the frame's.
+ *
+ * Only live tails widen. A fixed range is a statement about which slice of the
+ * log everything reports over, and no chart's viewport overrides that.
+ */
+export function frameAtSpan(frame: TimeFrame, spanSec: Span): TimeFrame {
+  return frame.kind === "live" && frame.spanSec !== spanSec ? { kind: "live", spanSec } : frame;
+}
+
+/**
  * Builds a frame from a fight selection: the wall-clock window those fights
  * span, downtime between them included. One fight is just that fight.
  */

@@ -16,7 +16,7 @@ import {
   type ChartSettings,
   type Span,
 } from "../timeControls";
-import { frameScope, isLive, type TimeFrame } from "../timeFrame";
+import { frameAtSpan, frameScope, isLive, type TimeFrame } from "../timeFrame";
 import { fightMarkArea } from "../fightOverlay";
 
 interface Props {
@@ -164,9 +164,11 @@ export function DpsChart({
     api
       .query(sessionId, {
         source: "damage",
-        // The frame is the scope. The extra windowSec of lookback warms up the
-        // rolling mean so the left edge of the viewport is already smoothed.
-        scope: frameScope(frame, windowSec),
+        // The frame is the scope, taken at this chart's span so the viewport
+        // never outruns the data behind it (see frameAtSpan). The extra
+        // windowSec of lookback warms up the rolling mean so the left edge of
+        // the viewport is already smoothed.
+        scope: frameScope(frameAtSpan(frame, span), windowSec),
         groupBy: ["player"],
         metrics: ["total"],
         bucketSeconds: 1,
@@ -177,7 +179,7 @@ export function DpsChart({
     return () => {
       cancelled = true;
     };
-  }, [sessionId, frameKey, refreshKey, windowSec, petRollup]);
+  }, [sessionId, frameKey, refreshKey, windowSec, span, petRollup]);
 
   useEffect(() => {
     if (!chartRef.current) return;

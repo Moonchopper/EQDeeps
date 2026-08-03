@@ -93,6 +93,8 @@ A live frame can also follow the **wall clock** rather than the newest record (a
 
 A single **reset** in the top bar returns the frame to live and the window/span to their defaults; "back to live" in the fight list releases a range without touching the settings.
 
+Query cost is scaled to the range rather than fixed: the bucket widens so a long view fetches roughly the points it can draw, the rolling window widens with it so the smoothing keeps its shape, and every panel's refresh backs off to about one bucket (capped) since nothing can change faster than a bucket closes. The timeline additionally caps the lanes it draws and says how many it left out.
+
 Every time chart draws **fight bands** behind the line: faint alternating shading over the stretches where something was being fought, labelled with the mob. Without them a trough reads the same whether you were between pulls, running to the next camp, or fighting something that did not hurt. Names are anchored at the floor and read upward, clamped to the plot height so a long mob name truncates rather than running off the top. One app-wide setting in the top bar governs the whole overlay: off, bands (shading with no names), or names at small / medium / large, defaulting to large. Whether a band is named is decided per band by measurement: rotated text is only as wide as its font size, so a band earns a name when it spans more pixels than that. Dense views therefore thin out rather than switching off, and the shading itself stops entirely past ~120 bands, because solid shading is not context.
 
 - AC: Selecting fights changes what every panel shows, including Experience, Faction and Loot.

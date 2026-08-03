@@ -37,14 +37,34 @@ export function framedFightIds(frame: TimeFrame): number[] {
 }
 
 /**
+ * The server parses timeRanges as LOCAL DateTime, matching the timestamps it
+ * emits — so an epoch millisecond has to be written out in local parts.
+ * `toISOString()` would hand it UTC and silently shift the window by the whole
+ * UTC offset.
+ */
+function localIso(ms: number): string {
+  const d = new Date(ms);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return (
+    `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` +
+    `T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+  );
+}
+
+/**
  * The frame as a query scope. `warmupSec` is extra history for a rolling
  * mean's left edge; it widens the query without widening what gets drawn.
  */
 export function frameScope(frame: TimeFrame, warmupSec = 0): QuerySpec["scope"] {
   if (frame.kind === "range") {
-    const begin = warmupSec > 0
-      ? new Date(new Date(frame.begin).getTime() - warmupSec * 1000).toISOString().slice(0, 19)
-      : frame.begin;
+    // localIso, NOT toISOString: the latter hands back UTC, which the server
+    // then reads as local. Off by the whole offset, the warmed-up begin lands
+    // after the end and the range returns nothing at all — an empty chart
+    // wherever a fixed range meets a rolling mean.
+    const begin =
+      warmupSec > 0
+        ? localIso(new Date(frame.begin).getTime() - warmupSec * 1000)
+        : frame.begin;
     return { timeRanges: [{ begin, end: frame.end }] };
   }
 
@@ -91,20 +111,6 @@ export function frameFromFights(fights: FightInfo[], ids: number[]): TimeFrame |
   return { kind: "range", fightIds: [...ids], begin, end };
 }
 
-/**
- * The server parses timeRanges as LOCAL DateTime, matching the timestamps it
- * emits — so an epoch millisecond has to be written out in local parts.
- * `toISOString()` would hand it UTC and silently shift the window by the whole
- * UTC offset.
- */
-function localIso(ms: number): string {
-  const d = new Date(ms);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return (
-    `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` +
-    `T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
-  );
-}
 
 /**
  * A frame from an arbitrary window — what a chart hands over when the user

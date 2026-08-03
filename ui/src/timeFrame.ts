@@ -17,7 +17,8 @@ import { DEFAULT_LABEL_PX } from "./fightOverlay";
  *  live  — the trailing `spanSec` of the record stream, anchored to the newest
  *          record. Inherently follows live play: new records move the window.
  *          `spanSec: "fit"` is the whole log.
- *  range — a fixed window, produced by selecting fights. Does not follow.
+ *  range — a fixed window. Comes from the fight list, or straight off a chart
+ *          the user zoomed into. Does not follow.
  */
 export type TimeFrame =
   | { kind: "live"; spanSec: Span }
@@ -36,20 +37,58 @@ export function framedFightIds(frame: TimeFrame): number[] {
 }
 
 /**
+ * The server parses timeRanges as LOCAL DateTime, matching the timestamps it
+ * emits — so an epoch millisecond has to be written out in local parts.
+ * `toISOString()` would hand it UTC and silently shift the window by the whole
+ * UTC offset.
+ */
+function localIso(ms: number): string {
+  const d = new Date(ms);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return (
+    `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` +
+    `T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+  );
+}
+
+/**
  * The frame as a query scope. `warmupSec` is extra history for a rolling
  * mean's left edge; it widens the query without widening what gets drawn.
  */
 export function frameScope(frame: TimeFrame, warmupSec = 0): QuerySpec["scope"] {
   if (frame.kind === "range") {
-    const begin = warmupSec > 0
-      ? new Date(new Date(frame.begin).getTime() - warmupSec * 1000).toISOString().slice(0, 19)
-      : frame.begin;
+    // localIso, NOT toISOString: the latter hands back UTC, which the server
+    // then reads as local. Off by the whole offset, the warmed-up begin lands
+    // after the end and the range returns nothing at all — an empty chart
+    // wherever a fixed range meets a rolling mean.
+    const begin =
+      warmupSec > 0
+        ? localIso(new Date(frame.begin).getTime() - warmupSec * 1000)
+        : frame.begin;
     return { timeRanges: [{ begin, end: frame.end }] };
   }
 
   // "fit" is the whole log: no bound at all rather than a very large one, so
   // the server takes its own unrestricted path.
   return frame.spanSec === "fit" ? {} : { lastSeconds: frame.spanSec + warmupSec };
+}
+
+/**
+ * The frame as one chart sees it.
+ *
+ * A time chart carries its own span — the panel header's control, or the DPS
+ * chart's own — and that span is what it puts on screen: the viewport is
+ * [latest − span, latest], zero-filled, so quiet time draws along the floor.
+ * Query the frame's span instead and a chart set wider than the frame draws a
+ * window it never fetched: the part beyond the frame is zero-filled with
+ * nothing, which reads as "no XP was gained" rather than "not asked for". A
+ * live tail therefore follows the chart's span, not the frame's.
+ *
+ * Only live tails widen. A fixed range is a statement about which slice of the
+ * log everything reports over, and no chart's viewport overrides that.
+ */
+export function frameAtSpan(frame: TimeFrame, spanSec: Span): TimeFrame {
+  return frame.kind === "live" && frame.spanSec !== spanSec ? { kind: "live", spanSec } : frame;
 }
 
 /**
@@ -70,6 +109,17 @@ export function frameFromFights(fights: FightInfo[], ids: number[]): TimeFrame |
   }
 
   return { kind: "range", fightIds: [...ids], begin, end };
+}
+
+
+/**
+ * A frame from an arbitrary window — what a chart hands over when the user
+ * zooms into something interesting and promotes it. No fights attached: the
+ * window is the statement, and it need not line up with any pull.
+ */
+export function frameFromRange(beginMs: number, endMs: number): TimeFrame {
+  const [from, to] = beginMs <= endMs ? [beginMs, endMs] : [endMs, beginMs];
+  return { kind: "range", fightIds: [], begin: localIso(from), end: localIso(to) };
 }
 
 /** Inclusive index range between two fight-list positions, in either order. */
@@ -124,6 +174,14 @@ export function frameLabel(frame: TimeFrame, fights: FightInfo[]): string {
     : seconds >= 60
       ? `${Math.round(seconds / 60)}m`
       : `${seconds}s`;
+
+  // A hand-picked window has no fights to name, so say when it is instead.
+  if (frame.fightIds.length === 0) {
+    const at = new Date(frame.begin);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${pad(at.getHours())}:${pad(at.getMinutes())} · ${length}`;
+  }
+
   return `${chosen.length || frame.fightIds.length} fights · ${length}`;
 }
 

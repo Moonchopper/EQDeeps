@@ -4,7 +4,12 @@ import { api, type FightInfo, type QuerySource, type QueryResult, type QueryRow 
 import { fmtNum, fmtRate, OTHER_COLOR, SERIES_COLORS } from "../format";
 import { buildSpec, METRIC_LABELS, RATE_METRICS, type PanelDef } from "./model";
 import type { EntityColors } from "../colors";
-import { attachWheelZoom, bucketAlignedWindow, offsetTooltip } from "../chartInteractions";
+import {
+  attachWheelZoom,
+  bucketAlignedWindow,
+  offsetTooltip,
+  stableAxisMax,
+} from "../chartInteractions";
 import type { ChartSettings } from "../timeControls";
 import type { TimeFrame } from "../timeFrame";
 import { fightMarkArea } from "../fightOverlay";
@@ -18,6 +23,8 @@ export interface PanelContext {
   fightLabelPx: number;
   /** Wall clock while scrolling; null when the window should sit still. */
   scrollNowMs: number | null;
+  /** Promote a zoomed window to the app-wide time range. */
+  onAdoptRange: (beginMs: number, endMs: number) => void;
   refreshKey: number;
   petRollup: boolean;
   colors: EntityColors;
@@ -221,6 +228,18 @@ function LinePanel({
       : null;
   const suppressZoomEventRef = useRef(false);
   const extentRef = useRef<[number, number] | null>(null);
+  // See DpsChart: reset during render so a new scope is never drawn on the
+  // previous one's scale.
+  const axisMaxRef = useRef(0);
+  const axisScopeRef = useRef("");
+  const zoomRangeRef = useRef<[number, number] | null>(null);
+
+  const axisScope = `${JSON.stringify(ctx.frame)}|${spanSec}|${windowSec}`;
+  if (axisScopeRef.current !== axisScope) {
+    axisScopeRef.current = axisScope;
+    axisMaxRef.current = 0;
+  }
+
 
   const resetZoom = useCallback(() => {
     const chart = chartRef.current;
@@ -243,6 +262,11 @@ function LinePanel({
       const p = params as { start?: number; end?: number; batch?: { start?: number; end?: number }[] };
       const window = p.batch?.[0] ?? p;
       setIsZoomed(!(window.start === 0 && window.end === 100));
+      const dz = (chart.getOption() as { dataZoom?: { startValue?: number; endValue?: number }[] })
+        .dataZoom?.[0];
+      if (typeof dz?.startValue === "number" && typeof dz?.endValue === "number") {
+        zoomRangeRef.current = [dz.startValue, dz.endValue];
+      }
     });
     chart.getZr().on("dblclick", resetZoom);
     const detachWheelZoom = attachWheelZoom(chart, { left: 48, right: 10 }, () => extentRef.current);
@@ -357,6 +381,20 @@ function LinePanel({
       });
     }
 
+
+    // Axis top from what is actually plotted, held steady by stableAxisMax.
+    let dataMax = 0;
+    let dataMin = 0;
+    for (const s of series) {
+      for (const point of (s.data as [number, number | null][] | undefined) ?? []) {
+        if (point[1] === null) continue;
+        dataMax = Math.max(dataMax, point[1]);
+        dataMin = Math.min(dataMin, point[1]);
+      }
+    }
+
+    axisMaxRef.current = stableAxisMax(dataMax, axisMaxRef.current);
+
     // A fixed span pins the axis to [latest − span, latest]: constant width,
     // sliding right edge, so the chart doesn't rescale as points arrive. The
     // right edge is the newest data point rather than wall clock, so replayed
@@ -439,6 +477,10 @@ function LinePanel({
         },
         yAxis: {
           type: "value",
+          // Faction standing genuinely goes negative, so zero is only the
+          // floor when the data says it is.
+          min: dataMin < 0 ? undefined : 0,
+          max: axisMaxRef.current,
           axisLabel: { color: "#898781", fontSize: 10, formatter: (v: number) => fmtLineValue(v) },
           splitLine: { lineStyle: { color: "#2c2c2a" } },
         },
@@ -459,13 +501,25 @@ function LinePanel({
     <div className="chart-wrap">
       <div ref={divRef} className="chart" />
       {isZoomed && (
-        <button
-          className="zoom-reset"
-          onClick={resetZoom}
-          title="Back to the full view (or double-click the chart)"
-        >
-          ↺ reset zoom
-        </button>
+        <span className="zoom-actions">
+          <button
+            className="zoom-reset"
+            onClick={() => {
+              const range = zoomRangeRef.current;
+              if (range) ctx.onAdoptRange(range[0], range[1]);
+            }}
+            title="Make this zoomed window the time range every panel reports over"
+          >
+            ⤢ set as time range
+          </button>
+          <button
+            className="zoom-reset"
+            onClick={resetZoom}
+            title="Back to the full view (or double-click the chart)"
+          >
+            ↺ reset zoom
+          </button>
+        </span>
       )}
     </div>
   );

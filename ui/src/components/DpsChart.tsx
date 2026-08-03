@@ -3,7 +3,12 @@ import * as echarts from "echarts";
 import { api, type FightInfo, type QueryResult, type QueryRow } from "../api";
 import { fmtNum, OTHER_COLOR } from "../format";
 import type { EntityColors } from "../colors";
-import { attachWheelZoom, bucketAlignedWindow, offsetTooltip } from "../chartInteractions";
+import {
+  attachWheelZoom,
+  bucketAlignedWindow,
+  offsetTooltip,
+  stableAxisMax,
+} from "../chartInteractions";
 import {
   fmtDuration,
   spanChoices,
@@ -11,7 +16,7 @@ import {
   type ChartSettings,
   type Span,
 } from "../timeControls";
-import { frameScope, isLive, type TimeFrame } from "../timeFrame";
+import { frameAtSpan, frameScope, isLive, type TimeFrame } from "../timeFrame";
 import { fightMarkArea } from "../fightOverlay";
 
 interface Props {
@@ -23,6 +28,8 @@ interface Props {
   fightLabelPx: number;
   /** Wall clock while scrolling; null when the window should sit still. */
   scrollNowMs: number | null;
+  /** Promote a zoomed window to the app-wide time range. */
+  onAdoptRange: (beginMs: number, endMs: number) => void;
   refreshKey: number;
   petRollup: boolean;
   colors: EntityColors;
@@ -54,6 +61,7 @@ export function DpsChart({
   fights,
   fightLabelPx,
   scrollNowMs,
+  onAdoptRange,
   refreshKey,
   petRollup,
   colors,
@@ -82,10 +90,22 @@ export function DpsChart({
   const [isZoomed, setIsZoomed] = useState(false);
   const suppressZoomEventRef = useRef(false);
   const extentRef = useRef<[number, number] | null>(null);
+  // Held across renders so the axis can refuse to follow every wobble. Reset
+  // during render rather than in an effect: an effect runs AFTER the draw, so
+  // the first frame of a new scope would still be drawn on the old scale.
+  const axisMaxRef = useRef(0);
+  const axisScopeRef = useRef("");
+  const zoomRangeRef = useRef<[number, number] | null>(null);
 
   // "fit" means show everything there is, which cannot also mean "and keep
   // sliding past it", so scrolling only applies to a fixed span. Zooming
   // suspends it too — the viewport belongs to the user until they reset.
+  const axisScope = `${frameKey}|${span}|${windowSec}`;
+  if (axisScopeRef.current !== axisScope) {
+    axisScopeRef.current = axisScope;
+    axisMaxRef.current = 0;
+  }
+
   const scrollWindow: [number, number] | null =
     scrollNowMs !== null && span !== "fit" && !isZoomed
       ? bucketAlignedWindow(scrollNowMs, span + windowSec, 1)
@@ -114,6 +134,14 @@ export function DpsChart({
       const p = params as { start?: number; end?: number; batch?: { start?: number; end?: number }[] };
       const window = p.batch?.[0] ?? p;
       setIsZoomed(!(window.start === 0 && window.end === 100));
+      // Remember what the zoom actually landed on, so it can be promoted to
+      // the app-wide time range. ECharts fills startValue/endValue on the
+      // dataZoom component once a real range has been brushed.
+      const dz = (chart.getOption() as { dataZoom?: { startValue?: number; endValue?: number }[] })
+        .dataZoom?.[0];
+      if (typeof dz?.startValue === "number" && typeof dz?.endValue === "number") {
+        zoomRangeRef.current = [dz.startValue, dz.endValue];
+      }
     });
     chart.getZr().on("dblclick", resetZoom);
     const detachWheelZoom = attachWheelZoom(chart, { left: 52, right: 12 }, () => extentRef.current);
@@ -136,9 +164,11 @@ export function DpsChart({
     api
       .query(sessionId, {
         source: "damage",
-        // The frame is the scope. The extra windowSec of lookback warms up the
-        // rolling mean so the left edge of the viewport is already smoothed.
-        scope: frameScope(frame, windowSec),
+        // The frame is the scope, taken at this chart's span so the viewport
+        // never outruns the data behind it (see frameAtSpan). The extra
+        // windowSec of lookback warms up the rolling mean so the left edge of
+        // the viewport is already smoothed.
+        scope: frameScope(frameAtSpan(frame, span), windowSec),
         groupBy: ["player"],
         metrics: ["total"],
         bucketSeconds: 1,
@@ -149,7 +179,7 @@ export function DpsChart({
     return () => {
       cancelled = true;
     };
-  }, [sessionId, frameKey, refreshKey, windowSec, petRollup]);
+  }, [sessionId, frameKey, refreshKey, windowSec, span, petRollup]);
 
   useEffect(() => {
     if (!chartRef.current) return;
@@ -247,6 +277,20 @@ export function DpsChart({
       });
     }
 
+
+    // Axis top from what is actually plotted, held steady by stableAxisMax.
+    let dataMax = 0;
+    let dataMin = 0;
+    for (const s of series) {
+      for (const point of (s.data as [number, number | null][] | undefined) ?? []) {
+        if (point[1] === null) continue;
+        dataMax = Math.max(dataMax, point[1]);
+        dataMin = Math.min(dataMin, point[1]);
+      }
+    }
+
+    axisMaxRef.current = stableAxisMax(dataMax, axisMaxRef.current);
+
     // A fixed span pins the axis to [latest − span, latest]: constant width,
     // sliding right edge — no rescaling as points arrive. The right edge is
     // the newest data second (not wall clock), so replayed logs behave too.
@@ -337,6 +381,10 @@ export function DpsChart({
         },
         yAxis: {
           type: "value",
+          // Anchored at zero unless the data actually goes below it, so the
+          // floor never drifts either.
+          min: dataMin < 0 ? undefined : 0,
+          max: axisMaxRef.current,
           axisLabel: {
             color: "#898781",
             fontSize: 11,
@@ -401,13 +449,25 @@ export function DpsChart({
       <div className="chart-wrap">
         <div ref={divRef} className="chart" />
         {isZoomed && (
-          <button
-            className="zoom-reset"
-            onClick={resetZoom}
-            title="Back to the full view (or double-click the chart)"
-          >
-            ↺ reset zoom
-          </button>
+          <span className="zoom-actions">
+            <button
+              className="zoom-reset"
+              onClick={() => {
+                const range = zoomRangeRef.current;
+                if (range) onAdoptRange(range[0], range[1]);
+              }}
+              title="Make this zoomed window the time range every panel reports over"
+            >
+              ⤢ set as time range
+            </button>
+            <button
+              className="zoom-reset"
+              onClick={resetZoom}
+              title="Back to the full view (or double-click the chart)"
+            >
+              ↺ reset zoom
+            </button>
+          </span>
         )}
       </div>
     </div>

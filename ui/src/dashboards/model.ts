@@ -1,6 +1,6 @@
 import type { Dimension, QueryFilter, QuerySource, QuerySpec } from "../api";
 import type { ChartSettings } from "../timeControls";
-import { frameScope, type TimeFrame } from "../timeFrame";
+import { frameAtSpan, frameScope, type TimeFrame } from "../timeFrame";
 
 // The user-facing panel definition: a QuerySpec plus presentation. This is
 // what dashboards persist and what export/import moves between machines.
@@ -155,6 +155,10 @@ export function newDashboard(name: string): DashboardDef {
  * Time charts additionally fetch one rolling window of extra history, so the
  * mean is already warm at the left edge of the viewport instead of ramping up
  * from nothing. That history sits outside the drawn axis range.
+ *
+ * A panel whose header sets a span of its own is asking that panel to report
+ * over that span, so a live frame is taken at the panel's span rather than the
+ * app's (see frameAtSpan). Without an override the two are the same value.
  */
 export function buildSpec(
   panel: PanelDef,
@@ -169,7 +173,7 @@ export function buildSpec(
   const scope: QuerySpec["scope"] =
     panel.scopeMode === "recent"
       ? { lastSeconds: panel.lastSeconds + warmup }
-      : frameScope(frame, warmup);
+      : frameScope(frameAtSpan(frame, settings.spanSec), warmup);
   if (panel.scopeMode !== "recent") {
     if (panel.skipFirstSeconds > 0) {
       scope.skipFirstSeconds = panel.skipFirstSeconds;

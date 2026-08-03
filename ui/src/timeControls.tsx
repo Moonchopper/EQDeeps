@@ -4,8 +4,11 @@
  * build their choice lists from here so the two can never drift into offering
  * different options for the same idea.
  *
- *  window — width of the rolling mean.
- *  span   — width of the visible viewport; "fit" shows everything there is.
+ *  window     — width of the rolling mean.
+ *  time range — how much time is on screen and reported over; "fit" is
+ *               everything there is. Called `spanSec` in the code, since a
+ *               fixed range picked off a chart or the fight list is a
+ *               different thing (see TimeFrame).
  *
  * Both ladders are expressed as MULTIPLES OF THE BUCKET, not fixed seconds: a
  * 5-second window means nothing on a chart bucketed at a minute. At the
@@ -16,7 +19,9 @@
 export type Span = number | "fit";
 
 const WINDOW_MULTIPLES = [1, 3, 5, 10, 30, 60];
-const SPAN_MULTIPLES = [30, 60, 120, 300, 900, 3600];
+// Reaches from half a minute to a day at the 1-second bucket, so a window can
+// be picked outright rather than only by selecting fights.
+const SPAN_MULTIPLES = [30, 60, 120, 300, 900, 1800, 3600, 7200, 21600, 86400];
 
 export function fmtDuration(seconds: number): string {
   if (seconds < 60) return `${Math.round(seconds)}s`;
@@ -54,6 +59,8 @@ export const DEFAULT_CHART_SETTINGS: ChartSettings = { windowSec: 10, spanSec: 9
 interface Props {
   settings: ChartSettings;
   bucketSeconds: number;
+  /** Panel headers still set their own range; the top bar uses the picker. */
+  showSpan?: boolean;
   onChange: (next: ChartSettings) => void;
   /** Omitted when there is no other time chart to apply to. */
   onApplyToAll?: () => void;
@@ -65,7 +72,13 @@ interface Props {
  * path when you want the whole view on one footing rather than tuning each
  * chart in turn.
  */
-export function TimeControls({ settings, bucketSeconds, onChange, onApplyToAll }: Props) {
+export function TimeControls({
+  settings,
+  bucketSeconds,
+  showSpan,
+  onChange,
+  onApplyToAll,
+}: Props) {
   // A stored value that isn't on the ladder (an older panel, or a setting
   // copied from a chart with a different bucket) still has to be selectable,
   // or the select would silently snap it to something else.
@@ -93,24 +106,26 @@ export function TimeControls({ settings, bucketSeconds, onChange, onApplyToAll }
           ))}
         </select>
       </label>
-      <label>
-        span
-        <select
-          value={String(settings.spanSec)}
-          onChange={(e) =>
-            onChange({
-              ...settings,
-              spanSec: e.target.value === "fit" ? "fit" : Number(e.target.value),
-            })
-          }
-        >
-          {spans.map((s) => (
-            <option key={String(s.value)} value={String(s.value)}>
-              {s.label}
-            </option>
-          ))}
-        </select>
-      </label>
+      {showSpan !== false && (
+        <label>
+          time range
+          <select
+            value={String(settings.spanSec)}
+            onChange={(e) =>
+              onChange({
+                ...settings,
+                spanSec: e.target.value === "fit" ? "fit" : Number(e.target.value),
+              })
+            }
+          >
+            {spans.map((s) => (
+              <option key={String(s.value)} value={String(s.value)}>
+                {s.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       {onApplyToAll && (
         <button
           className="mini-btn"
@@ -122,4 +137,37 @@ export function TimeControls({ settings, bucketSeconds, onChange, onApplyToAll }
       )}
     </span>
   );
+}
+
+/**
+ * Parses a relative duration into seconds: "6h", "-20m", "500m", "1h30m",
+ * "90s", "2d". A leading minus is accepted and ignored — "-6h" and "6h" both
+ * mean "the last six hours", and reading the sign literally would produce a
+ * window running backwards.
+ *
+ * Units are required. A bare "500" could be seconds or minutes with equal
+ * plausibility, and guessing wrong silently gives a window 60x off.
+ */
+export function parseDuration(text: string): number | null {
+  const cleaned = text.trim().toLowerCase().replace(/^(last|past)\s+/, "").replace(/^-/, "");
+  if (cleaned.length === 0) {
+    return null;
+  }
+
+  const units: Record<string, number> = { s: 1, m: 60, h: 3600, d: 86400 };
+  const pattern = /(\d+(?:\.\d+)?)\s*([smhd])/g;
+  let total = 0;
+  let matchedTo = 0;
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(cleaned)) !== null) {
+    if (cleaned.slice(matchedTo, match.index).trim().length !== 0) {
+      return null; // something other than spacing between the parts
+    }
+    total += Number(match[1]) * units[match[2]];
+    matchedTo = pattern.lastIndex;
+  }
+
+  // Every character had to belong to a part, and the total has to be usable.
+  const trailing = cleaned.slice(matchedTo).trim();
+  return trailing.length === 0 && total > 0 ? Math.round(total) : null;
 }

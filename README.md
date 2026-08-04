@@ -2,9 +2,26 @@
 
 A modern, real-time EverQuest combat-log analytics app — a clean-room successor to [EQLogParser](https://github.com/kauffman12/EQLogParser) built around composable queries and dashboards instead of fixed views.
 
-![EQDeeps overview dashboard on a synthetic raid log](docs/media/overview.png)
+![EQDeeps Summary view on the bundled sample log](docs/media/overview.png)
 
 **Status: v0.8.0 released.** Parser core, ingestion (≈1 GB/s backfill, sub-250 ms live latency), fight/session state, the composable query engine, a localhost REST + SignalR backend, one app-wide time frame — a live tail that follows the wall clock through quiet time, a range picked off the fight list, a window typed in (`-6h`, `500m`) or set absolutely, or one promoted straight off a chart you zoomed into — the Summary view (fight list, damage/healing/tanking trends, live meter, ability breakdowns, deaths, event timeline) with fight bands behind every chart and timeline marks sized by what each cast landed, read-only standard views for healing, tanking, stances, experience, faction and loot — loot answering drop rates per kill by joining it to mob deaths, stances answering what switching cost you per second held across damage, healing and damage taken alike — tables you can fuzzy-search and sort with heat-ramped breakdown meters, a Gear tab that reads your `/outputfile inventory` dump and reports how each gear set actually played, custom dashboards with a full query-builder UI, log autodetection, a WebView2 windowed shell, and signed CI releases shipping a per-user installer plus a portable zip, with consent-driven auto-updating — durations and rates measured against time actually played rather than against the calendar the log file spans, and validated through day-to-day use on real logs. Remaining before public v1: a systematic number-comparison harness against EQLogParser, spell-DB integration (class detection, bane, lands-on resolution), identity persistence to disk, and the P1/P2 backlog — see [features.md](docs/product/features.md).
+
+## What it looks like
+
+Every shot below is the bundled sample log — two days of sanitized real play
+that ships inside the app — framed on one evening of it. The app offers it on
+first run, so none of this needs EverQuest installed to reproduce.
+
+| | |
+|---|---|
+| [<img src="docs/media/healing.png" alt="Healing view">](docs/media/healing.png) | [<img src="docs/media/tanking.png" alt="Tanking view">](docs/media/tanking.png) |
+| **Healing** — rankings carrying overheal and crit alongside the raw total, who received it, and which spells did the work. | **Tanking** — damage taken with the defensive rates beside it, the mobs that hit hardest, and every death in the frame. |
+| [<img src="docs/media/loot.png" alt="Loot view">](docs/media/loot.png) | [<img src="docs/media/experience.png" alt="Experience view">](docs/media/experience.png) |
+| **Loot** — what dropped and what it sold for, joined to mob deaths so "per kill" is an answer rather than an estimate. | **Experience** — XP and AA over time with the rate per hour, measured against time actually played rather than the calendar. |
+| [<img src="docs/media/gear.png" alt="Gear view">](docs/media/gear.png) | [<img src="docs/media/dashboard.png" alt="A custom dashboard">](docs/media/dashboard.png) |
+| **Gear** — each `/outputfile inventory` dump becomes a set, measured over the window it was worn, with the fight and hour counts that say how much the sDPS difference is worth. | **Custom dashboards** — clone a standard view or start from nothing; drag panels, resize them, export one as a file and import it somewhere else. |
+| [<img src="docs/media/query-builder.png" alt="The panel query builder">](docs/media/query-builder.png) | |
+| **Query builder** — every panel is a query: source, scope, trim, grouping, columns, exclusions. The standard views are the same thing, written in code. | |
 
 ## Run it
 

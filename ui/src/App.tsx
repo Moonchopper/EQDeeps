@@ -85,7 +85,19 @@ export default function App() {
   const [chartDefaults, setChartDefaults] = useState<ChartSettings>(() => {
     try {
       const stored = localStorage.getItem("eqdeeps.chartDefaults");
-      return stored ? { ...DEFAULT_CHART_SETTINGS, ...JSON.parse(stored) } : DEFAULT_CHART_SETTINGS;
+      if (!stored) return DEFAULT_CHART_SETTINGS;
+      // The window used to persist as seconds under `windowSec`. The top bar
+      // that wrote it sits at the 1-second bucket, so its number was already
+      // the bucket count this now stores — carry it straight across rather than
+      // resetting everyone's window on upgrade.
+      const { windowSec, ...rest } = JSON.parse(stored) as Partial<ChartSettings> & {
+        windowSec?: number;
+      };
+      return {
+        ...DEFAULT_CHART_SETTINGS,
+        ...(typeof windowSec === "number" ? { windowBuckets: windowSec } : {}),
+        ...rest,
+      };
     } catch {
       return DEFAULT_CHART_SETTINGS;
     }

@@ -54,7 +54,7 @@ export function DashboardView({
   // per-panel deviations rather than leaving some charts silently behind.
   useEffect(() => {
     setChartSettings({});
-  }, [chartDefaults.windowSec, chartDefaults.spanSec]);
+  }, [chartDefaults.windowBuckets, chartDefaults.spanSec]);
 
   const layout: Layout = dashboard.panels.map((p) => rectFor(dashboard, p.id));
   const timeCharts = dashboard.panels.filter((p) => p.viz === "line");

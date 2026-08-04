@@ -14,6 +14,15 @@
  * 5-second window means nothing on a chart bucketed at a minute. At the
  * 1-second bucket every other chart uses, `windowChoices` reproduces the DPS
  * chart's original 1/3/5/10/30/60 s list exactly.
+ *
+ * The window is therefore STORED as that multiple — a bucket count — and only
+ * rendered in seconds. It used to be stored in seconds, which quietly meant two
+ * different things depending on which control wrote it: the top bar sits at the
+ * 1-second bucket, so its "10" was ten buckets, while a minute-bucketed panel's
+ * own ladder wrote 600 for the same ten. Every chart then divided by its own
+ * bucket to get a ring length, so the minute-bucketed charts (XP, faction,
+ * coin) turned every setting under 90 s into a single bucket and appeared to
+ * ignore the control entirely. A count cannot be misread that way.
  */
 
 export type Span = number | "fit";
@@ -29,9 +38,15 @@ export function fmtDuration(seconds: number): string {
   return `${+(seconds / 3600).toFixed(seconds % 3600 ? 1 : 0)}h`;
 }
 
-export function windowChoices(bucketSeconds: number): number[] {
+/** The window ladder for a chart at this bucket: counts, labelled in seconds. */
+export function windowChoices(bucketSeconds: number): { value: number; label: string }[] {
   const bucket = Math.max(1, bucketSeconds);
-  return WINDOW_MULTIPLES.map((m) => m * bucket);
+  return WINDOW_MULTIPLES.map((m) => ({ value: m, label: fmtDuration(m * bucket) }));
+}
+
+/** How long a window actually is, on a chart aggregated at this bucket. */
+export function windowSeconds(windowBuckets: number, bucketSeconds: number): number {
+  return Math.max(1, windowBuckets) * Math.max(1, bucketSeconds);
 }
 
 export function spanChoices(bucketSeconds: number): { value: Span; label: string }[] {
@@ -43,7 +58,8 @@ export function spanChoices(bucketSeconds: number): { value: Span; label: string
 }
 
 export interface ChartSettings {
-  windowSec: number;
+  /** Rolling-mean width, in BUCKETS — see the note above on why not seconds. */
+  windowBuckets: number;
   spanSec: Span;
 }
 
@@ -54,7 +70,7 @@ export interface ChartSettings {
  * carries its own. The top-bar control seeds from this and pushes any change
  * down to every chart.
  */
-export const DEFAULT_CHART_SETTINGS: ChartSettings = { windowSec: 10, spanSec: 900 };
+export const DEFAULT_CHART_SETTINGS: ChartSettings = { windowBuckets: 10, spanSec: 900 };
 
 interface Props {
   settings: ChartSettings;
@@ -79,12 +95,15 @@ export function TimeControls({
   onChange,
   onApplyToAll,
 }: Props) {
-  // A stored value that isn't on the ladder (an older panel, or a setting
-  // copied from a chart with a different bucket) still has to be selectable,
-  // or the select would silently snap it to something else.
-  const windows = [...new Set([...windowChoices(bucketSeconds), settings.windowSec])].sort(
-    (a, b) => a - b,
-  );
+  // A stored count that isn't on the ladder still has to be selectable, or the
+  // select would silently snap it to something else.
+  const ladder = windowChoices(bucketSeconds);
+  const windows = ladder.some((w) => w.value === settings.windowBuckets)
+    ? ladder
+    : [...ladder, {
+        value: settings.windowBuckets,
+        label: fmtDuration(windowSeconds(settings.windowBuckets, bucketSeconds)),
+      }].sort((a, b) => a.value - b.value);
   const spans = spanChoices(bucketSeconds);
   if (settings.spanSec !== "fit" && !spans.some((s) => s.value === settings.spanSec)) {
     spans.push({ value: settings.spanSec, label: fmtDuration(settings.spanSec as number) });
@@ -96,12 +115,12 @@ export function TimeControls({
       <label>
         window
         <select
-          value={settings.windowSec}
-          onChange={(e) => onChange({ ...settings, windowSec: Number(e.target.value) })}
+          value={settings.windowBuckets}
+          onChange={(e) => onChange({ ...settings, windowBuckets: Number(e.target.value) })}
         >
           {windows.map((w) => (
-            <option key={w} value={w}>
-              {fmtDuration(w)}
+            <option key={w.value} value={w.value}>
+              {w.label}
             </option>
           ))}
         </select>

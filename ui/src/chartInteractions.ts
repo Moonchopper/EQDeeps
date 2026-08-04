@@ -235,23 +235,6 @@ export function queryBucketSeconds(baseSeconds: number, spanSeconds: number): nu
   return BUCKET_LADDER.find((step) => step >= needed && step >= base) ?? Math.ceil(needed);
 }
 
-/**
- * The rolling window, scaled the way the bucket was.
- *
- * The window is set in seconds, but what it means to a chart is a number of
- * buckets. Coarsen the bucket for a long range and a 10-second window becomes
- * `round(10 / 60)` = one bucket — no smoothing at all, silently, exactly where
- * a noisy long view needs it most. Scaling by the same factor keeps the shape
- * of the line constant across ranges: ten buckets of mean at every zoom.
- */
-export function scaledWindowSeconds(
-  windowSec: number,
-  baseBucketSeconds: number,
-  effectiveBucketSeconds: number,
-): number {
-  const base = Math.max(1, baseBucketSeconds);
-  return Math.max(1, Math.round(windowSec * (Math.max(1, effectiveBucketSeconds) / base)));
-}
 
 /**
  * A cheap stand-in for "the fight bands would look different".

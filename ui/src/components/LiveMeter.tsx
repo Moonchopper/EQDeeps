@@ -1,6 +1,7 @@
 import type { QueryRow } from "../api";
 import type { TickEvent } from "../live";
 import { fmtNum, fmtRate } from "../format";
+import { useRowLink } from "../highlight";
 
 interface Props {
   tick: TickEvent | null;
@@ -15,6 +16,7 @@ interface Props {
  * so the pets→owners toggle un-rolls client-side without a round trip.
  */
 export function LiveMeter({ tick, colorFor, petRollup }: Props) {
+  const rowLink = useRowLink();
   let rows: QueryRow[] = tick?.result.rows ?? [];
   if (!petRollup) {
     rows = rows
@@ -35,22 +37,30 @@ export function LiveMeter({ tick, colorFor, petRollup }: Props) {
         <div className="empty">Waiting for combat…</div>
       ) : (
         <div className="meter-rows">
-          {rows.map((row) => (
-            <div key={row.key} className="meter-row">
+          {rows.map((row) => {
+            const link = rowLink(row.key);
+            return (
               <div
-                className="meter-bar"
-                style={{
-                  width: max > 0 ? `${((row.metrics.total ?? 0) / max) * 100}%` : "0%",
-                  background: colorFor(row.key),
-                }}
-              />
-              <span className="meter-name">{row.label}</span>
-              <span className="meter-nums">
-                {fmtNum(row.metrics.total ?? 0)} · {fmtNum(row.metrics.dps ?? 0)} dps ·{" "}
-                {fmtRate(row.metrics.percentOfTotal ?? 0)}
-              </span>
-            </div>
-          ))}
+                key={row.key}
+                className={`meter-row ${link.className ?? ""}`.trim()}
+                onMouseEnter={link.onMouseEnter}
+                onMouseLeave={link.onMouseLeave}
+              >
+                <div
+                  className="meter-bar"
+                  style={{
+                    width: max > 0 ? `${((row.metrics.total ?? 0) / max) * 100}%` : "0%",
+                    background: colorFor(row.key),
+                  }}
+                />
+                <span className="meter-name">{row.label}</span>
+                <span className="meter-nums">
+                  {fmtNum(row.metrics.total ?? 0)} · {fmtNum(row.metrics.dps ?? 0)} dps ·{" "}
+                  {fmtRate(row.metrics.percentOfTotal ?? 0)}
+                </span>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

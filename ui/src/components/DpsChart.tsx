@@ -3,6 +3,7 @@ import * as echarts from "echarts";
 import { api, type FightInfo, type GearChange, type QueryResult, type QueryRow } from "../api";
 import { CHART_SERIES_LIMIT, fmtNum, OTHER_COLOR } from "../format";
 import type { EntityColors } from "../colors";
+import { SERIES_EMPHASIS, useChartLink } from "../highlight";
 import {
   attachWheelZoom,
   bucketAlignedWindow,
@@ -175,6 +176,9 @@ export function DpsChart({
     };
   }, [resetZoom]);
 
+  // After the effect above, which is what creates the chart it attaches to.
+  const linkKeys = useChartLink(chartRef);
+
   useEffect(() => {
     resetZoom(); // new frame: fresh viewport
   }, [frameKey, resetZoom]);
@@ -292,6 +296,13 @@ export function DpsChart({
       return points;
     };
 
+    // A line is labelled for reading — "Raider21 +Pets" — so the key behind
+    // the label has to be carried separately for anything else to match it.
+    linkKeys.current = {
+      series: new Map(top.map((row) => [row.label, row.key])),
+      items: [],
+    };
+
     const series: echarts.SeriesOption[] = top.map((row) => ({
       name: row.label,
       type: "line",
@@ -300,6 +311,9 @@ export function DpsChart({
       color: colors.claim(row.key),
       data: smoothed(secondsOf([row])),
       connectNulls: false,
+      // The line itself is the hover target, not just its (hidden) points.
+      triggerLineEvent: true,
+      ...SERIES_EMPHASIS,
     }));
     if (rest.length > 0) {
       series.push({
@@ -310,6 +324,8 @@ export function DpsChart({
         color: OTHER_COLOR,
         data: smoothed(secondsOf(rest)),
         connectNulls: false,
+        triggerLineEvent: true,
+        ...SERIES_EMPHASIS,
       });
     }
 

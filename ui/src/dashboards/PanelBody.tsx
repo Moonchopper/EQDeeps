@@ -30,6 +30,7 @@ import {
   type SortState,
 } from "./tableTools";
 import { colorPoolFor, ENTITY_POOL, type EntityColors } from "../colors";
+import { ITEM_EMPHASIS, SERIES_EMPHASIS, useChartLink, useRowLink } from "../highlight";
 import {
   attachWheelZoom,
   bucketAlignedWindow,
@@ -194,6 +195,10 @@ function TablePanel({ panel, ctx, settings }: { panel: PanelDef; ctx: PanelConte
   // an explicit sort is an instruction and outranks the match score.
   const view = useMemo(() => sortTree(filtered.rows, sort), [filtered.rows, sort]);
   useAutoExpand(filtered.autoOpen, setExpanded);
+  // Above the early returns, where the hooks have to be. It depends on the
+  // panel rather than the response, so there is nothing to wait for.
+  const pool = colorPoolFor(panel.source, panel.groupBy[0]);
+  const rowLink = useRowLink(pool);
 
   if (result === "no-selection") return <div className="empty">Select a fight</div>;
   if (!result) return <div className="empty">Loading…</div>;
@@ -202,7 +207,6 @@ function TablePanel({ panel, ctx, settings }: { panel: PanelDef; ctx: PanelConte
   const maxBar = barMetric
     ? rows.reduce((max, r) => Math.max(max, r.metrics[barMetric] ?? 0), 0)
     : 0;
-  const pool = colorPoolFor(panel.source, panel.groupBy[0]);
   // Rows naming the opposing side don't claim: a table of mob names would
   // otherwise spend the player palette on mobs. They still show a color when
   // the entity already has one. Every other grouping claims within its own
@@ -257,8 +261,18 @@ function TablePanel({ panel, ctx, settings }: { panel: PanelDef; ctx: PanelConte
       }
     }
 
+    // Only top-level rows name an entity the rest of the app knows; a child is
+    // a spell or an item under it, which is a different pool.
+    const link = depth === 0 ? rowLink(row.key) : null;
+
     const out = [
-      <tr key={path} className={depth > 0 ? "child-row" : undefined} style={rowStyle}>
+      <tr
+        key={path}
+        className={`${depth > 0 ? "child-row" : ""} ${link?.className ?? ""}`.trim() || undefined}
+        style={rowStyle}
+        onMouseEnter={link?.onMouseEnter}
+        onMouseLeave={link?.onMouseLeave}
+      >
         <td style={{ paddingLeft: depth * 16 + 8 }}>
           {hasChildren ? (
             <button className="expander" onClick={() => setExpanded(toggle(expanded, path))}>
@@ -438,6 +452,10 @@ function LinePanel({
     };
   }, [resetZoom]);
 
+  // After the effect above, which is what creates the chart it attaches to.
+  const pool = colorPoolFor(panel.source, panel.groupBy[0]);
+  const linkKeys = useChartLink(chartRef, pool);
+
   useEffect(() => {
     if (!chartRef.current) return;
     if (!result || result === "no-selection") {
@@ -520,14 +538,24 @@ function LinePanel({
       return points;
     };
 
+    // What the labels on this chart stand for, so hovering a line can say who
+    // it is. Rebuilt with the series, since the ranking decides both.
+    linkKeys.current = {
+      series: new Map(top.map((row) => [row.label, row.key])),
+      items: [],
+    };
+
     const series: echarts.SeriesOption[] = top.map((row) => ({
       name: row.label,
       type: "line",
       showSymbol: false,
       lineStyle: { width: 2 },
-      color: ctx.colors.claim(row.key, colorPoolFor(panel.source, panel.groupBy[0])),
+      color: ctx.colors.claim(row.key, pool),
       data: smoothed([row]),
       connectNulls: false,
+      // The line itself is the hover target, not just its (hidden) points.
+      triggerLineEvent: true,
+      ...SERIES_EMPHASIS,
     }));
     if (rest.length > 0) {
       series.push({
@@ -538,6 +566,8 @@ function LinePanel({
         color: OTHER_COLOR,
         data: smoothed(rest),
         connectNulls: false,
+        triggerLineEvent: true,
+        ...SERIES_EMPHASIS,
       });
     }
 
@@ -726,6 +756,9 @@ function BarPanel({ panel, ctx, settings }: { panel: PanelDef; ctx: PanelContext
     };
   }, []);
 
+  // After the effect above, which is what creates the chart it attaches to.
+  const linkKeys = useChartLink(chartRef, colorPoolFor(panel.source, panel.groupBy[0]));
+
   useEffect(() => {
     if (!chartRef.current) return;
     if (!result || result === "no-selection") {
@@ -736,6 +769,10 @@ function BarPanel({ panel, ctx, settings }: { panel: PanelDef; ctx: PanelContext
     const ranked = [...result.rows]
       .sort((a, b) => (b.metrics[metric] ?? 0) - (a.metrics[metric] ?? 0))
       .slice(0, 12);
+
+    // One series of many entities: here a bar is identified by where it sits,
+    // not by the name of the series it belongs to.
+    linkKeys.current = { series: new Map(), items: ranked.map((r) => r.key) };
 
     chartRef.current.setOption(
       {
@@ -765,6 +802,7 @@ function BarPanel({ panel, ctx, settings }: { panel: PanelDef; ctx: PanelContext
             data: ranked.map((r) => r.metrics[metric] ?? 0),
             barWidth: 13,
             itemStyle: { color: SERIES_COLORS[0], borderRadius: [0, 4, 4, 0] },
+            ...ITEM_EMPHASIS,
             label: {
               show: true,
               position: "right",
@@ -937,6 +975,8 @@ function DropRatePanel({
   const filtered = useMemo(() => filterTree(rows, query), [rows, query]);
   const view = useMemo(() => sortTree(filtered.rows, sort), [filtered.rows, sort]);
   useAutoExpand(filtered.autoOpen, setExpanded);
+  const pool = colorPoolFor(panel.source, panel.groupBy[0]);
+  const rowLink = useRowLink(pool);
 
   if (panel.source !== "loot") {
     return <div className="empty">Drop rates need the loot source</div>;
@@ -961,7 +1001,7 @@ function DropRatePanel({
     if (depth === 0) {
       // Mobs, in loot's own pool — nothing else claims there, so looking up
       // would leave every row gray.
-      const color = ctx.colors.claim(row.key, colorPoolFor(panel.source, panel.groupBy[0]));
+      const color = ctx.colors.claim(row.key, pool);
       rowStyle = meterStyle(color, maxDrops > 0 ? (drops / maxDrops) * 100 : 0);
       chip = <span className="color-chip" style={{ background: color }} />;
     } else if (maxSibling > 0) {
@@ -974,11 +1014,15 @@ function DropRatePanel({
       rowStyle = meterStyle(heatColor(rank), fill * 100, HEAT_ALPHA);
     }
 
+    const link = depth === 0 ? rowLink(row.key) : null;
+
     const out = [
       <tr
         key={path}
-        className={depth > 0 ? "child-row" : undefined}
+        className={`${depth > 0 ? "child-row" : ""} ${link?.className ?? ""}`.trim() || undefined}
         style={rowStyle}
+        onMouseEnter={link?.onMouseEnter}
+        onMouseLeave={link?.onMouseLeave}
         title={
           depth > 0 && (row.metrics.kills ?? 0) > 0
             ? `${Math.round(drops)} in ${Math.round(row.metrics.kills ?? 0)} kills`

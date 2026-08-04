@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, type QueryResult } from "../api";
+import { useRowLink } from "../highlight";
 import { frameScope, type TimeFrame } from "../timeFrame";
 
 interface Props {
@@ -11,6 +12,10 @@ interface Props {
 /** Deaths inside the current time frame: victim → killer with counts. */
 export function DeathLog({ sessionId, frame, refreshKey }: Props) {
   const [result, setResult] = useState<QueryResult | null>(null);
+  // A row is a victim/killer pair, so it names two entities. The victim is the
+  // one the row is about — and the one whose line on the DPS chart is about to
+  // stop, which is the connection worth being able to make.
+  const rowLink = useRowLink();
 
   useEffect(() => {
     let cancelled = false;
@@ -50,7 +55,12 @@ export function DeathLog({ sessionId, frame, refreshKey }: Props) {
               {rows.flatMap((victim) =>
                 (victim.children ?? [{ key: "?", label: "Unknown", metrics: victim.metrics }]).map(
                   (killer) => (
-                    <tr key={`${victim.key}/${killer.key}`}>
+                    <tr
+                      key={`${victim.key}/${killer.key}`}
+                      className={rowLink(victim.key).className}
+                      onMouseEnter={rowLink(victim.key).onMouseEnter}
+                      onMouseLeave={rowLink(victim.key).onMouseLeave}
+                    >
                       <td>{victim.label}</td>
                       <td>{killer.label}</td>
                       <td className="num">{killer.metrics.deaths ?? 0}</td>

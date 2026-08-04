@@ -206,6 +206,20 @@ Your Spirit of Wolf spell has worn off.             (wear-off)
 
 - "Begins casting/singing" → cast record (who, what). "Lands on you/other" and "has worn off" messages are how received buffs/debuffs are tracked — but these messages carry the spell's *lands-on text*, not its name, so resolution requires the **spell database** (§6): a longest-prefix match from lands-on/wear-off message → candidate spells.
 - Zoning: `LOADING, PLEASE WAIT...` and `Welcome to EverQuest!` mark zone transitions (used to close fights, trigger archive points, and split sessions). `You have entered <Zone Name>.` names the zone.
+- **`Welcome to EverQuest!` is additionally the login marker** — the client prints it once per entry into the world, so it is the one unambiguous "the player just sat down". There is no matching logout line: the client writes nothing on the way out, and a crash writes less than that. See §3.13.
+
+### 3.13 Presence — when the player was actually here
+
+A log file is a diary with the nights missing. It runs for months, and the gap between Tuesday's last kill and Wednesday's first one is written exactly like the gap between two pulls. Anything measuring a DURATION off the record stream has to tell them apart.
+
+Two signals, since neither suffices alone:
+
+- **`Welcome to EverQuest!`** — an exact login, but never a logout.
+- **A long quiet stretch** — supplies the missing logout, and covers the logs the marker never reached: rotated files, logging switched off mid-session, a client killed outright.
+
+The quiet threshold is measured, not guessed. Over 1.9 million lines of real play, 99.9% of consecutive records land within 25 s of each other and only 57 gaps exceed a minute — of which every one past ten minutes was an absence of an hour or more. **Ten minutes** sits clear of the noise and under the shortest real absence.
+
+The error is asymmetric, so the rule leans one way on purpose: a session ends at its last RECORD, not at the unknowable moment the player quit. That under-counts presence by however long they idled before leaving. Under-counting shortens a duration slightly; over-counting adds whole nights to it.
 
 ### 3.9a Combat stances
 

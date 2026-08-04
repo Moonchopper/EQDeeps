@@ -87,7 +87,7 @@ export const METRIC_LABELS: Record<string, string> = {
   overhealRate: "Overheal %",
   extra: "Overheal",
   potential: "Potential",
-  activeSeconds: "Active s",
+  activeSeconds: "Active time",
   deaths: "Deaths",
   casts: "Casts",
   interrupts: "Interrupts",
@@ -106,6 +106,7 @@ export const METRIC_LABELS: Record<string, string> = {
   considers: "Considers",
   conLevel: "Level",
   stanceSeconds: "Time held",
+  raidSeconds: "Elapsed",
   stanceDps: "Per s held",
   stanceUptime: "Uptime %",
 };

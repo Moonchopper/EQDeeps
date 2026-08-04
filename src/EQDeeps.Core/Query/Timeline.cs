@@ -120,6 +120,7 @@ public static class TimelineBuilder
         // ends the previous stance by definition. Clipped to the range and kept
         // whether or not the switch itself happened inside it — a stance
         // assumed before the pull is still the stance the pull was fought in.
+        var presence = PresenceTimeline.Build(records);
         foreach (var span in StanceTimeline.Build(records, character).Spans)
         {
             if (span.End < rangeBegin || span.Begin > rangeEnd)
@@ -127,12 +128,21 @@ public static class TimelineBuilder
                 continue;
             }
 
-            items.Add(new TimelineItem(
-                character, TimelineItemKind.Stance, span.Stance,
+            var clipped = new TimeRange(
                 span.Begin < rangeBegin ? rangeBegin : span.Begin,
-                span.End > rangeEnd ? rangeEnd : span.End,
-                StartsBefore: span.Begin < rangeBegin,
-                EndsAfter: span.End > rangeEnd));
+                span.End > rangeEnd ? rangeEnd : span.End);
+
+            // Split on the play sessions, so a stance held at logout stops at
+            // the last thing that happened rather than drawing a bar across the
+            // night — the picture has to agree with the number beside it.
+            foreach (var piece in presence.Intersect(clipped))
+            {
+                items.Add(new TimelineItem(
+                    character, TimelineItemKind.Stance, span.Stance,
+                    piece.Begin, piece.End,
+                    StartsBefore: span.Begin < piece.Begin,
+                    EndsAfter: span.End > piece.End));
+            }
         }
 
         // Instants: only records inside the scope's segments.

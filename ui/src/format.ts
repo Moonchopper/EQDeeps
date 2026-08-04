@@ -18,6 +18,37 @@ export function fmtClock(iso: string): string {
   return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
 
+/**
+ * A span of seconds as a duration people read: "3d 2h 30m 15s".
+ *
+ * Units run from the largest non-zero one down to seconds, keeping the zeros in
+ * between — "3d 0h 0m 15s" rather than "3d 15s", which reads as three days and
+ * fifteen seconds only if you already knew that was what it meant. Below a
+ * minute it is bare seconds.
+ */
+export function fmtSpan(seconds: number): string {
+  const total = Math.max(0, Math.round(seconds));
+  if (total < 60) return `${total}s`;
+
+  const units: [number, string][] = [
+    [86400, "d"],
+    [3600, "h"],
+    [60, "m"],
+    [1, "s"],
+  ];
+  const parts: string[] = [];
+  let rest = total;
+  for (const [size, suffix] of units) {
+    const n = Math.floor(rest / size);
+    rest -= n * size;
+    // Skip leading zeros; keep them once something has been printed, so the
+    // places stay readable.
+    if (n === 0 && parts.length === 0) continue;
+    parts.push(`${n}${suffix}`);
+  }
+  return parts.join(" ");
+}
+
 export function fmtDuration(beginIso: string, endIso: string): string {
   const seconds = Math.max(1, (new Date(endIso).getTime() - new Date(beginIso).getTime()) / 1000 + 1);
   const m = Math.floor(seconds / 60);

@@ -8,7 +8,7 @@ import {
   type QueryResult,
   type QueryRow,
 } from "../api";
-import { CHART_SERIES_LIMIT, fmtNum, fmtRate, OTHER_COLOR, SERIES_COLORS } from "../format";
+import { CHART_SERIES_LIMIT, fmtNum, fmtRate, fmtSpan, OTHER_COLOR, SERIES_COLORS } from "../format";
 import {
   buildSpec,
   METRIC_LABELS,
@@ -67,19 +67,17 @@ export interface PanelContext {
 function fmtMetric(metric: string, value: number): string {
   if (RATE_METRICS.has(metric)) return fmtRate(value);
   if (metric === "hits" || metric === "deaths" || metric === "casts" ||
-      metric === "interrupts" || metric === "fizzles" || metric === "activeSeconds" ||
+      metric === "interrupts" || metric === "fizzles" ||
       metric === "xpGains" || metric === "aaPoints" ||
       metric === "factionNet" || metric === "factionUps" ||
       metric === "factionDowns" || metric === "factionCapped" ||
       metric === "loots" || metric === "considers" || metric === "conLevel") {
     return String(Math.round(value));
   }
-  // Stance time is a duration, and "1.2K" seconds is not a duration anyone
-  // reads. Minutes past a minute, seconds below it.
-  if (metric === "stanceSeconds") {
-    return value >= 60
-      ? `${Math.floor(value / 60)}m ${Math.round(value % 60)}s`
-      : `${Math.round(value)}s`;
+  // Durations, not counts: "1.2K" seconds is not something anyone reads as a
+  // length of time, and neither is "4380m" once a parse runs into days.
+  if (metric === "stanceSeconds" || metric === "activeSeconds" || metric === "raidSeconds") {
+    return fmtSpan(value);
   }
   if (metric === "xpPercent" || metric === "xpPerHour") {
     // Level-progress points, not a ratio: show two decimals (gains are tiny).

@@ -1599,3 +1599,324 @@ th.num {
   border-radius: 4px;
   padding: 1px 5px;
 }
+
+/* ---- gear (F24) ----
+   Gear is context for a parse, so the panel reads as annotation rather than as
+   a character sheet: slots on the left, item on the right, augments indented
+   under what they are socketed into. The gold accent is the same one the
+   chart marks use, so a line on a chart and a row here read as one feature. */
+/* Gear has its own Overview sub-tab, so the panel owns the pane rather than
+   sharing a rail. */
+.gear-panel {
+  min-height: 0;
+  flex: 1;
+}
+
+.gear-scroll {
+  overflow-y: auto;
+  padding: 10px 14px 16px;
+  min-height: 0;
+}
+
+/* The selected set: its charts in the wide column, the gear itself in a rail.
+   Same split as the Summary, for the same reason — a time series needs width
+   to say anything, an item list does not. */
+.gear-detail {
+  display: grid;
+  grid-template-columns: 2fr minmax(320px, 1fr);
+  gap: 10px 24px;
+  align-items: start;
+  margin-top: 18px;
+}
+
+.gear-detail-main {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.gear-detail-side {
+  min-width: 0;
+}
+
+@media (max-width: 1100px) {
+  .gear-detail {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Charts need a real height here: unlike the dashboard grid, nothing above
+   is handing these a row to fill. */
+.gear-chart {
+  height: 260px;
+}
+
+/* ---- the set table ---- */
+.gear-sets {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.gear-sets th {
+  color: var(--muted);
+  font-weight: 400;
+  text-align: left;
+  padding: 3px 8px;
+  border-bottom: 1px solid var(--baseline);
+  white-space: nowrap;
+}
+
+.gear-sets td {
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--grid);
+  white-space: nowrap;
+}
+
+.gear-set-row {
+  cursor: pointer;
+}
+
+.gear-set-row:hover {
+  background: var(--surface-2);
+}
+
+.gear-set-row.selected {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+/* The one column worth scanning rather than reading. */
+.gear-set-row.selected td:first-child {
+  box-shadow: inset 2px 0 0 var(--gold);
+}
+
+.gear-set-what {
+  white-space: normal;
+  min-width: 220px;
+}
+
+.gear-sdps {
+  position: relative;
+  min-width: 90px;
+}
+
+.gear-bar {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 14px;
+  background: rgba(245, 197, 66, 0.16);
+  border-radius: 2px;
+  pointer-events: none;
+}
+
+.gear-bar-value {
+  position: relative;
+}
+
+.gear-diff {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.gear-diff li {
+  padding: 1px 0;
+}
+
+.gear-section-note {
+  font-weight: 400;
+  margin-left: 8px;
+}
+
+.gear-section + .gear-section {
+  margin-top: 16px;
+}
+
+.gear-section-title {
+  color: var(--ink);
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+/* The nudge. It has to explain *why* a manual step exists, or it reads as the
+   app failing to find something it should have found on its own. */
+.gear-nudge {
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--gold);
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-bottom: 14px;
+  background: var(--surface-2);
+  max-width: 720px;
+}
+
+.gear-nudge-lead {
+  color: var(--ink);
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.gear-nudge p {
+  margin: 6px 0 0;
+}
+
+.gear-panel code {
+  background: var(--page);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 5px;
+  color: var(--ink);
+}
+
+.gear-path {
+  word-break: break-all;
+  font-size: 11px;
+}
+
+.gear-stale,
+.gear-unknown {
+  color: var(--muted);
+  border-left: 3px solid var(--baseline);
+  padding: 4px 0 4px 9px;
+  margin-bottom: 14px;
+}
+
+.gear-changes {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.gear-change {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  text-align: left;
+  padding: 4px 6px;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  color: var(--ink-2);
+}
+
+.gear-change:hover {
+  background: var(--surface-2);
+}
+
+.gear-change.selected {
+  background: var(--surface-2);
+  border-color: var(--border);
+  color: var(--ink);
+}
+
+.gear-change-when {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  flex: none;
+}
+
+.gear-change-what {
+  flex: 1;
+}
+
+.gear-plus {
+  color: var(--gold);
+  font-variant-numeric: tabular-nums;
+}
+
+.gear-compare,
+.gear-equipped {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.gear-compare th,
+.gear-compare td,
+.gear-equipped td {
+  padding: 3px 6px;
+  border-bottom: 1px solid var(--grid);
+}
+
+.gear-compare th {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.gear-slot {
+  color: var(--muted);
+  white-space: nowrap;
+  width: 1%;
+}
+
+.gear-augment td {
+  color: var(--muted);
+  font-size: 12px;
+  padding-left: 18px;
+  border-bottom: none;
+}
+
+.gear-caveat {
+  margin: 8px 0 0;
+  font-size: 12px;
+}
+
+/* ---- gear set comparison ---- */
+.gear-compare-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 12px;
+  font-weight: 400;
+}
+
+.gear-compare-controls .mini-btn.on {
+  color: var(--ink);
+  border-color: var(--gold);
+}
+
+.gear-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--ink-2);
+  margin-left: 6px;
+}
+
+.gear-compare-wrap {
+  height: 300px;
+  display: flex;
+  flex-direction: column;
+}
+
+.gear-compare-chart {
+  flex: 1;
+  min-height: 240px;
+}
+
+/* The comparison checkbox sits in its own cell so clicking it never doubles as
+   selecting the row. */
+.gear-pick {
+  width: 1%;
+  cursor: pointer;
+  padding-right: 0 !important;
+}
+
+/* The comparison canvas stays mounted whatever the data says; its empty
+   states are laid over it rather than replacing it. */
+.gear-compare-stage {
+  position: relative;
+  flex: 1;
+  min-height: 240px;
+  display: flex;
+}
+
+.gear-compare-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 0 24px;
+}

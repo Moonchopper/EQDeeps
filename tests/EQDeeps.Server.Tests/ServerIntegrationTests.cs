@@ -27,14 +27,15 @@ public sealed class ServerIntegrationTests : IAsyncLifetime
     public async Task InitializeAsync()
     {
         Directory.CreateDirectory(_dir);
-        // recentLogsRoot/sampleLogRoot/updateRoot: keep the MRU file, the
-        // extracted demo log and the update preferences inside the test
-        // sandbox, not %AppData%.
+        // recentLogsRoot/sampleLogRoot/updateRoot/gearRoot: keep the MRU file,
+        // the extracted demo log, the update preferences and the gear history
+        // inside the test sandbox, not %AppData%.
         _app = ServerApp.Build([
             "--urls", "http://127.0.0.1:0",
             "--recentLogsRoot", _dir,
             "--sampleLogRoot", _dir,
             "--updateRoot", _dir,
+            "--gearRoot", _dir,
         ]);
         await _app.StartAsync();
         _baseUrl = _app.Urls.First();
@@ -121,6 +122,28 @@ public sealed class ServerIntegrationTests : IAsyncLifetime
         var close = await _http.DeleteAsync($"/api/sessions/{id}");
         Assert.Equal(System.Net.HttpStatusCode.NoContent, close.StatusCode);
         Assert.Empty((await _http.GetFromJsonAsync<JsonElement>("/api/sessions")).EnumerateArray());
+    }
+
+    [Fact]
+    public async Task FightsCarryThisCharactersOwnDamageWithPetsRolledUp()
+    {
+        // The per-fight series the gear comparison is built from: this
+        // character and their pet, separated from everyone else's damage in
+        // the same pull. Pets roll up unconditionally — a pet swinging is the
+        // player's doing however the display toggle is set.
+        var path = WriteLog(
+            Line(0, "Kizant crushes an ice giant for 100 points of damage."),
+            Line(1, "Kizant`s pet slashes an ice giant for 50 points of damage."),
+            Line(2, "Raider01 crushes an ice giant for 70 points of damage."),
+            Line(3, "An ice giant died."));
+        var info = await OpenSessionAsync(path);
+        var id = info.GetProperty("id").GetString();
+
+        var fights = await _http.GetFromJsonAsync<JsonElement>($"/api/sessions/{id}/fights");
+        var fight = Assert.Single(fights.EnumerateArray());
+
+        Assert.Equal(220, fight.GetProperty("damageTotal").GetInt64());
+        Assert.Equal(150, fight.GetProperty("characterDamage").GetInt64());
     }
 
     [Fact]

@@ -3,11 +3,13 @@ import {
   api,
   type DiscoveredLog,
   type FightInfo,
+  type GearReport,
   type SessionInfo,
   type UpdateMode,
   type UpdateState,
 } from "./api";
 import { createLiveConnection, type BackfillEvent, type TickEvent } from "./live";
+import { GearPanel } from "./components/GearPanel";
 import { describeAge, SessionBar } from "./components/SessionBar";
 import { UpdateNotice, type UpdateChoice } from "./components/UpdateNotice";
 import { FightList } from "./components/FightList";
@@ -22,6 +24,7 @@ import { TimelineChart } from "./components/TimelineChart";
 import { DashboardView } from "./dashboards/DashboardView";
 import { defaultPanel, newDashboard, newId, type DashboardDef } from "./dashboards/model";
 import {
+  GEAR_VIEW,
   STANCES_VIEW_ID,
   SUMMARY_VIEW,
   cloneForCustomizing,
@@ -65,6 +68,9 @@ export default function App() {
   const [sessions, setSessions] = useState<SessionInfo[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [fights, setFights] = useState<FightInfo[]>([]);
+  // Gear snapshots for the active session's character (F24). Null until the
+  // first fetch lands, which the panel distinguishes from "none recorded".
+  const [gear, setGear] = useState<GearReport | null>(null);
   // The one time frame the whole app reports over. A live tail by default;
   // picking fights turns it into the fixed range they span. There is no
   // separate "follow live" flag — a live frame *is* following.
@@ -369,6 +375,13 @@ export default function App() {
             bumpRefreshThrottled();
           }
         },
+        // A dump the player just wrote: the panel and the chart marks update
+        // without them having to look for a refresh button.
+        onGear: (e) => {
+          if (e.sessionId === activeIdRef.current) {
+            setGear(e.gear);
+          }
+        },
         onConnectionLost: () =>
           setError("Lost connection to the EQDeeps server — relaunch EQDeeps.Server.exe and refresh this page."),
       }),
@@ -478,9 +491,13 @@ export default function App() {
     setActiveId(id);
     setTick(null);
     setBackfill(null);
+    setGear(null);
     setFrame({ kind: "live", spanSec: chartDefaults.spanSec }); // a new log starts live
     await live.subscribe(id);
     await refreshFights(id);
+    // Best-effort: gear is context, and its absence must never keep a log from
+    // opening. The hub pushes any later dump anyway.
+    api.getGear(id).then(setGear).catch(() => undefined);
   }
 
   async function openLog(path: string) {
@@ -515,6 +532,7 @@ export default function App() {
     if (activeId === id) {
       setActiveId(null);
       setFights([]);
+      setGear(null);
       setFrame(DEFAULT_FRAME);
       setTick(null);
       if (list.length > 0) {
@@ -680,7 +698,7 @@ export default function App() {
           {view === "overview" && (
             <nav className="sub-tabs">
               <button
-                className={"sub-tab" + (activeStdView ? "" : " on")}
+                className={"sub-tab" + (!activeStdView && stdView !== GEAR_VIEW ? " on" : "")}
                 onClick={() => selectStdView(SUMMARY_VIEW)}
               >
                 Summary
@@ -694,6 +712,12 @@ export default function App() {
                   {d.name}
                 </button>
               ))}
+              <button
+                className={"sub-tab" + (stdView === GEAR_VIEW ? " on" : "")}
+                onClick={() => selectStdView(GEAR_VIEW)}
+              >
+                Gear
+              </button>
             </nav>
           )}
           {(() => {
@@ -705,6 +729,7 @@ export default function App() {
               frame,
               fights,
               fightLabelPx,
+              gearChanges: gear?.changes ?? [],
               refreshKey,
               petRollup,
               colors: entityColors,
@@ -725,9 +750,20 @@ export default function App() {
               collapsed={fightsCollapsed}
               onToggleCollapsed={toggleFightsCollapsed}
             />
-            {/* Three cases: a standard view, the hand-built Summary that
-                Overview opens on, or one of the user's own dashboards. */}
-            {view === "overview" && activeStdView ? (
+            {/* Four cases: Gear, a standard view, the hand-built Summary
+                that Overview opens on, or one of the user's own dashboards.
+                Gear is checked first — it is a sub-tab but not a dashboard, so
+                the standard-view lookup resolves it to nothing. */}
+            {view === "overview" && stdView === GEAR_VIEW ? (
+              <div className="dashboard-main">
+                <GearPanel
+                  ctx={panelCtx}
+                  gear={gear}
+                  character={sessions.find((s) => s.id === activeId)?.character ?? ""}
+                  chartDefaults={chartDefaults}
+                />
+              </div>
+            ) : view === "overview" && activeStdView ? (
               <DashboardView
                 dashboard={activeStdView}
                 ctx={panelCtx}
@@ -757,6 +793,7 @@ export default function App() {
                       frame={frame}
                       fights={fights}
                       fightLabelPx={fightLabelPx}
+                      gearChanges={panelCtx.gearChanges}
                       refreshKey={refreshKey}
                       petRollup={petRollup}
                       colors={entityColors}

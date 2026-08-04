@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import * as echarts from "echarts";
-import { api, type FightInfo, type QueryResult, type QueryRow } from "../api";
+import { api, type FightInfo, type GearChange, type QueryResult, type QueryRow } from "../api";
 import { fmtNum, OTHER_COLOR } from "../format";
 import type { EntityColors } from "../colors";
 import {
@@ -26,7 +26,8 @@ import {
   isLive,
   type TimeFrame,
 } from "../timeFrame";
-import { fightMarkArea } from "../fightOverlay";
+import { fightMarkArea, OVERLAY_OFF } from "../fightOverlay";
+import { gearMarkLine } from "../gearOverlay";
 
 interface Props {
   sessionId: string;
@@ -35,6 +36,8 @@ interface Props {
   fights: FightInfo[];
   /** Mob-name size on the bands; 0 hides them. */
   fightLabelPx: number;
+  /** Moments the player's gear changed, marked on the time axis. */
+  gearChanges: GearChange[];
   /** Wall clock while scrolling; null when the window should sit still. */
   scrollNowMs: number | null;
   /** Promote a zoomed window to the app-wide time range. */
@@ -58,6 +61,9 @@ const BREAK_MS = 30_000;
 /** Series name carrying the fight bands; kept out of the legend by name. */
 const FIGHT_BANDS = "__fights";
 
+/** Likewise for the gear-change marks. */
+const GEAR_MARKS = "__gear";
+
 /**
  * DPS over time with a user-adjustable rolling window. Seconds with no landed
  * damage inside a combat segment count as zero rather than leaving holes, so
@@ -71,6 +77,7 @@ export function DpsChart({
   frame,
   fights,
   fightLabelPx,
+  gearChanges,
   scrollNowMs,
   onAdoptRange,
   logSpanSeconds,
@@ -116,6 +123,9 @@ export function DpsChart({
   // the bucket or a long range silently loses its smoothing entirely.
   const smoothingSec = scaledWindowSeconds(windowSec, 1, bucketSeconds);
   const bandsKey = fightBandsKey(fights, bucketSeconds);
+  // Gear marks only move when a snapshot lands, which is rare — keying on the
+  // instants avoids redrawing the chart on every unchanged poll.
+  const gearKey = gearChanges.map((c) => c.at).join(",");
 
   const scrollWindow: [number, number] | null =
     scrollNowMs !== null && span !== "fit" && !isZoomed
@@ -352,6 +362,26 @@ export function DpsChart({
       } as echarts.SeriesOption);
     }
 
+    // Where the character's gear changed, so a step in the line can be read
+    // against what they were wearing on either side of it.
+    const markLine = extentRef.current
+      ? gearMarkLine(
+          gearChanges,
+          axisMin ?? extentRef.current[0],
+          axisMax ?? extentRef.current[1],
+          fightLabelPx > OVERLAY_OFF,
+        )
+      : undefined;
+    if (markLine) {
+      series.push({
+        name: GEAR_MARKS,
+        type: "line",
+        data: [],
+        silent: true,
+        markLine,
+      } as echarts.SeriesOption);
+    }
+
     chartRef.current.setOption(
       {
         backgroundColor: "transparent",
@@ -427,7 +457,7 @@ export function DpsChart({
       key: "dataZoomSelect",
       dataZoomSelectActive: true,
     });
-  }, [result, smoothingSec, span, colors, isZoomed, bandsKey, fightLabelPx, scrollNowMs]);
+  }, [result, smoothingSec, span, colors, isZoomed, bandsKey, gearKey, fightLabelPx, scrollNowMs]);
 
   return (
     <div className="panel chart-panel">

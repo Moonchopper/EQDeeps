@@ -14,16 +14,18 @@ public sealed class SessionManager : IAsyncDisposable
     private readonly IHubContext<LiveHub> _hub;
     private readonly RecentLogs _recents;
     private readonly SampleLog _sample;
+    private readonly GearStore _gear;
     private readonly ConcurrentDictionary<string, SessionHost> _sessions = new();
     private readonly ConcurrentDictionary<string, IdentityRegistry> _registries =
         new(StringComparer.OrdinalIgnoreCase);
     private int _nextId;
 
-    public SessionManager(IHubContext<LiveHub> hub, RecentLogs recents, SampleLog sample)
+    public SessionManager(IHubContext<LiveHub> hub, RecentLogs recents, SampleLog sample, GearStore gear)
     {
         _hub = hub;
         _recents = recents;
         _sample = sample;
+        _gear = gear;
     }
 
     public SessionHost Open(OpenSessionRequest request)
@@ -43,9 +45,13 @@ public sealed class SessionManager : IAsyncDisposable
             emuMode: request.EmuMode);
 
         var id = "s" + Interlocked.Increment(ref _nextId);
-        var host = new SessionHost(id, session, _hub);
+
+        // The demo log describes a character who does not exist, so there is no
+        // inventory dump to find and no gear to nudge anyone about.
+        var isSample = _sample.IsSamplePath(request.Path);
+        var host = new SessionHost(id, session, _hub, isSample ? null : _gear);
         _sessions[id] = host;
-        if (!_sample.IsSamplePath(request.Path))
+        if (!isSample)
         {
             // The demo log is always offered by the sample entry itself; letting
             // it into the MRU would make it look like a log the player uses.

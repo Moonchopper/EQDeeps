@@ -1,3 +1,4 @@
+using EQDeeps.Core.Gear;
 using EQDeeps.Core.Ingestion;
 using EQDeeps.Core.Query;
 using EQDeeps.Core.Sessions;
@@ -17,32 +18,49 @@ public sealed class SessionHost : IAsyncDisposable
 {
     private const int CoalesceDelayMs = 50;
 
+    /// <summary>
+    /// The inventory dump is a manual act; noticing it within a few seconds is
+    /// as responsive as it needs to be, and a stat that often costs nothing.
+    /// </summary>
+    private static readonly TimeSpan GearPollInterval = TimeSpan.FromSeconds(5);
+
     private readonly IHubContext<LiveHub> _hub;
+    private readonly GearStore? _gear;
+    private readonly GearWatcher? _watcher;
     private readonly CancellationTokenSource _cts = new();
     private readonly SemaphoreSlim _signal = new(0, 1);
     private readonly string _group;
     private readonly Task _runTask;
     private readonly Task _pushTask;
     private readonly Task _expiryTask;
+    private readonly Task? _gearTask;
 
     private volatile bool _liveDirty;
+    private volatile bool _gearDirty;
     private long _backfillBytes = -1;
     private long _backfillTotal;
     private bool _backfillCompleteSent;
     private int _lastPushedFightVersion = -1;
 
-    public SessionHost(string id, Session session, IHubContext<LiveHub> hub)
+    public SessionHost(string id, Session session, IHubContext<LiveHub> hub, GearStore? gear = null)
     {
         Id = id;
         Session = session;
         Engine = new QueryEngine(session);
         _hub = hub;
+        _gear = gear;
         _group = LiveHub.GroupName(id);
+
+        if (gear is not null)
+        {
+            _watcher = new GearWatcher(session.Character, session.Server, session.Path, gear);
+        }
 
         session.BatchProcessed += OnBatchProcessed;
         _runTask = Task.Run(() => session.RunAsync(_cts.Token));
         _pushTask = Task.Run(() => PushLoopAsync(_cts.Token));
         _expiryTask = Task.Run(() => ExpiryLoopAsync(_cts.Token));
+        _gearTask = _watcher is null ? null : Task.Run(() => GearLoopAsync(_cts.Token));
     }
 
     public string Id { get; }
@@ -70,7 +88,7 @@ public sealed class SessionHost : IAsyncDisposable
     {
         lock (Session.Gate)
         {
-            return FightInfo.Build(Session.Fights.Fights);
+            return FightInfo.Build(Session.Fights.Fights, Session.Character, Session.Identity);
         }
     }
 
@@ -89,6 +107,35 @@ public sealed class SessionHost : IAsyncDisposable
             return TimelineBuilder.Build(
                 Session.Records, Session.Fights, Session.Character, request.Scope);
         }
+    }
+
+    /// <summary>
+    /// Everything known about this character's gear: the snapshots, the changes
+    /// between them, and how much combat has happened since the last one was
+    /// proven.
+    /// </summary>
+    public GearReport Gear()
+    {
+        var snapshots = _gear?.List(Session.Character, Session.Server) ?? [];
+        var newest = snapshots.Count > 0 ? snapshots[^1] : null;
+
+        int fightsSince;
+        lock (Session.Gate)
+        {
+            fightsSince = newest is null
+                ? Session.Fights.Fights.Count
+                : Session.Fights.Fights.Count(f => f.LastDamageTime > newest.CapturedAt);
+        }
+
+        return new GearReport(
+            snapshots,
+            GearHistory.Changes(snapshots),
+            new GearStatus(
+                newest is not null,
+                newest?.CapturedAt,
+                fightsSince,
+                _watcher?.ExpectedPath ?? string.Empty,
+                GearWatcher.Command));
     }
 
     private void OnBatchProcessed(LogBatch batch)
@@ -127,13 +174,25 @@ public sealed class SessionHost : IAsyncDisposable
                 object? fightsPayload = null;
                 object? tickPayload = null;
                 object? backfillPayload = null;
+                object? gearPayload = null;
+
+                if (_gearDirty)
+                {
+                    _gearDirty = false;
+                    gearPayload = new { sessionId = Id, gear = Gear() };
+                }
 
                 lock (Session.Gate)
                 {
                     if (Session.Fights.Version != _lastPushedFightVersion)
                     {
                         _lastPushedFightVersion = Session.Fights.Version;
-                        fightsPayload = new { sessionId = Id, fights = FightInfo.Build(Session.Fights.Fights) };
+                        fightsPayload = new
+                        {
+                            sessionId = Id,
+                            fights = FightInfo.Build(
+                                Session.Fights.Fights, Session.Character, Session.Identity),
+                        };
                     }
 
                     if (_liveDirty)
@@ -170,6 +229,11 @@ public sealed class SessionHost : IAsyncDisposable
                 {
                     await _hub.Clients.Group(_group).SendAsync("tick", tickPayload, ct).ConfigureAwait(false);
                 }
+
+                if (gearPayload is not null)
+                {
+                    await _hub.Clients.Group(_group).SendAsync("gear", gearPayload, ct).ConfigureAwait(false);
+                }
             }
         }
         catch (OperationCanceledException)
@@ -202,6 +266,38 @@ public sealed class SessionHost : IAsyncDisposable
         });
 
         return new { sessionId = Id, fightIds, result };
+    }
+
+    /// <summary>
+    /// Polls for a new inventory dump. Deliberately independent of backfill:
+    /// the dump on disk describes gear now, and a player opening a large log
+    /// should not wait for it to finish before their gear appears.
+    /// </summary>
+    private async Task GearLoopAsync(CancellationToken ct)
+    {
+        try
+        {
+            // An immediate look, so a dump written before the app started is
+            // picked up at once rather than after the first interval.
+            if (_watcher!.Poll())
+            {
+                _gearDirty = true;
+                Notify();
+            }
+
+            using var timer = new PeriodicTimer(GearPollInterval);
+            while (await timer.WaitForNextTickAsync(ct).ConfigureAwait(false))
+            {
+                if (_watcher.Poll())
+                {
+                    _gearDirty = true;
+                    Notify();
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
     }
 
     private async Task ExpiryLoopAsync(CancellationToken ct)
@@ -243,7 +339,7 @@ public sealed class SessionHost : IAsyncDisposable
     {
         Session.BatchProcessed -= OnBatchProcessed;
         _cts.Cancel();
-        foreach (var task in new[] { _runTask, _pushTask, _expiryTask })
+        foreach (var task in new[] { _runTask, _pushTask, _expiryTask, _gearTask }.OfType<Task>())
         {
             try
             {

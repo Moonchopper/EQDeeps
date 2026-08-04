@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import * as echarts from "echarts";
 import { api, type FightInfo, type GearChange, type QueryResult, type QueryRow } from "../api";
-import { fmtNum, OTHER_COLOR } from "../format";
+import { CHART_SERIES_LIMIT, fmtNum, OTHER_COLOR } from "../format";
 import type { EntityColors } from "../colors";
 import {
   attachWheelZoom,
@@ -212,8 +212,10 @@ export function DpsChart({
     const ranked = [...result.rows].sort(
       (a, b) => (b.metrics.total ?? 0) - (a.metrics.total ?? 0),
     );
-    const top = ranked.slice(0, 8);
-    const rest = ranked.slice(8);
+    // Eight is the series cap, not the palette length: past it a chart
+    // folds into "Other" rather than inventing a ninth hue.
+    const top = ranked.slice(0, CHART_SERIES_LIMIT);
+    const rest = ranked.slice(CHART_SERIES_LIMIT);
 
     const secondsOf = (rows: QueryRow[]) => {
       const bySecond = new Map<number, number>();

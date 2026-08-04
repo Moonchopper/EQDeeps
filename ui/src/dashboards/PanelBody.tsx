@@ -8,7 +8,7 @@ import {
   type QueryResult,
   type QueryRow,
 } from "../api";
-import { fmtNum, fmtRate, OTHER_COLOR, SERIES_COLORS } from "../format";
+import { CHART_SERIES_LIMIT, fmtNum, fmtRate, OTHER_COLOR, SERIES_COLORS } from "../format";
 import {
   buildSpec,
   METRIC_LABELS,
@@ -439,8 +439,10 @@ function LinePanel({
     }
 
     const ranked = [...result.rows].sort((a, b) => (b.metrics.total ?? 0) - (a.metrics.total ?? 0));
-    const top = ranked.slice(0, 8);
-    const rest = ranked.slice(8);
+    // Eight is the series cap, not the palette length: past it a chart
+    // folds into "Other" rather than inventing a ninth hue.
+    const top = ranked.slice(0, CHART_SERIES_LIMIT);
+    const rest = ranked.slice(CHART_SERIES_LIMIT);
 
     const allSeconds = new Set<number>();
     for (const row of ranked) {

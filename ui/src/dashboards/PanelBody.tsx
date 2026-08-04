@@ -234,10 +234,19 @@ function TablePanel({ panel, ctx, settings }: { panel: PanelDef; ctx: PanelConte
         chip = <span className="color-chip" style={{ background: color }} />;
       }
     } else if (barMetric && maxSibling > 0) {
-      // Rank within the breakdown, hue and length together: the biggest slice
-      // fills the row and reads green, the tail stays short and red.
-      const heat = value / maxSibling;
-      rowStyle = meterStyle(heatColor(heat), heat * 100, HEAT_ALPHA);
+      // LENGTH is the share of the parent, so a breakdown's bars fill the row
+      // exactly once between them. Scaling to the biggest sibling instead drew
+      // the largest slice full-width whatever it was worth — a 64.7% child
+      // reading as a full bar with "64.7%" printed on it, the length and the
+      // number disagreeing in the same breath.
+      //
+      // HUE still ranks within the breakdown, which is a different question and
+      // so does not repeat the length: biggest reads green, the tail red, even
+      // where every slice is small. A parent summing to zero has no share to
+      // take, and falls back to the ranking for both.
+      const rank = value / maxSibling;
+      const fill = parentValue > 0 ? value / parentValue : rank;
+      rowStyle = meterStyle(heatColor(rank), fill * 100, HEAT_ALPHA);
       if (parentValue > 0) {
         share = (
           <SharePct
@@ -943,6 +952,7 @@ function DropRatePanel({
     row: QueryRow,
     depth: number,
     path: string,
+    parentDrops: number,
     maxSibling: number,
   ): JSX.Element[] => {
     const hasChildren = (row.children?.length ?? 0) > 0;
@@ -957,10 +967,13 @@ function DropRatePanel({
       rowStyle = meterStyle(color, maxDrops > 0 ? (drops / maxDrops) * 100 : 0);
       chip = <span className="color-chip" style={{ background: color }} />;
     } else if (maxSibling > 0) {
-      // Kills are fixed within a mob, so ranking by drops and ranking by drop
-      // rate are the same ordering — the meter reads as either.
-      const heat = drops / maxSibling;
-      rowStyle = meterStyle(heatColor(heat), heat * 100, HEAT_ALPHA);
+      // Same reading as the items table: length is this item's share of what
+      // the mob dropped, so a mob's breakdown fills its row exactly once. Hue
+      // ranks within the mob — kills are fixed inside one, so ranking by drops
+      // and by drop rate are the same ordering and the tint reads as either.
+      const rank = drops / maxSibling;
+      const fill = parentDrops > 0 ? drops / parentDrops : rank;
+      rowStyle = meterStyle(heatColor(rank), fill * 100, HEAT_ALPHA);
     }
 
     const out = [
@@ -996,7 +1009,7 @@ function DropRatePanel({
       const children = row.children!;
       const maxChild = maxOf(children, "loots");
       for (const child of children) {
-        out.push(...renderRow(child, depth + 1, `${path}/${child.key}`, maxChild));
+        out.push(...renderRow(child, depth + 1, `${path}/${child.key}`, drops, maxChild));
       }
     }
     return out;
@@ -1028,7 +1041,7 @@ function DropRatePanel({
               ))}
             </tr>
           </thead>
-          <tbody>{view.flatMap((row) => renderRow(row, 0, row.key, 0))}</tbody>
+          <tbody>{view.flatMap((row) => renderRow(row, 0, row.key, 0, 0))}</tbody>
         </table>
         {view.length === 0 && (
           <div className="empty">

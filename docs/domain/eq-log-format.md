@@ -162,6 +162,22 @@ Your ward heals you as it breaks! You healed Niktaza for 8970 (86306) hit points
 - Healer may be absent (`X has been healed … by <Spell>.`) — heal attributed to spell with unknown healer; `itself/himself/herself` marks self-heals.
 - Heal targets can be pets (`Piemastaj\`s pet`).
 
+**EMU / EQEmu servers word the same event differently**, and every part of the sentence moves:
+
+```
+Moonchopper has healed Swingy Boi for 1642 points of damage. (Divine Light)
+Starkith has healed himself for 503 points of damage. (Killing Spree)
+Moonchopper`s Doppelganger Azia (Owner: Moonchopper) has healed Moonchopper for 812 points of damage. (Celestial Healing)
+You have been healed for 2048 points of damage.
+```
+
+- The verb takes an auxiliary (`has healed`, not `healed`), so the healer is the text before ` has `/` have ` — anchoring on the last word alone names the healer "has".
+- The unit is **`points of damage`**, not `hit points` — for a heal. No overheal notation.
+- The spell is a **trailing parenthetical**, where live puts `by <Spell>` — the same slot modifiers use, so it is a spell name exactly when it is not a known modifier (see the damage grammar, §3.6).
+- Pets carry the inline `(Owner: X)` annotation they carry on damage lines. The text before it is the pet's full name, which beats the last-word heuristic — EMU pet names run to several words (`Moonchopper\`s Doppelganger Azia`).
+
+Handled unconditionally rather than behind EMU mode: the shapes are unambiguous, and a log that mixes them still parses.
+
 ### 3.8 Deaths
 
 ```

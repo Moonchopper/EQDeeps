@@ -7,38 +7,87 @@ namespace EQDeeps.Core.Parsing;
 /// sentence can precede the heal on the same line ("Your ward heals you as it
 /// breaks! You healed ..."). Overheal notation "for &lt;landed&gt; (&lt;potential&gt;) hit
 /// points" carries the full roll in parentheses.
+///
+/// Two server families write heals differently and both are handled here:
+/// live's "<c>… for N hit points by &lt;Spell&gt;.</c>" and EMU's
+/// "<c>&lt;healer&gt; has healed &lt;target&gt; for N points of damage. (&lt;Spell&gt;)</c>"
+/// — same event, different wording for the unit, the verb, and where the spell
+/// goes. EMU also annotates pets inline, exactly as it does on damage lines.
 /// </summary>
 public static class HealParser
 {
     public static HealEvent? Parse(string action, ParserOptions options)
     {
-        // Strip a trailing modifier suffix first: "... (Lucky Critical)".
+        // Trailing "(...)": a known modifier becomes flags; anything else is
+        // the spell, which is how EMU servers name a heal. Same split the
+        // damage grammar makes, for the same reason.
         var body = action;
         var modifiers = HitModifiers.None;
+        string? trailingSpell = null;
         if (body.Length > 0 && body[^1] == ')')
         {
             var open = body.LastIndexOf(" (", StringComparison.Ordinal);
-            if (open > 0 && ModifierParser.TryParse(body[(open + 2)..^1], out modifiers))
+            if (open > 0)
             {
-                body = body[..open];
+                var inner = body[(open + 2)..^1];
+                if (ModifierParser.TryParse(inner, out modifiers))
+                {
+                    body = body[..open];
+                }
+                else if (!inner.StartsWith("Owner: ", StringComparison.Ordinal))
+                {
+                    trailingSpell = inner;
+                    modifiers = HitModifiers.None;
+                    body = body[..open];
+                }
             }
         }
 
+        // EMU pet-owner annotation: "<pet> (Owner: <player>) has healed …".
+        // The text in front of it is the pet's full name, which is worth more
+        // than the last-word guess below — pet names are several words long.
+        string? ownerName = null;
+        string? ownerSubject = null;
+        var ownerAt = body.IndexOf(" (Owner: ", StringComparison.Ordinal);
+        if (ownerAt > 0)
+        {
+            var close = body.IndexOf(')', ownerAt);
+            if (close > 0)
+            {
+                ownerSubject = body[..ownerAt];
+                ownerName = body[(ownerAt + " (Owner: ".Length)..close];
+                body = ownerSubject + body[(close + 1)..];
+            }
+        }
+
+        HealEvent? heal = null;
         const string Been = " been healed";
         var beenAt = body.IndexOf(Been, StringComparison.Ordinal);
         if (beenAt > 0)
         {
-            return ParseReceived(body, beenAt, modifiers, options);
+            heal = ParseReceived(body, beenAt, modifiers, options);
         }
-
-        const string Healed = " healed ";
-        var healedAt = body.IndexOf(Healed, StringComparison.Ordinal);
-        if (healedAt > 0)
+        else
         {
-            return ParseGiven(body, healedAt, modifiers, options);
+            const string Healed = " healed ";
+            var healedAt = body.IndexOf(Healed, StringComparison.Ordinal);
+            if (healedAt > 0)
+            {
+                heal = ParseGiven(body, healedAt, ownerSubject, modifiers, options);
+            }
         }
 
-        return null;
+        if (heal is null)
+        {
+            return null;
+        }
+
+        if (trailingSpell is not null && heal.Spell is null)
+        {
+            heal = heal with { Spell = trailingSpell };
+        }
+
+        return ownerName is not null ? heal with { HealerOwner = ownerName } : heal;
     }
 
     private static HealEvent? ParseReceived(string body, int beenAt, HitModifiers modifiers, ParserOptions options)
@@ -62,12 +111,33 @@ public static class HealParser
         return ParseAmountClause(body, beenAt + " been healed".Length, healer: null, target, modifiers, options);
     }
 
-    private static HealEvent? ParseGiven(string body, int healedAt, HitModifiers modifiers, ParserOptions options)
+    private static HealEvent? ParseGiven(
+        string body, int healedAt, string? ownerSubject, HitModifiers modifiers, ParserOptions options)
     {
+        // "<healer> has|have healed <target> …" — EMU's auxiliary verb. Without
+        // stripping it the last-word rule below would name the healer "has".
+        var healerPart = body[..healedAt];
+        if (healerPart.EndsWith(" has", StringComparison.Ordinal))
+        {
+            healerPart = healerPart[..^4];
+        }
+        else if (healerPart.EndsWith(" have", StringComparison.Ordinal))
+        {
+            healerPart = healerPart[..^5];
+        }
+
+        // An owner annotation already delimited the healer exactly, so trust it
+        // over the heuristic.
+        if (ownerSubject is not null && healerPart == ownerSubject)
+        {
+            return ParseAmountClause(
+                body, healedAt + " healed ".Length - 1,
+                Names.Resolve(ownerSubject, options), target: null, modifiers, options);
+        }
+
         // Healer = last word before " healed " (a possible flavor sentence sits in
         // front with no reliable delimiter). Pets are the one multi-word healer we
         // recognize: "<owner>`s pet healed ...".
-        var healerPart = body[..healedAt];
         var lastSpace = healerPart.LastIndexOf(' ');
         var healerWord = healerPart[(lastSpace + 1)..];
         var healer = healerWord;
@@ -149,12 +219,20 @@ public static class HealParser
             rest = rest[(close + 1)..];
         }
 
-        if (!rest.StartsWith(" hit points", StringComparison.Ordinal))
+        // Live says "hit points"; EMU says "points of damage" — for a heal,
+        // which reads oddly but is the same number.
+        if (rest.StartsWith(" hit points", StringComparison.Ordinal))
+        {
+            rest = rest[" hit points".Length..];
+        }
+        else if (rest.StartsWith(" points of damage", StringComparison.Ordinal))
+        {
+            rest = rest[" points of damage".Length..];
+        }
+        else
         {
             return null;
         }
-
-        rest = rest[" hit points".Length..];
 
         string? spell = null;
         if (rest.StartsWith(" by ", StringComparison.Ordinal))

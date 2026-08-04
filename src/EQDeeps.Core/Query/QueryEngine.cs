@@ -35,6 +35,8 @@ public sealed class QueryEngine
     private readonly Dictionary<string, QueryResult> _cache = [];
     private StanceTimeline? _stances;
     private int _stancesVersion = -1;
+    private PresenceTimeline? _presence;
+    private int _presenceVersion = -1;
 
     public QueryEngine(RecordStore records, FightTracker fights, IdentityRegistry identity, string character)
     {
@@ -136,11 +138,13 @@ public sealed class QueryEngine
             // XP, faction, loot, and considers largely arrive outside fight
             // spans (quests, turn-ins, looting/conning around the pull) and
             // rate metrics need the real timeline, so an unrestricted scope
-            // means the whole record stream.
-            if (_records.Count > 0)
+            // means the whole record stream — but one unit PER PLAY SESSION
+            // rather than one spanning the file. A month-old log is mostly
+            // nights, and a single unit across it hands "plat per hour" a
+            // denominator made of sleep.
+            foreach (var session in Presence().Spans)
             {
-                units.Add(new ScopeUnit(
-                    new TimeRange(_records[0].Timestamp, _records[_records.Count - 1].Timestamp), null));
+                units.Add(new ScopeUnit(session, null));
             }
         }
         else
@@ -202,6 +206,18 @@ public sealed class QueryEngine
     /// <summary>One stance span clipped to one scope unit — the unit of stance uptime.</summary>
     private readonly record struct StanceInterval(TimeRange Range, string Stance);
 
+    /// <summary>When the player was logged in; rebuilt only on new records.</summary>
+    private PresenceTimeline Presence()
+    {
+        if (_presence is null || _presenceVersion != _records.Version)
+        {
+            _presence = PresenceTimeline.Build(_records);
+            _presenceVersion = _records.Version;
+        }
+
+        return _presence;
+    }
+
     /// <summary>Rebuilt only when records have been appended since the last build.</summary>
     private StanceTimeline Stances()
     {
@@ -252,7 +268,7 @@ public sealed class QueryEngine
     /// (length units.Count + 1, the last entry being the total).
     /// </summary>
     private static List<StanceInterval> BuildStanceIntervals(
-        StanceTimeline timeline, List<ScopeUnit> units, int[] unitFirst)
+        StanceTimeline timeline, PresenceTimeline presence, List<ScopeUnit> units, int[] unitFirst)
     {
         var intervals = new List<StanceInterval>();
         for (var u = 0; u < units.Count; u++)
@@ -267,11 +283,18 @@ public sealed class QueryEngine
                     break;
                 }
 
-                intervals.Add(new StanceInterval(
-                    new TimeRange(
-                        span.Begin > range.Begin ? span.Begin : range.Begin,
-                        span.End < range.End ? span.End : range.End),
-                    span.Stance));
+                var clipped = new TimeRange(
+                    span.Begin > range.Begin ? span.Begin : range.Begin,
+                    span.End < range.End ? span.End : range.End);
+
+                // And again against the play sessions. A stance is only ended
+                // by the next switch, so one held at logout would otherwise be
+                // "held" until the player next sat down — the overnight gap
+                // counted as time in a stance nobody was standing in.
+                foreach (var piece in presence.Intersect(clipped))
+                {
+                    intervals.Add(new StanceInterval(piece, span.Stance));
+                }
             }
         }
 
@@ -310,7 +333,7 @@ public sealed class QueryEngine
         var timeline = UsesStances(spec) ? Stances() : null;
         var unitFirst = new int[units.Count + 1];
         List<StanceInterval>? intervals =
-            timeline is null ? null : BuildStanceIntervals(timeline, units, unitFirst);
+            timeline is null ? null : BuildStanceIntervals(timeline, Presence(), units, unitFirst);
 
         for (var unitIndex = 0; unitIndex < units.Count; unitIndex++)
         {

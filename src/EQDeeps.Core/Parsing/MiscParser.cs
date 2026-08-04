@@ -511,9 +511,15 @@ public static class MiscParser
 
     private static GameEvent? ParseZone(string action)
     {
-        if (action is "LOADING, PLEASE WAIT..." or "Welcome to EverQuest!")
+        if (action is "LOADING, PLEASE WAIT...")
         {
             return new ZoneEvent(null);
+        }
+
+        // Printed once per entry into the world, so it is the login marker.
+        if (action is "Welcome to EverQuest!")
+        {
+            return new ZoneEvent(null, Welcome: true);
         }
 
         if (action.StartsWith("You have entered ", StringComparison.Ordinal))

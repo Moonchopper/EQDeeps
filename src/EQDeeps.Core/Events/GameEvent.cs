@@ -142,8 +142,14 @@ public sealed record ChatEvent(
     string? Receiver = null,
     string? CustomChannel = null) : GameEvent;
 
-/// <summary>Zone entry; a null <see cref="ZoneName"/> marks a transition line (LOADING / Welcome).</summary>
-public sealed record ZoneEvent(string? ZoneName) : GameEvent;
+/// <summary>
+/// Zone entry; a null <see cref="ZoneName"/> marks a transition line (LOADING /
+/// Welcome). <see cref="Welcome"/> singles out "Welcome to EverQuest!", which
+/// the client prints once per entry into the world and is therefore the log's
+/// one unambiguous "the player just logged in" — see
+/// <see cref="Query.PresenceTimeline"/>.
+/// </summary>
+public sealed record ZoneEvent(string? ZoneName, bool Welcome = false) : GameEvent;
 
 /// <summary>
 /// Raid/group membership signal ("X has joined the raid.") — a definitive

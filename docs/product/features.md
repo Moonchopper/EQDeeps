@@ -148,6 +148,8 @@ A stance is a fact about the log's own character: the parser can read your switc
 - AC: Another player's damage is never attributed to a stance.
 - AC: The Stances tab is absent on a log with no stance switches, and appears without a restart when the first one arrives.
 - AC: Damage before the first switch is labelled `(no stance)`, never dropped from the parse.
+- AC: A stance held across a logout accrues no time for the hours the player was away.
+- AC: Durations read as durations — `3d 2h 30m 15s`, never `264615s` or `4410m`.
 
 ---
 

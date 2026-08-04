@@ -67,6 +67,12 @@ public sealed class FightTracker
             case TauntEvent taunt:
                 HandleTaunt(timestamp, taunt);
                 break;
+            // Heals start no fight, but a healing pet names its owner the same
+            // way an attacking one does, and a pet that only ever heals would
+            // otherwise never get mapped.
+            case HealEvent { Healer: not null, HealerOwner: not null } heal:
+                _identity.MapPetToOwner(heal.Healer, heal.HealerOwner);
+                break;
             case CastEvent { Kind: CastKind.Begin, Spell: not null } cast
                 when !_identity.IsDefinitelyNpc(cast.Caster):
                 _recentPlayerSpells[cast.Spell] = timestamp;

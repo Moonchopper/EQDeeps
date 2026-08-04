@@ -249,9 +249,15 @@ function tanking(): DashboardDef {
  * are shown side by side so the gap between them is legible rather than a
  * matter of trusting one number.
  *
- * The line chart is the overlay in data form: one series per stance, non-zero
+ * The line charts are the overlay in data form: one series per stance, non-zero
  * only while that stance was held, so the switch points are where one line
  * stops and the next begins — over the same fight bands every other chart uses.
+ *
+ * They come as the same trio Summary carries, and for the same reason: output,
+ * upkeep, and what came back are three readings of one decision. Split by
+ * stance they are the decision itself — a defensive stance is *supposed* to
+ * trade the first for the third, and abreast on one axis is where that trade
+ * either shows up or doesn't.
  */
 function stances(): DashboardDef {
   return build(STANCES_VIEW_ID, "Stances", [
@@ -302,6 +308,30 @@ function stances(): DashboardDef {
       },
       { x: 8, y: 15, w: 4, h: 4 },
     ],
+    // Abreast under the DPS trend, the way Summary pairs them: two halves of
+    // one row, same bucket, same bands, so all three read on one timeline.
+    [
+      {
+        title: "Healing by stance over time",
+        viz: "line",
+        source: "healing",
+        ownerOnly: true,
+        groupBy: ["stance"],
+        bucketSeconds: 1,
+      },
+      { x: 0, y: 19, w: 6, h: 8 },
+    ],
+    [
+      {
+        title: "Damage taken by stance over time",
+        viz: "line",
+        source: "tanking",
+        ownerOnly: true,
+        groupBy: ["stance"],
+        bucketSeconds: 1,
+      },
+      { x: 6, y: 19, w: 6, h: 8 },
+    ],
     // The other half of the trade. A defensive stance that costs damage is
     // supposed to buy something back, and these two say whether it did.
     [
@@ -316,7 +346,7 @@ function stances(): DashboardDef {
           "undefendedRate", "avgHit", "maxHit",
         ],
       },
-      { x: 0, y: 19, w: 6, h: 8 },
+      { x: 0, y: 27, w: 6, h: 8 },
     ],
     [
       {
@@ -327,7 +357,7 @@ function stances(): DashboardDef {
         groupBy: ["stance", "spell"],
         metrics: ["total", "stanceDps", "stanceSeconds", "overhealRate", "hits", "maxHit"],
       },
-      { x: 6, y: 19, w: 6, h: 8 },
+      { x: 6, y: 27, w: 6, h: 8 },
     ],
   ]);
 }

@@ -49,6 +49,24 @@ public class ParserRobustnessTests
     }
 
     /// <summary>
+    /// A healing pet names its owner inline, exactly as an attacking one does.
+    /// Without this a pet that only ever heals never gets mapped, and its
+    /// healing sits under its own name instead of rolling up to the player.
+    /// </summary>
+    [Fact]
+    public void HealingPetIsMappedToItsOwner()
+    {
+        var heal = Assert.IsType<HealEvent>(Parse(
+            "Torra (Owner: Kizant) has healed itself for 297 points of damage. (Specter Lifetap)"));
+        Assert.Equal("Torra", heal.Healer);
+        Assert.Equal("Kizant", heal.HealerOwner);
+
+        var identity = new IdentityRegistry();
+        new FightTracker(identity).Process(new DateTime(2024, 3, 9, 20, 0, 0), heal);
+        Assert.Equal("Kizant", identity.OwnerOf("Torra"));
+    }
+
+    /// <summary>
     /// The safety net behind those fixes: whatever a grammar does, a session
     /// reads the file to the end. This drives the real ingestion pipeline,
     /// because the failure being guarded against was ingestion stopping — not

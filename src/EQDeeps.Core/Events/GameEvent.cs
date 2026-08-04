@@ -78,7 +78,9 @@ public sealed record HealEvent(
     uint Potential,
     bool OverTime,
     string? Spell,
-    HitModifiers Modifiers = HitModifiers.None) : GameEvent;
+    HitModifiers Modifiers = HitModifiers.None,
+    /// <summary>Owner named inline by an EMU "(Owner: X)" annotation on the healer.</summary>
+    string? HealerOwner = null) : GameEvent;
 
 public sealed record DeathEvent(string Victim, string? Killer) : GameEvent;
 

@@ -44,8 +44,10 @@ export function fmtDuration(beginIso: string, endIso: string): string {
  * nowhere to go: the dark band is L 0.48–0.67, and stepping below ~0.52 drops
  * under 3:1 contrast on this surface while collapsing into the tier above it
  * (a 24-slot attempt failed on both counts — worst adjacent ΔE 4.5 deutan, 8.2
- * normal-vision, with eight slots under contrast). Rows past the sixteenth take
- * OTHER_COLOR, which is the honest answer for a long tail of small values.
+ * normal-vision, with eight slots under contrast). So past the sixteenth the
+ * registry REPEATS this list instead of extending it: a seventeenth color that
+ * fails contrast would be worse than reusing one that passes. The wrap pair
+ * (slot 16 → slot 1) is validated alongside the rest.
  *
  * Validated as a set with the data-viz validator (adjacent pairlist, dark mode,
  * surface #1a1a19): lightness band, chroma floor, CVD separation (worst

@@ -5,9 +5,11 @@ import { OTHER_COLOR, SERIES_COLORS } from "./format";
  * Per-session entity→color registry: the mechanism behind "color follows the
  * entity, never its rank" ACROSS panels. The first entity to claim gets slot 1,
  * and keeps it for the session — in the DPS lines, the meter bars, the stacked
- * ability segments, and the table row tints alike. Entities beyond the eight
- * validated slots are neutral gray rather than cycled hues (a cycled 9th hue
- * would collide with a real series inside a single chart).
+ * ability segments, and the table row tints alike. Past the last slot the
+ * palette REPEATS rather than falling back to gray: a table of forty loot rows
+ * has no forty distinguishable colors to give it, and a color reused sixteen
+ * rows away reads better than a wall of neutral. The rows carry their names, so
+ * the repeat costs nothing that matters here.
  *
  * Every ranked consumer (meter ticks, charts, summary rows) claims in
  * total-descending order over the same data, so the prominent actors converge
@@ -80,12 +82,19 @@ export function createEntityColors(): EntityColors {
       if (existing) {
         return existing;
       }
-      if (assigned.size < SERIES_COLORS.length) {
-        const color = SERIES_COLORS[assigned.size];
-        assigned.set(key, color);
-        return color;
-      }
-      return OTHER_COLOR;
+      // Past the sixteenth key the palette repeats rather than running out.
+      // Owner's call, and the right one for these tables: a repeat is
+      // ambiguous only against the row sixteen places away, while gray was
+      // ambiguous against every other overflow row at once. Every color handed
+      // out is still a validated slot — full chroma, inside the lightness
+      // band, at or above 3:1 on the surface — so nothing is dimmer or harder
+      // to see than before, it is merely reused.
+      //
+      // Charts are unaffected: they cap at CHART_SERIES_LIMIT (8) distinct
+      // series and claim in ranked order, so a chart never reaches the wrap.
+      const color = SERIES_COLORS[assigned.size % SERIES_COLORS.length];
+      assigned.set(key, color);
+      return color;
     },
     lookup(key: string, pool = ENTITY_POOL): string {
       return slots(pool).get(key) ?? OTHER_COLOR;

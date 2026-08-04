@@ -38,8 +38,47 @@ public sealed class GearStore
     {
         lock (_gate)
         {
-            return ReadLocked(PathFor(character, server));
+            var path = PathFor(character, server);
+            var list = ReadLocked(path);
+            if (Repair(list))
+            {
+                WriteLocked(path, list);
+            }
+
+            return list;
         }
+    }
+
+    /// <summary>
+    /// Drops anything from a stored snapshot's equipped set that today's rule
+    /// says is a container, and re-keys the snapshot if so. Returns whether
+    /// anything changed.
+    ///
+    /// <para>An early build recorded a personal depot's contents as worn gear.
+    /// Snapshots cannot be recomputed — the dump they came from was overwritten
+    /// by the next one — so the choice was to repair them in place or leave a
+    /// player's history permanently claiming they fought in twelve tradeskill
+    /// components. Repairing removes only rows the parser would never accept
+    /// now; nothing that is genuinely gear can match.</para>
+    /// </summary>
+    private static bool Repair(List<GearSnapshot> list)
+    {
+        var changed = false;
+        for (var i = 0; i < list.Count; i++)
+        {
+            var kept = list[i].Equipped
+                .Where(item => InventoryFileParser.IsEquipmentSlot(item.Location))
+                .ToList();
+            if (kept.Count == list[i].Equipped.Count)
+            {
+                continue;
+            }
+
+            list[i] = list[i] with { Equipped = kept, Hash = InventoryFileParser.HashOf(kept) };
+            changed = true;
+        }
+
+        return changed;
     }
 
     /// <summary>

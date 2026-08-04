@@ -1893,3 +1893,22 @@ th.num {
   cursor: pointer;
   padding-right: 0 !important;
 }
+
+/* The comparison canvas stays mounted whatever the data says; its empty
+   states are laid over it rather than replacing it. */
+.gear-compare-stage {
+  position: relative;
+  flex: 1;
+  min-height: 240px;
+  display: flex;
+}
+
+.gear-compare-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 0 24px;
+}

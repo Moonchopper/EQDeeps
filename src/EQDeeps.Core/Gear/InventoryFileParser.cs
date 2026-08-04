@@ -53,6 +53,21 @@ public static class InventoryFileParser
         $"{character}_{server}-Inventory.txt";
 
     /// <summary>
+    /// Whether a top-level slot label names something worn rather than
+    /// something carried. Public because snapshots already on disk have to be
+    /// judged by the same rule the parser applies now, not the one in force
+    /// when they were written.
+    /// </summary>
+    public static bool IsEquipmentSlot(string location) =>
+        location.Length > 0 && !NonEquipmentSlot.IsMatch(location);
+
+    /// <summary>
+    /// Identity of an equipped set. Exposed so a repaired snapshot can be
+    /// re-keyed without re-reading a dump that no longer exists.
+    /// </summary>
+    public static string HashOf(IReadOnlyList<GearItem> equipped) => ComputeHash(equipped);
+
+    /// <summary>
     /// Parses a dump. Returns null when the file yields no equipped items at
     /// all — a truncated or unrelated file should not be recorded as "this
     /// player wore nothing", which is a claim, not an absence of data.

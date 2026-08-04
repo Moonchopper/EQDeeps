@@ -84,6 +84,37 @@ public sealed class GearStoreTests : IDisposable
     }
 
     [Fact]
+    public void RepairsSnapshotsAnEarlierBuildFilledWithContainerContents()
+    {
+        // An early parser counted a personal depot's contents as worn gear.
+        // The dumps behind those snapshots are long overwritten, so reading
+        // has to repair them rather than recompute them.
+        var worn = new GearItem("Primary", 1, "Sword +2", "Sword", 2, 1, []);
+        var carried = new GearItem("Personal-Depot1", 1, "Imp Blood", "Imp Blood", 0, 2, []);
+        Directory.CreateDirectory(Path.Combine(_dir, "gear"));
+        File.WriteAllText(
+            Path.Combine(_dir, "gear", "Kizant_xegony.json"),
+            System.Text.Json.JsonSerializer.Serialize(new List<GearSnapshot>
+            {
+                new("Kizant", "xegony", T0, [worn, carried], [], "stale-hash"),
+            }));
+
+        var store = new GearStore(_dir);
+        var repaired = Assert.Single(store.List("Kizant", "xegony"));
+
+        Assert.Equal("Primary#1", Assert.Single(repaired.Equipped).SlotKey);
+        Assert.Equal(2, repaired.UpgradeScore);
+        // Re-keyed, or the next identical dump would look like a change.
+        Assert.NotEqual("stale-hash", repaired.Hash);
+        Assert.Equal(InventoryFileParser.HashOf(repaired.Equipped), repaired.Hash);
+
+        // And written back, so the repair happens once rather than every read.
+        Assert.DoesNotContain(
+            "Personal-Depot1",
+            File.ReadAllText(Path.Combine(_dir, "gear", "Kizant_xegony.json")));
+    }
+
+    [Fact]
     public void CorruptHistoryStartsFreshRatherThanFailingForever()
     {
         var store = new GearStore(_dir);

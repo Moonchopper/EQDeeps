@@ -1,4 +1,4 @@
-import type { GearChange } from "./api";
+import type { GearChange, GearSlotChange } from "./api";
 
 /**
  * Vertical marks on a time chart for the moments the player's gear changed.
@@ -28,31 +28,41 @@ export interface MarkLine {
   data: unknown[];
 }
 
-/** A short human summary of what moved: "Primary +2 → +5", "3 slots". */
-export function describeChange(change: GearChange): string {
-  if (change.slots.length === 0) {
-    return "gear changed";
-  }
-
-  if (change.slots.length > 1) {
-    return `${change.slots.length} slots`;
-  }
-
-  const slot = change.slots[0];
+/** One slot's change, in words. Shared with the Gear tab so the two agree. */
+export function describeSlot(slot: GearSlotChange): string {
   switch (slot.kind) {
     case "upgraded":
-      return `${slot.location} +${slot.before?.plus ?? 0} → +${slot.after?.plus ?? 0}`;
+      return `${slot.location} ${slot.before?.baseName ?? ""} +${slot.before?.plus ?? 0} → +${slot.after?.plus ?? 0}`;
     case "replaced":
-      return `${slot.location}: ${slot.after?.baseName ?? "?"}`;
+      return `${slot.location} ${slot.before?.baseName ?? "?"} → ${slot.after?.baseName ?? "?"}`;
     case "equipped":
-      return `${slot.location} equipped`;
+      return `${slot.location} ${slot.after?.name ?? ""} equipped`;
     case "removed":
-      return `${slot.location} removed`;
+      return `${slot.location} ${slot.before?.name ?? ""} removed`;
     case "reaugmented":
-      return `${slot.location} augments`;
+      return `${slot.location} augments changed`;
     default:
       return slot.location;
   }
+}
+
+/**
+ * A whole change in one line. "13 slots" is true and useless — a swap that
+ * size still has one item in it that mattered most, so lead with the biggest
+ * upgrade and count the rest.
+ */
+export function summariseChange(slots: GearSlotChange[]): string {
+  if (slots.length === 0) return "gear changed";
+  const delta = (s: GearSlotChange) => Math.abs((s.after?.plus ?? 0) - (s.before?.plus ?? 0));
+  const lead = [...slots].sort((a, b) => delta(b) - delta(a))[0];
+  return slots.length === 1
+    ? describeSlot(lead)
+    : `${describeSlot(lead)} · ${slots.length - 1} more`;
+}
+
+/** What a chart mark is labelled with. */
+export function describeChange(change: GearChange): string {
+  return summariseChange(change.slots);
 }
 
 /**

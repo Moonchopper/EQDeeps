@@ -123,7 +123,17 @@ export function GearCompare({ sets, fights, mode, commonTargets }: Props) {
 
   useEffect(() => {
     const chart = chartRef.current;
-    if (!chart || empty) return;
+    if (!chart) return;
+
+    if (empty) {
+      chart.clear();
+      return;
+    }
+
+    // The container is often laid out after the chart was created — a tab
+    // switch, or data arriving into a panel that had none. ECharts keeps
+    // whatever size it saw at init, so measure again before drawing.
+    chart.resize();
 
     const axis = {
       axisLine: { lineStyle: { color: "#383835" } },
@@ -247,19 +257,23 @@ export function GearCompare({ sets, fights, mode, commonTargets }: Props) {
     );
   }, [series, mode, empty]);
 
-  if (sets.length === 0) {
-    return <div className="empty">Pick two or more sets to compare</div>;
-  }
-
-  if (empty) {
-    return (
-      <div className="empty">
-        {commonTargets
+  // The canvas is mounted unconditionally and the empty states sit over it.
+  // Swapping it out for a message instead would unmount the ref the one-time
+  // init effect reads, and nothing would ever re-create the chart when data
+  // finally arrived — which is exactly how this shipped blank the first time.
+  const message =
+    sets.length === 0
+      ? "Pick two or more sets to compare."
+      : empty
+        ? commonTargets
           ? "No mob was fought in every selected set — turn off like-for-like, or pick sets with overlapping content."
-          : "No fights with your damage in these sets."}
-      </div>
-    );
-  }
+          : "No fights with your own damage in these sets yet."
+        : null;
 
-  return <div ref={divRef} className="chart gear-compare-chart" />;
+  return (
+    <div className="gear-compare-stage">
+      <div ref={divRef} className="chart gear-compare-chart" />
+      {message !== null && <div className="empty gear-compare-empty">{message}</div>}
+    </div>
+  );
 }

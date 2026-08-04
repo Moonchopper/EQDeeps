@@ -11,6 +11,7 @@ import { fmtNum } from "../format";
 import { PanelBody, type PanelContext } from "../dashboards/PanelBody";
 import { defaultPanel, type PanelDef } from "../dashboards/model";
 import { COMPARE_MODES, GearCompare, type CompareMode } from "./GearCompare";
+import { describeSlot, summariseChange } from "../gearOverlay";
 import type { ChartSettings } from "../timeControls";
 import type { TimeFrame } from "../timeFrame";
 
@@ -67,38 +68,6 @@ function fmtSpan(seconds: number): string {
   if (seconds >= 3600) return `${(seconds / 3600).toFixed(1)}h`;
   if (seconds >= 60) return `${Math.round(seconds / 60)}m`;
   return `${Math.round(seconds)}s`;
-}
-
-/** One slot's change, in words. */
-function describeSlot(slot: GearSlotChange): string {
-  switch (slot.kind) {
-    case "upgraded":
-      return `${slot.location} ${slot.before?.baseName ?? ""} +${slot.before?.plus ?? 0} → +${slot.after?.plus ?? 0}`;
-    case "replaced":
-      return `${slot.location} ${slot.before?.baseName ?? "?"} → ${slot.after?.baseName ?? "?"}`;
-    case "equipped":
-      return `${slot.location} ${slot.after?.name ?? ""} equipped`;
-    case "removed":
-      return `${slot.location} ${slot.before?.name ?? ""} removed`;
-    case "reaugmented":
-      return `${slot.location} augments changed`;
-    default:
-      return slot.location;
-  }
-}
-
-/**
- * A whole change in one line. "13 slots" is true and useless — a swap that
- * size still has one item in it that mattered most, so lead with the biggest
- * upgrade and count the rest.
- */
-function summariseChange(slots: GearSlotChange[]): string {
-  if (slots.length === 0) return "no change";
-  const delta = (s: GearSlotChange) => Math.abs((s.after?.plus ?? 0) - (s.before?.plus ?? 0));
-  const lead = [...slots].sort((a, b) => delta(b) - delta(a))[0];
-  return slots.length === 1
-    ? describeSlot(lead)
-    : `${describeSlot(lead)} · ${slots.length - 1} more`;
 }
 
 function ItemRow({ item }: { item: GearItem }) {

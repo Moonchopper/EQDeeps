@@ -32,6 +32,13 @@ public enum Dimension
 
     /// <summary>The monitored character whose log produced the record.</summary>
     Character,
+
+    /// <summary>
+    /// The combat stance the log owner was holding when the record happened.
+    /// Records belonging to anyone else key to "(not you)" — see
+    /// <see cref="StanceTimeline"/>.
+    /// </summary>
+    Stance,
 }
 
 /// <summary>Damage-validity categories users toggle in and out of parses (metrics doc §7).</summary>

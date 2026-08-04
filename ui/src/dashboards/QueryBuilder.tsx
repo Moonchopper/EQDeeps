@@ -247,6 +247,19 @@ export function QueryBuilder({ panel, onSave, onCancel }: Props) {
             onBlur={(e) => set("playerFilter", parseNames(e.target.value))}
           />
 
+          <label>Only me</label>
+          <label className="inline-check">
+            <input
+              type="checkbox"
+              checked={draft.ownerOnly ?? false}
+              onChange={(e) => set("ownerOnly", e.target.checked)}
+            />
+            <span className="subtle">
+              this log's character and their pets — follows whichever log is open,
+              so the panel still means "me" on another character
+            </span>
+          </label>
+
           <label>Abilities</label>
           <input
             placeholder="all — or comma-separated spell/skill names"

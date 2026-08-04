@@ -11,6 +11,8 @@ export interface SessionInfo {
   fightCount: number;
   unrecognizedLines: number;
   malformedLines: number;
+  /** Stance switches by this character; 0 hides the Stances view. */
+  stanceSwitches: number;
 }
 
 export interface FightInfo {
@@ -35,7 +37,7 @@ export interface FightInfo {
 export type QuerySource =
   "damage" | "healing" | "tanking" | "casts" | "deaths" | "experience" | "faction" | "loot" |
   "considers";
-export type Dimension = "player" | "target" | "spell" | "damageType" | "character";
+export type Dimension = "player" | "target" | "spell" | "damageType" | "character" | "stance";
 
 export interface QueryFilter {
   dim?: Dimension;
@@ -81,7 +83,8 @@ export interface QueryResult {
 }
 
 export type TimelineItemKind =
-  "cast" | "song" | "interrupt" | "fizzle" | "ability" | "buff" | "fade" | "death" | "resist";
+  "cast" | "song" | "interrupt" | "fizzle" | "ability" | "buff" | "fade" | "death" | "resist" |
+  "stance";
 
 /** One timeline mark: instants have no `end`; buff spans run [start, end]. */
 export interface TimelineItem {

@@ -25,6 +25,7 @@ import { DashboardView } from "./dashboards/DashboardView";
 import { defaultPanel, newDashboard, newId, type DashboardDef } from "./dashboards/model";
 import {
   GEAR_VIEW,
+  STANCES_VIEW_ID,
   SUMMARY_VIEW,
   cloneForCustomizing,
   standardViews,
@@ -120,7 +121,20 @@ export default function App() {
   const [stdView, setStdView] = useState<string>(
     () => localStorage.getItem("eqdeeps.stdView") ?? SUMMARY_VIEW,
   );
-  const standard = useMemo(() => standardViews(), []);
+  const activeSession = sessions.find((s) => s.id === activeId);
+  const character = activeSession?.character ?? "";
+  // Stances only earn their tab on a log that has them — see STANCES_VIEW_ID.
+  // Backfill can turn this on partway through, which is why it is derived on
+  // every render rather than latched when the session opens.
+  const hasStances = (activeSession?.stanceSwitches ?? 0) > 0;
+  const standard = useMemo(
+    () => standardViews().filter((d) => d.id !== STANCES_VIEW_ID || hasStances),
+    [hasStances],
+  );
+  // Null means "show the hand-built Summary" — including when the remembered
+  // sub-tab is a view this log doesn't have, which is what happens when you
+  // switch from a stance-using character to one who has never held one.
+  const activeStdView = standard.find((d) => d.id === stdView) ?? null;
   // Scrolling needs a live tail AND a log that is still being written; see
   // LIVE_LOG_GRACE_MS.
   const newestRecordMs = fights.length
@@ -431,6 +445,26 @@ export default function App() {
     return () => window.clearInterval(timer);
   }, [update?.stage]);
 
+  // Watch for the log's first stance switch, which is what reveals the Stances
+  // tab. It can arrive at any point — a backfill still reading, or the player
+  // pressing the hotkey right now — so this rides the ordinary refresh beat
+  // and then stops for good: once a log has stances it cannot stop having them.
+  useEffect(() => {
+    if (!activeId || hasStances) return;
+    let cancelled = false;
+    api
+      .getSession(activeId)
+      .then((info) => {
+        if (!cancelled) {
+          setSessions((list) => list.map((s) => (s.id === info.id ? info : s)));
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [activeId, hasStances, refreshKey]);
+
   function refreshDiscovered() {
     api
       .discoverLogs()
@@ -664,7 +698,7 @@ export default function App() {
           {view === "overview" && (
             <nav className="sub-tabs">
               <button
-                className={"sub-tab" + (stdView === SUMMARY_VIEW ? " on" : "")}
+                className={"sub-tab" + (!activeStdView && stdView !== GEAR_VIEW ? " on" : "")}
                 onClick={() => selectStdView(SUMMARY_VIEW)}
               >
                 Summary
@@ -691,6 +725,7 @@ export default function App() {
             // keeps the three call sites from drifting apart.
             const panelCtx: PanelContext = {
               sessionId: activeId,
+              character,
               frame,
               fights,
               fightLabelPx,
@@ -715,10 +750,10 @@ export default function App() {
               collapsed={fightsCollapsed}
               onToggleCollapsed={toggleFightsCollapsed}
             />
-            {/* Four cases: Gear, a standard view, the hand-built Summary that
-                Overview opens on, or one of the user's own dashboards. Gear is
-                checked first — it is a sub-tab but not a dashboard, so the
-                standard-view lookup below would miss it. */}
+            {/* Four cases: Gear, a standard view, the hand-built Summary
+                that Overview opens on, or one of the user's own dashboards.
+                Gear is checked first — it is a sub-tab but not a dashboard, so
+                the standard-view lookup resolves it to nothing. */}
             {view === "overview" && stdView === GEAR_VIEW ? (
               <div className="dashboard-main">
                 <GearPanel
@@ -728,27 +763,20 @@ export default function App() {
                   chartDefaults={chartDefaults}
                 />
               </div>
-            ) : view === "overview" && stdView !== SUMMARY_VIEW ? (
-              (() => {
-                const std = standard.find((d) => d.id === stdView);
-                return std ? (
-                  <DashboardView
-                    dashboard={std}
-                    ctx={panelCtx}
-                    chartDefaults={chartDefaults}
-                    onChange={() => undefined}
-                    readOnly
-                    onCustomize={() => customizeStandardView(std.id)}
-                  />
-                ) : (
-                  <div className="empty">View not found</div>
-                );
-              })()
+            ) : view === "overview" && activeStdView ? (
+              <DashboardView
+                dashboard={activeStdView}
+                ctx={panelCtx}
+                chartDefaults={chartDefaults}
+                onChange={() => undefined}
+                readOnly
+                onCustomize={() => customizeStandardView(activeStdView.id)}
+              />
             ) : view === "overview" ? (
               <div className="dashboard-main">
                 <SelectionStats
                   sessionId={activeId}
-                  character={sessions.find((s) => s.id === activeId)?.character ?? ""}
+                  character={character}
                   frame={frame}
                   fightCount={fightsInFrame(frame, fights).length}
                   refreshKey={refreshKey}
@@ -790,7 +818,7 @@ export default function App() {
                       sessionId={activeId}
                       frame={frame}
                       refreshKey={refreshKey}
-                      character={sessions.find((s) => s.id === activeId)?.character ?? ""}
+                      character={character}
                       fights={fights}
                       onAdoptRange={adoptRange}
                     />

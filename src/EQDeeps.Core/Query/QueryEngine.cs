@@ -33,6 +33,8 @@ public sealed class QueryEngine
     private readonly IdentityRegistry _identity;
     private readonly string _character;
     private readonly Dictionary<string, QueryResult> _cache = [];
+    private StanceTimeline? _stances;
+    private int _stancesVersion = -1;
 
     public QueryEngine(RecordStore records, FightTracker fights, IdentityRegistry identity, string character)
     {
@@ -195,12 +197,106 @@ public sealed class QueryEngine
         return units;
     }
 
+    // ---- stances -----------------------------------------------------------
+
+    /// <summary>One stance span clipped to one scope unit — the unit of stance uptime.</summary>
+    private readonly record struct StanceInterval(TimeRange Range, string Stance);
+
+    /// <summary>Rebuilt only when records have been appended since the last build.</summary>
+    private StanceTimeline Stances()
+    {
+        if (_stances is null || _stancesVersion != _records.Version)
+        {
+            _stances = StanceTimeline.Build(_records, _character);
+            _stancesVersion = _records.Version;
+        }
+
+        return _stances;
+    }
+
+    /// <summary>
+    /// Whether this query needs the stance clock wound at all. Most queries
+    /// never mention stances, and building the intervals for them would be
+    /// per-record work spent on a column nobody asked for.
+    /// </summary>
+    private static bool UsesStances(QuerySpec spec)
+    {
+        if (spec.GroupBy.Contains(Dimension.Stance))
+        {
+            return true;
+        }
+
+        foreach (var filter in spec.Filters)
+        {
+            if (filter.Dim == Dimension.Stance)
+            {
+                return true;
+            }
+        }
+
+        foreach (var metric in spec.Metrics)
+        {
+            if (MetricCatalog.StanceMetrics.Contains(metric))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Clips the stance spans against each scope unit, laid out unit by unit so
+    /// the record loop can walk them with a cursor instead of searching.
+    /// <paramref name="unitFirst"/> holds the start offset of each unit's block
+    /// (length units.Count + 1, the last entry being the total).
+    /// </summary>
+    private static List<StanceInterval> BuildStanceIntervals(
+        StanceTimeline timeline, List<ScopeUnit> units, int[] unitFirst)
+    {
+        var intervals = new List<StanceInterval>();
+        for (var u = 0; u < units.Count; u++)
+        {
+            unitFirst[u] = intervals.Count;
+            var range = units[u].Range;
+            for (var s = timeline.FirstEndingAtOrAfter(range.Begin); s < timeline.Spans.Count; s++)
+            {
+                var span = timeline.Spans[s];
+                if (span.Begin > range.End)
+                {
+                    break;
+                }
+
+                intervals.Add(new StanceInterval(
+                    new TimeRange(
+                        span.Begin > range.Begin ? span.Begin : range.Begin,
+                        span.End < range.End ? span.End : range.End),
+                    span.Stance));
+            }
+        }
+
+        unitFirst[units.Count] = intervals.Count;
+        return intervals;
+    }
+
+    /// <summary>
+    /// True for records whose actor's stance this log actually knows: the owner
+    /// and their pets. Everyone else's stance was written to THEIR log.
+    /// </summary>
+    private bool IsOwnerSide(string actor) =>
+        string.Equals(actor, _character, StringComparison.OrdinalIgnoreCase) ||
+        (_identity.OwnerOf(actor) is { } owner &&
+         string.Equals(owner, _character, StringComparison.OrdinalIgnoreCase));
+
     // ---- aggregation -------------------------------------------------------
 
     private sealed class Node
     {
         public readonly CounterBag Bag = new();
         public readonly Dictionary<int, TimeRange> UnitSpans = [];
+
+        /// <summary>Stance intervals this node saw a record in; null when stances are off.</summary>
+        public HashSet<int>? StanceIntervals;
         public Dictionary<string, Node>? Children;
         public Dictionary<string, Node>? Actors; // pet-rollup drill-down
         public SortedDictionary<DateTime, double>? Buckets;
@@ -211,9 +307,18 @@ public sealed class QueryEngine
         var units = ResolveScope(spec.Scope, spec.Source);
         var root = new Node();
 
+        var timeline = UsesStances(spec) ? Stances() : null;
+        var unitFirst = new int[units.Count + 1];
+        List<StanceInterval>? intervals =
+            timeline is null ? null : BuildStanceIntervals(timeline, units, unitFirst);
+
         for (var unitIndex = 0; unitIndex < units.Count; unitIndex++)
         {
             var unit = units[unitIndex];
+            // Records inside a unit are time-ordered, so the matching stance
+            // interval only ever moves forward.
+            var cursor = unitFirst[unitIndex];
+            var cursorEnd = timeline is null ? 0 : unitFirst[unitIndex + 1];
             for (var i = _records.LowerBound(unit.Range.Begin); i < _records.Count; i++)
             {
                 var record = _records[i];
@@ -222,23 +327,45 @@ public sealed class QueryEngine
                     break;
                 }
 
-                Accumulate(spec, root, unit, unitIndex, record);
+                var stanceIndex = -1;
+                if (intervals is not null)
+                {
+                    while (cursor < cursorEnd && intervals[cursor].Range.End < record.Timestamp)
+                    {
+                        cursor++;
+                    }
+
+                    if (cursor < cursorEnd && intervals[cursor].Range.Begin <= record.Timestamp)
+                    {
+                        stanceIndex = cursor;
+                    }
+                }
+
+                Accumulate(spec, root, unit, unitIndex, record, intervals, stanceIndex);
             }
         }
 
         // Convert per-unit spans into merged active-time segments, bottom-up.
-        SealActiveTime(root);
+        SealActiveTime(root, intervals);
 
         var raidSeconds = root.Bag.ActiveTime.TotalSeconds;
         var metricNames = spec.Metrics.Count > 0 ? spec.Metrics : MetricCatalog.DefaultsFor(spec.Source);
-        var grandTotal = root.Bag.Total;
+        var scope = new MetricCatalog.MetricScope(
+            raidSeconds, root.Bag.Total, root.Bag.StanceTime.TotalSeconds);
 
-        var rows = EmitRows(root, metricNames, raidSeconds, grandTotal, spec);
-        var totals = ComputeMetrics(root.Bag, metricNames, raidSeconds, grandTotal);
+        var rows = EmitRows(root, metricNames, scope, spec);
+        var totals = ComputeMetrics(root.Bag, metricNames, scope);
         return new QueryResult(rows, totals, raidSeconds, version);
     }
 
-    private void Accumulate(QuerySpec spec, Node root, ScopeUnit unit, int unitIndex, TimedRecord record)
+    private void Accumulate(
+        QuerySpec spec,
+        Node root,
+        ScopeUnit unit,
+        int unitIndex,
+        TimedRecord record,
+        List<StanceInterval>? intervals,
+        int stanceIndex)
     {
         // Route the record: does it belong to this source, and who is the row actor?
         string? actor;
@@ -345,9 +472,27 @@ public sealed class QueryEngine
                 return;
         }
 
+        // The stance is a property of the moment, not of the record: resolve it
+        // once here so grouping, filtering and the uptime clock all agree.
+        // Only the owner's side carries a real stance — see IsOwnerSide.
+        string? stance = null;
+        var stanceSpan = -1;
+        if (intervals is not null)
+        {
+            if (IsOwnerSide(actor))
+            {
+                stanceSpan = stanceIndex;
+                stance = stanceIndex >= 0 ? intervals[stanceIndex].Stance : StanceTimeline.Unknown;
+            }
+            else
+            {
+                stance = StanceTimeline.NotTracked;
+            }
+        }
+
         foreach (var filter in spec.Filters)
         {
-            if (!PassesFilter(filter, record.Event, actor, spec))
+            if (!PassesFilter(filter, record.Event, actor, stance, spec))
             {
                 return;
             }
@@ -357,13 +502,13 @@ public sealed class QueryEngine
         // Pet rollup inserts an implicit actor level under merged player rows:
         // merged node carries the combined totals, actor nodes carry the split,
         // and deeper dimensions nest under the actors.
-        AddToNode(root, record, damage, heal, unitIndex, spec.BucketSeconds);
+        AddToNode(root, record, damage, heal, unitIndex, stanceSpan, spec.BucketSeconds);
 
         var node = root;
         for (var level = 0; level < spec.GroupBy.Count; level++)
         {
             var dimension = spec.GroupBy[level];
-            var key = DimensionKey(dimension, record.Event, actor);
+            var key = DimensionKey(dimension, record.Event, actor, stance);
             var rollup = dimension == Dimension.Player && spec.PetRollup;
             var actorName = key;
             if (rollup && _identity.OwnerOf(key) is { } owner)
@@ -377,7 +522,7 @@ public sealed class QueryEngine
                 node.Children[key] = child = new Node();
             }
 
-            AddToNode(child, record, damage, heal, unitIndex, spec.BucketSeconds);
+            AddToNode(child, record, damage, heal, unitIndex, stanceSpan, spec.BucketSeconds);
             node = child;
 
             if (rollup)
@@ -388,15 +533,28 @@ public sealed class QueryEngine
                     child.Actors[actorName] = actorNode = new Node();
                 }
 
-                AddToNode(actorNode, record, damage, heal, unitIndex, spec.BucketSeconds);
+                AddToNode(actorNode, record, damage, heal, unitIndex, stanceSpan, spec.BucketSeconds);
                 node = actorNode;
             }
         }
     }
 
     private static void AddToNode(
-        Node node, TimedRecord record, DamageEvent? damage, HealEvent? heal, int unitIndex, int? bucketSeconds)
+        Node node,
+        TimedRecord record,
+        DamageEvent? damage,
+        HealEvent? heal,
+        int unitIndex,
+        int stanceSpan,
+        int? bucketSeconds)
     {
+        // The interval, not the record's instant: a stance held for a minute
+        // counts the whole minute the moment anything happens inside it.
+        if (stanceSpan >= 0)
+        {
+            (node.StanceIntervals ??= []).Add(stanceSpan);
+        }
+
         if (damage is not null)
         {
             node.Bag.Add(damage);
@@ -469,18 +627,29 @@ public sealed class QueryEngine
         }
     }
 
-    private static void SealActiveTime(Node node)
+    private static void SealActiveTime(Node node, List<StanceInterval>? intervals)
     {
         foreach (var span in node.UnitSpans.Values)
         {
             node.Bag.ActiveTime.Add(span.Begin, span.End);
         }
 
+        // Intervals arrive as a set of indices, so merging them here is what
+        // turns "these stretches were touched" into a duration.
+        if (intervals is not null && node.StanceIntervals is not null)
+        {
+            foreach (var index in node.StanceIntervals)
+            {
+                var range = intervals[index].Range;
+                node.Bag.StanceTime.Add(range.Begin, range.End);
+            }
+        }
+
         if (node.Children is not null)
         {
             foreach (var child in node.Children.Values)
             {
-                SealActiveTime(child);
+                SealActiveTime(child, intervals);
             }
         }
 
@@ -488,7 +657,7 @@ public sealed class QueryEngine
         {
             foreach (var actor in node.Actors.Values)
             {
-                SealActiveTime(actor);
+                SealActiveTime(actor, intervals);
             }
         }
     }
@@ -514,12 +683,13 @@ public sealed class QueryEngine
     private bool IsNpcSide(string? name) =>
         name is not null && !_identity.IsPlayerSide(name) && _identity.IsDefinitelyNpc(name);
 
-    private string DimensionKey(Dimension dimension, GameEvent evt, string actor)
+    private string DimensionKey(Dimension dimension, GameEvent evt, string actor, string? stance)
     {
         return dimension switch
         {
             Dimension.Player => actor,
             Dimension.Character => _character,
+            Dimension.Stance => stance ?? StanceTimeline.Unknown,
             Dimension.Target => evt switch
             {
                 DamageEvent d => d.Defender == actor ? d.Attacker ?? "Unknown" : d.Defender,
@@ -556,7 +726,7 @@ public sealed class QueryEngine
         _ => kind.ToString(),
     };
 
-    private bool PassesFilter(QueryFilter filter, GameEvent evt, string actor, QuerySpec spec)
+    private bool PassesFilter(QueryFilter filter, GameEvent evt, string actor, string? stance, QuerySpec spec)
     {
         bool matches;
         if (filter.Flag is { } flag)
@@ -565,7 +735,7 @@ public sealed class QueryEngine
         }
         else if (filter.Dim is { } dim && filter.Values is { Count: > 0 })
         {
-            var key = DimensionKey(dim, evt, actor);
+            var key = DimensionKey(dim, evt, actor, stance);
 
             // With pet rollup on, a player filter means the owner AND their
             // pets — matching raw actor names would silently drop pet damage.
@@ -598,7 +768,7 @@ public sealed class QueryEngine
     // ---- output ------------------------------------------------------------
 
     private static List<QueryRow> EmitRows(
-        Node parent, IReadOnlyList<string> metricNames, double raidSeconds, long grandTotal, QuerySpec spec)
+        Node parent, IReadOnlyList<string> metricNames, MetricCatalog.MetricScope scope, QuerySpec spec)
     {
         if (parent.Children is null)
         {
@@ -626,8 +796,8 @@ public sealed class QueryEngine
                     children = actors
                         .Select(a => new QueryRow(
                             a.Key, a.Key,
-                            ComputeMetrics(a.Value.Bag, metricNames, raidSeconds, grandTotal),
-                            Nullable(EmitRows(a.Value, metricNames, raidSeconds, grandTotal, spec)),
+                            ComputeMetrics(a.Value.Bag, metricNames, scope),
+                            Nullable(EmitRows(a.Value, metricNames, scope, spec)),
                             EmitSeries(a.Value)))
                         .OrderByDescending(r => r.Metrics.GetValueOrDefault(rankMetric))
                         .ToList();
@@ -635,17 +805,17 @@ public sealed class QueryEngine
                 else
                 {
                     // Single actor identical to the row: flatten the actor level.
-                    children = Nullable(EmitRows(actors[key], metricNames, raidSeconds, grandTotal, spec));
+                    children = Nullable(EmitRows(actors[key], metricNames, scope, spec));
                 }
             }
             else
             {
-                children = Nullable(EmitRows(node, metricNames, raidSeconds, grandTotal, spec));
+                children = Nullable(EmitRows(node, metricNames, scope, spec));
             }
 
             rows.Add(new QueryRow(
                 key, label,
-                ComputeMetrics(node.Bag, metricNames, raidSeconds, grandTotal),
+                ComputeMetrics(node.Bag, metricNames, scope),
                 children,
                 EmitSeries(node)));
         }
@@ -659,12 +829,12 @@ public sealed class QueryEngine
         node.Buckets?.Select(b => new SeriesPoint(b.Key, b.Value)).ToList();
 
     private static Dictionary<string, double> ComputeMetrics(
-        CounterBag bag, IReadOnlyList<string> metricNames, double raidSeconds, long grandTotal)
+        CounterBag bag, IReadOnlyList<string> metricNames, MetricCatalog.MetricScope scope)
     {
         var metrics = new Dictionary<string, double>(metricNames.Count, StringComparer.Ordinal);
         foreach (var name in metricNames)
         {
-            metrics[name] = MetricCatalog.Compute(name, bag, raidSeconds, grandTotal);
+            metrics[name] = MetricCatalog.Compute(name, bag, scope);
         }
 
         return metrics;

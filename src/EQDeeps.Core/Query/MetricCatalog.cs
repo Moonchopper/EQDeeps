@@ -40,6 +40,15 @@ public static class MetricCatalog
 
     public static readonly IReadOnlyList<string> ConsiderDefaults = ["considers", "conLevel"];
 
+    /// <summary>
+    /// The stance-aware metrics. They only mean anything on a query that groups
+    /// by stance (or asks for them explicitly) — everywhere else the stance
+    /// clock is never wound and they read zero. Kept out of every source's
+    /// defaults for that reason: a stance column belongs on a stance question.
+    /// </summary>
+    public static readonly IReadOnlyList<string> StanceMetrics =
+        ["stanceSeconds", "stanceDps", "stanceUptime"];
+
     public static IReadOnlyList<string> DefaultsFor(QuerySource source) => source switch
     {
         QuerySource.Healing => HealingDefaults,
@@ -54,14 +63,31 @@ public static class MetricCatalog
     };
 
     /// <summary>
-    /// Computes one metric from a row's counters. <paramref name="raidSeconds"/>
-    /// and <paramref name="grandTotal"/> are scope-level context.
+    /// The scope-level context a row's metrics are read against: how long the
+    /// whole selection ran, what everyone in it did, and — for stance queries —
+    /// how much of that time the owner's stance was known at all.
     /// </summary>
-    public static double Compute(string metric, CounterBag bag, double raidSeconds, long grandTotal)
+    public readonly record struct MetricScope(
+        double RaidSeconds, long GrandTotal, double StanceSeconds = 0);
+
+    /// <summary>Computes one metric from a row's counters and its scope context.</summary>
+    public static double Compute(string metric, CounterBag bag, MetricScope scope)
     {
+        var raidSeconds = scope.RaidSeconds;
+        var grandTotal = scope.GrandTotal;
         var active = bag.ActiveTime.TotalSeconds;
+        var held = bag.StanceTime.TotalSeconds;
         return metric switch
         {
+            // Stance time is the fair denominator for comparing stances: it
+            // counts every second the stance was held inside the scope, so a
+            // stance that swings slower cannot look better by being idle.
+            "stanceSeconds" => held,
+            "stanceDps" => Ratio(bag.Total, held),
+            // Against the time the owner's stance was tracked, not raid time,
+            // so the column sums to 100% across the stances instead of drifting
+            // by however far the two clocks disagree at the scope's edges.
+            "stanceUptime" => Percent(held, scope.StanceSeconds),
             "total" => bag.Total,
             "extra" => bag.Extra,
             "potential" => bag.Total + bag.Extra,

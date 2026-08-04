@@ -1525,6 +1525,14 @@ th.num {
   gap: 4px;
 }
 
+/* A single checkbox with its explanation beside it, aligned like a radio row. */
+.inline-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink-2);
+}
+
 .num-input {
   width: 64px;
   background: var(--page);

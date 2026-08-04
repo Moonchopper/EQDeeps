@@ -17,8 +17,15 @@ import { defaultPanel, newId, type DashboardDef, type LayoutRect, type PanelDef 
  * user owns (see `cloneForCustomizing`).
  */
 export function standardViews(): DashboardDef[] {
-  return [healing(), tanking(), experience(), faction(), loot()];
+  return [healing(), tanking(), stances(), experience(), faction(), loot()];
 }
+
+/**
+ * The Stances view is conditional, unlike its neighbours: most servers and most
+ * characters never log a stance switch, and a tab that is always empty teaches
+ * the user to ignore that row of tabs. The session reports whether it saw any.
+ */
+export const STANCES_VIEW_ID = "preset-stances";
 
 export const STANDARD_VIEW_IDS = new Set(standardViews().map((d) => d.id));
 
@@ -223,6 +230,104 @@ function tanking(): DashboardDef {
         metrics: ["deaths"],
       },
       { x: 9, y: 10, w: 3, h: 8 },
+    ],
+  ]);
+}
+
+/**
+ * Stances: what switching actually bought you.
+ *
+ * Every panel here is `ownerOnly`, because a stance is a fact about the log's
+ * own character. The parser can read your switches and nobody else's — their
+ * client wrote theirs, into their log — so folding a raid's damage into your
+ * stance would be inventing the thing the view exists to measure.
+ *
+ * The headline column is "per s held", not DPS. Plain DPS divides by the time
+ * you were landing hits, which quietly refunds a stance every second it made
+ * you slower — precisely the cost you switched stances to weigh. Dividing by
+ * the time the stance was HELD is the comparison people mean, and both columns
+ * are shown side by side so the gap between them is legible rather than a
+ * matter of trusting one number.
+ *
+ * The line chart is the overlay in data form: one series per stance, non-zero
+ * only while that stance was held, so the switch points are where one line
+ * stops and the next begins — over the same fight bands every other chart uses.
+ */
+function stances(): DashboardDef {
+  return build(STANCES_VIEW_ID, "Stances", [
+    [
+      {
+        title: "Your damage by stance",
+        viz: "table",
+        source: "damage",
+        ownerOnly: true,
+        groupBy: ["stance", "spell"],
+        metrics: [
+          "total", "stanceDps", "dps", "stanceSeconds", "stanceUptime",
+          "percentOfTotal", "hits", "avgHit", "critRate", "maxHit",
+        ],
+      },
+      { x: 0, y: 0, w: 12, h: 10 },
+    ],
+    [
+      {
+        title: "DPS by stance over time",
+        viz: "line",
+        source: "damage",
+        ownerOnly: true,
+        groupBy: ["stance"],
+        bucketSeconds: 1,
+      },
+      { x: 0, y: 10, w: 8, h: 9 },
+    ],
+    [
+      {
+        title: "Damage per second held",
+        viz: "bar",
+        source: "damage",
+        ownerOnly: true,
+        groupBy: ["stance"],
+        primaryMetric: "stanceDps",
+      },
+      { x: 8, y: 10, w: 4, h: 5 },
+    ],
+    [
+      {
+        title: "Time in each stance",
+        viz: "bar",
+        source: "damage",
+        ownerOnly: true,
+        groupBy: ["stance"],
+        primaryMetric: "stanceSeconds",
+      },
+      { x: 8, y: 15, w: 4, h: 4 },
+    ],
+    // The other half of the trade. A defensive stance that costs damage is
+    // supposed to buy something back, and these two say whether it did.
+    [
+      {
+        title: "Damage taken by stance",
+        viz: "table",
+        source: "tanking",
+        ownerOnly: true,
+        groupBy: ["stance"],
+        metrics: [
+          "total", "stanceDps", "stanceSeconds", "meleeAttempts",
+          "undefendedRate", "avgHit", "maxHit",
+        ],
+      },
+      { x: 0, y: 19, w: 6, h: 8 },
+    ],
+    [
+      {
+        title: "Your healing by stance",
+        viz: "table",
+        source: "healing",
+        ownerOnly: true,
+        groupBy: ["stance", "spell"],
+        metrics: ["total", "stanceDps", "stanceSeconds", "overhealRate", "hits", "maxHit"],
+      },
+      { x: 6, y: 19, w: 6, h: 8 },
     ],
   ]);
 }

@@ -103,6 +103,15 @@ public sealed record WearOffEvent(string Spell, string Target) : GameEvent;
 /// <summary>An activated discipline/combat ability: "Soandso activates Rest." / "You activate Rest."</summary>
 public sealed record AbilityEvent(string User, string Ability) : GameEvent;
 
+/// <summary>
+/// A combat-stance switch: "You assume a defensive stance." / "You assume an
+/// evasive fighting style." Stances are mutually exclusive — assuming one ends
+/// whichever was held before — so these records are state CHANGES, and the
+/// durations they imply are derived by <see cref="Query.StanceTimeline"/>.
+/// <see cref="Stance"/> is the display form ("Defensive", "Berserker").
+/// </summary>
+public sealed record StanceEvent(string Player, string Stance) : GameEvent;
+
 public sealed record TauntEvent(string Taunter, string Target, bool Success, bool Improved = false) : GameEvent;
 
 public enum ChatChannel

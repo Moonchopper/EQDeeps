@@ -487,10 +487,18 @@ public static class MiscParser
         }
 
         const string Improved = " due to an improved taunt.";
-        var focused = action.IndexOf(" is focused on attacking ", StringComparison.Ordinal);
+        const string Focused = " is focused on attacking ";
+        var focused = action.IndexOf(Focused, StringComparison.Ordinal);
         if (focused > 0 && action.EndsWith(Improved, StringComparison.Ordinal))
         {
-            var taunter = action[(focused + " is focused on attacking ".Length)..^Improved.Length];
+            var start = focused + Focused.Length;
+            var end = action.Length - Improved.Length;
+            if (end <= start)
+            {
+                return null; // no taunter between the two fixed parts
+            }
+
+            var taunter = action[start..end];
             return new TauntEvent(
                 Names.Resolve(taunter, options),
                 Names.CapitalizeFirst(action[..focused]),
@@ -536,8 +544,12 @@ public static class MiscParser
         if (action.StartsWith(YourTarget, StringComparison.Ordinal) &&
             action.EndsWith(SpellSuffix, StringComparison.Ordinal))
         {
-            var spell = action[YourTarget.Length..^SpellSuffix.Length];
-            return spell.Length == 0 ? null : new ResistEvent(options.PlayerName, null, spell);
+            // Same overlap trap as the interrupt grammar: with no spell named,
+            // the prefix and suffix meet and the slice would run backwards.
+            var end = action.Length - SpellSuffix.Length;
+            return end <= YourTarget.Length
+                ? null
+                : new ResistEvent(options.PlayerName, null, action[YourTarget.Length..end]);
         }
 
         var i = action.IndexOf(" resisted your ", StringComparison.Ordinal);

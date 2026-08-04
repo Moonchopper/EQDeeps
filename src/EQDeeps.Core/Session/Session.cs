@@ -65,6 +65,20 @@ public sealed class Session
     /// <summary>Lines no grammar recognized (measured, logged, never thrown).</summary>
     public long UnrecognizedLines { get; private set; }
 
+    /// <summary>
+    /// Lines a grammar actually threw on. Should always be zero — it counts
+    /// parser bugs, not log oddities — and is surfaced rather than swallowed so
+    /// that "always zero" is something anyone can check instead of assume.
+    /// </summary>
+    public long ParserFailures { get; private set; }
+
+    /// <summary>
+    /// Stance switches by the log owner. Most servers and most characters never
+    /// log one, so this is how the UI decides whether the stance breakdown is
+    /// worth offering at all rather than showing a permanently empty tab.
+    /// </summary>
+    public long StanceSwitches { get; private set; }
+
     public bool BackfillComplete { get; private set; }
 
     /// <summary>
@@ -100,7 +114,25 @@ public sealed class Session
 
     private void ProcessEntry(LogEntry entry)
     {
-        var evt = _parser.Parse(entry.Action, out var recognized);
+        GameEvent? evt;
+        bool recognized;
+        try
+        {
+            evt = _parser.Parse(entry.Action, out recognized);
+        }
+        catch (Exception)
+        {
+            // The parser's contract is that an unrecognized line is counted,
+            // never thrown on. When a grammar breaks that contract anyway the
+            // cost used to be the entire session: the exception unwound the
+            // ingestion task, the channel completed, and the log simply stopped
+            // being read — with no error anywhere the user could see, just a
+            // parse that ended early and looked plausible. One bad line is
+            // worth one bad line.
+            ParserFailures++;
+            return;
+        }
+
         if (!recognized)
         {
             UnrecognizedLines++;
@@ -128,6 +160,10 @@ public sealed class Session
                 break;
             case WhoEvent who:
                 Identity.AddVerifiedPlayer(who.Player);
+                break;
+            case StanceEvent stance
+                when string.Equals(stance.Player, Character, StringComparison.OrdinalIgnoreCase):
+                StanceSwitches++;
                 break;
         }
     }

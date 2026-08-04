@@ -202,6 +202,66 @@ public sealed class ServerIntegrationTests : IAsyncLifetime
         Assert.Equal("Raider01", ability.GetProperty("actor").GetString());
     }
 
+    /// <summary>
+    /// The stance path end to end: the real parser reads the switch lines, the
+    /// "stance" dimension and its metrics survive JSON round-tripping, and the
+    /// session reports the switch count the UI uses to reveal the view.
+    ///
+    /// Kizant fights t0..t9 and switches to Berserker at t5, so the fight's two
+    /// stance stretches are [t0..t4] Defensive and [t5..t9] Berserker.
+    /// </summary>
+    [Fact]
+    public async Task StanceDimensionSplitsDamageByTheStanceHeld()
+    {
+        var path = WriteLog(
+            Line(0, "You assume a defensive stance."),
+            Line(0, "You crush an ice giant for 100 points of damage."),
+            Line(3, "You crush an ice giant for 100 points of damage."),
+            Line(4, "You begin to change your stance."),
+            Line(5, "You assume a berserker stance."),
+            Line(6, "You crush an ice giant for 400 points of damage."),
+            Line(9, "You crush an ice giant for 600 points of damage."));
+        var info = await OpenSessionAsync(path);
+        var id = info.GetProperty("id").GetString();
+
+        Assert.Equal(2, info.GetProperty("stanceSwitches").GetInt64());
+
+        var response = await _http.PostAsJsonAsync($"/api/sessions/{id}/query", new
+        {
+            source = "damage",
+            scope = new { },
+            groupBy = new[] { "stance" },
+            metrics = new[] { "total", "stanceSeconds", "stanceDps", "stanceUptime" },
+        });
+        response.EnsureSuccessStatusCode();
+        var result = await response.Content.ReadFromJsonAsync<JsonElement>();
+
+        var rows = result.GetProperty("rows").EnumerateArray()
+            .ToDictionary(r => r.GetProperty("key").GetString()!, r => r.GetProperty("metrics"));
+        Assert.Equal(["Berserker", "Defensive"], rows.Keys.OrderBy(k => k));
+
+        Assert.Equal(200, rows["Defensive"].GetProperty("total").GetDouble());
+        Assert.Equal(5, rows["Defensive"].GetProperty("stanceSeconds").GetDouble());
+        Assert.Equal(40, rows["Defensive"].GetProperty("stanceDps").GetDouble());
+
+        Assert.Equal(1000, rows["Berserker"].GetProperty("total").GetDouble());
+        Assert.Equal(5, rows["Berserker"].GetProperty("stanceSeconds").GetDouble());
+        Assert.Equal(200, rows["Berserker"].GetProperty("stanceDps").GetDouble());
+        Assert.Equal(50, rows["Berserker"].GetProperty("stanceUptime").GetDouble());
+
+        // And the same spans reach the timeline, where the switch is the seam
+        // between two bands rather than a mark of its own.
+        var timeline = await _http.PostAsJsonAsync($"/api/sessions/{id}/timeline", new { scope = new { } });
+        timeline.EnsureSuccessStatusCode();
+        var items = (await timeline.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("items").EnumerateArray()
+            .Where(i => i.GetProperty("kind").GetString() == "stance")
+            .ToList();
+        Assert.Equal(["Berserker", "Defensive"],
+            items.Select(i => i.GetProperty("label").GetString()).OrderBy(l => l));
+        Assert.All(items, i => Assert.Equal("Kizant", i.GetProperty("actor").GetString()));
+    }
+
     [Fact]
     public async Task LiveAppendsReachSubscribedClientsUnderLatencyBudget()
     {

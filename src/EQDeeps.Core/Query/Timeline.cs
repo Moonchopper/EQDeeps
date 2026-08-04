@@ -14,6 +14,9 @@ public enum TimelineItemKind
     Fade,
     Death,
     Resist,
+
+    /// <summary>A held combat stance; spans, like <see cref="Buff"/>.</summary>
+    Stance,
 }
 
 /// <summary>
@@ -111,6 +114,25 @@ public static class TimelineBuilder
                         wearOff.Target, TimelineItemKind.Fade, wearOff.Spell, timestamp));
                 }
             }
+        }
+
+        // Stance spans: unlike buffs these need no pairing, because a switch
+        // ends the previous stance by definition. Clipped to the range and kept
+        // whether or not the switch itself happened inside it — a stance
+        // assumed before the pull is still the stance the pull was fought in.
+        foreach (var span in StanceTimeline.Build(records, character).Spans)
+        {
+            if (span.End < rangeBegin || span.Begin > rangeEnd)
+            {
+                continue;
+            }
+
+            items.Add(new TimelineItem(
+                character, TimelineItemKind.Stance, span.Stance,
+                span.Begin < rangeBegin ? rangeBegin : span.Begin,
+                span.End > rangeEnd ? rangeEnd : span.End,
+                StartsBefore: span.Begin < rangeBegin,
+                EndsAfter: span.End > rangeEnd));
         }
 
         // Instants: only records inside the scope's segments.

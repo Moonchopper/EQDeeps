@@ -3,11 +3,13 @@ import {
   api,
   type DiscoveredLog,
   type FightInfo,
+  type GearReport,
   type SessionInfo,
   type UpdateMode,
   type UpdateState,
 } from "./api";
 import { createLiveConnection, type BackfillEvent, type TickEvent } from "./live";
+import { GearPanel } from "./components/GearPanel";
 import { describeAge, SessionBar } from "./components/SessionBar";
 import { UpdateNotice, type UpdateChoice } from "./components/UpdateNotice";
 import { FightList } from "./components/FightList";
@@ -64,6 +66,9 @@ export default function App() {
   const [sessions, setSessions] = useState<SessionInfo[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [fights, setFights] = useState<FightInfo[]>([]);
+  // Gear snapshots for the active session's character (F23). Null until the
+  // first fetch lands, which the panel distinguishes from "none recorded".
+  const [gear, setGear] = useState<GearReport | null>(null);
   // The one time frame the whole app reports over. A live tail by default;
   // picking fights turns it into the fixed range they span. There is no
   // separate "follow live" flag — a live frame *is* following.
@@ -355,6 +360,13 @@ export default function App() {
             bumpRefreshThrottled();
           }
         },
+        // A dump the player just wrote: the panel and the chart marks update
+        // without them having to look for a refresh button.
+        onGear: (e) => {
+          if (e.sessionId === activeIdRef.current) {
+            setGear(e.gear);
+          }
+        },
         onConnectionLost: () =>
           setError("Lost connection to the EQDeeps server — relaunch EQDeeps.Server.exe and refresh this page."),
       }),
@@ -444,9 +456,13 @@ export default function App() {
     setActiveId(id);
     setTick(null);
     setBackfill(null);
+    setGear(null);
     setFrame({ kind: "live", spanSec: chartDefaults.spanSec }); // a new log starts live
     await live.subscribe(id);
     await refreshFights(id);
+    // Best-effort: gear is context, and its absence must never keep a log from
+    // opening. The hub pushes any later dump anyway.
+    api.getGear(id).then(setGear).catch(() => undefined);
   }
 
   async function openLog(path: string) {
@@ -481,6 +497,7 @@ export default function App() {
     if (activeId === id) {
       setActiveId(null);
       setFights([]);
+      setGear(null);
       setFrame(DEFAULT_FRAME);
       setTick(null);
       if (list.length > 0) {
@@ -670,6 +687,7 @@ export default function App() {
               frame,
               fights,
               fightLabelPx,
+              gearChanges: gear?.changes ?? [],
               refreshKey,
               petRollup,
               colors: entityColors,
@@ -729,6 +747,7 @@ export default function App() {
                       frame={frame}
                       fights={fights}
                       fightLabelPx={fightLabelPx}
+                      gearChanges={panelCtx.gearChanges}
                       refreshKey={refreshKey}
                       petRollup={petRollup}
                       colors={entityColors}
@@ -778,6 +797,14 @@ export default function App() {
                     />
                     <LiveMeter tick={tick} colorFor={entityColors.claim} petRollup={petRollup} />
                     <DeathLog sessionId={activeId} frame={frame} refreshKey={refreshKey} />
+                    <GearPanel
+                      sessionId={activeId}
+                      gear={gear}
+                      fights={fights}
+                      frame={frame}
+                      character={sessions.find((s) => s.id === activeId)?.character ?? ""}
+                      refreshKey={refreshKey}
+                    />
                   </div>
                 </div>
               </div>

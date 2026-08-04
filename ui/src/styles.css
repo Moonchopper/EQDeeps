@@ -1591,3 +1591,148 @@ th.num {
   border-radius: 4px;
   padding: 1px 5px;
 }
+
+/* ---- gear (F23) ----
+   Gear is context for a parse, so the panel reads as annotation rather than as
+   a character sheet: slots on the left, item on the right, augments indented
+   under what they are socketed into. The gold accent is the same one the
+   chart marks use, so a line on a chart and a row here read as one feature. */
+.gear-panel {
+  min-height: 0;
+}
+
+.gear-scroll {
+  overflow-y: auto;
+  padding: 10px 12px 14px;
+  min-height: 0;
+}
+
+.gear-section + .gear-section {
+  margin-top: 16px;
+}
+
+.gear-section-title {
+  color: var(--ink);
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+/* The nudge. It has to explain *why* a manual step exists, or it reads as the
+   app failing to find something it should have found on its own. */
+.gear-nudge {
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--gold);
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-bottom: 14px;
+  background: var(--surface-2);
+}
+
+.gear-nudge-lead {
+  color: var(--ink);
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.gear-nudge p {
+  margin: 6px 0 0;
+}
+
+.gear-panel code {
+  background: var(--page);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 5px;
+  color: var(--ink);
+}
+
+.gear-path {
+  word-break: break-all;
+  font-size: 11px;
+}
+
+.gear-stale,
+.gear-unknown {
+  color: var(--muted);
+  border-left: 3px solid var(--baseline);
+  padding: 4px 0 4px 9px;
+  margin-bottom: 14px;
+}
+
+.gear-changes {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.gear-change {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  text-align: left;
+  padding: 4px 6px;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  color: var(--ink-2);
+}
+
+.gear-change:hover {
+  background: var(--surface-2);
+}
+
+.gear-change.selected {
+  background: var(--surface-2);
+  border-color: var(--border);
+  color: var(--ink);
+}
+
+.gear-change-when {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  flex: none;
+}
+
+.gear-change-what {
+  flex: 1;
+}
+
+.gear-plus {
+  color: var(--gold);
+  font-variant-numeric: tabular-nums;
+}
+
+.gear-compare,
+.gear-equipped {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.gear-compare th,
+.gear-compare td,
+.gear-equipped td {
+  padding: 3px 6px;
+  border-bottom: 1px solid var(--grid);
+}
+
+.gear-compare th {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.gear-slot {
+  color: var(--muted);
+  white-space: nowrap;
+  width: 1%;
+}
+
+.gear-augment td {
+  color: var(--muted);
+  font-size: 12px;
+  padding-left: 18px;
+  border-bottom: none;
+}
+
+.gear-caveat {
+  margin: 8px 0 0;
+  font-size: 12px;
+}

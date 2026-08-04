@@ -68,8 +68,14 @@ public sealed class GearWatcher
                 var lines = File.ReadAllLines(path);
                 _lastWriteSeen = info.LastWriteTime;
 
-                var snapshot = InventoryFileParser.Parse(
-                    lines, _character, _server, info.LastWriteTime);
+                // Local wall-clock with the kind stripped, matching how log
+                // timestamps are carried. Left as Local it serialises with a
+                // UTC offset that no other timestamp in the app has, and
+                // anything comparing a snapshot against a fight time — or
+                // handing one back as a query range — is quietly off by the
+                // offset.
+                var capturedAt = DateTime.SpecifyKind(info.LastWriteTime, DateTimeKind.Unspecified);
+                var snapshot = InventoryFileParser.Parse(lines, _character, _server, capturedAt);
                 return snapshot is not null && _store.Record(snapshot);
             }
             catch (IOException)

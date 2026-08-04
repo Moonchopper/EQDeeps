@@ -1,5 +1,5 @@
 import * as signalR from "@microsoft/signalr";
-import type { FightInfo, QueryResult } from "./api";
+import type { FightInfo, GearReport, QueryResult } from "./api";
 
 export interface BackfillEvent {
   sessionId: string;
@@ -19,10 +19,17 @@ export interface TickEvent {
   result: QueryResult;
 }
 
+/** A new inventory dump was noticed — pushed so the nudge clears by itself. */
+export interface GearEvent {
+  sessionId: string;
+  gear: GearReport;
+}
+
 export interface LiveHandlers {
   onBackfill?: (e: BackfillEvent) => void;
   onFights?: (e: FightsEvent) => void;
   onTick?: (e: TickEvent) => void;
+  onGear?: (e: GearEvent) => void;
   /** The hub gave up reconnecting — the server has likely exited. */
   onConnectionLost?: () => void;
 }
@@ -37,6 +44,7 @@ export function createLiveConnection(handlers: LiveHandlers) {
   connection.on("backfill", (e: BackfillEvent) => handlers.onBackfill?.(e));
   connection.on("fights", (e: FightsEvent) => handlers.onFights?.(e));
   connection.on("tick", (e: TickEvent) => handlers.onTick?.(e));
+  connection.on("gear", (e: GearEvent) => handlers.onGear?.(e));
   connection.onclose(() => handlers.onConnectionLost?.());
 
   // Tell the server this was a genuine close (tab/window closed or navigated

@@ -182,6 +182,20 @@ The consent model is the feature, not the downloading. The default is to ask onc
 - AC: Nothing downloaded is executed unless it passes both Ed25519 and Authenticode verification.
 - AC: Portable and unkeyed builds degrade to notify-only rather than pretending to install.
 
+### F23. Gear snapshots
+
+What the character was wearing, so a parse can be read against the gear behind it. See [ADR-011](../architecture/adr-011-gear-snapshots.md) and [the dump's format](../domain/inventory-file-format.md).
+
+EverQuest records equipped gear nowhere. Loadouts on EQ Legends are *class* loadouts whose equipment lives server-side, and neither a swap nor an equip produces a log line — so the only source is the player running `/outputfile inventory`. The app watches the install root for that dump, records each distinct version, marks the changes on time charts, and shows damage either side of one.
+
+The manual step is the cost of the feature existing at all, so the app is honest about it rather than quiet: it never issues the command itself, it says how much combat has happened since the last proof, and it reports gear it cannot vouch for as unknown.
+
+- AC: With a dump on disk, the Gear panel lists equipped items — augments nested, `+N` upgrade levels split out — for the snapshot in force at the selected time frame.
+- AC: Re-running the command after a gear change adds a snapshot within ~5 s and marks it on the DPS chart with no refresh; re-running it unchanged adds nothing, and bank or bag churn is never mistaken for a gear change.
+- AC: With no dump, the panel explains why the manual step is needed, quotes the command, and prints the exact path being watched.
+- AC: A time frame older than the first snapshot reads "gear unknown" rather than borrowing the nearest one.
+- Non-goal: context for telemetry, not the gear planner `vision.md` rules out — nothing here recommends or simulates gear.
+
 ---
 
 ## P2 — Later

@@ -17,7 +17,9 @@ namespace EQDeeps.Server.Tests;
 /// </summary>
 public sealed class GearEndpointTests : IAsyncLifetime
 {
-    private static readonly DateTime T0 = new(2026, 8, 3, 20, 0, 0);
+    // Comfortably in the past: one test asserts a dump written now sorts after
+    // the logged fights, which a future-dated log would invert.
+    private static readonly DateTime T0 = new(2024, 3, 9, 20, 0, 0);
 
     private readonly string _dir = Path.Combine(
         Path.GetTempPath(), "eqdeeps-tests", Guid.NewGuid().ToString("N"));
@@ -151,6 +153,29 @@ public sealed class GearEndpointTests : IAsyncLifetime
 
         Assert.Equal(12, snapshot.GetProperty("upgradeScore").GetInt32());   // +7 and +5
         Assert.True(gear.GetProperty("status").GetProperty("hasSnapshot").GetBoolean());
+    }
+
+    [Fact]
+    public async Task CaptureTimeIsZonelessLocalLikeEveryOtherTimestamp()
+    {
+        WriteInventory("Primary\tSword +1\t1\t1\t10");
+        var id = await OpenSessionAsync(WriteLog());
+        var gear = await GearWhenAsync(id, g => Snapshots(g).GetArrayLength() == 1);
+
+        // The dump's timestamp comes from the file's last-write time, which is
+        // Local — and would serialise with a UTC offset that no log timestamp
+        // carries. Compared against a fight time, or handed back as a query
+        // range, that offset silently shifts the whole window.
+        var capturedAt = Snapshots(gear)[0].GetProperty("capturedAt").GetString()!;
+        Assert.Equal(DateTimeKind.Unspecified, DateTime.Parse(capturedAt).Kind);
+
+        // The dump was written during this test, so it must sort after a fight
+        // logged in 2026-08 — both as text (the SPA compares these strings
+        // directly) and as parsed time.
+        var fights = await _http.GetFromJsonAsync<JsonElement>($"/api/sessions/{id}/fights");
+        var fightTime = fights[0].GetProperty("beginTime").GetString()!;
+        Assert.True(string.CompareOrdinal(capturedAt, fightTime) > 0, $"{capturedAt} !> {fightTime}");
+        Assert.True(DateTime.Parse(capturedAt) > DateTime.Parse(fightTime));
     }
 
     [Fact]

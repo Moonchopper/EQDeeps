@@ -1600,7 +1600,7 @@ th.num {
   padding: 1px 5px;
 }
 
-/* ---- gear (F23) ----
+/* ---- gear (F24) ----
    Gear is context for a parse, so the panel reads as annotation rather than as
    a character sheet: slots on the left, item on the right, augments indented
    under what they are socketed into. The gold accent is the same one the

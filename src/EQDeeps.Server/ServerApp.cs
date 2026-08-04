@@ -232,7 +232,7 @@ public static class ServerApp
         app.MapPost("/api/sessions/{id}/timeline", (string id, TimelineRequest request, SessionManager manager) =>
             manager.Get(id) is { } host ? Results.Ok(host.Timeline(request)) : Results.NotFound());
 
-        // Gear snapshots for this session's character (F23). Read-only: the
+        // Gear snapshots for this session's character (F24). Read-only: the
         // player writes these by typing /outputfile inventory in game, and the
         // app only ever notices — it never asks the game for anything.
         app.MapGet("/api/sessions/{id}/gear", (string id, SessionManager manager) =>

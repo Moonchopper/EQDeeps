@@ -85,7 +85,7 @@ Root: `%AppData%\EQDeeps\` (path-provider abstraction; no hardcoding scattered a
 | Identity registry (players/pets/classes per server) | JSON or SQLite — small, write-debounced |
 | Reference data (spells/npcs/petnames…) | shipped read-only alongside the app; see domain doc §6 and NOTICE obligations |
 | Parsed records | in-memory per session (recompute from log on reopen); optional cache/index files are an ingestion-brief topic |
-| Gear snapshots (F23) | JSON per character under `gear\`. The exception to "recompute from the log": the game overwrites its inventory dump, so a snapshot not kept is gone (ADR-011) |
+| Gear snapshots (F24) | JSON per character under `gear\`. The exception to "recompute from the log": the game overwrites its inventory dump, so a snapshot not kept is gone (ADR-011) |
 
 ## Packaging & distribution (P1)
 

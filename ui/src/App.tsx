@@ -68,7 +68,7 @@ export default function App() {
   const [sessions, setSessions] = useState<SessionInfo[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [fights, setFights] = useState<FightInfo[]>([]);
-  // Gear snapshots for the active session's character (F23). Null until the
+  // Gear snapshots for the active session's character (F24). Null until the
   // first fetch lands, which the panel distinguishes from "none recorded".
   const [gear, setGear] = useState<GearReport | null>(null);
   // The one time frame the whole app reports over. A live tail by default;

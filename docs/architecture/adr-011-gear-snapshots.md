@@ -1,6 +1,6 @@
 # ADR-011: Gear snapshots
 
-Status: accepted (2026-08-03). Scope: feature F23.
+Status: accepted (2026-08-03). Scope: feature F24.
 
 ## Context
 

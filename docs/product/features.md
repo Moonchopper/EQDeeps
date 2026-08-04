@@ -200,7 +200,7 @@ The consent model is the feature, not the downloading. The default is to ask onc
 - AC: Nothing downloaded is executed unless it passes both Ed25519 and Authenticode verification.
 - AC: Portable and unkeyed builds degrade to notify-only rather than pretending to install.
 
-### F23. Gear snapshots
+### F24. Gear snapshots
 
 What the character was wearing, so a parse can be read against the gear behind it. See [ADR-011](../architecture/adr-011-gear-snapshots.md) and [the dump's format](../domain/inventory-file-format.md).
 

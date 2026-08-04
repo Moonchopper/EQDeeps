@@ -42,7 +42,7 @@ const RETIRED_VIEW_IDS = ["preset-raid-dps", "preset-right-now"];
 export const SUMMARY_VIEW = "summary";
 
 /**
- * Gear (F23) is a sub-tab like the others but not a dashboard: it reads
+ * Gear (F24) is a sub-tab like the others but not a dashboard: it reads
  * snapshots rather than running a QuerySpec, so it has no PanelDefs to build
  * and nothing for the query builder to customise. Like SUMMARY_VIEW, the id is
  * a marker the render branches on.

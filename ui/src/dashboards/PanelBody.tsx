@@ -376,7 +376,7 @@ function LinePanel({
 }) {
   const divRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<echarts.ECharts | null>(null);
-  const { windowSec, spanSec } = settings;
+  const { windowBuckets, spanSec } = settings;
   const result = usePanelQuery(panel, ctx, settings);
   const [isZoomed, setIsZoomed] = useState(false);
   // The bucket the server actually aggregated at. Everything downstream —
@@ -399,7 +399,7 @@ function LinePanel({
   const zoomRangeRef = useRef<[number, number] | null>(null);
   // Identity + scope, so the ceiling survives a remount but not a real change
   // of what is being plotted.
-  const axisKey = `${panel.id}|${JSON.stringify(ctx.frame)}|${spanSec}|${windowSec}`;
+  const axisKey = `${panel.id}|${JSON.stringify(ctx.frame)}|${spanSec}|${windowBuckets}`;
 
   const resetZoom = useCallback(() => {
     const chart = chartRef.current;
@@ -495,7 +495,7 @@ function LinePanel({
     // Rate sources average to a per-second figure; amount sources stay in
     // their own units as a rolling mean per bucket.
     const perBucket = RATE_SOURCES.has(panel.source) ? Math.max(1, bucketSeconds) : 1;
-    const windowBuckets = Math.max(1, Math.round(smoothingSec / Math.max(1, bucketSeconds)));
+    const ringBuckets = Math.max(1, Math.round(smoothingSec / Math.max(1, bucketSeconds)));
     const smoothed = (rows: QueryRow[]) => {
       const bySecond = new Map<number, number>();
       for (const row of rows) {
@@ -512,7 +512,7 @@ function LinePanel({
           const raw = bySecond.get(t) ?? 0;
           ring.push(raw);
           sum += raw;
-          if (ring.length > windowBuckets) {
+          if (ring.length > ringBuckets) {
             sum -= ring.shift()!;
           }
           points.push([t, sum / (ring.length * perBucket)]);

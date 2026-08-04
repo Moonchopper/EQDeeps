@@ -9,13 +9,12 @@ import {
   offsetTooltip,
   heldAxisMax,
   queryBucketSeconds,
-  scaledWindowSeconds,
   fightBandsKey,
 } from "../chartInteractions";
 import {
-  fmtDuration,
   spanChoices,
   windowChoices,
+  windowSeconds,
   type ChartSettings,
   type Span,
 } from "../timeControls";
@@ -88,7 +87,7 @@ export function DpsChart({
 }: Props) {
   const divRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<echarts.ECharts | null>(null);
-  const [windowSec, setWindowSec] = useState(chartDefaults.windowSec);
+  const [windowBuckets, setWindowBuckets] = useState(chartDefaults.windowBuckets);
   const [span, setSpan] = useState<Span>(chartDefaults.spanSec);
   const [result, setResult] = useState<QueryResult | null>(null);
   const frameKey = JSON.stringify(frame);
@@ -96,9 +95,9 @@ export function DpsChart({
   // The top-bar control is the parent: this chart is not special, so a change
   // there pushes down here exactly as it does to every standard-view panel.
   useEffect(() => {
-    setWindowSec(chartDefaults.windowSec);
+    setWindowBuckets(chartDefaults.windowBuckets);
     setSpan(chartDefaults.spanSec);
-  }, [chartDefaults.windowSec, chartDefaults.spanSec]);
+  }, [chartDefaults.windowBuckets, chartDefaults.spanSec]);
 
   const effectiveSpan = span === "fit" ? 60 : span;
 
@@ -115,13 +114,13 @@ export function DpsChart({
   // sliding past it", so scrolling only applies to a fixed span. Zooming
   // suspends it too — the viewport belongs to the user until they reset.
   // Identity + scope: survives a remount, forgets a real scope change.
-  const axisKey = `dps|${frameKey}|${span}|${windowSec}`;
+  const axisKey = `dps|${frameKey}|${span}|${windowBuckets}`;
   // This chart is bucketed at a second, coarsened when the range is long
   // enough that a second would fetch more points than it can draw.
   const bucketSeconds = queryBucketSeconds(1, frameSpanSeconds(frame, span, logSpanSeconds));
   // The window is set in seconds but means a count of buckets; scale it with
   // the bucket or a long range silently loses its smoothing entirely.
-  const smoothingSec = scaledWindowSeconds(windowSec, 1, bucketSeconds);
+  const smoothingSec = windowSeconds(windowBuckets, bucketSeconds);
   const bandsKey = fightBandsKey(fights, bucketSeconds);
   // Gear marks only move when a snapshot lands, which is rare — keying on the
   // instants avoids redrawing the chart on every unchanged poll.
@@ -474,12 +473,12 @@ export function DpsChart({
             window
             <select
               className="panel-select"
-              value={windowSec}
-              onChange={(e) => setWindowSec(Number(e.target.value))}
+              value={windowBuckets}
+              onChange={(e) => setWindowBuckets(Number(e.target.value))}
             >
               {WINDOW_CHOICES.map((w) => (
-                <option key={w} value={w}>
-                  {w === 1 ? "raw (1s)" : fmtDuration(w)}
+                <option key={w.value} value={w.value}>
+                  {w.value === 1 ? "raw (1s)" : w.label}
                 </option>
               ))}
             </select>

@@ -213,7 +213,7 @@ export function isDefaultState(
   return (
     frame.kind === "live" &&
     frame.spanSec === DEFAULT_CHART_SETTINGS.spanSec &&
-    settings.windowSec === DEFAULT_CHART_SETTINGS.windowSec &&
+    settings.windowBuckets === DEFAULT_CHART_SETTINGS.windowBuckets &&
     fightLabelPx === DEFAULT_LABEL_PX
   );
 }

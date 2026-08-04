@@ -1,7 +1,7 @@
 import type { Dimension, QueryFilter, QuerySource, QuerySpec } from "../api";
-import type { ChartSettings } from "../timeControls";
+import { windowSeconds, type ChartSettings } from "../timeControls";
 import { frameAtSpan, frameScope, frameSpanSeconds, type TimeFrame } from "../timeFrame";
-import { queryBucketSeconds, scaledWindowSeconds } from "../chartInteractions";
+import { queryBucketSeconds } from "../chartInteractions";
 
 // The user-facing panel definition: a QuerySpec plus presentation. This is
 // what dashboards persist and what export/import moves between machines.
@@ -193,9 +193,14 @@ export function panelWindowSeconds(
   settings: ChartSettings,
   logSpanSeconds: number,
 ): number {
-  return scaledWindowSeconds(
-    settings.windowSec,
-    panel.bucketSeconds,
+  // The window is a bucket COUNT, so its length in seconds is that count times
+  // whatever the server actually aggregated at — including the coarser bucket a
+  // long range falls back to, which widens the window in step for free. Scaling
+  // it against the panel's own nominal bucket instead was the bug: on a
+  // minute-bucketed panel that cancelled out and left a window of seconds, which
+  // rounds to one bucket and smooths nothing.
+  return windowSeconds(
+    settings.windowBuckets,
     panelBucketSeconds(panel, frame, settings, logSpanSeconds),
   );
 }

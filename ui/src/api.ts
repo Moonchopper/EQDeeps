@@ -24,6 +24,12 @@ export interface FightInfo {
   tankingTotal: number;
   tauntCount: number;
   groupIndex: number;
+  /**
+   * This session's own character and their pets, out of `damageTotal`. The
+   * per-fight series any cross-window comparison has to be built from — totals
+   * over windows of different lengths are not comparable at all.
+   */
+  characterDamage: number;
 }
 
 export type QuerySource =

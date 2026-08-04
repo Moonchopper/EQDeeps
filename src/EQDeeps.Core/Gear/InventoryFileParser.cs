@@ -28,10 +28,19 @@ public static class InventoryFileParser
     private static readonly Regex SubSlotSuffix =
         new(@"-Slot\d+$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
-    /// <summary>Containers and the cursor — everything here is carried, not worn.</summary>
+    /// <summary>
+    /// Containers and the cursor — everything here is carried, not worn.
+    ///
+    /// <para>Matched by shape rather than by name: every store EverQuest writes
+    /// is indexed ("General 1", "Bank12", "SharedBank3", "Personal-Depot7"),
+    /// and no equipment slot is. Enumerating the names got this wrong once
+    /// already — a personal depot full of tradeskill components was counted as
+    /// worn gear, inflating the equipped set by twelve items and making every
+    /// diff around it nonsense — and the list of container names is the game's
+    /// to grow, not ours to keep current.</para>
+    /// </summary>
     private static readonly Regex NonEquipmentSlot =
-        new(@"^(General\s*\d+|Bank\d+|SharedBank\d+|Held)$",
-            RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        new(@"^(?:Held|.*\d)$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     /// <summary>The EQ Legends upgrade level, e.g. "Jade Earring +4".</summary>
     private static readonly Regex UpgradeSuffix =

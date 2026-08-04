@@ -190,7 +190,11 @@ EverQuest records equipped gear nowhere. Loadouts on EQ Legends are *class* load
 
 The manual step is the cost of the feature existing at all, so the app is honest about it rather than quiet: it never issues the command itself, it says how much combat has happened since the last proof, and it reports gear it cannot vouch for as unknown.
 
+Gear has its own Overview sub-tab, organised around **sets** — a snapshot plus the stretch of time it was worn for. Each set carries how it actually played (fights, time, total, sDPS), and sets can be compared three ways, because windows of 36 minutes and 2 minutes have no single honest comparison: **spread** (per-fight DPS as a box, time off the axis), **by fight** (numbered from each set's start), and **by clock** (elapsed from 0:00, clipped to the shortest). A like-for-like toggle restricts every set to mobs all of them fought.
+
 - AC: With a dump on disk, the Gear panel lists equipped items — augments nested, `+N` upgrade levels split out — for the snapshot in force at the selected time frame.
+- AC: Selecting a set shows its own DPS-over-time and damage-by-ability charts, scoped to exactly the window that set was worn.
+- AC: Bags, banks and the personal depot never appear as worn gear, however the game names them.
 - AC: Re-running the command after a gear change adds a snapshot within ~5 s and marks it on the DPS chart with no refresh; re-running it unchanged adds nothing, and bank or bag churn is never mistaken for a gear change.
 - AC: With no dump, the panel explains why the manual step is needed, quotes the command, and prints the exact path being watched.
 - AC: A time frame older than the first snapshot reads "gear unknown" rather than borrowing the nearest one.

@@ -87,7 +87,7 @@ public sealed class SessionHost : IAsyncDisposable
     {
         lock (Session.Gate)
         {
-            return FightInfo.Build(Session.Fights.Fights);
+            return FightInfo.Build(Session.Fights.Fights, Session.Character, Session.Identity);
         }
     }
 
@@ -186,7 +186,12 @@ public sealed class SessionHost : IAsyncDisposable
                     if (Session.Fights.Version != _lastPushedFightVersion)
                     {
                         _lastPushedFightVersion = Session.Fights.Version;
-                        fightsPayload = new { sessionId = Id, fights = FightInfo.Build(Session.Fights.Fights) };
+                        fightsPayload = new
+                        {
+                            sessionId = Id,
+                            fights = FightInfo.Build(
+                                Session.Fights.Fights, Session.Character, Session.Identity),
+                        };
                     }
 
                     if (_liveDirty)

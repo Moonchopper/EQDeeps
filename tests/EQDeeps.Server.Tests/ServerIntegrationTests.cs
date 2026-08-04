@@ -125,6 +125,28 @@ public sealed class ServerIntegrationTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task FightsCarryThisCharactersOwnDamageWithPetsRolledUp()
+    {
+        // The per-fight series the gear comparison is built from: this
+        // character and their pet, separated from everyone else's damage in
+        // the same pull. Pets roll up unconditionally — a pet swinging is the
+        // player's doing however the display toggle is set.
+        var path = WriteLog(
+            Line(0, "Kizant crushes an ice giant for 100 points of damage."),
+            Line(1, "Kizant`s pet slashes an ice giant for 50 points of damage."),
+            Line(2, "Raider01 crushes an ice giant for 70 points of damage."),
+            Line(3, "An ice giant died."));
+        var info = await OpenSessionAsync(path);
+        var id = info.GetProperty("id").GetString();
+
+        var fights = await _http.GetFromJsonAsync<JsonElement>($"/api/sessions/{id}/fights");
+        var fight = Assert.Single(fights.EnumerateArray());
+
+        Assert.Equal(220, fight.GetProperty("damageTotal").GetInt64());
+        Assert.Equal(150, fight.GetProperty("characterDamage").GetInt64());
+    }
+
+    [Fact]
     public async Task QueryEndpointExecutesSpecs()
     {
         var path = WriteLog(

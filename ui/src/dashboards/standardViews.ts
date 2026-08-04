@@ -34,6 +34,14 @@ const RETIRED_VIEW_IDS = ["preset-raid-dps", "preset-right-now"];
 /** The sub-tab that shows the hand-built Overview, not a standard view. */
 export const SUMMARY_VIEW = "summary";
 
+/**
+ * Gear (F23) is a sub-tab like the others but not a dashboard: it reads
+ * snapshots rather than running a QuerySpec, so it has no PanelDefs to build
+ * and nothing for the query builder to customise. Like SUMMARY_VIEW, the id is
+ * a marker the render branches on.
+ */
+export const GEAR_VIEW = "gear";
+
 export interface MigrationResult {
   dashboards: DashboardDef[];
   changed: boolean;

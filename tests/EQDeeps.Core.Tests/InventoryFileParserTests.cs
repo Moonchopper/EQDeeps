@@ -48,6 +48,31 @@ public class InventoryFileParserTests
     }
 
     [Fact]
+    public void TreatsEveryIndexedStoreAsAContainer()
+    {
+        // Regression: a personal depot's contents were counted as worn gear,
+        // because the exclusion list named the containers it knew about and
+        // this one had not been seen. Containers are indexed; slots are not.
+        string[] lines =
+        [
+            "Location\tName\tID\tCount\tSlots",
+            "Head\tHelm +1\t100\t1\t10",
+            "Personal-Depot1\tImp Blood\t200\t1\t10",
+            "Personal-Depot12\tDrop of Mercury\t201\t1\t10",
+            "General 3\tBackpack\t202\t1\t8",
+            "General 3-Slot1\tBone Chips\t203\t7\t10",
+            "Bank7\tSpare Sword\t204\t1\t10",
+            "SharedBank2\tShared Thing\t205\t1\t10",
+            "Held\tCursor Item\t206\t1\t10",
+        ];
+
+        var snapshot = InventoryFileParser.Parse(lines, "A", "b", CapturedAt)!;
+
+        Assert.Equal(["Head#1"], snapshot.Equipped.Select(i => i.SlotKey));
+        Assert.Equal(1, snapshot.UpgradeScore);
+    }
+
+    [Fact]
     public void NumbersRepeatedSlotsInFileOrder()
     {
         var snapshot = RealDump();

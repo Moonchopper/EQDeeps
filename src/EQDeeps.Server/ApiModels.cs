@@ -80,9 +80,19 @@ public sealed record FightInfo(
     long DamageTotal,
     long TankingTotal,
     int TauntCount,
-    int GroupIndex)
+    int GroupIndex,
+    /// <summary>
+    /// This session's own character and their pets, out of
+    /// <see cref="DamageTotal"/>. One number rather than the whole per-actor
+    /// map: it keeps the fight list cheap at raid scale while giving the
+    /// client a per-fight series for its own character — which is what any
+    /// comparison across unequal windows has to be built from, since totals
+    /// over a 36-minute set and a 2-minute one are not comparable at all.
+    /// </summary>
+    long CharacterDamage)
 {
-    public static List<FightInfo> Build(IReadOnlyList<Fight> fights)
+    public static List<FightInfo> Build(
+        IReadOnlyList<Fight> fights, string character, IdentityRegistry identity)
     {
         var groupIndex = new Dictionary<int, int>();
         var groups = FightTracker.Group(fights);
@@ -97,7 +107,28 @@ public sealed record FightInfo(
         return fights
             .Select(f => new FightInfo(
                 f.Id, f.Name, f.BeginTime, f.LastDamageTime, f.Dead, f.Closed,
-                f.DamageTotal, f.TankingTotal, f.TauntCount, groupIndex[f.Id]))
+                f.DamageTotal, f.TankingTotal, f.TauntCount, groupIndex[f.Id],
+                OwnDamage(f, character, identity)))
             .ToList();
+    }
+
+    /// <summary>
+    /// Pets roll up to their owner here unconditionally. A pet's damage is the
+    /// player's doing whatever the display toggle says, and a per-fight series
+    /// that flickered as that toggle moved would compare two different things.
+    /// </summary>
+    private static long OwnDamage(Fight fight, string character, IdentityRegistry identity)
+    {
+        var total = 0L;
+        foreach (var (actor, totals) in fight.DamageByActor)
+        {
+            if (actor.Equals(character, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(identity.OwnerOf(actor), character, StringComparison.OrdinalIgnoreCase))
+            {
+                total += totals.Total;
+            }
+        }
+
+        return total;
     }
 }

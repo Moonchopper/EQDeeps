@@ -65,11 +65,18 @@ Bank1	Empty	0	0	0
   **augment**; one level under a bag is its **contents**; two levels under a bag
   is an augment inside a bagged item. Strip suffixes repeatedly to get the root
   slot and the depth.
-- **Equipment is what is left when the containers are removed** — everything
-  whose root is not `General <n>`, `Bank<n>`, `SharedBank<n>`, or `Held` (the
-  cursor). Match by exclusion, not by a list of slot names: EQ Legends already
-  ships a generic **`Any Slot`**, and a parser that only knows yesterday's slot
-  names silently drops today's gear.
+- **Equipment is what is left when the containers are removed.** Match by
+  exclusion, not by a list of slot names: EQ Legends already ships a generic
+  **`Any Slot`**, and a parser that only knows yesterday's slot names silently
+  drops today's gear.
+- **Containers are the indexed roots, plus `Held` (the cursor).** Known ones
+  are `General <n>`, `Bank<n>`, `SharedBank<n>` and `Personal-Depot<n>`, but
+  match the *shape* — a trailing digit — rather than the names. Enumerating
+  them got this wrong once: a personal depot appeared in a later dump, and its
+  twelve tradeskill components (Imp Blood, Star Ruby, Ale…) were recorded as
+  worn gear, inflating the equipped set and making every diff around it
+  nonsense. No equipment slot in the dump ends in a digit; the list of stores
+  is the game's to grow.
 - **Slot labels repeat and are not unique.** `Ear`, `Wrist`, `Fingers` come in
   pairs and `Any Slot` appears twice. Their only stable identity is **position
   in the file**, so number each root slot by order of appearance — counting

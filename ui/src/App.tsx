@@ -24,6 +24,7 @@ import { TimelineChart } from "./components/TimelineChart";
 import { DashboardView } from "./dashboards/DashboardView";
 import { defaultPanel, newDashboard, newId, type DashboardDef } from "./dashboards/model";
 import {
+  GEAR_VIEW,
   SUMMARY_VIEW,
   cloneForCustomizing,
   standardViews,
@@ -677,6 +678,12 @@ export default function App() {
                   {d.name}
                 </button>
               ))}
+              <button
+                className={"sub-tab" + (stdView === GEAR_VIEW ? " on" : "")}
+                onClick={() => selectStdView(GEAR_VIEW)}
+              >
+                Gear
+              </button>
             </nav>
           )}
           {(() => {
@@ -708,9 +715,20 @@ export default function App() {
               collapsed={fightsCollapsed}
               onToggleCollapsed={toggleFightsCollapsed}
             />
-            {/* Three cases: a standard view, the hand-built Summary that
-                Overview opens on, or one of the user's own dashboards. */}
-            {view === "overview" && stdView !== SUMMARY_VIEW ? (
+            {/* Four cases: Gear, a standard view, the hand-built Summary that
+                Overview opens on, or one of the user's own dashboards. Gear is
+                checked first — it is a sub-tab but not a dashboard, so the
+                standard-view lookup below would miss it. */}
+            {view === "overview" && stdView === GEAR_VIEW ? (
+              <div className="dashboard-main">
+                <GearPanel
+                  ctx={panelCtx}
+                  gear={gear}
+                  character={sessions.find((s) => s.id === activeId)?.character ?? ""}
+                  chartDefaults={chartDefaults}
+                />
+              </div>
+            ) : view === "overview" && stdView !== SUMMARY_VIEW ? (
               (() => {
                 const std = standard.find((d) => d.id === stdView);
                 return std ? (
@@ -797,14 +815,6 @@ export default function App() {
                     />
                     <LiveMeter tick={tick} colorFor={entityColors.claim} petRollup={petRollup} />
                     <DeathLog sessionId={activeId} frame={frame} refreshKey={refreshKey} />
-                    <GearPanel
-                      sessionId={activeId}
-                      gear={gear}
-                      fights={fights}
-                      frame={frame}
-                      character={sessions.find((s) => s.id === activeId)?.character ?? ""}
-                      refreshKey={refreshKey}
-                    />
                   </div>
                 </div>
               </div>

@@ -1597,14 +1597,129 @@ th.num {
    a character sheet: slots on the left, item on the right, augments indented
    under what they are socketed into. The gold accent is the same one the
    chart marks use, so a line on a chart and a row here read as one feature. */
+/* Gear has its own Overview sub-tab, so the panel owns the pane rather than
+   sharing a rail. */
 .gear-panel {
   min-height: 0;
+  flex: 1;
 }
 
 .gear-scroll {
   overflow-y: auto;
-  padding: 10px 12px 14px;
+  padding: 10px 14px 16px;
   min-height: 0;
+}
+
+/* The selected set: its charts in the wide column, the gear itself in a rail.
+   Same split as the Summary, for the same reason — a time series needs width
+   to say anything, an item list does not. */
+.gear-detail {
+  display: grid;
+  grid-template-columns: 2fr minmax(320px, 1fr);
+  gap: 10px 24px;
+  align-items: start;
+  margin-top: 18px;
+}
+
+.gear-detail-main {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.gear-detail-side {
+  min-width: 0;
+}
+
+@media (max-width: 1100px) {
+  .gear-detail {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Charts need a real height here: unlike the dashboard grid, nothing above
+   is handing these a row to fill. */
+.gear-chart {
+  height: 260px;
+}
+
+/* ---- the set table ---- */
+.gear-sets {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.gear-sets th {
+  color: var(--muted);
+  font-weight: 400;
+  text-align: left;
+  padding: 3px 8px;
+  border-bottom: 1px solid var(--baseline);
+  white-space: nowrap;
+}
+
+.gear-sets td {
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--grid);
+  white-space: nowrap;
+}
+
+.gear-set-row {
+  cursor: pointer;
+}
+
+.gear-set-row:hover {
+  background: var(--surface-2);
+}
+
+.gear-set-row.selected {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+/* The one column worth scanning rather than reading. */
+.gear-set-row.selected td:first-child {
+  box-shadow: inset 2px 0 0 var(--gold);
+}
+
+.gear-set-what {
+  white-space: normal;
+  min-width: 220px;
+}
+
+.gear-sdps {
+  position: relative;
+  min-width: 90px;
+}
+
+.gear-bar {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 14px;
+  background: rgba(245, 197, 66, 0.16);
+  border-radius: 2px;
+  pointer-events: none;
+}
+
+.gear-bar-value {
+  position: relative;
+}
+
+.gear-diff {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.gear-diff li {
+  padding: 1px 0;
+}
+
+.gear-section-note {
+  font-weight: 400;
+  margin-left: 8px;
 }
 
 .gear-section + .gear-section {
@@ -1626,6 +1741,7 @@ th.num {
   padding: 10px 12px;
   margin-bottom: 14px;
   background: var(--surface-2);
+  max-width: 720px;
 }
 
 .gear-nudge-lead {
@@ -1735,4 +1851,45 @@ th.num {
 .gear-caveat {
   margin: 8px 0 0;
   font-size: 12px;
+}
+
+/* ---- gear set comparison ---- */
+.gear-compare-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 12px;
+  font-weight: 400;
+}
+
+.gear-compare-controls .mini-btn.on {
+  color: var(--ink);
+  border-color: var(--gold);
+}
+
+.gear-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--ink-2);
+  margin-left: 6px;
+}
+
+.gear-compare-wrap {
+  height: 300px;
+  display: flex;
+  flex-direction: column;
+}
+
+.gear-compare-chart {
+  flex: 1;
+  min-height: 240px;
+}
+
+/* The comparison checkbox sits in its own cell so clicking it never doubles as
+   selecting the row. */
+.gear-pick {
+  width: 1%;
+  cursor: pointer;
+  padding-right: 0 !important;
 }

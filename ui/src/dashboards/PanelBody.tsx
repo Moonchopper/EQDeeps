@@ -29,7 +29,7 @@ import {
   TableSearch,
   type SortState,
 } from "./tableTools";
-import type { EntityColors } from "../colors";
+import { colorPoolFor, ENTITY_POOL, type EntityColors } from "../colors";
 import {
   attachWheelZoom,
   bucketAlignedWindow,
@@ -204,7 +204,12 @@ function TablePanel({ panel, ctx, settings }: { panel: PanelDef; ctx: PanelConte
   const maxBar = barMetric
     ? rows.reduce((max, r) => Math.max(max, r.metrics[barMetric] ?? 0), 0)
     : 0;
-  const playerRows = panel.groupBy[0] === "player";
+  const pool = colorPoolFor(panel.source, panel.groupBy[0]);
+  // Rows naming the opposing side don't claim: a table of mob names would
+  // otherwise spend the player palette on mobs. They still show a color when
+  // the entity already has one. Every other grouping claims within its own
+  // pool, where there is nothing to spend but its own slots.
+  const claimsColor = !(panel.groupBy[0] === "target" && pool === ENTITY_POOL);
 
   const renderRow = (
     row: QueryRow,
@@ -221,7 +226,9 @@ function TablePanel({ panel, ctx, settings }: { panel: PanelDef; ctx: PanelConte
     let share: JSX.Element | null = null;
     if (depth === 0) {
       // Identity, not rank: the entity keeps its color across every panel.
-      const color = playerRows ? ctx.colors.claim(row.key) : ctx.colors.lookup(row.key);
+      const color = claimsColor
+        ? ctx.colors.claim(row.key, pool)
+        : ctx.colors.lookup(row.key, pool);
       if (barMetric && maxBar > 0) {
         rowStyle = meterStyle(color, (value / maxBar) * 100);
         chip = <span className="color-chip" style={{ background: color }} />;
@@ -509,7 +516,7 @@ function LinePanel({
       type: "line",
       showSymbol: false,
       lineStyle: { width: 2 },
-      color: ctx.colors.claim(row.key),
+      color: ctx.colors.claim(row.key, colorPoolFor(panel.source, panel.groupBy[0])),
       data: smoothed([row]),
       connectNulls: false,
     }));
@@ -942,7 +949,9 @@ function DropRatePanel({
     let rowStyle: React.CSSProperties | undefined;
     let chip: JSX.Element | null = null;
     if (depth === 0) {
-      const color = ctx.colors.lookup(row.key);
+      // Mobs, in loot's own pool — nothing else claims there, so looking up
+      // would leave every row gray.
+      const color = ctx.colors.claim(row.key, colorPoolFor(panel.source, panel.groupBy[0]));
       rowStyle = meterStyle(color, maxDrops > 0 ? (drops / maxDrops) * 100 : 0);
       chip = <span className="color-chip" style={{ background: color }} />;
     } else if (maxSibling > 0) {

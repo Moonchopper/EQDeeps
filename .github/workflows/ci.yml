@@ -19,7 +19,7 @@ jobs:
   test:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Deliberately no actions/setup-dotnet: the windows runner image already
       # ships SDK 8.0.423, and global.json pins us to it. The action ignores
@@ -27,15 +27,20 @@ jobs:
       - name: Show SDK
         run: dotnet --version
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
+          # The action caches npm's download cache by itself from v5 on, when
+          # package.json names a package manager. Left alone that would quietly
+          # reinstate the strategy the step below exists to replace — and pay
+          # for both.
+          package-manager-cache: false
 
       # Caching node_modules outright beats caching npm's download cache:
       # the tarball cache still left `npm ci` reinstalling 98 packages for 8s.
       - name: Cache node_modules
         id: node-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ui/node_modules
           key: node-modules-${{ runner.os }}-${{ hashFiles('ui/package-lock.json') }}
@@ -45,7 +50,7 @@ jobs:
         run: npm --prefix ui ci
 
       - name: Cache NuGet packages
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.nuget/packages
           key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', 'Directory.Build.props') }}

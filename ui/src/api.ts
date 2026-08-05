@@ -54,6 +54,12 @@ export interface QuerySpec {
     lastSeconds?: number;
     skipFirstSeconds?: number;
     maxSeconds?: number;
+    /**
+     * Cut the time between play sessions out of a range before measuring it.
+     * Only bites on a scope that is a stretch of wall clock — fights carry
+     * their own ends, so a scope made of them never held the night anyway.
+     */
+    playedTimeOnly?: boolean;
   };
   groupBy: Dimension[];
   metrics?: string[];
@@ -182,6 +188,21 @@ export interface GearChange {
   previousAt: string;
   slots: GearSlotChange[];
   upgradeScoreDelta: number;
+}
+
+/**
+ * A stretch over which one thing stayed true — the zone the character was in,
+ * or the level they were. Both are step functions over the log, clipped to the
+ * play sessions so nothing is drawn across the night.
+ */
+export interface ContextSpan {
+  range: { begin: string; end: string };
+  label: string;
+}
+
+export interface ContextTimeline {
+  zones: ContextSpan[];
+  levels: ContextSpan[];
 }
 
 export interface GearStatus {
@@ -317,6 +338,9 @@ export const api = {
 
   getGear: (id: string): Promise<GearReport> =>
     fetch(`/api/sessions/${id}/gear`).then((r) => json(r)),
+
+  getContext: (id: string): Promise<ContextTimeline> =>
+    fetch(`/api/sessions/${id}/context`).then((r) => json(r)),
 
   timeline: (id: string, scope: QuerySpec["scope"]): Promise<TimelineResult> =>
     fetch(`/api/sessions/${id}/timeline`, {

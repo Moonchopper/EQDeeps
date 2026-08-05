@@ -10,6 +10,7 @@ public static class MiscParser
         return ParseTaunt(action, options)
             ?? ParseZone(action)
             ?? ParseResist(action, options)
+            ?? ParseLevel(action)
             ?? ParseExperience(action)
             ?? ParseFaction(action)
             ?? ParseLoot(action, options)
@@ -310,6 +311,38 @@ public static class MiscParser
         (" could not possibly get any better.", true, true),
         (" could not possibly get any worse.", false, true),
     ];
+
+    /// <summary>
+    /// "You have gained a level! Welcome to level 42!" — the only line the
+    /// client writes about the character's own level. There is no matching
+    /// line for losing one, so a level read from these is the last one
+    /// announced rather than a running count (see <see cref="LevelEvent"/>).
+    /// </summary>
+    private static GameEvent? ParseLevel(string action)
+    {
+        const string prefix = "You have gained a level!";
+        if (!action.StartsWith(prefix, StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        var i = action.IndexOf("level ", prefix.Length, StringComparison.Ordinal);
+        if (i < 0)
+        {
+            return null;
+        }
+
+        var digits = action.AsSpan(i + "level ".Length);
+        var end = 0;
+        while (end < digits.Length && char.IsAsciiDigit(digits[end]))
+        {
+            end++;
+        }
+
+        return end > 0 && int.TryParse(digits[..end], out var level)
+            ? new LevelEvent(level)
+            : null;
+    }
 
     private static GameEvent? ParseExperience(string action)
     {

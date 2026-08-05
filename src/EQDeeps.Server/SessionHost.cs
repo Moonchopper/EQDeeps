@@ -35,6 +35,9 @@ public sealed class SessionHost : IAsyncDisposable
     private readonly Task _expiryTask;
     private readonly Task? _gearTask;
 
+    private ContextTimeline? _context;
+    private int _contextVersion = -1;
+
     private volatile bool _liveDirty;
     private volatile bool _gearDirty;
     private long _backfillBytes = -1;
@@ -97,6 +100,25 @@ public sealed class SessionHost : IAsyncDisposable
         lock (Session.Gate)
         {
             return Engine.Execute(spec);
+        }
+    }
+
+    /// <summary>
+    /// Zone and level spans for the chart strip. Rebuilt only when records
+    /// have arrived: it is a walk of the whole stream, and the answer cannot
+    /// change while the stream does not.
+    /// </summary>
+    public ContextTimeline Context()
+    {
+        lock (Session.Gate)
+        {
+            if (_context is null || _contextVersion != Session.Records.Version)
+            {
+                _context = ContextTimeline.Build(Session.Records, Session.Character);
+                _contextVersion = Session.Records.Version;
+            }
+
+            return _context;
         }
     }
 

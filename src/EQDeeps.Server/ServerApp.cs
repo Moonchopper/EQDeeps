@@ -232,6 +232,12 @@ public static class ServerApp
         app.MapPost("/api/sessions/{id}/timeline", (string id, TimelineRequest request, SessionManager manager) =>
             manager.Get(id) is { } host ? Results.Ok(host.Timeline(request)) : Results.NotFound());
 
+        // Where the character was and what level they were, for the strip the
+        // charts draw above the plot. Read-only and derived — nothing here is
+        // stored, it is the record stream read as two step functions.
+        app.MapGet("/api/sessions/{id}/context", (string id, SessionManager manager) =>
+            manager.Get(id) is { } host ? Results.Ok(host.Context()) : Results.NotFound());
+
         // Gear snapshots for this session's character (F24). Read-only: the
         // player writes these by typing /outputfile inventory in game, and the
         // app only ever notices — it never asks the game for anything.

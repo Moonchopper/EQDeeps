@@ -203,3 +203,13 @@ public sealed record LootEvent(
 /// of NPC levels (mob-stats groundwork); the threat clause is dropped.
 /// </summary>
 public sealed record ConsiderEvent(string Target, string Attitude, int? Level) : GameEvent;
+
+/// <summary>
+/// The log owner reaching a level: "You have gained a level! Welcome to level
+/// 42!". The level is stated outright rather than counted up from a starting
+/// point, which matters because it is not only ever going up — dying can cost
+/// a level, and the loss is not logged at all. A ding is therefore an
+/// observation of where the character IS, not an increment, and the same
+/// number legitimately arrives twice.
+/// </summary>
+public sealed record LevelEvent(int Level) : GameEvent;

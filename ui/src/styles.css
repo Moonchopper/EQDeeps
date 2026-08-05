@@ -1072,6 +1072,31 @@ tbody tr:hover td {
   background: rgba(255, 255, 255, 0.05);
 }
 
+/* ---- linked highlight ----
+   The same entity, pointed at anywhere on screen. It has to read as "this one"
+   at a glance across a rail of panels without moving anything: an inset ring
+   on the first cell, since a border would resize the row, and a wash that
+   stacks over the entity tint rather than replacing it. Deliberately stronger
+   than the plain :hover wash above — that says "your pointer is here", this
+   says "here it is again". */
+tbody tr.linked td {
+  background: rgba(255, 255, 255, 0.09);
+}
+
+tbody tr.linked td:first-child {
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.meter-row.linked {
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+/* The bar under the name is the identity; brightening it is what the row has
+   to give, and it costs no layout. */
+.meter-row.linked .meter-bar {
+  opacity: 0.5;
+}
+
 .color-chip {
   display: inline-block;
   width: 8px;

@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { api, type QueryResult, type QueryRow, type QuerySource, type QuerySpec } from "../api";
 import { fmtNum, fmtRate } from "../format";
 import { defaultPanel, type PanelDef } from "../dashboards/model";
-import type { EntityColors } from "../colors";
+import { ENTITY_POOL, type EntityColors } from "../colors";
+import { useRowLink } from "../highlight";
 import { frameScope, type TimeFrame } from "../timeFrame";
 
 interface Column {
@@ -104,6 +105,9 @@ export function SummaryTable({
   }, [sessionId, source, rowsBy, JSON.stringify(frame), refreshKey, excludeDamageShields, petRollup]);
 
   const columns = COLUMNS[source];
+  // Rows are people either way round — players, or the mobs they fought — so
+  // both readings link against the same pool the colors come from.
+  const rowLink = useRowLink(ENTITY_POOL);
 
   // Meter-style row tint: the same entity color the charts use, at low alpha,
   // sized by the row's share of the top total.
@@ -123,8 +127,18 @@ export function SummaryTable({
       chip = <span className="color-chip" style={{ background: color }} />;
     }
 
+    // Only the top level names an entity: a child row is that player's spell,
+    // which is a different kind of thing in a different pool.
+    const link = depth === 0 ? rowLink(row.key) : null;
+
     const out: JSX.Element[] = [
-      <tr key={path} className={depth > 0 ? "child-row" : undefined} style={rowStyle}>
+      <tr
+        key={path}
+        className={`${depth > 0 ? "child-row" : ""} ${link?.className ?? ""}`.trim() || undefined}
+        style={rowStyle}
+        onMouseEnter={link?.onMouseEnter}
+        onMouseLeave={link?.onMouseLeave}
+      >
         <td style={{ paddingLeft: depth * 18 + 8 }}>
           {hasChildren ? (
             <button

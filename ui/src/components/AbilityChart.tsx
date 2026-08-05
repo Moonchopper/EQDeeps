@@ -3,6 +3,7 @@ import * as echarts from "echarts";
 import { api, type QueryResult, type QueryRow } from "../api";
 import { fmtNum, fmtRate, OTHER_COLOR } from "../format";
 import type { EntityColors } from "../colors";
+import { BAR_EMPHASIS, useChartLink } from "../highlight";
 import { offsetTooltip } from "../chartInteractions";
 import { frameScope, type TimeFrame } from "../timeFrame";
 
@@ -57,6 +58,11 @@ export function AbilityChart({ sessionId, frame, refreshKey, petRollup, colors }
       chartRef.current = null;
     };
   }, []);
+
+  // After the effect above, which is what creates the chart it attaches to.
+  // Only the split view names attackers; flat bars are abilities, and the
+  // keys ref is left empty so hovering one lights nothing up falsely.
+  const linkKeys = useChartLink(chartRef);
 
   // Actor list for the picker (pets appear as their own actors).
   useEffect(() => {
@@ -167,6 +173,12 @@ export function AbilityChart({ sessionId, frame, refreshKey, petRollup, colors }
           ),
         );
 
+      // A stack segment IS the attacker, so the series name is already the key.
+      linkKeys.current = {
+        series: new Map(stackKeys.map((key) => [key, key])),
+        items: [],
+      };
+
       series = stackKeys.map((key) => ({
         name: key,
         type: "bar",
@@ -178,6 +190,7 @@ export function AbilityChart({ sessionId, frame, refreshKey, petRollup, colors }
           borderColor: SURFACE,
           borderWidth: 1,
         },
+        ...BAR_EMPHASIS,
       }));
       if (folded.length > 0) {
         series.push({
@@ -190,6 +203,7 @@ export function AbilityChart({ sessionId, frame, refreshKey, petRollup, colors }
         });
       }
     } else {
+      linkKeys.current = { series: new Map(), items: [] };
       series = [
         {
           type: "bar",

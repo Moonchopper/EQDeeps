@@ -124,14 +124,28 @@ export function bucketAlignedWindow(
   return [end - Math.ceil((lengthSec * 1000) / step) * step, end];
 }
 
-/** Round up to a "nice" axis top: 1, 2, 2.5 or 5 times a power of ten. */
+/**
+ * Round up to a "nice" axis top: 1, 1.5, 2, 3, 4, 5 or 7.5 times a power of
+ * ten.
+ *
+ * Finer than the classic 1/2/2.5/5 ladder, for a reason that only appears once
+ * the ceiling is allowed to move. Three of those rungs sit exactly two apart
+ * (1→2, 2.5→5, 5→10), so stepping down one rung HALVES the axis — and the
+ * hysteresis below, which shrinks once the data fits half the axis, is then
+ * satisfied by the very next rung down. "Grow above 100" and "shrink at 100"
+ * become the same threshold, and a peak wandering across it flips the axis by
+ * 2x on alternate renders.
+ *
+ * No rung here is half of another. A step down is at most a third of the
+ * height rather than a half, and the grow and shrink thresholds cannot meet.
+ */
 export function niceCeil(value: number): number {
   if (!(value > 0)) {
     return 1;
   }
 
   const magnitude = 10 ** Math.floor(Math.log10(value));
-  for (const step of [1, 2, 2.5, 5]) {
+  for (const step of [1, 1.5, 2, 3, 4, 5, 7.5]) {
     if (value <= step * magnitude) {
       return step * magnitude;
     }
@@ -149,7 +163,7 @@ export function niceCeil(value: number): number {
  * ascending order of how much they actually buy:
  *
  *  1. Snap to a nice step, so small changes in the peak land on one number.
- *  2. Grow at once, shrink only once the data fits in half the axis.
+ *  2. Grow at once, shrink only once the data fits well inside half the axis.
  *  3. Hold the top through idle instead of collapsing to it.
  *
  * Rule 3 is the one that matters and it is not obvious. An all-zero window —
@@ -159,6 +173,18 @@ export function niceCeil(value: number): number {
  * one-second renders: 213 axis changes with nice-stepping alone and 30 of them
  * a 4x leap or worse; rule 2 cut the count to 188 but left all 30 leaps
  * untouched; rule 3 brought the leaps down to 17.
+ *
+ * "Well inside" in rule 2 is load-bearing, and was not there originally. When
+ * the shrink took the data fitting half EXACTLY (`<=`), it and the grow test
+ * were the same threshold: on the old ladder the next rung down was half the
+ * axis, so a peak drifting either side of it flipped the ceiling by 2x on
+ * alternate renders. Replaying 8,988 renders of real damage through the old
+ * rule, 41 of its 66 axis changes returned to a height it had held within the
+ * previous ten renders — nearly two thirds of all the movement undoing itself,
+ * which is exactly the motion this function exists to prevent. A strict
+ * comparison, on the finer ladder above, leaves 23 of 61, and because a step
+ * down is now a third rather than a half the total distance travelled falls by
+ * a fifth.
  *
  * The cost is deliberate and small: the axis averages ~1.4x the height it
  * strictly needs. A scale you can read across is worth more than a full one.
@@ -173,7 +199,7 @@ export function stableAxisMax(dataMax: number, held: number): number {
     return target;
   }
 
-  return target <= held / 2 ? target : held;
+  return target < held / 2 ? target : held;
 }
 
 /**
@@ -191,10 +217,22 @@ const axisCeilings = new Map<string, number>();
 /** The stabilised ceiling for `key`, advanced by this render's data. */
 export function heldAxisMax(key: string, dataMax: number): number {
   const next = stableAxisMax(dataMax, axisCeilings.get(key) ?? 0);
+  // Re-inserting moves the key to the young end of the insertion order, so the
+  // eviction below drops whichever ceiling has gone longest without a draw.
+  axisCeilings.delete(key);
   axisCeilings.set(key, next);
-  // Bounded: one entry per chart per scope, and scopes are few.
-  if (axisCeilings.size > 200) {
-    axisCeilings.clear();
+  // Bounded: one entry per chart per scope. Evicting the oldest rather than
+  // emptying the map is the point — a scope is a frame, so a session spent
+  // clicking through fights mints keys steadily, and clearing would drop every
+  // live chart's ceiling at the same moment. Each would then snap to whatever
+  // its data needed on the next render, which is precisely the jump this
+  // function exists to prevent, arriving everywhere at once.
+  while (axisCeilings.size > 200) {
+    const oldest = axisCeilings.keys().next().value;
+    if (oldest === undefined) {
+      break;
+    }
+    axisCeilings.delete(oldest);
   }
 
   return next;

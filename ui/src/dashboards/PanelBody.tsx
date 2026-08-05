@@ -585,6 +585,14 @@ function LinePanel({
 
     const axisTop = heldAxisMax(axisKey, dataMax);
 
+    // A floor as steady as the ceiling. Only the sources that go below zero
+    // reach for one — faction standing is the only one that does, and it does
+    // constantly — but left to ECharts that edge is recomputed every render,
+    // so a stabilised top sat above a bottom that wandered. Same rule, same
+    // reasons, run on the depth instead of the height.
+    const axisFloor = dataMin < 0 ? -heldAxisMax(`${axisKey}|floor`, -dataMin) : 0;
+
+
     // A fixed span pins the axis to [latest − span, latest]: constant width,
     // sliding right edge, so the chart doesn't rescale as points arrive. The
     // right edge is the newest data point rather than wall clock, so replayed
@@ -689,7 +697,7 @@ function LinePanel({
           type: "value",
           // Faction standing genuinely goes negative, so zero is only the
           // floor when the data says it is.
-          min: dataMin < 0 ? undefined : 0,
+          min: axisFloor,
           max: axisTop,
           axisLabel: { color: "#898781", fontSize: 10, formatter: (v: number) => fmtLineValue(v) },
           splitLine: { lineStyle: { color: "#2c2c2a" } },

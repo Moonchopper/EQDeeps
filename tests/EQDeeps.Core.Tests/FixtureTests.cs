@@ -115,6 +115,10 @@ public class FixtureTests
             case "zone":
                 AssertString(expect, "zoneName", Assert.IsType<ZoneEvent>(evt).ZoneName, context);
                 break;
+            case "level":
+                Assert.Equal(expect.GetProperty("level").GetInt32(),
+                    Assert.IsType<LevelEvent>(evt).Level);
+                break;
             case "resist":
                 var resist = Assert.IsType<ResistEvent>(evt);
                 AssertString(expect, "caster", resist.Caster, context);

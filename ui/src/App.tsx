@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  type ContextTimeline,
   api,
   type DiscoveredLog,
   type FightInfo,
@@ -22,6 +23,11 @@ import { SelectionStats } from "./components/SelectionStats";
 import { AbilityChart } from "./components/AbilityChart";
 import { TimelineChart } from "./components/TimelineChart";
 import { DashboardView } from "./dashboards/DashboardView";
+import {
+  CONTEXT_MODES,
+  DEFAULT_CONTEXT_MODE,
+  type ContextMode,
+} from "./contextOverlay";
 import { defaultPanel, newDashboard, newId, type DashboardDef } from "./dashboards/model";
 import {
   GEAR_VIEW,
@@ -71,6 +77,7 @@ export default function App() {
   // Gear snapshots for the active session's character (F24). Null until the
   // first fetch lands, which the panel distinguishes from "none recorded".
   const [gear, setGear] = useState<GearReport | null>(null);
+  const [context, setContext] = useState<ContextTimeline | null>(null);
   // The one time frame the whole app reports over. A live tail by default;
   // picking fights turns it into the fixed range they span. There is no
   // separate "follow live" flag — a live frame *is* following.
@@ -105,6 +112,24 @@ export default function App() {
   // Size of the mob names on the fight bands; 0 hides them. App-wide for the
   // same reason window and span are: it is how you read a chart, not a
   // property of any one of them.
+  // Which lanes the context strip shows. Its own control rather than a mode of
+  // the fight overlay: they answer different questions and a reader wants the
+  // bands without the strip as often as the other way round.
+  // Whether a framed range is measured over the hours played or the hours it
+  // spans. Default is the calendar: that is what the range literally says, and
+  // quietly redefining what every existing dashboard reports is not something
+  // a version bump should do behind the reader's back.
+  const [playedTimeOnly, setPlayedTimeOnly] = useState(
+    () => localStorage.getItem("eqdeeps.playedTimeOnly") === "on",
+  );
+
+  const [contextMode, setContextMode] = useState<ContextMode>(() => {
+    const stored = localStorage.getItem("eqdeeps.contextMode");
+    return CONTEXT_MODES.some((m) => m.value === stored)
+      ? (stored as ContextMode)
+      : DEFAULT_CONTEXT_MODE;
+  });
+
   const [fightLabelPx, setFightLabelPx] = useState<number>(() => {
     const stored = Number(localStorage.getItem("eqdeeps.fightLabelPx"));
     return Number.isFinite(stored) && stored >= 0 ? stored : DEFAULT_LABEL_PX;
@@ -234,6 +259,16 @@ export default function App() {
   function updateFightLabelPx(px: number) {
     setFightLabelPx(px);
     localStorage.setItem("eqdeeps.fightLabelPx", String(px));
+  }
+
+  function updatePlayedTimeOnly(on: boolean) {
+    setPlayedTimeOnly(on);
+    localStorage.setItem("eqdeeps.playedTimeOnly", on ? "on" : "off");
+  }
+
+  function updateContextMode(mode: ContextMode) {
+    setContextMode(mode);
+    localStorage.setItem("eqdeeps.contextMode", mode);
   }
 
   function toggleLiveScroll(on: boolean) {
@@ -400,6 +435,35 @@ export default function App() {
     [],
   );
 
+  /**
+   * The context strip, on its own slow beat.
+   *
+   * Zones and levels change minutes apart at best, and building them walks the
+   * whole record stream — refetching with the panels every second would make
+   * the cheapest thing on screen the most expensive thing on the server. Once
+   * on open, once when the backfill lands, and every half minute after that is
+   * ample for a band that spans hours.
+   */
+  useEffect(() => {
+    if (!activeId) {
+      return;
+    }
+
+    let cancelled = false;
+    const load = () =>
+      api
+        .getContext(activeId)
+        .then((next) => !cancelled && setContext(next))
+        .catch(() => undefined);
+
+    load();
+    const timer = window.setInterval(load, 30_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [activeId, backfill?.complete]);
+
   const lastRefresh = useRef(0);
   // Read through a ref: the live connection is built once and closes over the
   // first render's function, so the value has to be reachable rather than
@@ -504,6 +568,7 @@ export default function App() {
     setTick(null);
     setBackfill(null);
     setGear(null);
+    setContext(null);
     setFrame({ kind: "live", spanSec: chartDefaults.spanSec }); // a new log starts live
     await live.subscribe(id);
     await refreshFights(id);
@@ -647,6 +712,10 @@ export default function App() {
         onResetDefaults={resetToDefaults}
         fightLabelPx={fightLabelPx}
         onFightLabelPx={updateFightLabelPx}
+        contextMode={contextMode}
+        onContextMode={updateContextMode}
+        playedTimeOnly={playedTimeOnly}
+        onPlayedTimeOnly={updatePlayedTimeOnly}
         liveScroll={liveScroll}
         onLiveScroll={toggleLiveScroll}
         onAbsoluteRange={adoptRange}
@@ -742,6 +811,9 @@ export default function App() {
               fights,
               fightLabelPx,
               gearChanges: gear?.changes ?? [],
+              context,
+              contextMode,
+              playedTimeOnly,
               refreshKey,
               petRollup,
               colors: entityColors,
@@ -806,6 +878,8 @@ export default function App() {
                       fights={fights}
                       fightLabelPx={fightLabelPx}
                       gearChanges={panelCtx.gearChanges}
+                      context={context}
+                      contextMode={contextMode}
                       refreshKey={refreshKey}
                       petRollup={petRollup}
                       colors={entityColors}

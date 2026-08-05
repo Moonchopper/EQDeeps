@@ -6,6 +6,7 @@ import { TimeControls, type ChartSettings } from "../timeControls";
 import { isDefaultState, type TimeFrame } from "../timeFrame";
 import { TimeRangePicker } from "./TimeRangePicker";
 import { LABEL_SIZE_CHOICES } from "../fightOverlay";
+import { CONTEXT_MODES, type ContextMode } from "../contextOverlay";
 
 interface Props {
   sessions: SessionInfo[];
@@ -30,6 +31,10 @@ interface Props {
   onResetDefaults: () => void;
   /** Fight overlay: -1 off, 0 bands only, otherwise the name size in px. */
   fightLabelPx: number;
+  contextMode: ContextMode;
+  onContextMode: (mode: ContextMode) => void;
+  playedTimeOnly: boolean;
+  onPlayedTimeOnly: (on: boolean) => void;
   onFightLabelPx: (px: number) => void;
   /** Whether charts follow the wall clock through quiet time. */
   liveScroll: boolean;
@@ -73,6 +78,10 @@ export function SessionBar({
   fights,
   onResetDefaults,
   fightLabelPx,
+  contextMode,
+  onContextMode,
+  playedTimeOnly,
+  onPlayedTimeOnly,
   onFightLabelPx,
   liveScroll,
   onLiveScroll,
@@ -201,6 +210,35 @@ export function SessionBar({
             onChange={(e) => onFightLabelPx(Number(e.target.value))}
           >
             {LABEL_SIZE_CHOICES.map((c) => (
+              <option key={c.value} value={c.value}>
+                {c.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label
+          className="time-controls"
+          title="What the hours in a rate or a duration are counted from. Played cuts the gaps between play sessions out of the range, so a rate over a window that includes a night is not divided by the night."
+        >
+          hours
+          <select
+            value={playedTimeOnly ? "played" : "clock"}
+            onChange={(e) => onPlayedTimeOnly(e.target.value === "played")}
+          >
+            <option value="clock">wall clock</option>
+            <option value="played">played</option>
+          </select>
+        </label>
+        <label
+          className="time-controls"
+          title="A strip above every time chart showing which zone the character was in and what level they were"
+        >
+          strip
+          <select
+            value={contextMode}
+            onChange={(e) => onContextMode(e.target.value as ContextMode)}
+          >
+            {CONTEXT_MODES.map((c) => (
               <option key={c.value} value={c.value}>
                 {c.label}
               </option>

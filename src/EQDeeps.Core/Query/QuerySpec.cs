@@ -85,6 +85,24 @@ public sealed record QueryScope
     public int SkipFirstSeconds { get; init; }
 
     public int? MaxSeconds { get; init; }
+
+    /// <summary>
+    /// Cut the time between play sessions out of a range before measuring it.
+    ///
+    /// It only bites on a scope that is a stretch of WALL CLOCK — a typed
+    /// window, an absolute range, a zoom promoted to the time frame. Fights
+    /// carry their own begin and end, so a scope made of them never contained
+    /// the night to begin with, and the whole-log scope already splits itself
+    /// per play session.
+    ///
+    /// The distinction is real rather than pedantic: "plat per hour over the
+    /// last 12 hours" means something different if eight of those hours were
+    /// spent asleep, and both readings have their uses — what you earned per
+    /// hour played, and what the calendar has to show for itself. Default is
+    /// the calendar, because that is what the range literally says and
+    /// changing what an existing dashboard means is not this flag's job.
+    /// </summary>
+    public bool PlayedTimeOnly { get; init; }
 }
 
 public sealed record QueryFilter

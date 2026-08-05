@@ -1,38 +1,113 @@
 [
   {
     "line": "You gain experience! (5.472%)",
-    "expect": { "type": "experience", "percent": 5.472, "party": false, "aaPoint": false }
+    "expect": {
+      "type": "experience",
+      "percent": 5.472,
+      "party": false,
+      "aaPoint": false
+    }
   },
   {
     "line": "You gain party experience! (1.812%)",
-    "expect": { "type": "experience", "percent": 1.812, "party": true, "aaPoint": false }
+    "expect": {
+      "type": "experience",
+      "percent": 1.812,
+      "party": true,
+      "aaPoint": false
+    }
   },
   {
     "line": "You gain experience! (0.977%)",
-    "expect": { "type": "experience", "percent": 0.977, "party": false, "aaPoint": false }
+    "expect": {
+      "type": "experience",
+      "percent": 0.977,
+      "party": false,
+      "aaPoint": false
+    }
   },
   {
     "line": "You gain experience!!",
-    "expect": { "type": "experience", "percent": null, "party": false, "aaPoint": false }
+    "expect": {
+      "type": "experience",
+      "percent": null,
+      "party": false,
+      "aaPoint": false
+    }
   },
   {
     "line": "You gain party experience!!",
-    "expect": { "type": "experience", "percent": null, "party": true, "aaPoint": false }
+    "expect": {
+      "type": "experience",
+      "percent": null,
+      "party": true,
+      "aaPoint": false
+    }
   },
   {
     "line": "You have gained an ability point!  You now have 2 ability points.",
-    "expect": { "type": "experience", "aaPoint": true, "aaTotal": 2, "party": false }
+    "expect": {
+      "type": "experience",
+      "aaPoint": true,
+      "aaTotal": 2,
+      "party": false
+    }
   },
   {
     "line": "You have gained an ability point!  You now have 1 ability point.",
-    "expect": { "type": "experience", "aaPoint": true, "aaTotal": 1, "party": false }
+    "expect": {
+      "type": "experience",
+      "aaPoint": true,
+      "aaTotal": 1,
+      "party": false
+    }
   },
   {
     "line": "You have gained an ability point!",
-    "expect": { "type": "experience", "aaPoint": true, "aaTotal": null, "party": false }
+    "expect": {
+      "type": "experience",
+      "aaPoint": true,
+      "aaTotal": null,
+      "party": false
+    }
   },
   {
     "line": "Soandso says, 'You gain experience!!'",
-    "expect": { "type": "chat", "channel": "say", "sender": "Soandso", "text": "You gain experience!!" }
+    "expect": {
+      "type": "chat",
+      "channel": "say",
+      "sender": "Soandso",
+      "text": "You gain experience!!"
+    }
+  },
+  {
+    "line": "You have gained a level! Welcome to level 42!",
+    "expect": {
+      "type": "level",
+      "level": 42
+    }
+  },
+  {
+    "line": "You have gained a level! Welcome to level 5!",
+    "expect": {
+      "type": "level",
+      "level": 5
+    }
+  },
+  {
+    "line": "You have gained a level! Welcome to level 12!",
+    "expect": {
+      "type": "level",
+      "level": 12
+    }
+  },
+  {
+    "line": "Soandso says, 'You have gained a level! Welcome to level 42!'",
+    "expect": {
+      "type": "chat",
+      "channel": "say",
+      "sender": "Soandso",
+      "text": "You have gained a level! Welcome to level 42!"
+    }
   }
 ]

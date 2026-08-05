@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as echarts from "echarts";
 import {
   api,
+  type ContextTimeline,
   type FightInfo,
   type GearChange,
   type QuerySource,
@@ -42,6 +43,7 @@ import type { ChartSettings } from "../timeControls";
 import type { TimeFrame } from "../timeFrame";
 import { fightMarkArea, OVERLAY_OFF } from "../fightOverlay";
 import { gearMarkLine } from "../gearOverlay";
+import { contextMarkArea, type ContextMode } from "../contextOverlay";
 
 export interface PanelContext {
   sessionId: string;
@@ -54,6 +56,12 @@ export interface PanelContext {
   fightLabelPx: number;
   /** Moments the player's gear changed, marked on time charts. */
   gearChanges: GearChange[];
+  /** Where the character was and what level they were; null until it lands. */
+  context: ContextTimeline | null;
+  /** Which lanes of that the strip shows, if any. */
+  contextMode: ContextMode;
+  /** Measure framed ranges over played time rather than wall clock. */
+  playedTimeOnly: boolean;
   /** Length of the whole log, for sizing buckets when the range is "fit". */
   logSpanSeconds: number;
   /** Wall clock while scrolling; null when the window should sit still. */
@@ -94,7 +102,8 @@ function usePanelQuery(
 ): QueryResult | null | "no-selection" {
   const [result, setResult] = useState<QueryResult | null>(null);
   const spec = buildSpec(
-    panel, ctx.frame, ctx.petRollup, settings, ctx.logSpanSeconds, ctx.character);
+    panel, ctx.frame, ctx.petRollup, settings, ctx.logSpanSeconds, ctx.character,
+    ctx.playedTimeOnly);
   const specKey = JSON.stringify(spec);
 
   useEffect(() => {
@@ -359,6 +368,9 @@ const FIGHT_BANDS = "__fights";
 
 /** Likewise for the gear-change marks. */
 const GEAR_MARKS = "__gear";
+
+/** And for the zone/level strip. */
+const CONTEXT_STRIP = "__context";
 
 // Ceiling on a zero-filled line before it stops being worth drawing. 20k
 // points is still smooth at any panel size; a whole multi-day log at a
@@ -625,6 +637,31 @@ function LinePanel({
         data: [],
         silent: true,
         markArea,
+      } as echarts.SeriesOption);
+    }
+
+
+    // The context strip along the top: where the character was and what level
+    // they were. Drawn after the fight bands and hanging from the axis top, so
+    // it stacks above them rather than tinting the same pixels twice.
+    const contextArea = extentRef.current
+      ? contextMarkArea(
+          ctx.context,
+          ctx.contextMode,
+          axisMin ?? extentRef.current[0],
+          axisMax ?? extentRef.current[1],
+          axisTop,
+          axisFloor,
+          plotWidth,
+        )
+      : undefined;
+    if (contextArea) {
+      series.push({
+        name: CONTEXT_STRIP,
+        type: "line",
+        data: [],
+        silent: true,
+        markArea: contextArea,
       } as echarts.SeriesOption);
     }
 
@@ -907,6 +944,8 @@ function useKillCounts(
     false,
     settings,
     ctx.logSpanSeconds,
+    "",
+    ctx.playedTimeOnly,
   );
   const specKey = JSON.stringify(spec);
 

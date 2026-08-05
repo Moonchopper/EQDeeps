@@ -159,6 +159,29 @@ public sealed class QueryEngine
             }
         }
 
+        // Cut the nights out, before the trim: "skip the first 60 seconds" of a
+        // scope that excludes downtime should skip a minute of play, not a
+        // minute of the gap in front of it.
+        //
+        // Applied to every unit rather than only the ones built from ranges. A
+        // fight sits inside a play session by construction, so intersecting it
+        // returns it unchanged — and a uniform rule is worth more here than
+        // skipping work that costs nothing.
+        if (scope.PlayedTimeOnly && units.Count > 0)
+        {
+            var presence = Presence();
+            var present = new List<ScopeUnit>();
+            foreach (var unit in units)
+            {
+                foreach (var piece in presence.Intersect(unit.Range))
+                {
+                    present.Add(new ScopeUnit(piece, unit.FightName));
+                }
+            }
+
+            units = present;
+        }
+
         // Selection trim over the merged virtual timeline, then re-intersect
         // each unit so fight keys survive.
         if (scope.SkipFirstSeconds > 0 || scope.MaxSeconds is not null)

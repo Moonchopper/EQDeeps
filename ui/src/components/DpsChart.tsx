@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import * as echarts from "echarts";
-import { api, type FightInfo, type GearChange, type QueryResult, type QueryRow } from "../api";
+import {
+  api,
+  type ContextTimeline,
+  type FightInfo,
+  type GearChange,
+  type QueryResult,
+  type QueryRow,
+} from "../api";
 import { CHART_SERIES_LIMIT, fmtNum, OTHER_COLOR } from "../format";
 import type { EntityColors } from "../colors";
 import { SERIES_EMPHASIS, useChartLink } from "../highlight";
@@ -28,6 +35,7 @@ import {
 } from "../timeFrame";
 import { fightMarkArea, OVERLAY_OFF } from "../fightOverlay";
 import { gearMarkLine } from "../gearOverlay";
+import { contextMarkArea, type ContextMode } from "../contextOverlay";
 
 interface Props {
   sessionId: string;
@@ -38,6 +46,10 @@ interface Props {
   fightLabelPx: number;
   /** Moments the player's gear changed, marked on the time axis. */
   gearChanges: GearChange[];
+  /** Where the character was and what level they were; null until it lands. */
+  context: ContextTimeline | null;
+  /** Which lanes of that the strip above the plot shows, if any. */
+  contextMode: ContextMode;
   /** Wall clock while scrolling; null when the window should sit still. */
   scrollNowMs: number | null;
   /** Promote a zoomed window to the app-wide time range. */
@@ -64,6 +76,9 @@ const FIGHT_BANDS = "__fights";
 /** Likewise for the gear-change marks. */
 const GEAR_MARKS = "__gear";
 
+/** And for the zone/level strip. */
+const CONTEXT_STRIP = "__context";
+
 /**
  * DPS over time with a user-adjustable rolling window. Seconds with no landed
  * damage inside a combat segment count as zero rather than leaving holes, so
@@ -78,6 +93,8 @@ export function DpsChart({
   fights,
   fightLabelPx,
   gearChanges,
+  context,
+  contextMode,
   scrollNowMs,
   onAdoptRange,
   logSpanSeconds,
@@ -376,6 +393,31 @@ export function DpsChart({
         data: [],
         silent: true,
         markArea,
+      } as echarts.SeriesOption);
+    }
+
+
+    // The context strip along the top: where the character was and what level
+    // they were. Drawn after the fight bands and hanging from the axis top, so
+    // it stacks above them rather than tinting the same pixels twice.
+    const contextArea = extentRef.current
+      ? contextMarkArea(
+          context,
+          contextMode,
+          axisMin ?? extentRef.current[0],
+          axisMax ?? extentRef.current[1],
+          axisTop,
+          dataMin < 0 ? dataMin : 0,
+          plotWidth,
+        )
+      : undefined;
+    if (contextArea) {
+      series.push({
+        name: CONTEXT_STRIP,
+        type: "line",
+        data: [],
+        silent: true,
+        markArea: contextArea,
       } as echarts.SeriesOption);
     }
 

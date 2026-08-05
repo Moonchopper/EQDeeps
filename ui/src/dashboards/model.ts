@@ -226,6 +226,13 @@ export function buildSpec(
   logSpanSeconds: number,
   /** The open log's character, for panels marked `ownerOnly`. */
   character = "",
+  /**
+   * Measure a framed range over the time actually played rather than the time
+   * it spans. Set app-wide rather than per panel: every reading on the screen
+   * has to be divided by the same hours, or a tile and the table beside it
+   * disagree about how long the evening was.
+   */
+  playedTimeOnly = false,
 ): QuerySpec {
   const warmup =
     panel.viz === "line" ? panelWindowSeconds(panel, frame, settings, logSpanSeconds) : 0;
@@ -236,6 +243,13 @@ export function buildSpec(
     panel.scopeMode === "recent"
       ? { lastSeconds: panel.lastSeconds + warmup }
       : frameScope(frameAtSpan(frame, settings.spanSec), warmup);
+  // A trailing window is a window of clock by definition, so it takes the
+  // setting too: "the last six hours" spent mostly asleep is the same question
+  // as any other range.
+  if (playedTimeOnly) {
+    scope.playedTimeOnly = true;
+  }
+
   if (panel.scopeMode !== "recent") {
     if (panel.skipFirstSeconds > 0) {
       scope.skipFirstSeconds = panel.skipFirstSeconds;

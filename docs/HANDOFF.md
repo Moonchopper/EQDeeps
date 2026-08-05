@@ -10,7 +10,7 @@
 > Inno Setup installer alongside the portable zip (ADR-010, feature F22), and
 > gear snapshots read from `/outputfile inventory` (ADR-011, feature F24 —
 > the first thing the app persists that it cannot recompute from the log).
-> Currently at **v0.8.0**. See `docs/product/features.md` for per-feature
+> Currently at **v0.9.0**. See `docs/product/features.md` for per-feature
 > status. The main open items: real-log validation against EQLogParser (the
 > release gate), the spell-DB work (class detection, bane, lands-on
 > resolution — reference data files not yet copied), identity-registry disk

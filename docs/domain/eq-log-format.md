@@ -208,6 +208,26 @@ Your Spirit of Wolf spell has worn off.             (wear-off)
 - Zoning: `LOADING, PLEASE WAIT...` and `Welcome to EverQuest!` mark zone transitions (used to close fights, trigger archive points, and split sessions). `You have entered <Zone Name>.` names the zone.
 - **`Welcome to EverQuest!` is additionally the login marker** — the client prints it once per entry into the world, so it is the one unambiguous "the player just sat down". There is no matching logout line: the client writes nothing on the way out, and a crash writes less than that. See §3.13.
 
+### 3.9b Instance difficulty — the one instance setting that is logged
+
+On EQ Legends an instance is created with three settings, and the zone-entry line carries exactly one of them:
+
+```
+You have entered The Estate of Unrest 4 (Refined).
+You have entered The City of Guk 1 (Awakened).
+You have entered The Ruins of Old Guk 3 (Fused).
+You have entered Nagafen's Lair 2 (Adaptive).
+You have entered Butcherblock Mountains.              (open world — no suffix)
+```
+
+The trailing `<n> (<Word>)` is the **difficulty tier**. The number and the word are a fixed pair across every zone — 1 Awakened, 2 Adaptive, 3 Fused, 4 Refined — so the word is a label for the number, not a separate fact. It is carried through verbatim rather than mapped against that list, so a tier the server adds or renames appears as itself instead of vanishing (same rule as stances, §3.9a).
+
+This matters because difficulty rescales the mobs. Measured over a real log, the same mob's health climbs about ×1.15 / ×1.30 / ×1.50 at tiers 1–3 and roughly ×2.4 at tier 4 — so anything aggregating per mob has to key on (name, zone, difficulty). See [ADR-012](../architecture/adr-012-mob-health.md).
+
+**Tier 0 is indistinguishable from the open world.** A tier-0 instance prints the bare zone name, exactly as the open world does. This costs nothing, because d0 *is* the open world's numbers — but it is why the parsed difficulty is null rather than 0 with no suffix: "no instance line was seen" is what was observed.
+
+**The other two settings are never logged.** Respawning vs non-respawning, and solo vs multiplayer, appear nowhere in the client's output — only in players arguing about them in chat. Neither can be recovered, so neither can key anything. See ADR-012 for the evidence that they do not appear to scale health, and for why the estimates report a band rather than a bare number regardless.
+
 ### 3.13 Presence — when the player was actually here
 
 A log file is a diary with the nights missing. It runs for months, and the gap between Tuesday's last kill and Wednesday's first one is written exactly like the gap between two pulls. Anything measuring a DURATION off the record stream has to tell them apart.

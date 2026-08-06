@@ -1945,3 +1945,139 @@ th.num {
   text-align: center;
   padding: 0 24px;
 }
+
+/* ---- mob health (F25) ---- */
+
+/* The intro copy shown before anything has been learned. Prose, not a table
+   header: the panel is empty for a reason the player can act on. */
+.mob-intro {
+  padding: 4px 18px 18px;
+  max-width: 60ch;
+}
+
+.mob-intro p {
+  margin: 12px 0 0;
+}
+
+.mob-controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 14px;
+}
+
+.mob-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.mob-scroll {
+  overflow-y: auto;
+  padding: 4px 14px 16px;
+  min-height: 0;
+}
+
+.mob-table {
+  width: 100%;
+}
+
+.mob-name {
+  color: var(--ink);
+}
+
+.strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* Confidence is a word, not a colour alone — the tint is a second channel so
+   the grade survives a monochrome screen and red-green colour blindness. */
+.mob-confidence {
+  font-size: 11px;
+  text-transform: lowercase;
+  letter-spacing: 0.02em;
+}
+
+.mob-confidence.high {
+  color: var(--live);
+}
+
+.mob-confidence.medium {
+  color: var(--gold);
+}
+
+.mob-confidence.low {
+  color: var(--muted);
+}
+
+/* ---- the tier ladder ---- */
+.mob-ladder {
+  margin-top: 16px;
+  padding-top: 10px;
+  border-top: 1px solid var(--grid);
+}
+
+.mob-ladder:first-child {
+  border-top: none;
+  margin-top: 4px;
+}
+
+.mob-ladder-head {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  margin-bottom: 4px;
+}
+
+/* Each rung is a bar sized against the biggest in its own ladder, so the
+   shape of the climb reads the same whether the mob is worth 500 or 12,000. */
+.mob-rung {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) 90px 90px auto;
+  gap: 10px;
+  align-items: baseline;
+  padding: 3px 8px;
+  border-radius: 3px;
+  font-variant-numeric: tabular-nums;
+}
+
+.mob-rung-tier {
+  color: var(--ink-2);
+}
+
+.mob-rung-health {
+  color: var(--ink);
+  text-align: right;
+}
+
+.mob-rung-mult {
+  text-align: right;
+}
+
+/* ---- the fight list's borrowings ---- */
+
+/* Difficulty beside the mob name. Small and quiet: on an instanced server it
+   is on most rows, and a badge that shouts would drown the names. */
+.fight-tier {
+  margin-left: 6px;
+  padding: 0 4px;
+  border-radius: 3px;
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.fight-share {
+  color: var(--muted);
+}
+
+/* A fight that accounted for well under the mob's health — somebody else
+   finished it. Worth marking, because it is why a pull's numbers look thin. */
+.fight-share.partial {
+  color: var(--gold);
+}

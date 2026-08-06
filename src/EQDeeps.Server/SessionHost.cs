@@ -1,5 +1,6 @@
 using EQDeeps.Core.Gear;
 using EQDeeps.Core.Ingestion;
+using EQDeeps.Core.Mobs;
 using EQDeeps.Core.Query;
 using EQDeeps.Core.Sessions;
 using Microsoft.AspNetCore.SignalR;
@@ -24,8 +25,17 @@ public sealed class SessionHost : IAsyncDisposable
     /// </summary>
     private static readonly TimeSpan GearPollInterval = TimeSpan.FromSeconds(5);
 
+    /// <summary>
+    /// How far back a kill sweep reaches beyond the last one. Fights close on
+    /// a timeout as well as on a death, so one can be finalized a little after
+    /// a later fight already has been; a small overlap catches that, and the
+    /// index ignores kills it already holds.
+    /// </summary>
+    private static readonly TimeSpan HarvestOverlap = TimeSpan.FromSeconds(120);
+
     private readonly IHubContext<LiveHub> _hub;
     private readonly GearStore? _gear;
+    private readonly MobHealthStore? _mobs;
     private readonly GearWatcher? _watcher;
     private readonly CancellationTokenSource _cts = new();
     private readonly SemaphoreSlim _signal = new(0, 1);
@@ -44,20 +54,40 @@ public sealed class SessionHost : IAsyncDisposable
     private long _backfillTotal;
     private bool _backfillCompleteSent;
     private int _lastPushedFightVersion = -1;
+    private DateTime _harvested = DateTime.MinValue;
 
-    public SessionHost(string id, Session session, IHubContext<LiveHub> hub, GearStore? gear = null)
+    /// <summary>
+    /// Learned health by mob key, rebuilt only when a sweep actually banked a
+    /// new kill. The fight list is rebuilt on every push — up to 20 times a
+    /// second — and re-deriving quantiles over every sample that often would
+    /// cost far more than the column is worth. Swapped whole, so a reader
+    /// either sees the old map or the new one.
+    /// </summary>
+    private volatile IReadOnlyDictionary<string, MobHealthEstimate>? _health;
+
+    public SessionHost(
+        string id,
+        Session session,
+        IHubContext<LiveHub> hub,
+        GearStore? gear = null,
+        MobHealthStore? mobs = null)
     {
         Id = id;
         Session = session;
         Engine = new QueryEngine(session);
         _hub = hub;
         _gear = gear;
+        _mobs = mobs;
         _group = LiveHub.GroupName(id);
 
         if (gear is not null)
         {
             _watcher = new GearWatcher(session.Character, session.Server, session.Path, gear);
         }
+
+        // Whatever past sessions learned is available from the first frame the
+        // client draws, which is the point of persisting it at all.
+        _health = mobs?.Lookup(session.Server);
 
         session.BatchProcessed += OnBatchProcessed;
         _runTask = Task.Run(() => session.RunAsync(_cts.Token));
@@ -91,8 +121,24 @@ public sealed class SessionHost : IAsyncDisposable
     {
         lock (Session.Gate)
         {
-            return FightInfo.Build(Session.Fights.Fights, Session.Character, Session.Identity);
+            return FightInfo.Build(
+                Session.Fights.Fights, Session.Character, Session.Identity, _health);
         }
+    }
+
+    /// <summary>
+    /// What this server's mobs are worth (F25). Server-wide rather than
+    /// session-wide: the evidence is about the world, so every log opened
+    /// against this server has contributed to it and reads the same answer.
+    /// </summary>
+    public MobHealthReport MobHealth()
+    {
+        var estimates = _mobs?.Estimates(Session.Server) ?? [];
+        return new MobHealthReport(
+            Session.Server,
+            estimates,
+            estimates.Sum(e => e.Samples),
+            estimates.Any(e => e.Difficulty is not null));
     }
 
     public QueryResult Execute(QuerySpec spec)
@@ -213,7 +259,8 @@ public sealed class SessionHost : IAsyncDisposable
                         {
                             sessionId = Id,
                             fights = FightInfo.Build(
-                                Session.Fights.Fights, Session.Character, Session.Identity),
+                                Session.Fights.Fights, Session.Character, Session.Identity,
+                                _health),
                         };
                     }
 
@@ -322,6 +369,53 @@ public sealed class SessionHost : IAsyncDisposable
         }
     }
 
+    /// <summary>
+    /// Sweeps finished kills into the server's mob index and refreshes the
+    /// lookup the fight list reads. Returns whether anything was new — which
+    /// is rare after the first sweep, since a sweep re-offers the same kills
+    /// and the index recognizes them.
+    /// </summary>
+    private bool HarvestKills()
+    {
+        if (_mobs is null)
+        {
+            return false;
+        }
+
+        // The first sweep has no watermark to reach back from, and DateTime
+        // cannot go earlier than its own minimum.
+        var since = _harvested == DateTime.MinValue
+            ? DateTime.MinValue
+            : _harvested - HarvestOverlap;
+
+        List<KillSample> samples;
+        lock (Session.Gate)
+        {
+            samples = MobHealthIndex.Harvest(Session.Fights.Fights, since);
+        }
+
+        if (samples.Count == 0)
+        {
+            return false;
+        }
+
+        foreach (var sample in samples)
+        {
+            if (sample.KilledAt > _harvested)
+            {
+                _harvested = sample.KilledAt;
+            }
+        }
+
+        if (_mobs.Record(Session.Server, samples) == 0)
+        {
+            return false;
+        }
+
+        _health = _mobs.Lookup(Session.Server);
+        return true;
+    }
+
     private async Task ExpiryLoopAsync(CancellationToken ct)
     {
         try
@@ -344,6 +438,16 @@ public sealed class SessionHost : IAsyncDisposable
                     // the right "now" for closing idle fights between lines.
                     Session.Fights.ExpireFights(DateTime.Now);
                     changed = Session.Fights.Version != before;
+                }
+
+                // Kills are banked here rather than at the moment a fight
+                // closes, because what makes a kill usable is that its fight is
+                // final — and a fight is only final once the timeouts have had
+                // their say. Riding the expiry tick means that has just
+                // happened.
+                if (HarvestKills())
+                {
+                    changed = true;
                 }
 
                 if (changed)

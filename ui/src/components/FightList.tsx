@@ -100,10 +100,16 @@ export function FightList({
         <span className="fight-name">
           {fight.dead ? "☠ " : fight.closed ? "" : "⚔ "}
           {fight.name}
+          {fight.difficulty !== undefined && (
+            <span className="fight-tier" title={`Instance difficulty ${fight.difficulty}`}>
+              T{fight.difficulty}
+            </span>
+          )}
         </span>
         <span className="fight-meta">
           {fmtClock(fight.beginTime)} · {fmtDuration(fight.beginTime, fight.lastDamageTime)} ·{" "}
           {fmtNum(fight.damageTotal)}
+          <Share fight={fight} />
         </span>
       </button>,
     );
@@ -165,5 +171,35 @@ export function FightList({
         <div className="fight-hint subtle">click to frame · shift-click for a range</div>
       )}
     </div>
+  );
+}
+
+/**
+ * How much of the mob this fight actually accounted for: damage dealt against
+ * what the app has learned this mob costs to kill (F25).
+ *
+ * <p>It answers "did we kill that, or did we get carried" — a fight showing 20%
+ * of a mob's health is one somebody else finished, and the fight list is the
+ * only place that is visible. Nothing renders until the mob has been killed
+ * enough times to have a number; a share computed from one prior kill would be
+ * noise wearing a percent sign.</p>
+ *
+ * <p>Over 100% is normal and left alone rather than clamped: the estimate is a
+ * median, the killing blow overshoots, and a tougher-than-average pull really
+ * did cost more than the typical one. Clamping would hide exactly the fights
+ * worth looking at.</p>
+ */
+function Share({ fight }: { fight: FightInfo }) {
+  if (!fight.estimatedHealth || !fight.dead) return null;
+
+  const pct = (fight.damageTotal / fight.estimatedHealth) * 100;
+  return (
+    <span
+      className={"fight-share" + (pct < 60 ? " partial" : "")}
+      title={`${fmtNum(fight.damageTotal)} dealt of about ${fmtNum(fight.estimatedHealth)} — this mob's learned health here`}
+    >
+      {" · "}
+      {pct.toFixed(0)}% of hp
+    </span>
   );
 }

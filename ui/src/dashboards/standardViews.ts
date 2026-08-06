@@ -49,6 +49,14 @@ export const SUMMARY_VIEW = "summary";
  */
 export const GEAR_VIEW = "gear";
 
+/**
+ * Mob health (F25), the same shape as GEAR_VIEW: a sub-tab reading a derived
+ * index rather than a QuerySpec. It is also the one view that is not about the
+ * open log — the index belongs to the server, and every character on it reads
+ * the same answers.
+ */
+export const MOBS_VIEW = "mobs";
+
 export interface MigrationResult {
   dashboards: DashboardDef[];
   changed: boolean;

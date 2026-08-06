@@ -177,7 +177,13 @@ public static class DamageParser
             return null;
         }
 
-        var defender = Names.Resolve(body[(verbEnd + 1)..comma], options);
+        var defenderPart = StripFrenzyOn(body[(verbEnd + 1)..comma], subType);
+        if (defenderPart.Length == 0)
+        {
+            return null;
+        }
+
+        var defender = Names.Resolve(defenderPart, options);
         var outcome = body.AsSpan(comma + ", but ".Length);
 
         // A successful riposte by the defender is not an attempt record; the
@@ -536,12 +542,7 @@ public static class DamageParser
             defenderPart = left[(found + verbLen + 1)..];
         }
 
-        // Frenzy phrases as "frenzies on <defender>".
-        if (subType == "Frenzies" && defenderPart.StartsWith("on ", StringComparison.Ordinal))
-        {
-            defenderPart = defenderPart[3..];
-        }
-
+        defenderPart = StripFrenzyOn(defenderPart, subType);
         if (defenderPart.Length == 0)
         {
             return null;
@@ -612,6 +613,16 @@ public static class DamageParser
     }
 
     // ---- shared helpers ----------------------------------------------------
+
+    /// <summary>
+    /// Frenzy is the one melee verb that takes a preposition — "You frenzy on a
+    /// heart spider for 33 points of damage", "You try to frenzy on a heart
+    /// spider, but miss!" — so the defender segment carries a leading "on ".
+    /// </summary>
+    private static string StripFrenzyOn(string defenderPart, string? subType) =>
+        subType == "Frenzies" && defenderPart.StartsWith("on ", StringComparison.Ordinal)
+            ? defenderPart[3..]
+            : defenderPart;
 
     private static bool TryEmuCritAnnouncement(string action, State state)
     {

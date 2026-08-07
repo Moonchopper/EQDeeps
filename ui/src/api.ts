@@ -26,12 +26,55 @@ export interface FightInfo {
   tankingTotal: number;
   tauntCount: number;
   groupIndex: number;
+  /** Instance difficulty; absent in the open world (and in a tier-0 instance). */
+  difficulty?: number;
+  /**
+   * Learned health for this mob at this zone and difficulty (F25). Absent
+   * until enough of them have been killed. Against `damageTotal` it says
+   * whether this fight was a whole kill or a share of one.
+   */
+  estimatedHealth?: number;
   /**
    * This session's own character and their pets, out of `damageTotal`. The
    * per-fight series any cross-window comparison has to be built from — totals
    * over windows of different lengths are not comparable at all.
    */
   characterDamage: number;
+}
+
+export type MobHealthConfidence = "low" | "medium" | "high";
+
+/**
+ * What a mob is worth in one place at one difficulty (F25), learned from the
+ * damage it took to kill. `health` is the median damage-to-kill and is biased
+ * high — the killing blow overshoots — so `floor` and `ceiling` travel with it
+ * rather than the one number being shown alone.
+ */
+export interface MobHealthEstimate {
+  mob: string;
+  zone: string;
+  /** Absent in the open world. */
+  difficulty?: number;
+  /** The server's word for the tier ("Awakened", "Fused"). */
+  tierName?: string;
+  health: number;
+  /** 10th percentile of the kills behind it. */
+  floor: number;
+  /** 90th percentile. */
+  ceiling: number;
+  samples: number;
+  /** Those that survived the merged-fight filter — what the estimate used. */
+  cleanSamples: number;
+  confidence: MobHealthConfidence;
+  lastKilled: string;
+}
+
+export interface MobHealthReport {
+  server: string;
+  mobs: MobHealthEstimate[];
+  kills: number;
+  /** Whether any of it came from an instance — decides if tier columns mean anything. */
+  instanced: boolean;
 }
 
 export type QuerySource =
@@ -338,6 +381,14 @@ export const api = {
 
   getGear: (id: string): Promise<GearReport> =>
     fetch(`/api/sessions/${id}/gear`).then((r) => json(r)),
+
+  /**
+   * Learned mob health for this session's *server* — the session only says
+   * which world is being asked about. Every log ever opened against it has
+   * contributed.
+   */
+  getMobs: (id: string): Promise<MobHealthReport> =>
+    fetch(`/api/sessions/${id}/mobs`).then((r) => json(r)),
 
   getContext: (id: string): Promise<ContextTimeline> =>
     fetch(`/api/sessions/${id}/context`).then((r) => json(r)),

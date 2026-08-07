@@ -15,17 +15,24 @@ public sealed class SessionManager : IAsyncDisposable
     private readonly RecentLogs _recents;
     private readonly SampleLog _sample;
     private readonly GearStore _gear;
+    private readonly MobHealthStore _mobs;
     private readonly ConcurrentDictionary<string, SessionHost> _sessions = new();
     private readonly ConcurrentDictionary<string, IdentityRegistry> _registries =
         new(StringComparer.OrdinalIgnoreCase);
     private int _nextId;
 
-    public SessionManager(IHubContext<LiveHub> hub, RecentLogs recents, SampleLog sample, GearStore gear)
+    public SessionManager(
+        IHubContext<LiveHub> hub,
+        RecentLogs recents,
+        SampleLog sample,
+        GearStore gear,
+        MobHealthStore mobs)
     {
         _hub = hub;
         _recents = recents;
         _sample = sample;
         _gear = gear;
+        _mobs = mobs;
     }
 
     public SessionHost Open(OpenSessionRequest request)
@@ -47,9 +54,13 @@ public sealed class SessionManager : IAsyncDisposable
         var id = "s" + Interlocked.Increment(ref _nextId);
 
         // The demo log describes a character who does not exist, so there is no
-        // inventory dump to find and no gear to nudge anyone about.
+        // inventory dump to find and no gear to nudge anyone about. Its kills
+        // are excluded from the mob index for the same reason: they are a
+        // fixture, and letting them teach the app about a real server's mobs
+        // would poison an estimate that is supposed to be evidence.
         var isSample = _sample.IsSamplePath(request.Path);
-        var host = new SessionHost(id, session, _hub, isSample ? null : _gear);
+        var host = new SessionHost(
+            id, session, _hub, isSample ? null : _gear, isSample ? null : _mobs);
         _sessions[id] = host;
         if (!isSample)
         {

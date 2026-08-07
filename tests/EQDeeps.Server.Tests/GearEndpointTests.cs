@@ -39,6 +39,7 @@ public sealed class GearEndpointTests : IAsyncLifetime
             "--sampleLogRoot", _dir,
             "--updateRoot", _dir,
             "--gearRoot", _dir,
+            "--mobRoot", _dir,
         ]);
         await _app.StartAsync();
         _http = new HttpClient { BaseAddress = new Uri(_app.Urls.First()) };

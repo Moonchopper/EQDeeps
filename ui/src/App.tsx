@@ -5,12 +5,14 @@ import {
   type DiscoveredLog,
   type FightInfo,
   type GearReport,
+  type MobHealthReport,
   type SessionInfo,
   type UpdateMode,
   type UpdateState,
 } from "./api";
 import { createLiveConnection, type BackfillEvent, type TickEvent } from "./live";
 import { GearPanel } from "./components/GearPanel";
+import { MobHealthPanel } from "./components/MobHealthPanel";
 import { describeAge, SessionBar } from "./components/SessionBar";
 import { UpdateNotice, type UpdateChoice } from "./components/UpdateNotice";
 import { FightList } from "./components/FightList";
@@ -31,6 +33,7 @@ import {
 import { defaultPanel, newDashboard, newId, type DashboardDef } from "./dashboards/model";
 import {
   GEAR_VIEW,
+  MOBS_VIEW,
   STANCES_VIEW_ID,
   SUMMARY_VIEW,
   cloneForCustomizing,
@@ -77,6 +80,9 @@ export default function App() {
   // Gear snapshots for the active session's character (F24). Null until the
   // first fetch lands, which the panel distinguishes from "none recorded".
   const [gear, setGear] = useState<GearReport | null>(null);
+  // Learned mob health for the active session's SERVER (F25). Null until the
+  // first fetch lands, which the panel distinguishes from "nothing learned".
+  const [mobs, setMobs] = useState<MobHealthReport | null>(null);
   const [context, setContext] = useState<ContextTimeline | null>(null);
   // The one time frame the whole app reports over. A live tail by default;
   // picking fights turns it into the fixed range they span. There is no
@@ -508,6 +514,27 @@ export default function App() {
     return () => window.clearInterval(timer);
   }, [liveScroll, frame]);
 
+  // The mob index grows as things die, and the server banks kills on its own
+  // beat rather than pushing them. Polling only while the tab is open is
+  // enough: nobody watches a health estimate tick, and off the tab there is
+  // nothing to keep current. The fetch on open covers the common case where a
+  // player looks once.
+  useEffect(() => {
+    if (!activeId || view !== "overview" || stdView !== MOBS_VIEW) return;
+    let cancelled = false;
+    const load = () =>
+      api
+        .getMobs(activeId)
+        .then((report) => !cancelled && setMobs(report))
+        .catch(() => undefined);
+    load();
+    const timer = window.setInterval(load, 15000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [activeId, view, stdView]);
+
   // While something is actually happening, poll fast enough for the progress
   // bar to move. At the idle interval a download finishes between two polls,
   // so the update appears to do nothing and then be done.
@@ -568,6 +595,7 @@ export default function App() {
     setTick(null);
     setBackfill(null);
     setGear(null);
+    setMobs(null);
     setContext(null);
     setFrame({ kind: "live", spanSec: chartDefaults.spanSec }); // a new log starts live
     await live.subscribe(id);
@@ -575,6 +603,7 @@ export default function App() {
     // Best-effort: gear is context, and its absence must never keep a log from
     // opening. The hub pushes any later dump anyway.
     api.getGear(id).then(setGear).catch(() => undefined);
+    api.getMobs(id).then(setMobs).catch(() => undefined);
   }
 
   async function openLog(path: string) {
@@ -610,6 +639,7 @@ export default function App() {
       setActiveId(null);
       setFights([]);
       setGear(null);
+      setMobs(null);
       setFrame(DEFAULT_FRAME);
       setTick(null);
       if (list.length > 0) {
@@ -779,7 +809,10 @@ export default function App() {
           {view === "overview" && (
             <nav className="sub-tabs">
               <button
-                className={"sub-tab" + (!activeStdView && stdView !== GEAR_VIEW ? " on" : "")}
+                className={
+                  "sub-tab" +
+                  (!activeStdView && stdView !== GEAR_VIEW && stdView !== MOBS_VIEW ? " on" : "")
+                }
                 onClick={() => selectStdView(SUMMARY_VIEW)}
               >
                 Summary
@@ -798,6 +831,13 @@ export default function App() {
                 onClick={() => selectStdView(GEAR_VIEW)}
               >
                 Gear
+              </button>
+              <button
+                className={"sub-tab" + (stdView === MOBS_VIEW ? " on" : "")}
+                onClick={() => selectStdView(MOBS_VIEW)}
+                title="What this server's mobs are worth, and what a difficulty tier costs"
+              >
+                Mobs
               </button>
             </nav>
           )}
@@ -847,6 +887,11 @@ export default function App() {
                   chartDefaults={chartDefaults}
                 />
               </div>
+            ) : view === "overview" && stdView === MOBS_VIEW ? (
+              <MobHealthPanel
+                mobs={mobs}
+                server={sessions.find((s) => s.id === activeId)?.server ?? ""}
+              />
             ) : view === "overview" && activeStdView ? (
               <DashboardView
                 dashboard={activeStdView}

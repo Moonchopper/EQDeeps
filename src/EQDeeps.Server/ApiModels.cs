@@ -1,4 +1,6 @@
 using EQDeeps.Core.Gear;
+using EQDeeps.Core.Mobs;
+using EQDeeps.Core.Parsing;
 using EQDeeps.Core.Query;
 using EQDeeps.Core.Sessions;
 using EQDeeps.Server.Updates;
@@ -72,6 +74,23 @@ public sealed record GearReport(
     List<GearChange> Changes,
     GearStatus Status);
 
+/// <summary>
+/// Everything learned about one server's mobs (F25). The estimates are the
+/// whole of it; the counts are there so the panel can say how much evidence is
+/// behind what it is showing rather than presenting a first-night guess with
+/// the same face as a thousand-kill average.
+/// </summary>
+/// <param name="Instanced">
+/// Whether any of it came from an instance. On a server with no difficulty
+/// tiers the tier columns are noise, so the client asks this rather than
+/// inferring it from rows that happen to be on screen.
+/// </param>
+public sealed record MobHealthReport(
+    string Server,
+    List<MobHealthEstimate> Mobs,
+    int Kills,
+    bool Instanced);
+
 public sealed record FightInfo(
     int Id,
     string Name,
@@ -84,6 +103,19 @@ public sealed record FightInfo(
     int TauntCount,
     int GroupIndex,
     /// <summary>
+    /// The instance difficulty this was fought at, null in the open world —
+    /// which is also what a tier-0 instance reads as, since the log writes the
+    /// two identically. See <see cref="InstanceZone"/>.
+    /// </summary>
+    int? Difficulty,
+    /// <summary>
+    /// Learned health for this mob at this zone and difficulty (F25), null
+    /// until enough of them have been killed. Paired with
+    /// <see cref="DamageTotal"/> it says whether this fight was a whole kill or
+    /// a share of one.
+    /// </summary>
+    long? EstimatedHealth,
+    /// <summary>
     /// This session's own character and their pets, out of
     /// <see cref="DamageTotal"/>. One number rather than the whole per-actor
     /// map: it keeps the fight list cheap at raid scale while giving the
@@ -93,8 +125,17 @@ public sealed record FightInfo(
     /// </summary>
     long CharacterDamage)
 {
+    /// <param name="health">
+    /// Learned mob health keyed by <see cref="MobHealthStore.KeyOf"/>, or null
+    /// when the store is not attached (tests, and any build that has never
+    /// recorded a kill). A missing entry is normal, not an error: a mob nobody
+    /// has killed enough of simply has no number yet.
+    /// </param>
     public static List<FightInfo> Build(
-        IReadOnlyList<Fight> fights, string character, IdentityRegistry identity)
+        IReadOnlyList<Fight> fights,
+        string character,
+        IdentityRegistry identity,
+        IReadOnlyDictionary<string, MobHealthEstimate>? health = null)
     {
         var groupIndex = new Dictionary<int, int>();
         var groups = FightTracker.Group(fights);
@@ -110,8 +151,24 @@ public sealed record FightInfo(
             .Select(f => new FightInfo(
                 f.Id, f.Name, f.BeginTime, f.LastDamageTime, f.Dead, f.Closed,
                 f.DamageTotal, f.TankingTotal, f.TauntCount, groupIndex[f.Id],
+                f.Zone?.Difficulty,
+                HealthOf(f, health),
                 OwnDamage(f, character, identity)))
             .ToList();
+    }
+
+    private static long? HealthOf(
+        Fight fight, IReadOnlyDictionary<string, MobHealthEstimate>? health)
+    {
+        if (health is null || fight.Zone is not { BaseName.Length: > 0 } zone)
+        {
+            return null;
+        }
+
+        return health.TryGetValue(
+            MobHealthStore.KeyOf(fight.Name, zone.BaseName, zone.Difficulty), out var estimate)
+            ? estimate.Health
+            : null;
     }
 
     /// <summary>

@@ -49,6 +49,8 @@ public static class ServerApp
         builder.Services.AddSingleton(_ => new SampleLog(builder.Configuration["sampleLogRoot"]));
         // --gearRoot likewise redirects the gear snapshot history (tests).
         builder.Services.AddSingleton(_ => new GearStore(builder.Configuration["gearRoot"]));
+        // --mobRoot likewise redirects the learned mob-health index (tests).
+        builder.Services.AddSingleton(_ => new MobHealthStore(builder.Configuration["mobRoot"]));
 
         var app = builder.Build();
 
@@ -243,6 +245,12 @@ public static class ServerApp
         // app only ever notices — it never asks the game for anything.
         app.MapGet("/api/sessions/{id}/gear", (string id, SessionManager manager) =>
             manager.Get(id) is { } host ? Results.Ok(host.Gear()) : Results.NotFound());
+
+        // What this server's mobs are worth (F25). Keyed to the session only to
+        // resolve which server is being asked about — the answer is the whole
+        // server's, learned from every log ever opened against it.
+        app.MapGet("/api/sessions/{id}/mobs", (string id, SessionManager manager) =>
+            manager.Get(id) is { } host ? Results.Ok(host.MobHealth()) : Results.NotFound());
 
         app.MapHub<LiveHub>("/hubs/live");
 

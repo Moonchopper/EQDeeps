@@ -1,4 +1,5 @@
 using EQDeeps.Core.Events;
+using EQDeeps.Core.Parsing;
 
 namespace EQDeeps.Core.Sessions;
 
@@ -30,6 +31,7 @@ public sealed class FightTracker
     private readonly Dictionary<string, DateTime> _recentPlayerSpells = new(StringComparer.Ordinal);
     private readonly System.Collections.Concurrent.ConcurrentQueue<string> _pendingCorrections = new();
     private int _nextId = 1;
+    private InstanceZone? _zone;
 
     public FightTracker(IdentityRegistry identity)
     {
@@ -77,7 +79,14 @@ public sealed class FightTracker
                 when !_identity.IsDefinitelyNpc(cast.Caster):
                 _recentPlayerSpells[cast.Spell] = timestamp;
                 break;
-            case ZoneEvent:
+            // A load screen means the old zone has stopped being true without
+            // saying what replaces it, so the zone goes unknown rather than
+            // sticking — a fight stamped with where the player used to be
+            // would key mob health to the wrong instance.
+            case ZoneEvent zone:
+                _zone = zone.ZoneName is { Length: > 0 } name
+                    ? InstanceZone.Parse(name)
+                    : null;
                 CloseAll();
                 break;
         }
@@ -306,7 +315,7 @@ public sealed class FightTracker
             return fight;
         }
 
-        fight = new Fight(_nextId++, npcName, timestamp);
+        fight = new Fight(_nextId++, npcName, timestamp, _zone);
         _active[npcName] = fight;
         _fights.Add(fight);
         Version++;

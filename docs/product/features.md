@@ -16,7 +16,12 @@ received buffs and true durations later).
 F11, F12, F13 (identity persists in-memory per server with serializable
 snapshots; the disk read/write wiring remains), F15–F21. Release gate still
 open: real-log validation against EQLogParser. Design decisions live in
-`docs/architecture/adr-00*.md`.
+`docs/architecture/adr-0*.md`.
+
+**Update (2026-08-06):** F25 (estimated mob health) shipped — instance
+difficulty is parsed off the zone line, kills are measured into a per-server
+index, and the Mobs tab, the fight-list share column and the tier ladder read
+it.
 
 ---
 
@@ -220,6 +225,28 @@ Gear has its own Overview sub-tab, organised around **sets** — a snapshot plus
 - AC: A time frame older than the first snapshot reads "gear unknown" rather than borrowing the nearest one.
 - Non-goal: context for telemetry, not the gear planner `vision.md` rules out — nothing here recommends or simulates gear.
 
+### F25. Estimated mob health
+
+How much health does that thing have? Nothing says — not the log, not the reference implementation, not any community dataset, because EQ Legends' instance difficulties are its own invention. But the log records every point a mob absorbs and the line where it died, so **health is measurable**: it is damage-to-death, minus however much the killing blow overshot by. See [ADR-012](../architecture/adr-012-mob-health.md) and [log format §3.9b](../domain/eq-log-format.md).
+
+A mob is identified by **name, zone and instance difficulty** — not by name. Difficulty is read off the zone-entry line (`You have entered The Estate of Unrest 4 (Refined).`), and it is not a rounding error: the same mob's health climbs about ×1.15 / ×1.30 / ×1.50 at tiers 1–3 and roughly ×2.4 at tier 4. The open world and a tier-0 instance share a bucket, because the log writes them identically and they are the same content.
+
+The other two instance settings — respawning and multiplayer — are **not logged at all**, and cannot be recovered. They are therefore not in the key, and the feature is built to say so rather than to paper over it: every number carries a p10–p90 band and a confidence grade, so a mob whose health depends on something unlogged presents as a wide band rather than a confident wrong answer.
+
+Two corrections make the numbers worth trusting. Fights are keyed by NPC name, so two mobs of one name up at once become a single fight whose death banks both their damage — those kills are discarded in pairs, which tightens the median relative IQR from 0.34 to 0.24 while keeping 71% of the evidence. And the headline is a median rather than a mean, because the distribution is one cluster with a long right tail.
+
+Learning **persists per game server**, not per character: a mob's health belongs to the world. The estimate for something fought last week is already there on tonight's first pull, which is the whole point of storing it.
+
+It surfaces as analysis, not as a status bar — there is no live health meter, because the interesting questions are asked after the fight. The Mobs tab lists what has been learned; the fight list shows what share of the mob each fight accounted for (the honest read on "did we kill that, or get carried"); and the tier ladder puts one mob's every difficulty side by side, which is the question asked *before* making an instance and which no single row can answer.
+
+- AC: The same mob at two difficulties is two rows with two numbers, never one averaged across both.
+- AC: A mob killed once still appears, labelled Low, rather than being hidden until it is certain.
+- AC: Re-opening a log, or leaving one open all evening, never inflates a kill count — the same kill banked twice is banked once.
+- AC: Learned health survives a restart and is shared by every character on that server.
+- AC: The demo log teaches the index nothing.
+- AC: A fight that dealt a fraction of a mob's health says so, and one that dealt more than the median is not clamped to 100%.
+- AC: With nothing learned yet, the panel explains what would populate it rather than showing an empty table.
+
 ---
 
 ## P2 — Later
@@ -230,7 +257,7 @@ Gear has its own Overview sub-tab, organised around **sets** — a snapshot plus
 - **F18. ADPS awareness** — track crit-modifying buffs to contextualize damage spikes (reference: adpsMeter data in old app).
 - **F19. Report export** — HTML/CSV export of any view; shareable fight report bundles.
 - **F20. Trigger system** — GINA-style pattern alerts (explicit non-goal for v1; keep the ingestion layer's line stream subscribable so this can attach later).
-- **F21. Mob-normalized DPS context** — cross-fight DPS aggregates are skewed by level differences and mob mitigation. Ship/derive an NPC-stats database (level, class, AC/mitigation tier per zone/era) and use it to annotate aggregate DPS with expected upper/lower bounds per target, so "average DPS" comparisons across different content are honest. (Owner request, 2026-08-01; aggregate selection UI ships first and accepts the skew.)
+- **F21. Mob-normalized DPS context** — cross-fight DPS aggregates are skewed by level differences and mob mitigation. Ship/derive an NPC-stats database (level, class, AC/mitigation tier per zone/era) and use it to annotate aggregate DPS with expected upper/lower bounds per target, so "average DPS" comparisons across different content are honest. (Owner request, 2026-08-01; aggregate selection UI ships first and accepts the skew.) **Half-unblocked by F25:** per-mob size is now measured, and con lines (PR #5) supply level, so the external dataset is no longer needed for either.
 
 ---
 

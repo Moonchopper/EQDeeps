@@ -162,6 +162,12 @@ public sealed record MembershipEvent(string Player, bool Raid, bool Joined) : Ga
 /// "[ANONYMOUS] Soandso". Level/class are null for anonymous players;
 /// <see cref="ClassText"/> is the raw bracket text after the level (titles
 /// included — resolution against the class list comes with the spell DB).
+///
+/// <para><b>On EQ Legends that text is a slash-separated list of every class
+/// loadout the character has</b> — "[44 PAL/MNK/BER] Moonchopper" — not one
+/// class, and the level is whichever loadout was active. Anything resolving
+/// <see cref="ClassText"/> to a single class will be wrong there; see
+/// <c>docs/domain/eq-legends-loadouts.md</c> §3.</para>
 /// </summary>
 public sealed record WhoEvent(string Player, int? Level, string? ClassText) : GameEvent;
 

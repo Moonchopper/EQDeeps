@@ -35,6 +35,7 @@ You are picking up a **documented, greenfield** project: a clean-room, modern su
 4. `domain/metrics-and-aggregation.md` — fights, counters, formulas, denominators.
 5. `architecture/system-overview.md` — locked stack, component boundaries, the QuerySpec model.
 6. `architecture/log-ingestion-brief.md` — fresh-design mandate for file reading.
+7. `domain/eq-legends-loadouts.md` — EQ Legends lets one character carry several class loadouts, each levelling independently, and logs nothing when they swap. Short, and it has already caused two bugs.
 
 ## The reference implementation
 

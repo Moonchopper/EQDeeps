@@ -20,7 +20,9 @@ Gear is the commonest reason a player's DPS moves, and the original ADR
 established that it is *nearly* unknowable from the client: loadouts on EQ
 Legends are class loadouts whose equipment lives server-side, a swap emits no
 log line, equipping emits no log line, and no client-side file records what is
-worn. The single exception is the manual `/outputfile inventory` dump. The
+worn. That investigation survives this ADR's withdrawal in
+[eq-legends-loadouts.md](../domain/eq-legends-loadouts.md) §4, which lists every
+file checked and what it actually holds. The single exception is the manual `/outputfile inventory` dump. The
 decision was to accept that manual capture and be loud about its cost — never
 issue the command, report how much combat had happened since the last proof, and
 show gear it could not vouch for as unknown.

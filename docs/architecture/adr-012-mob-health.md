@@ -139,7 +139,7 @@ not of who hit it. Every character on an account contributes to and reads from
 the same evidence, and — the point of persisting at all — the estimate for a mob
 fought last week is already there on tonight's first pull.
 
-Unlike gear snapshots (ADR-011) this **is** recomputable: the samples all came
+This **is** recomputable: the samples all came
 from logs that still exist. It is a cache, not a system of record, which is why
 a corrupt file starts fresh without ceremony and a failed write is swallowed.
 The cost of losing it is re-reading logs the user still has.

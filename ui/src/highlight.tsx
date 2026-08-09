@@ -254,7 +254,7 @@ export function useChartLink(
  * The fade is 0.25 rather than the 0.1 ECharts would apply by default, because
  * the other lines are the comparison that makes the highlighted one worth
  * reading — vanish them and the chart answers "how much" without "compared to
- * what". Focus dims the fight bands and gear marks along with them, since they
+ * what". Focus dims the fight bands along with them, since they
  * are series too; they stay legible at the reduced opacity, and an override on
  * those series does not lift it (a markArea takes the blur from its parent
  * whatever its own blur state says).

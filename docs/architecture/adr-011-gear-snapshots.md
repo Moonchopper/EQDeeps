@@ -1,143 +1,69 @@
 # ADR-011: Gear snapshots
 
-Status: accepted (2026-08-03). Scope: feature F24.
+Status: **withdrawn (2026-08-09)**, superseded by nothing. Accepted 2026-08-03,
+shipped in v0.7.0, removed entirely in v0.9.4. Scope: feature F24.
 
-## Context
+> This file is kept rather than deleted so the ADR sequence has no hole and so
+> the next person to propose gear tracking finds out what happened last time.
+> The original design is in git history at `v0.9.3`.
 
-EQDeeps can say a player's DPS moved. It cannot say why. On EQ Legends the
-commonest reason is gear: items carry a `+N` upgrade level that climbs
-continuously, and augments are socketed and swapped freely. Attaching that to
-the telemetry the app already computes turns "you did 56 sDPS last night and 61
-tonight" into something a player can act on.
+## What it was
 
-The blocking question was whether gear is knowable at all from the player's
-machine. It nearly isn't. An investigation of the install and the log
-(`docs/domain/inventory-file-format.md` §1) found:
+The app read the file produced by `/outputfile inventory`, recorded each
+distinct version as a snapshot, marked the changes on time charts, and organised
+an Overview tab around **sets** — a snapshot plus the stretch it was worn for —
+so a player could see how each set actually played.
 
-- Loadouts on EQ Legends are **class** loadouts, not gear sets. The client
-  persists their UI, hotbars and auto-attack skills; the equipment attached to
-  them lives server-side.
-- A loadout swap emits **no log line**. Neither does equipping anything.
-- No client-side file records what is worn — not `eqclient.ini`, not the
-  per-character or per-loadout INIs, not `[Bandolier]`.
-- The reference implementation has no inventory handling to borrow from.
+## Why it was accepted
 
-The single exception is `/outputfile inventory`, which the player must type.
+Gear is the commonest reason a player's DPS moves, and the original ADR
+established that it is *nearly* unknowable from the client: loadouts on EQ
+Legends are class loadouts whose equipment lives server-side, a swap emits no
+log line, equipping emits no log line, and no client-side file records what is
+worn. The single exception is the manual `/outputfile inventory` dump. The
+decision was to accept that manual capture and be loud about its cost — never
+issue the command, report how much combat had happened since the last proof, and
+show gear it could not vouch for as unknown.
 
-## Decision 1: accept a manual capture, and say so
+## Why it was withdrawn
 
-Gear comes from the player running `/outputfile inventory`; the app watches the
-install root for the resulting file and records each distinct version.
+**The mitigations were the tell.** A feature that has to report "N fights since
+the last proof" beside every number, and fall back to "gear unknown" for any
+frame older than the first dump, is one whose underlying signal cannot carry the
+claims the UI makes with it. Every figure was really "true as of whenever you
+last remembered to type the command", while presenting with the same authority
+as a parse — which is a worse failure than not showing it, because a stale
+number that looks measured gets acted on.
 
-The alternative was to build nothing, on the grounds that a feature depending
-on a manual step will be used inconsistently and produce partial data. That was
-rejected because partial gear data is still strictly more than none, and
-because the failure mode is visible rather than silent: a snapshot either
-exists for a moment in time or does not, and the UI can say which.
+Owner's call, and the right one: *"because we can't reliably keep gear up to
+date, I don't feel it has sufficient trustworthiness."*
 
-What the decision obliges:
+Note this is a different kind of problem from the unlogged instance settings in
+[ADR-012](adr-012-mob-health.md) or the unlogged loadout swaps in
+[ADR-013](adr-013-incoming-damage.md). Those are things the log does not say, and
+both features answer by widening a band or splitting a key — the estimate stays
+honest because the uncertainty is *expressed*. Gear had no equivalent: the
+uncertainty is unbounded (a dump can be arbitrarily old and arbitrarily wrong)
+and there is nothing to express it against.
 
-- **The app never issues the command.** It polls for the file (5 s, matching
-  the ingestion pipeline's polling style) and otherwise does nothing. Driving
-  the game client is not something an analytics tool should do.
-- **The nudge explains itself.** "No gear snapshot yet" reads as the app
-  failing to find something it should have found on its own, so the panel says
-  *why* the manual step exists, quotes the command, and prints the exact path
-  being watched — the useful answer when the command appeared to do nothing.
-- **Staleness is reported as a fact, not an alarm.** Gear can change at any
-  moment without a trace, so the only true statement is how much combat has
-  happened since the last proof. The status carries `fightsSince` and the UI
-  states it plainly rather than nagging.
-- **Re-running the command with unchanged gear costs nothing.** Snapshots are
-  identified by a hash over the equipped set including augments — deliberately
-  *not* over the whole file, so bank and bag churn never registers as a gear
-  change.
+## What was removed
 
-## Decision 2: attribution is forward-only
+The tab and set comparison, the gear-change marks on every time chart,
+`GET /api/sessions/{id}/gear`, the `gear` SignalR event, `GearWatcher`,
+`GearStore`, `Core/Gear/` including the inventory-dump parser, `--gearRoot`,
+the gear tests and fixture, the screenshot staging, and
+`docs/domain/inventory-file-format.md`.
 
-A snapshot applies from its own capture instant until the next one. Time before
-the first snapshot has no answer, and the UI says "gear unknown" for it.
+Snapshots already on disk under `%AppData%\EQDeeps\gear\` are left alone and
+ignored. They are the one thing the app persisted that a log cannot recreate, so
+they are not deleted — but nothing writes there again.
 
-The alternative was to backfill — treat a snapshot as also describing the
-session that preceded it, so dumping at the end of a night labels that whole
-night. It is more useful and it is not true: the player may have changed gear
-at any point in the interval. Backfilling would attach gear to fights the
-player may not have been wearing it for, which is precisely the error this
-feature exists to prevent, and it would do so invisibly.
+## If this is revisited
 
-The consequence is accepted deliberately: the player must dump when they log in
-or after changing gear, and if they don't, they get an honest gap rather than a
-confident guess. A change is dated at the snapshot that **proved** it, and the
-previous snapshot's time travels with it, so the uncertainty window is
-available to anything that reports on the change.
-
-## Decision 3: comparison, not correlation
-
-The tab is organised around **gear sets** — a snapshot plus the stretch of time
-it was in force for — because a snapshot on its own says nothing about
-performance, and the window is the only thing damage can honestly be attributed
-to.
-
-Comparing sets means comparing windows of wildly different size: 36 minutes
-against two is a real case from the first day of use. There is no single honest
-way to put those side by side, so **all three are offered and the panel says
-which is which**:
-
-- **spread** — every fight in the set as one point of DPS, drawn as a box.
-  Time leaves the axis entirely, which is what makes unequal windows comparable
-  at all; sample size rides on the label so a 9-fight box never reads as
-  solidly as a 55-fight one.
-- **by fight** — DPS per fight, numbered from the start of each set, so every
-  set begins at 1 and a longer one simply runs further right.
-- **by clock** — elapsed time from each set's own 0:00, clipped to the shortest
-  set so the visible window is identical. Familiar, but the clipped remainder
-  is discarded and what survives is a set's opening rather than a fair sample.
-
-A **like-for-like** toggle restricts every set to mobs that all of them fought.
-Content is a bigger lever on DPS than gear is, and without it a set that
-happened to farm easy pulls reads as a gear win. It is off by default because
-it can empty the comparison entirely, which needs to be a choice rather than a
-surprise.
-
-None of this makes it an experiment. Every view carries what it is made of —
-fight counts, time on the clock — so a difference can be weighed rather than
-believed. A gear feature that quietly implied causation would be worse than no
-gear feature.
-
-The per-fight series this rests on is `FightInfo.CharacterDamage`: this
-session's own character and their pets, out of the fight's raid-wide total.
-One number per fight rather than the whole per-actor map, so the fight list
-stays cheap at raid scale. Pets roll up unconditionally, ignoring the display
-toggle — a pet swinging is the player's doing, and a series that changed shape
-as that toggle moved would be comparing two different things.
-
-Everything else is ordinary queries and ordinary panels: the per-set charts are
-the same `PanelDef`s the Summary builds, re-scoped to the set's window. No
-query-engine change, no new dimension.
-
-`UpgradeScore` (the sum of `+N` across equipped items and augments) is a
-progression marker for ordering and labelling snapshots — explicitly not a
-power rating, and nothing should treat it as one.
-
-## Consequences
-
-- **Install-root discovery had to be fixed first** (`LogDiscovery`): it
-  hardcoded `Installed Games\EverQuest` and the `DGC-EverQuest` registry key,
-  so an "EverQuest Legends" install — on a drive that isn't `%PUBLIC%`'s — was
-  invisible unless the game was already running. Publisher directories are now
-  enumerated across every fixed drive and uninstall keys matched by prefix in
-  both registry views. This also closes the empty "No log open" state with the
-  game closed.
-- **The watcher resolves the dump from the session's own log path** first: logs
-  live in `<install>\Logs`, so the log already being read names the install
-  root outright. Discovery is the fallback for logs opened from a copy.
-- **Snapshots are the first thing the app persists that it cannot recompute.**
-  Parsed records are rebuilt from the log on every open; an inventory dump is
-  overwritten by the next one, so a snapshot not kept is gone. `GearStore`
-  therefore follows the `RecentLogs` shape (atomic writes, corrupt file starts
-  fresh) with a 200-snapshot cap.
-- **The demo log gets no watcher.** It describes a character who does not
-  exist, so there is nothing to find and nobody to nudge.
-- Timestamps are stored as zone-less local time, matching log timestamps. The
-  file's `LastWriteTime` is `Local` and would otherwise serialise with a UTC
-  offset no other timestamp in the app carries.
+The blocker is unchanged and it is not an engineering one: **there is no
+automatic source of equipped gear on this client.** Anything built on the manual
+dump inherits exactly the problem that got this removed. A future attempt needs
+either a game-side signal that does not exist today, or an explicit design in
+which the user understands they are reading a hand-maintained record rather than
+a parse — and in which nothing derived from it is presented beside measured
+numbers as though it were one.

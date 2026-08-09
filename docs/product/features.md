@@ -119,11 +119,11 @@ Every time chart draws **fight bands** behind the line: faint alternating shadin
 
 ### F7b. Standard views
 
-Overview is a section, not a page: a **left nav rail** holds Summary (the F7 dashboard) plus the specialized standard views — Healing, Tanking, Stances (F23, only on logs that have them), Experience, Faction, Loot, Gear, Mobs, Incoming. Damage rankings and a live "right now" view are deliberately absent: Summary already carries both, and a standard view has to earn its place. These ship with the app rather than being provisioned into the user's dashboard store, so they are read-only and cannot drift, be deleted, or be confused with something the user built. "Customize a copy" clones one into a custom dashboard (F8) that the user then owns.
+Overview is a section, not a page: a **left nav rail** holds Summary (the F7 dashboard) plus the specialized standard views — Healing, Tanking, Stances (F23, only on logs that have them), Experience, Faction, Loot, Mobs, Incoming. Damage rankings and a live "right now" view are deliberately absent: Summary already carries both, and a standard view has to earn its place. These ship with the app rather than being provisioned into the user's dashboard store, so they are read-only and cannot drift, be deleted, or be confused with something the user built. "Customize a copy" clones one into a custom dashboard (F8) that the user then owns.
 
 The rail is the app's only navigation: the user's own dashboards (F8) sit below a divider in the same list, so there is one place to be, not two stacked rows of tabs. Views are a growing list and a window is wider than it is tall, which is the wrong way round for a horizontal strip that was already scrolling sideways; standing it up spends width the panels were not using and gives back the height they were. The actions that belong to a selected dashboard — export, import, delete — sit under the list they act on rather than in a toolbar that would be empty on every standard view.
 
-The fight list keeps the opposite edge, and only on the views it does anything for. It is a time-frame selector (F7), so it appears wherever panels report over a time frame — which is every view except **Mobs** and **Gear**. Mobs is what this server's mobs are worth, learned across every kill ever seen, and Gear is a shelf of snapshots; on both, every click in the fight list would change nothing on screen, so the panels take the width instead.
+The fight list keeps the opposite edge, and only on the views it does anything for. It is a time-frame selector (F7), so it appears wherever panels report over a time frame — which is every view except **Mobs**. Mobs is what this server's mobs are worth, learned across every kill ever seen; every click in the fight list would change nothing on screen there, so the panels take the width instead.
 
 Window and span are presentation, not properties of a panel, so no panel definition carries them: there is exactly one default (`DEFAULT_CHART_SETTINGS`) and every chart in the app starts there. The top bar owns it — a control beside the version number — and changing it pushes down to every chart, Summary's DPS chart included. The setting persists across restarts.
 
@@ -143,7 +143,7 @@ Loot carries the same data read from both ends, side by side, because "what drop
 - AC: Changing window or span on one chart and pressing "apply to all" moves every other time chart in that view to the same setting.
 - AC: Time charts draw one continuous line — a bucket with no events reads as zero, not a hole — so idle stretches sag to the axis instead of fragmenting the chart. Ranges too large to fill point-by-point fall back to breaking on long gaps rather than degrading.
 - AC: The chosen standard view survives a restart.
-- AC: The fight list is absent on Mobs and Gear and present on every other view, including a user's own dashboards.
+- AC: The fight list is absent on Mobs and present on every other view, including a user's own dashboards.
 
 ### F23. Stance analysis
 
@@ -225,23 +225,32 @@ The consent model is the feature, not the downloading. The default is to ask onc
 - AC: Nothing downloaded is executed unless it passes both Ed25519 and Authenticode verification.
 - AC: Portable and unkeyed builds degrade to notify-only rather than pretending to install.
 
-### F24. Gear snapshots
+### F24. Gear snapshots — **withdrawn (2026-08-09, v0.9.4)**
 
-What the character was wearing, so a parse can be read against the gear behind it. See [ADR-011](../architecture/adr-011-gear-snapshots.md) and [the dump's format](../domain/inventory-file-format.md).
+Shipped in v0.7.0 and removed entirely. The feature read the dump produced by
+`/outputfile inventory`, recorded each distinct version, and reported how each
+gear set actually played.
 
-EverQuest records equipped gear nowhere. Loadouts on EQ Legends are *class* loadouts whose equipment lives server-side, and neither a swap nor an equip produces a log line — so the only source is the player running `/outputfile inventory`. The app watches the install root for that dump, records each distinct version, marks the changes on time charts, and shows damage either side of one.
+It was withdrawn for **trustworthiness**, not for cost or complexity. EverQuest
+records equipped gear nowhere and neither a swap nor an equip produces a log
+line, so the app could only ever know what the player last remembered to dump by
+hand. Every number it showed was therefore "true as of whenever you last typed
+the command" while looking exactly like a measurement — and the feature's own
+mitigations (fights-since-last-proof, "gear unknown" for older frames) were an
+admission that the underlying signal could not be relied on. A panel that has to
+keep apologising for its data is a panel that should not be presenting it.
 
-The manual step is the cost of the feature existing at all, so the app is honest about it rather than quiet: it never issues the command itself, it says how much combat has happened since the last proof, and it reports gear it cannot vouch for as unknown.
+Removed: the tab, the gear-change marks on time charts, `GET /api/sessions/{id}/gear`,
+the `gear` SignalR event, `GearWatcher`/`GearStore`, the inventory-dump parser,
+`--gearRoot`, ADR-011's design, and the inventory file-format doc. Snapshots
+already written to `%AppData%\EQDeeps\gear\` are left on disk and simply
+ignored; nothing writes there again.
 
-Gear has its own Overview sub-tab, organised around **sets** — a snapshot plus the stretch of time it was worn for. Each set carries how it actually played (fights, time, total, sDPS), and sets can be compared three ways, because windows of 36 minutes and 2 minutes have no single honest comparison: **spread** (per-fight DPS as a box, time off the axis), **by fight** (numbered from each set's start), and **by clock** (elapsed from 0:00, clipped to the shortest). A like-for-like toggle restricts every set to mobs all of them fought.
-
-- AC: With a dump on disk, the Gear panel lists equipped items — augments nested, `+N` upgrade levels split out — for the snapshot in force at the selected time frame.
-- AC: Selecting a set shows its own DPS-over-time and damage-by-ability charts, scoped to exactly the window that set was worn.
-- AC: Bags, banks and the personal depot never appear as worn gear, however the game names them.
-- AC: Re-running the command after a gear change adds a snapshot within ~5 s and marks it on the DPS chart with no refresh; re-running it unchanged adds nothing, and bank or bag churn is never mistaken for a gear change.
-- AC: With no dump, the panel explains why the manual step is needed, quotes the command, and prints the exact path being watched.
-- AC: A time frame older than the first snapshot reads "gear unknown" rather than borrowing the nearest one.
-- Non-goal: context for telemetry, not the gear planner `vision.md` rules out — nothing here recommends or simulates gear.
+**If this is ever revisited**, the blocker is unchanged and is not an
+engineering one: there is no automatic source of equipped gear. Anything built
+on the manual dump inherits the same problem, so a future attempt needs either a
+game-side signal that does not exist today or an explicit design where the user
+understands they are reading a hand-entered record rather than a parse.
 
 ### F25. Estimated mob health
 

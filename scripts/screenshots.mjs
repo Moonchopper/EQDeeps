@@ -1,26 +1,16 @@
 // Regenerates the README screenshots in docs/media/.
 //
 // Everything is captured against the bundled sample log, so the shots stay
-// reproducible and carry nobody's real character names. What the sample does
-// not ship is an inventory dump — the Gear tab needs one, and the game writes
-// it beside the log's install root — so that tab is staged by hand:
+// reproducible and carry nobody's real character names.
 //
-//   1. Copy the sample log to <demo>\Logs\eqlog_SampleCharacter_demo.txt
-//      (gunzip src/EQDeeps.Server/Assets/sample-log.txt.gz, or run the app
-//      once and take the copy it extracts to %AppData%\EQDeeps\sample).
-//   2. Put an inventory dump at <demo>\SampleCharacter_demo-Inventory.txt and
-//      set its last-write time inside the log's span. Start the server, then
-//      overwrite it with a few items changed and a later timestamp: the
-//      watcher records both, which is what gives the Gear tab two sets to
-//      compare.
-//   3. Run the server against that copy with an APPDATA of its own, so the
-//      demo's dashboards and gear history stay out of your real ones:
+//   1. Run the server against the sample with an APPDATA of its own, so the
+//      demo's dashboards stay out of your real ones:
 //
 //        APPDATA=D:\tmp\eqdemo-appdata dotnet run --project src/EQDeeps.Server \
 //          -c Release -- --no-browser --no-update-check --urls http://127.0.0.1:5490
 //
 //      then POST the log path to /api/sessions and wait for backfill.
-//   4. npm i playwright  (uses installed Edge — no browser download)
+//   2. npm i playwright  (uses installed Edge — no browser download)
 //      node scripts/screenshots.mjs http://127.0.0.1:5490 docs/media
 //
 // Images land at 2x and are downscaled to 1800px wide before committing.
@@ -80,7 +70,6 @@ for (const [label, file] of [
   ["Tanking", "tanking"],
   ["Experience", "experience"],
   ["Loot", "loot"],
-  ["Gear", "gear"],
 ]) {
   await railTab(label);
   await shot(file);

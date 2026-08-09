@@ -302,9 +302,11 @@ to 18 by the evening, and reports 44 in a `/who` the next day — all the same
 character, none of it a de-level.
 
 **Swapping loadouts is not logged.** Not one system message; grepping 690,000
-lines of a real log finds "loadout" only in player chat. This is the same
-silence F24 hits on gear (an equip produces no line either) and the same shape
-as the unlogged instance settings in [ADR-012](../architecture/adr-012-mob-health.md).
+lines of a real log finds "loadout" only in player chat. Equipping an item is
+equally silent — which is what made gear tracking untrustworthy enough to
+withdraw ([ADR-011](../architecture/adr-011-gear-snapshots.md)) — and the whole
+thing is the same shape as the unlogged instance settings in
+[ADR-012](../architecture/adr-012-mob-health.md).
 
 Consequences for anything that reads a level:
 

@@ -8,14 +8,12 @@
 > sample log, Azure Artifact Signing for releases
 > (`docs/release-signing.md`), consent-driven auto-updating shipped as an
 > Inno Setup installer alongside the portable zip (ADR-010, feature F22), and
-> gear snapshots read from `/outputfile inventory` (ADR-011, feature F24 —
-> the first thing the app persists that it cannot recompute from the log),
 > estimated mob health, measured from damage-to-death and keyed by the
 > instance difficulty read off the zone line (ADR-012, feature F25), and
 > incoming damage — a raw ordered feed of swings taken plus a learned attack
 > profile keyed on the defender's level as well as the mob (ADR-013, feature
 > F26), and navigation reorganized into a single left rail with the fight list
-> hidden on the two views that have no time frame to select (ADR-014).
+> hidden on the one view that has no time frame to select (ADR-014).
 > Currently at **v0.9.3**. See `docs/product/features.md` for per-feature
 > status. The main open items: real-log validation against EQLogParser (the
 > release gate), the spell-DB work (class detection, bane, lands-on
@@ -37,7 +35,6 @@ You are picking up a **documented, greenfield** project: a clean-room, modern su
 4. `domain/metrics-and-aggregation.md` — fights, counters, formulas, denominators.
 5. `architecture/system-overview.md` — locked stack, component boundaries, the QuerySpec model.
 6. `architecture/log-ingestion-brief.md` — fresh-design mandate for file reading.
-7. `domain/inventory-file-format.md` — the `/outputfile inventory` dump (F24). Only needed for gear; unlike the log format it has no prior art in the reference implementation.
 
 ## The reference implementation
 

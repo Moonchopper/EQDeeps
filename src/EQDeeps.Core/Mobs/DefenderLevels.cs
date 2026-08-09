@@ -31,7 +31,7 @@ namespace EQDeeps.Core.Mobs;
 ///
 /// <para><b>On EQ Legends a character is several levels at once.</b> Class
 /// loadouts level independently and swapping between them produces no log line
-/// whatsoever — the same silence F24 hits on gear, and confirmed by grepping a
+/// whatsoever — confirmed by grepping a
 /// 690,000-line log where every occurrence of "loadout" is a player typing it
 /// in chat. So one log dings to 41, then to 11 an hour later, then back up:
 /// that is not a de-level, it is a different class being played by the same

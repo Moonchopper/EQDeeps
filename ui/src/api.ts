@@ -291,65 +291,6 @@ export interface DiscoveredLog {
 }
 
 /** One equipped item, with whatever is socketed into it. */
-export interface GearItem {
-  location: string;
-  /** Which of the repeated slots this is: Ear#1 vs Ear#2. */
-  occurrence: number;
-  slotKey: string;
-  /** Verbatim, upgrade level included: "Short Sword of the Ykesha +5". */
-  name: string;
-  /** The same name without the upgrade level, so "+2 → +5" reads as one item. */
-  baseName: string;
-  plus: number;
-  itemId: number;
-  augments: GearItem[];
-}
-
-export interface KeyRingEntry {
-  category: string;
-  name: string;
-  itemId: number;
-}
-
-/** What one /outputfile inventory run proved about the player's gear. */
-export interface GearSnapshot {
-  character: string;
-  server: string;
-  /** When the dump was written — the instant this gear starts applying. */
-  capturedAt: string;
-  equipped: GearItem[];
-  keyRing: KeyRingEntry[];
-  /** Sum of upgrade levels. A progression marker, not a power rating. */
-  upgradeScore: number;
-  hash: string;
-}
-
-export type GearChangeKind =
-  | "equipped"
-  | "removed"
-  | "upgraded"
-  | "replaced"
-  | "reaugmented";
-
-export interface GearSlotChange {
-  slotKey: string;
-  location: string;
-  kind: GearChangeKind;
-  before?: GearItem;
-  after?: GearItem;
-}
-
-/**
- * A gear change, dated at the snapshot that proved it. It happened somewhere
- * between `previousAt` and `at` — that window is the honest extent of what is
- * known, and the UI should not pretend otherwise.
- */
-export interface GearChange {
-  at: string;
-  previousAt: string;
-  slots: GearSlotChange[];
-  upgradeScoreDelta: number;
-}
 
 /**
  * A stretch over which one thing stayed true — the zone the character was in,
@@ -364,22 +305,6 @@ export interface ContextSpan {
 export interface ContextTimeline {
   zones: ContextSpan[];
   levels: ContextSpan[];
-}
-
-export interface GearStatus {
-  hasSnapshot: boolean;
-  capturedAt?: string;
-  /** Fights since the last snapshot — how far the gear could have drifted unseen. */
-  fightsSince: number;
-  /** Exactly where the dump is expected, for when the command seemed to do nothing. */
-  expectedPath: string;
-  command: string;
-}
-
-export interface GearReport {
-  snapshots: GearSnapshot[];
-  changes: GearChange[];
-  status: GearStatus;
 }
 
 export interface VersionInfo {
@@ -496,9 +421,6 @@ export const api = {
 
   getFights: (id: string): Promise<FightInfo[]> =>
     fetch(`/api/sessions/${id}/fights`).then((r) => json(r)),
-
-  getGear: (id: string): Promise<GearReport> =>
-    fetch(`/api/sessions/${id}/gear`).then((r) => json(r)),
 
   /**
    * Learned mob health for this session's *server* — the session only says

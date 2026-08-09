@@ -36,6 +36,21 @@ public sealed record SetUpdateModeRequest(UpdateMode Mode);
 /// <summary>Timeline scope; a record wrapper so filters (kinds, actors) can grow in later.</summary>
 public sealed record TimelineRequest(QueryScope Scope);
 
+/// <summary>
+/// Which incoming swings to hand back and how many (F26).
+/// </summary>
+/// <param name="OwnerOnly">
+/// Restrict to this log's own character. Resolved server-side against whichever
+/// log is open rather than by naming them, so the setting means "me" on every
+/// session instead of meaning one character everywhere — the same rule the
+/// stance panels follow.
+/// </param>
+public sealed record IncomingHitsRequest(
+    QueryScope Scope,
+    int? Limit = null,
+    bool OwnerOnly = false,
+    IReadOnlyList<string>? Defenders = null);
+
 public sealed record SessionInfo(
     string Id,
     string Path,
@@ -89,6 +104,28 @@ public sealed record MobHealthReport(
     string Server,
     List<MobHealthEstimate> Mobs,
     int Kills,
+    bool Instanced);
+
+/// <summary>
+/// What this server's mobs do to the people in front of them (F26).
+/// </summary>
+/// <param name="Character">
+/// Whose log is asking. The profiles are the server's, but which of them are
+/// about <i>this</i> character is a question only the session can answer.
+/// </param>
+/// <param name="CharacterLevel">
+/// The level the log last established for that character, or null if it never
+/// did. It picks which rows the panel opens on, and its absence is reported
+/// rather than guessed around — a level-58 shown a level-40's numbers would be
+/// reading someone else's fight.
+/// </param>
+/// <param name="Landed">Hits behind the whole report, so a first-night guess does not wear the face of an evening's evidence.</param>
+public sealed record MobAttackReport(
+    string Server,
+    string Character,
+    int? CharacterLevel,
+    List<MobAttackEstimate> Mobs,
+    int Landed,
     bool Instanced);
 
 public sealed record FightInfo(

@@ -5,6 +5,7 @@ import {
   type DiscoveredLog,
   type FightInfo,
   type GearReport,
+  type MobAttackReport,
   type MobHealthReport,
   type SessionInfo,
   type UpdateMode,
@@ -12,6 +13,7 @@ import {
 } from "./api";
 import { createLiveConnection, type BackfillEvent, type TickEvent } from "./live";
 import { GearPanel } from "./components/GearPanel";
+import { IncomingPanel } from "./components/IncomingPanel";
 import { MobHealthPanel } from "./components/MobHealthPanel";
 import { describeAge, SessionBar } from "./components/SessionBar";
 import { UpdateNotice, type UpdateChoice } from "./components/UpdateNotice";
@@ -33,6 +35,7 @@ import {
 import { defaultPanel, newDashboard, newId, type DashboardDef } from "./dashboards/model";
 import {
   GEAR_VIEW,
+  HITS_VIEW,
   MOBS_VIEW,
   STANCES_VIEW_ID,
   SUMMARY_VIEW,
@@ -83,6 +86,7 @@ export default function App() {
   // Learned mob health for the active session's SERVER (F25). Null until the
   // first fetch lands, which the panel distinguishes from "nothing learned".
   const [mobs, setMobs] = useState<MobHealthReport | null>(null);
+  const [attacks, setAttacks] = useState<MobAttackReport | null>(null);
   const [context, setContext] = useState<ContextTimeline | null>(null);
   // The one time frame the whole app reports over. A live tail by default;
   // picking fights turns it into the fixed range they span. There is no
@@ -535,6 +539,26 @@ export default function App() {
     };
   }, [activeId, view, stdView]);
 
+  // Attack profiles are banked on the same server-side tick as kills, and read
+  // the same way: poll while the tab is open, and not at all off it. The raw
+  // feed beside them refreshes on its own faster beat inside the panel — the
+  // profiles are an evening's evidence and do not move in fifteen seconds.
+  useEffect(() => {
+    if (!activeId || view !== "overview" || stdView !== HITS_VIEW) return;
+    let cancelled = false;
+    const load = () =>
+      api
+        .getAttacks(activeId)
+        .then((report) => !cancelled && setAttacks(report))
+        .catch(() => undefined);
+    load();
+    const timer = window.setInterval(load, 15000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [activeId, view, stdView]);
+
   // While something is actually happening, poll fast enough for the progress
   // bar to move. At the idle interval a download finishes between two polls,
   // so the update appears to do nothing and then be done.
@@ -596,6 +620,7 @@ export default function App() {
     setBackfill(null);
     setGear(null);
     setMobs(null);
+    setAttacks(null);
     setContext(null);
     setFrame({ kind: "live", spanSec: chartDefaults.spanSec }); // a new log starts live
     await live.subscribe(id);
@@ -640,6 +665,7 @@ export default function App() {
       setFights([]);
       setGear(null);
       setMobs(null);
+      setAttacks(null);
       setFrame(DEFAULT_FRAME);
       setTick(null);
       if (list.length > 0) {
@@ -811,7 +837,12 @@ export default function App() {
               <button
                 className={
                   "sub-tab" +
-                  (!activeStdView && stdView !== GEAR_VIEW && stdView !== MOBS_VIEW ? " on" : "")
+                  (!activeStdView &&
+                  stdView !== GEAR_VIEW &&
+                  stdView !== MOBS_VIEW &&
+                  stdView !== HITS_VIEW
+                    ? " on"
+                    : "")
                 }
                 onClick={() => selectStdView(SUMMARY_VIEW)}
               >
@@ -838,6 +869,13 @@ export default function App() {
                 title="What this server's mobs are worth, and what a difficulty tier costs"
               >
                 Mobs
+              </button>
+              <button
+                className={"sub-tab" + (stdView === HITS_VIEW ? " on" : "")}
+                onClick={() => selectStdView(HITS_VIEW)}
+                title="What is hitting you, in order, and what this server's mobs hit for"
+              >
+                Incoming
               </button>
             </nav>
           )}
@@ -890,6 +928,13 @@ export default function App() {
             ) : view === "overview" && stdView === MOBS_VIEW ? (
               <MobHealthPanel
                 mobs={mobs}
+                server={sessions.find((s) => s.id === activeId)?.server ?? ""}
+              />
+            ) : view === "overview" && stdView === HITS_VIEW ? (
+              <IncomingPanel
+                attacks={attacks}
+                sessionId={activeId}
+                frame={frame}
                 server={sessions.find((s) => s.id === activeId)?.server ?? ""}
               />
             ) : view === "overview" && activeStdView ? (

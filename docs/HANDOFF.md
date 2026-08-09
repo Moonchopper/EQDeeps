@@ -3,16 +3,18 @@
 > **Status (2026-08-02): all eight build-order phases below are complete** —
 > parser core, ingestion, session state, query engine, API + live loop, SPA,
 > composable dashboards, packaging — each with its exit criteria verified in
-> tests and its decisions recorded in `docs/architecture/adr-001…012`. Since
+> tests and its decisions recorded in `docs/architecture/adr-001…013`. Since
 > then: a WebView2 windowed shell (ADR-009), an event timeline, a bundled
 > sample log, Azure Artifact Signing for releases
 > (`docs/release-signing.md`), consent-driven auto-updating shipped as an
 > Inno Setup installer alongside the portable zip (ADR-010, feature F22), and
 > gear snapshots read from `/outputfile inventory` (ADR-011, feature F24 —
 > the first thing the app persists that it cannot recompute from the log),
-> and estimated mob health, measured from damage-to-death and keyed by the
-> instance difficulty read off the zone line (ADR-012, feature F25).
-> Currently at **v0.9.2**. See `docs/product/features.md` for per-feature
+> estimated mob health, measured from damage-to-death and keyed by the
+> instance difficulty read off the zone line (ADR-012, feature F25), and
+> incoming damage — a raw ordered feed of swings taken plus a learned attack
+> profile keyed on the defender's level as well as the mob (ADR-013, feature
+> F26). Currently at **v0.9.2**. See `docs/product/features.md` for per-feature
 > status. The main open items: real-log validation against EQLogParser (the
 > release gate), the spell-DB work (class detection, bane, lands-on
 > resolution — reference data files not yet copied), identity-registry disk

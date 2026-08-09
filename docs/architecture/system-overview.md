@@ -87,6 +87,7 @@ Root: `%AppData%\EQDeeps\` (path-provider abstraction; no hardcoding scattered a
 | Parsed records | in-memory per session (recompute from log on reopen); optional cache/index files are an ingestion-brief topic |
 | Gear snapshots (F24) | JSON per character under `gear\`. The exception to "recompute from the log": the game overwrites its inventory dump, so a snapshot not kept is gone (ADR-011) |
 | Learned mob health (F25) | JSON per **server** under `mobs\`, capped per mob. Recomputable — it is a cache of what the logs still say — so a corrupt or missing file just relearns (ADR-012) |
+| Learned mob attacks (F26) | JSON per **server** under `attacks\`, keyed on (mob, zone, difficulty, **defender level**) — how hard something hits is a fact about a pairing, not about the mob. A rolling tally with a log-spaced hit-size histogram rather than raw samples: hits arrive three orders of magnitude faster than kills. Also a cache (ADR-013) |
 
 ## Packaging & distribution (P1)
 

@@ -29,8 +29,25 @@ namespace EQDeeps.Core.Mobs;
 /// thing that was not observed, and the panel would then report a confident
 /// number about a defender it could not name.</para>
 ///
-/// <para>The gap this cannot close is a de-level, which the client does not log
-/// at all. A /who read backwards across one reports the level the player ended
+/// <para><b>On EQ Legends a character is several levels at once.</b> Class
+/// loadouts level independently and swapping between them produces no log line
+/// whatsoever — the same silence F24 hits on gear, and confirmed by grepping a
+/// 690,000-line log where every occurrence of "loadout" is a player typing it
+/// in chat. So one log dings to 41, then to 11 an hour later, then back up:
+/// that is not a de-level, it is a different class being played by the same
+/// person, and both readings are true at the same time.</para>
+///
+/// <para>This is why "the level at instant t" is the last level <i>announced</i>
+/// and nothing better. A swap is invisible, so fights between a swap and the
+/// next ding on the new loadout are attributed to the loadout that was put
+/// away. Nothing here can fix that; a /who typed after a swap is what corrects
+/// it, and the numbers land in the right rows from then on. Downstream this
+/// axis is doing double duty as a <i>loadout</i> axis, which is the right
+/// answer for the wrong-looking reason: a different loadout is a different
+/// class with different mitigation, and its numbers belong apart.</para>
+///
+/// <para>The other gap is a genuine de-level, which the client also does not
+/// log. A /who read backwards across either reports the level the player ended
 /// on rather than the one they were — the same limitation
 /// <see cref="Query.ContextTimeline"/> carries, for the same reason.</para>
 /// </summary>

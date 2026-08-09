@@ -29,15 +29,28 @@ const FEED_LIMIT = 300;
  *
  * <p>Profile rows are per <em>defender level</em>, not per mob. How hard
  * something hits is a fact about a pairing rather than about the mob, so a
- * level-40's numbers and a level-60's are two rows — and the panel opens on the
- * ones belonging to whoever is logged in.</p>
+ * level-40's numbers and a level-60's are two rows.</p>
+ *
+ * <p><b>On EQ Legends a character is several levels at once.</b> Class
+ * loadouts level independently, and swapping between them is not logged at all
+ * — so one log legitimately dings to 41, then to 11, then back up, and every
+ * one of those is the same character. The level axis therefore doubles as a
+ * loadout axis, which is right: a different loadout is a different class with
+ * different mitigation, and its numbers belong in their own rows.</p>
+ *
+ * <p>What it is NOT is a single "my level". This panel used to default to one,
+ * taken from the most recent ding, which on a three-loadout character hid two
+ * thirds of the evidence and read as data simply missing. The level control is
+ * a picker that shows everything by default, and anything it hides it says
+ * out loud.</p>
  */
 export function IncomingPanel({ attacks, sessionId, frame, server }: Props) {
   const [ownerOnly, setOwnerOnly] = useState(true);
   const [feed, setFeed] = useState<IncomingHit[] | null>(null);
   const [feedTotal, setFeedTotal] = useState(0);
   const [search, setSearch] = useState("");
-  const [mineOnly, setMineOnly] = useState(true);
+  /** A level to narrow to, or "" for all of them. See {@link levelChoices}. */
+  const [onlyLevel, setOnlyLevel] = useState<string>("");
   const [open, setOpen] = useState<string | null>(null);
 
   const scope = useMemo(() => frameScope(frame), [frame]);
@@ -68,10 +81,12 @@ export function IncomingPanel({ attacks, sessionId, frame, server }: Props) {
   const all = attacks?.mobs ?? [];
   const level = attacks?.characterLevel;
 
+  const levels = useMemo(() => levelChoices(all), [all]);
+
   const rows = useMemo(() => {
     const query = search.trim().toLowerCase();
     return all.filter((m) => {
-      if (mineOnly && level !== undefined && m.defenderLevel !== level) return false;
+      if (onlyLevel !== "" && String(m.defenderLevel ?? "") !== onlyLevel) return false;
       if (query.length === 0) return true;
       return (
         m.mob.toLowerCase().includes(query) ||
@@ -79,7 +94,16 @@ export function IncomingPanel({ attacks, sessionId, frame, server }: Props) {
         (m.tierName?.toLowerCase().includes(query) ?? false)
       );
     });
-  }, [all, search, mineOnly, level]);
+  }, [all, search, onlyLevel]);
+
+  /** Rows the level picker alone is hiding, so the panel can own up to it. */
+  const hiddenByLevel = useMemo(
+    () =>
+      onlyLevel === ""
+        ? 0
+        : all.filter((m) => String(m.defenderLevel ?? "") !== onlyLevel).length,
+    [all, onlyLevel],
+  );
 
   if (attacks === null) {
     return (
@@ -194,22 +218,36 @@ export function IncomingPanel({ attacks, sessionId, frame, server }: Props) {
                 shown={rows.length}
                 total={all.length}
               />
-              {level !== undefined && (
-                <label
-                  className="mob-toggle"
-                  title={`Only what was measured against a level ${level} defender`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={mineOnly}
-                    onChange={(e) => setMineOnly(e.target.checked)}
-                  />
-                  my level ({level})
+              {/* A picker rather than a "my level" toggle. On EQ Legends a
+                  character is several levels at once — each class loadout
+                  levels on its own — so there is no single number "mine" could
+                  mean, and defaulting to one silently hid every row from the
+                  other loadouts. */}
+              {levels.length > 1 && (
+                <label className="mob-toggle" title="Narrow to what one loadout was measured against">
+                  level
+                  <select
+                    className="panel-select"
+                    value={onlyLevel}
+                    onChange={(e) => setOnlyLevel(e.target.value)}
+                  >
+                    <option value="">all ({all.length})</option>
+                    {levels.map((l) => (
+                      <option key={l.key} value={l.key}>
+                        {l.label} ({l.count})
+                      </option>
+                    ))}
+                  </select>
                 </label>
               )}
-              {level === undefined && (
-                <span className="subtle" title="Type /who to fix it, or wait for a ding">
-                  level unknown — showing every defender
+              {hiddenByLevel > 0 && (
+                <button className="mini-btn" onClick={() => setOnlyLevel("")}>
+                  {fmtNum(hiddenByLevel)} at other levels hidden — show all
+                </button>
+              )}
+              {level !== undefined && (
+                <span className="subtle" title="The most recent level this log announced">
+                  last ding: {level}
                 </span>
               )}
             </div>
@@ -303,6 +341,46 @@ export function IncomingPanel({ attacks, sessionId, frame, server }: Props) {
       </div>
     </div>
   );
+}
+
+/** One entry in the level picker. */
+interface LevelChoice {
+  /** The `defenderLevel` as a string, or "" for the unknown-level bucket. */
+  key: string;
+  label: string;
+  count: number;
+}
+
+/**
+ * The defender levels present, most recently fought first.
+ *
+ * <p>Ordered by recency rather than numerically because on EQ Legends these are
+ * loadouts, not a progression: a character who plays a level-50 paladin and a
+ * level-12 necromancer in one evening is both, and the one they were just
+ * playing is the one they want. Sorting 12 above 50 would put the loadout they
+ * have not touched since Tuesday at the top half the time.</p>
+ */
+function levelChoices(rows: MobAttackEstimate[]): LevelChoice[] {
+  const seen = new Map<string, { label: string; count: number; last: string }>();
+  for (const row of rows) {
+    const key = String(row.defenderLevel ?? "");
+    const found = seen.get(key);
+    if (found) {
+      found.count++;
+      if (row.lastSeen > found.last) found.last = row.lastSeen;
+    } else {
+      seen.set(key, {
+        label: row.defenderLevel === undefined ? "unknown" : String(row.defenderLevel),
+        count: 1,
+        last: row.lastSeen,
+      });
+    }
+  }
+
+  return [...seen.entries()]
+    .map(([key, v]) => ({ key, label: v.label, count: v.count, last: v.last }))
+    .sort((a, b) => (a.last < b.last ? 1 : a.last > b.last ? -1 : 0))
+    .map(({ key, label, count }) => ({ key, label, count }));
 }
 
 /** Mob, Zone, [Tier,] vs, Avg swing, Range, Max, Lands, Swings, Hits, Total, Confidence, Last fought. */

@@ -292,6 +292,14 @@ neither. Levels come from the owner's dings and from any /who that caught a
 player unanonymous; a level the log never stated is its own bucket, labelled,
 never the owner's.
 
+On EQ Legends that axis doubles as a **loadout** axis, and has to: class
+loadouts level independently, so one character is several levels at once and
+each is a different class with different mitigation. Swapping is not logged
+([log format §3.9c](../domain/eq-log-format.md)), which means there is no single
+"current level" to filter by — the level control shows every level by default,
+orders them by which was played most recently, and says how many rows any
+narrowing hides.
+
 The headline figures are **melee only**. On a real log a forsaken revenant lands
 209 punches averaging 66, 752 damage-shield ticks averaging 15, and four nukes
 averaging 582 — pooled, "average hit 35", which is true of none of them. Spells
@@ -305,6 +313,9 @@ it and whether the defender's level was known at all.
 - AC: The same mob at two defender levels is two rows with two numbers, never
   one averaged across both — and a row whose defender level was never
   established says so rather than borrowing one.
+- AC: A character who plays several class loadouts sees all of them by default.
+  No filter hides rows without saying how many and offering one click to
+  restore them — a silent default filter is indistinguishable from missing data.
 - AC: The feed shows misses, dodges, parries and blocks alongside the hits, in
   log order, and says how many it is not showing.
 - AC: Re-opening a log, or leaving one open all evening, never inflates the

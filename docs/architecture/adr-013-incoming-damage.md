@@ -67,6 +67,39 @@ Rejected: inferring level from con lines or from damage taken. Both are
 derivable and both would key the index on an estimate, which is how you get a
 confident wrong answer instead of an honest empty one.
 
+### Amendment (2026-08-09): the level axis is also a loadout axis
+
+Shipped in v0.9.3 and corrected immediately, because a real user's data looked
+like it had a six-day hole in it.
+
+On EQ Legends a character carries several **class loadouts and each levels
+independently** — the owner's log dings to 41, then to 11 an hour later, then
+climbs again, while a `/who` the next day reports 44. Swapping is not logged at
+all (see [log format §3.9c](../domain/eq-log-format.md)), the same silence F24
+already documents for gear.
+
+The *key* survives this unchanged, and is arguably better for it: a different
+loadout is a different class with different mitigation, so its numbers belong in
+their own rows, and keying on level puts them there. What did not survive is the
+idea of a **single current level**. The panel defaulted to filtering on the most
+recent ding; for a three-loadout character that is one loadout out of three, so
+254 of 1,424 rows vanished and the list appeared to jump from today to a week
+ago. The filter was doing exactly what it was told, over a question that has no
+single answer.
+
+Fixed by replacing "my level" with a level picker that shows everything by
+default, orders its entries by recency rather than numerically (the loadout you
+were just playing is the one you want, not the lowest-numbered one), and states
+plainly how many rows any narrowing is hiding.
+
+The general lesson, worth applying past this feature: **a filter that hides rows
+must say so.** A silent default filter is indistinguishable from missing data,
+and the user cannot debug what the UI will not admit to.
+
+Not fixed, because it is not recoverable: fights between a swap and the next
+ding on the new loadout are attributed to the loadout that was put away. A
+`/who` corrects it from that point on.
+
 ## Decision 2: a rolling tally, not a bag of samples
 
 F25 keeps every kill, on the stated grounds that a quantile cannot be maintained

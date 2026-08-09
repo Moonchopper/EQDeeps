@@ -67,7 +67,7 @@ For each player (and each subtype under them):
 | Strikethrough rate % | `StrikethroughHits / MeleeHits × 100` | |
 | Melee hit rate % | `MeleeHits / MeleeAttempts × 100` | |
 | Melee accuracy % | `MeleeHits / (MeleeAttempts − Parries − Dodges − Blocks − Invulnerable − Absorbs) × 100` | removes defender-skill outcomes from the denominator |
-| Undefended % | share of attempts not avoided | tanking view |
+| Undefended % | share of attempts not avoided | tanking view; and F26's incoming-damage rates |
 | Overheal % (`ExtraRate`) | `Extra / (Total + Extra) × 100` | healing views |
 | Resist rate % | `resists / (SpellHits + resists) × 100` | per spell |
 | % of total | `playerTotal / grandTotal × 100` | within current scope |
@@ -76,6 +76,8 @@ For each player (and each subtype under them):
 | Uptime % (`stanceUptime`) | `stanceSeconds / scope stanceSeconds × 100` | share of *tracked stance time*, so the column sums to 100% |
 
 Formatting conventions: large numbers abbreviate K/M/B with one decimal (`126.2K`, `1.6M`); rates one decimal place. The "parse to chat" text format ranks by SDPS (damage) or total (healing/tanking).
+
+**Every avoidance denominator is short by the ripostes.** A swing the defender riposted is written as the defender's own counter-attack line and the attempt records nothing at all ([log format §3](eq-log-format.md)), so `MeleeAttempts` counts the swings the *log accounted for*, not the swings thrown. This affects melee hit rate, melee accuracy, undefended % and F26's incoming rates alike. It is a property of what EverQuest writes down, not a parser choice, and the honest phrasing everywhere is "of the swings the log accounted for".
 
 ## 6. Pet attribution
 

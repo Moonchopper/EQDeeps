@@ -16,6 +16,7 @@ public sealed class SessionManager : IAsyncDisposable
     private readonly SampleLog _sample;
     private readonly GearStore _gear;
     private readonly MobHealthStore _mobs;
+    private readonly MobAttackStore _attacks;
     private readonly ConcurrentDictionary<string, SessionHost> _sessions = new();
     private readonly ConcurrentDictionary<string, IdentityRegistry> _registries =
         new(StringComparer.OrdinalIgnoreCase);
@@ -26,13 +27,15 @@ public sealed class SessionManager : IAsyncDisposable
         RecentLogs recents,
         SampleLog sample,
         GearStore gear,
-        MobHealthStore mobs)
+        MobHealthStore mobs,
+        MobAttackStore attacks)
     {
         _hub = hub;
         _recents = recents;
         _sample = sample;
         _gear = gear;
         _mobs = mobs;
+        _attacks = attacks;
     }
 
     public SessionHost Open(OpenSessionRequest request)
@@ -55,12 +58,16 @@ public sealed class SessionManager : IAsyncDisposable
 
         // The demo log describes a character who does not exist, so there is no
         // inventory dump to find and no gear to nudge anyone about. Its kills
-        // are excluded from the mob index for the same reason: they are a
-        // fixture, and letting them teach the app about a real server's mobs
-        // would poison an estimate that is supposed to be evidence.
+        // and the swings it takes are excluded from the mob indexes for the
+        // same reason: they are a fixture, and letting them teach the app about
+        // a real server's mobs would poison an estimate that is supposed to be
+        // evidence.
         var isSample = _sample.IsSamplePath(request.Path);
         var host = new SessionHost(
-            id, session, _hub, isSample ? null : _gear, isSample ? null : _mobs);
+            id, session, _hub,
+            isSample ? null : _gear,
+            isSample ? null : _mobs,
+            isSample ? null : _attacks);
         _sessions[id] = host;
         if (!isSample)
         {

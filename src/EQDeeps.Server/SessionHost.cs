@@ -36,6 +36,7 @@ public sealed class SessionHost : IAsyncDisposable
     private readonly IHubContext<LiveHub> _hub;
     private readonly GearStore? _gear;
     private readonly MobHealthStore? _mobs;
+    private readonly MobAttackStore? _attacks;
     private readonly GearWatcher? _watcher;
     private readonly CancellationTokenSource _cts = new();
     private readonly SemaphoreSlim _signal = new(0, 1);
@@ -47,6 +48,8 @@ public sealed class SessionHost : IAsyncDisposable
 
     private ContextTimeline? _context;
     private int _contextVersion = -1;
+    private DefenderLevels? _levels;
+    private int _levelsVersion = -1;
 
     private volatile bool _liveDirty;
     private volatile bool _gearDirty;
@@ -55,6 +58,7 @@ public sealed class SessionHost : IAsyncDisposable
     private bool _backfillCompleteSent;
     private int _lastPushedFightVersion = -1;
     private DateTime _harvested = DateTime.MinValue;
+    private DateTime _attacksHarvested = DateTime.MinValue;
 
     /// <summary>
     /// Learned health by mob key, rebuilt only when a sweep actually banked a
@@ -70,7 +74,8 @@ public sealed class SessionHost : IAsyncDisposable
         Session session,
         IHubContext<LiveHub> hub,
         GearStore? gear = null,
-        MobHealthStore? mobs = null)
+        MobHealthStore? mobs = null,
+        MobAttackStore? attacks = null)
     {
         Id = id;
         Session = session;
@@ -78,6 +83,7 @@ public sealed class SessionHost : IAsyncDisposable
         _hub = hub;
         _gear = gear;
         _mobs = mobs;
+        _attacks = attacks;
         _group = LiveHub.GroupName(id);
 
         if (gear is not null)
@@ -174,6 +180,53 @@ public sealed class SessionHost : IAsyncDisposable
         {
             return TimelineBuilder.Build(
                 Session.Records, Session.Fights, Session.Character, request.Scope);
+        }
+    }
+
+    /// <summary>
+    /// What this server's mobs do to the people in front of them (F26). Like
+    /// mob health this is the server's answer rather than the session's, but
+    /// unlike it the rows are per defender level — how hard something hits is a
+    /// fact about a pairing, not about the mob.
+    /// </summary>
+    public MobAttackReport MobAttacks()
+    {
+        var estimates = _attacks?.Estimates(Session.Server) ?? [];
+
+        // The character's level right now decides which rows the panel opens
+        // on: a level-58 reading a level-40's numbers would be reading someone
+        // else's fight. Null when the log has not said yet, which the panel
+        // reports rather than papering over.
+        int? level;
+        lock (Session.Gate)
+        {
+            level = Session.Records.Count == 0
+                ? null
+                : LevelsLocked().LevelOf(
+                    Session.Character, Session.Records[Session.Records.Count - 1].Timestamp);
+        }
+
+        return new MobAttackReport(
+            Session.Server,
+            Session.Character,
+            level,
+            estimates,
+            estimates.Sum(e => e.Landed),
+            estimates.Any(e => e.Difficulty is not null));
+    }
+
+    /// <summary>The tail of the incoming-damage stream over a scope (F26).</summary>
+    public IncomingHitsResult IncomingHits(IncomingHitsRequest request)
+    {
+        lock (Session.Gate)
+        {
+            return IncomingHitsBuilder.Build(
+                Session.Records,
+                Session.Fights,
+                Session.Identity,
+                request.Scope,
+                request.Limit ?? IncomingHitsBuilder.DefaultLimit,
+                request.OwnerOnly ? [Session.Character] : request.Defenders);
         }
     }
 
@@ -416,6 +469,73 @@ public sealed class SessionHost : IAsyncDisposable
         return true;
     }
 
+    /// <summary>
+    /// Sweeps closed fights' incoming damage into the server's attack index
+    /// (F26). Rides the same tick as <see cref="HarvestKills"/> and for the
+    /// same reason — a fight is only final once the timeouts have had their
+    /// say — but reads a different thing out of it: every swing the mob threw,
+    /// not the one line that said it died.
+    ///
+    /// <para>Nothing is pushed when this banks something. The profiles are
+    /// analysis rather than a live readout, and the panel that shows them
+    /// refetches on the time frame like the Mobs tab does.</para>
+    /// </summary>
+    private void HarvestAttacks()
+    {
+        if (_attacks is null)
+        {
+            return;
+        }
+
+        var since = _attacksHarvested == DateTime.MinValue
+            ? DateTime.MinValue
+            : _attacksHarvested - HarvestOverlap;
+
+        List<AttackSample> samples;
+        lock (Session.Gate)
+        {
+            samples = MobAttackIndex.Harvest(
+                Session.Records,
+                Session.Fights.Fights,
+                Session.Identity,
+                LevelsLocked(),
+                since);
+        }
+
+        if (samples.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var sample in samples)
+        {
+            if (sample.FightEnd > _attacksHarvested)
+            {
+                _attacksHarvested = sample.FightEnd;
+            }
+        }
+
+        _attacks.Record(Session.Server, samples);
+    }
+
+    /// <summary>
+    /// Every level the log states, cached against the record version. Rebuilt
+    /// only when records have arrived: it is a walk of the whole stream and the
+    /// expiry tick asks for it once a second, which on a multi-gigabyte log is
+    /// the difference between free and the most expensive thing the server
+    /// does. Callers must hold <see cref="Sessions.Session.Gate"/>.
+    /// </summary>
+    private DefenderLevels LevelsLocked()
+    {
+        if (_levels is null || _levelsVersion != Session.Records.Version)
+        {
+            _levels = DefenderLevels.Build(Session.Records, Session.Character);
+            _levelsVersion = Session.Records.Version;
+        }
+
+        return _levels;
+    }
+
     private async Task ExpiryLoopAsync(CancellationToken ct)
     {
         try
@@ -449,6 +569,11 @@ public sealed class SessionHost : IAsyncDisposable
                 {
                     changed = true;
                 }
+
+                // Rides the same tick for the same reason, but never sets
+                // `changed`: the fight list does not read attack profiles, so
+                // banking one is not a reason to push the whole thing again.
+                HarvestAttacks();
 
                 if (changed)
                 {

@@ -57,6 +57,15 @@ export const GEAR_VIEW = "gear";
  */
 export const MOBS_VIEW = "mobs";
 
+/**
+ * Incoming damage (F26), the same shape again: a sub-tab reading a derived
+ * index and a raw feed rather than a QuerySpec. The feed half is the reason it
+ * cannot be a dashboard — its subject is the ORDER swings arrived in, and
+ * every viz the query model offers aggregates that away. The Tanking view still
+ * answers the aggregate half of the question.
+ */
+export const HITS_VIEW = "incoming";
+
 export interface MigrationResult {
   dashboards: DashboardDef[];
   changed: boolean;

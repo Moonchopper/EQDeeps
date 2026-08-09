@@ -77,6 +77,124 @@ export interface MobHealthReport {
   instanced: boolean;
 }
 
+export type MobAttackConfidence = "low" | "medium" | "high";
+
+/** One of a mob's attacks, on its own. */
+export interface MobAttackSkill {
+  skill: string;
+  /** Spells have attempts but no swing accounting — nothing about them can be dodged. */
+  spell: boolean;
+  swings: number;
+  landed: number;
+  total: number;
+  avgHit: number;
+  medianHit: number;
+  floor: number;
+  ceiling: number;
+  maxHit: number;
+  minHit: number;
+  hitRate: number;
+  missRate: number;
+  avoidRate: number;
+}
+
+/**
+ * What it costs to stand in front of one mob, in one place, at one difficulty,
+ * at one defender level (F26).
+ *
+ * The level is in the key because how hard a mob hits is a fact about a
+ * pairing, not about the mob: pooling a level-40's incoming damage with a
+ * level-60's would produce an average describing neither.
+ *
+ * The hit-size figures — `avgHit`, `medianHit`, `floor`/`ceiling`, `maxHit`,
+ * `minHit` — are **melee only**. Averaging a 15-point damage shield tick with a
+ * 200-point backstab gives a number describing neither, so spells and shields
+ * live in `spellTotal` and in `skills` where they read as themselves. The
+ * p10–p90 band is shown rather than collapsed: unlike mob health, that spread
+ * is the mob's real damage range rather than doubt about it.
+ */
+export interface MobAttackEstimate {
+  mob: string;
+  zone: string;
+  /** Absent in the open world. */
+  difficulty?: number;
+  tierName?: string;
+  /** Absent when the log never established who was being hit. */
+  defenderLevel?: number;
+  fights: number;
+  /** Melee attempts the log accounted for. Ripostes are not among them — the log drops them. */
+  swings: number;
+  /** Everything that did damage, spells and shields included. */
+  landed: number;
+  /** Every point inflicted, on the same footing as `landed`. */
+  total: number;
+  /** The landed swings the headline figures are computed from. */
+  meleeHits: number;
+  meleeTotal: number;
+  /** The rest of `total`: spells, DoTs and damage shields. */
+  spellTotal: number;
+  avgHit: number;
+  medianHit: number;
+  floor: number;
+  ceiling: number;
+  maxHit: number;
+  minHit: number;
+  hitRate: number;
+  missRate: number;
+  dodgeRate: number;
+  parryRate: number;
+  blockRate: number;
+  absorbRate: number;
+  /** Who the evidence came from, capped — this key pools every defender at one level. */
+  defenders: string[];
+  skills: MobAttackSkill[];
+  confidence: MobAttackConfidence;
+  firstSeen: string;
+  lastSeen: string;
+}
+
+export interface MobAttackReport {
+  server: string;
+  character: string;
+  /** Absent when the log has not established it — which rows are "mine" then has no answer. */
+  characterLevel?: number;
+  mobs: MobAttackEstimate[];
+  landed: number;
+  instanced: boolean;
+}
+
+/** How a swing turned out. Avoided outcomes carry a zero amount. */
+export type HitOutcome =
+  "melee" | "directDamage" | "damageOverTime" | "damageShield" | "other" |
+  "miss" | "dodge" | "parry" | "block" | "invulnerable" | "absorb";
+
+export interface IncomingHit {
+  at: string;
+  attacker: string;
+  defender: string;
+  /** Set when the defender is a pet. */
+  defenderOwner?: string;
+  skill: string;
+  outcome: HitOutcome;
+  amount: number;
+  modifiers: string;
+  spell: boolean;
+  fight?: string;
+}
+
+/**
+ * The tail of the incoming-damage stream. Deliberately not a QuerySpec: the
+ * sequence is the information, and no aggregation keeps it.
+ */
+export interface IncomingHitsResult {
+  rangeBegin?: string;
+  rangeEnd?: string;
+  hits: IncomingHit[];
+  /** How many fell in the scope before the tail was taken. */
+  total: number;
+  dataVersion: number;
+}
+
 export type QuerySource =
   "damage" | "healing" | "tanking" | "casts" | "deaths" | "experience" | "faction" | "loot" |
   "considers";
@@ -389,6 +507,26 @@ export const api = {
    */
   getMobs: (id: string): Promise<MobHealthReport> =>
     fetch(`/api/sessions/${id}/mobs`).then((r) => json(r)),
+
+  /**
+   * Learned attack profiles for this session's server (F26). Server-wide like
+   * mob health, but the rows are per defender level, so the session also says
+   * which of them are this character's.
+   */
+  getAttacks: (id: string): Promise<MobAttackReport> =>
+    fetch(`/api/sessions/${id}/attacks`).then((r) => json(r)),
+
+  /** The raw incoming stream over a scope, newest last. */
+  hits: (
+    id: string,
+    scope: QuerySpec["scope"],
+    options: { limit?: number; ownerOnly?: boolean } = {},
+  ): Promise<IncomingHitsResult> =>
+    fetch(`/api/sessions/${id}/hits`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ scope, ...options }),
+    }).then((r) => json(r)),
 
   getContext: (id: string): Promise<ContextTimeline> =>
     fetch(`/api/sessions/${id}/context`).then((r) => json(r)),

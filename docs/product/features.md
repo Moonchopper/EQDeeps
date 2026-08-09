@@ -23,6 +23,10 @@ difficulty is parsed off the zone line, kills are measured into a per-server
 index, and the Mobs tab, the fight-list share column and the tier ladder read
 it.
 
+**Update (2026-08-08):** F26 (incoming damage) shipped — an Incoming sub-tab
+carrying the raw feed of swings taken and a per-server attack index keyed on the
+defender's level as well as the mob, zone and difficulty.
+
 ---
 
 ## P0 — First working pass
@@ -170,6 +174,10 @@ Create/duplicate/delete dashboards; add panels (table, line chart, bar chart, st
 
 For each player death: the final ~20 seconds of incoming damage, heals received, and buffs/debuffs landing, interleaved chronologically with running HP-relevant totals; accessible from summaries and the fight list.
 
+F26's feed is the incoming third of this, already ordered and already scoped by
+the time frame; what a recap adds is the interleaving with heals and buff
+landings, and an entry point from a death rather than from a tab.
+
 - AC: Recap for a fixture death matches the interleaving rules in the domain doc.
 
 ### F10. Spell/cast analytics
@@ -179,6 +187,11 @@ Cast counts per player (casts, interrupts, twincasts), received-buff counts, spe
 ### F11. Hit distribution views
 
 Histogram of hit sizes (crit vs non-crit) per player/skill; timeline density views.
+
+**Half-shipped by F26** on the incoming side: mob attacks are already stored as
+a log-spaced histogram and reported as a median with a p10–p90 band. What
+remains is the outgoing half and drawing the distribution rather than quoting
+three points off it.
 
 ### F12. Parse-to-clipboard
 
@@ -246,6 +259,67 @@ It surfaces as analysis, not as a status bar — there is no live health meter, 
 - AC: The demo log teaches the index nothing.
 - AC: A fight that dealt a fraction of a mob's health says so, and one that dealt more than the median is not clamped to 100%.
 - AC: With nothing learned yet, the panel explains what would populate it rather than showing an empty table.
+- AC: The list leads with the most recently killed, not the best-evidenced — an index that accumulates for months would otherwise bury tonight's camp deeper the longer the app is used. (Changed by F26, which sorts its sibling list the same way.)
+
+### F26. Incoming damage
+
+What is hitting you, and what it hits for. See
+[ADR-013](../architecture/adr-013-incoming-damage.md).
+
+The Tanking view (F7b) already aggregates incoming damage over the time frame.
+Two things are missing from it, in opposite directions: **the sequence
+underneath** — "three parries, then a 900-point crush, then a death" is a story
+no aggregation keeps — and **the memory above it**, since "how hard does a dar
+ghoul knight in Old Guk tier 3 hit" has a stable answer the app re-derived every
+session and then forgot.
+
+So the Incoming sub-tab is two readings of one stream. The **feed** is the last
+few hundred swings in the order they landed, avoided ones included, over the
+app-wide time frame. It is the one view in the app that is deliberately not a
+QuerySpec, because its subject is the ordering and every viz aggregates that
+away. The **profiles** are what the server has learned across every log ever
+opened against it.
+
+A profile is keyed on **(mob, zone, difficulty, defender level)** — not on the
+mob. How hard something hits is a fact about a *pairing*, and pooling a
+level-40's incoming damage with a level-60's yields an average describing
+neither. Levels come from the owner's dings and from any /who that caught a
+player unanonymous; a level the log never stated is its own bucket, labelled,
+never the owner's.
+
+The headline figures are **melee only**. On a real log a forsaken revenant lands
+209 punches averaging 66, 752 damage-shield ticks averaging 15, and four nukes
+averaging 582 — pooled, "average hit 35", which is true of none of them. Spells
+and shields are in the totals and broken out per attack.
+
+Every number carries a p10–p90 band and a confidence grade, as mob health does,
+but graded differently: a mob's melee has a real four-fold range, so spread is
+the answer rather than the doubt. Confidence is graded on how many swings back
+it and whether the defender's level was known at all.
+
+- AC: The same mob at two defender levels is two rows with two numbers, never
+  one averaged across both — and a row whose defender level was never
+  established says so rather than borrowing one.
+- AC: The feed shows misses, dodges, parries and blocks alongside the hits, in
+  log order, and says how many it is not showing.
+- AC: Re-opening a log, or leaving one open all evening, never inflates the
+  tally — the same fight banked twice is banked once.
+- AC: Learned profiles survive a restart and are shared by every character on
+  that server at the same level.
+- AC: A group member who never speaks, joins a raid or appears in a /who is
+  still counted as a defender; a mob hitting another mob never is.
+- AC: The headline hit size describes swings, not a damage shield averaged with
+  a backstab; each attack is readable on its own.
+- AC: Avoidance rates are stated as "of the swings the log accounted for" —
+  ripostes are not in the log as attempts and the view does not pretend
+  otherwise.
+- AC: The demo log teaches the index nothing.
+- AC: With nothing learned yet, the panel explains what would populate it rather
+  than showing an empty table.
+- AC: Both the feed and the profile table lead with the most recent thing —
+  what you are fighting now, not what you have the most evidence about — and
+  the profile table shows the instant it is sorted on, dated well enough that
+  two rows from different days cannot read as out of order.
 
 ---
 
@@ -257,7 +331,7 @@ It surfaces as analysis, not as a status bar — there is no live health meter, 
 - **F18. ADPS awareness** — track crit-modifying buffs to contextualize damage spikes (reference: adpsMeter data in old app).
 - **F19. Report export** — HTML/CSV export of any view; shareable fight report bundles.
 - **F20. Trigger system** — GINA-style pattern alerts (explicit non-goal for v1; keep the ingestion layer's line stream subscribable so this can attach later).
-- **F21. Mob-normalized DPS context** — cross-fight DPS aggregates are skewed by level differences and mob mitigation. Ship/derive an NPC-stats database (level, class, AC/mitigation tier per zone/era) and use it to annotate aggregate DPS with expected upper/lower bounds per target, so "average DPS" comparisons across different content are honest. (Owner request, 2026-08-01; aggregate selection UI ships first and accepts the skew.) **Half-unblocked by F25:** per-mob size is now measured, and con lines (PR #5) supply level, so the external dataset is no longer needed for either.
+- **F21. Mob-normalized DPS context** — cross-fight DPS aggregates are skewed by level differences and mob mitigation. Ship/derive an NPC-stats database (level, class, AC/mitigation tier per zone/era) and use it to annotate aggregate DPS with expected upper/lower bounds per target, so "average DPS" comparisons across different content are honest. (Owner request, 2026-08-01; aggregate selection UI ships first and accepts the skew.) **Half-unblocked by F25:** per-mob size is now measured, and con lines (PR #5) supply level, so the external dataset is no longer needed for either. **F26 adds the other side of it** — how hard a mob hits, measured per defender level, which is the mitigation half of "was that DPS good for this content".
 
 ---
 

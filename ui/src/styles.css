@@ -2014,6 +2014,70 @@ th.num {
   color: var(--muted);
 }
 
+/* ---- incoming damage (F26) ---- */
+/* The feed and the profiles share the panel column. The feed is capped rather
+   than allowed to grow: it is the last few hundred swings, and a pane that
+   pushed the profiles off the screen would hide the half of the tab that keeps
+   its value between sessions. */
+.hit-feed-panel {
+  max-height: 40vh;
+}
+
+.hit-feed {
+  font-variant-numeric: tabular-nums;
+}
+
+/* An avoided swing is still evidence, but it is not the thing being scanned
+   for — it recedes rather than disappearing. */
+.hit-avoided td {
+  color: var(--muted);
+}
+
+.hit-outcome {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* Miss and dodge are the defender winning; absorb and invulnerable are a buff
+   doing it for them. Tinting only the first group keeps the colour meaning one
+   thing. */
+.hit-outcome.miss,
+.hit-outcome.dodge,
+.hit-outcome.parry,
+.hit-outcome.block {
+  color: var(--live);
+}
+
+.hit-row {
+  cursor: pointer;
+}
+
+.hit-row:hover td {
+  color: var(--ink);
+}
+
+/* The breakdown shares the matchup's columns rather than nesting a table of
+   its own — a nested table sizes to its own content, which put every figure
+   under a header that meant something else. A tint is what groups the rows
+   instead. */
+.hit-skill td,
+.hit-note-row td {
+  background: #ffffff05;
+}
+
+/* .child-row mutes every cell, which would swallow the one figure the
+   breakdown exists to show. */
+.hit-skill td.strong {
+  color: var(--ink);
+}
+
+/* The one wrapping cell in a table that is nowrap everywhere else. */
+.hit-note-row td {
+  padding: 6px 12px 10px 30px;
+  white-space: normal;
+  line-height: 1.5;
+}
+
 /* ---- the tier ladder ---- */
 .mob-ladder {
   margin-top: 16px;

@@ -51,6 +51,8 @@ public static class ServerApp
         builder.Services.AddSingleton(_ => new GearStore(builder.Configuration["gearRoot"]));
         // --mobRoot likewise redirects the learned mob-health index (tests).
         builder.Services.AddSingleton(_ => new MobHealthStore(builder.Configuration["mobRoot"]));
+        // --attackRoot likewise redirects the learned mob-attack profiles (tests).
+        builder.Services.AddSingleton(_ => new MobAttackStore(builder.Configuration["attackRoot"]));
 
         var app = builder.Build();
 
@@ -251,6 +253,20 @@ public static class ServerApp
         // server's, learned from every log ever opened against it.
         app.MapGet("/api/sessions/{id}/mobs", (string id, SessionManager manager) =>
             manager.Get(id) is { } host ? Results.Ok(host.MobHealth()) : Results.NotFound());
+
+        // What those mobs hit back with (F26). Server-wide like the health
+        // above, but keyed per defender level as well — how hard something hits
+        // is a fact about a pairing, so the session supplies which pairing is
+        // the caller's.
+        app.MapGet("/api/sessions/{id}/attacks", (string id, SessionManager manager) =>
+            manager.Get(id) is { } host ? Results.Ok(host.MobAttacks()) : Results.NotFound());
+
+        // The raw incoming stream under those profiles. A POST because it
+        // carries a scope, the same as /query and /timeline — and it is not a
+        // QuerySpec because the sequence is the information, which no
+        // aggregation preserves.
+        app.MapPost("/api/sessions/{id}/hits", (string id, IncomingHitsRequest request, SessionManager manager) =>
+            manager.Get(id) is { } host ? Results.Ok(host.IncomingHits(request)) : Results.NotFound());
 
         app.MapHub<LiveHub>("/hubs/live");
 

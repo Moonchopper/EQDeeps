@@ -2056,14 +2056,26 @@ th.num {
   color: var(--ink);
 }
 
-.hit-skills > td {
-  padding: 4px 0 10px 18px;
-  border-bottom: 1px solid var(--grid);
+/* The breakdown shares the matchup's columns rather than nesting a table of
+   its own — a nested table sizes to its own content, which put every figure
+   under a header that meant something else. A tint is what groups the rows
+   instead. */
+.hit-skill td,
+.hit-note-row td {
+  background: #ffffff05;
 }
 
-.hit-note {
-  margin: 8px 0 0;
-  max-width: 80ch;
+/* .child-row mutes every cell, which would swallow the one figure the
+   breakdown exists to show. */
+.hit-skill td.strong {
+  color: var(--ink);
+}
+
+/* The one wrapping cell in a table that is nowrap everywhere else. */
+.hit-note-row td {
+  padding: 6px 12px 10px 30px;
+  white-space: normal;
+  line-height: 1.5;
 }
 
 /* ---- the tier ladder ---- */

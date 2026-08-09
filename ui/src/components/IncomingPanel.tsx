@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { api, type IncomingHit, type MobAttackEstimate, type MobAttackReport } from "../api";
 import { fmtClock, fmtNum, fmtRate } from "../format";
 import { TableSearch } from "../dashboards/tableTools";
@@ -221,16 +221,22 @@ export function IncomingPanel({ attacks, sessionId, frame, server }: Props) {
                     <th>Zone</th>
                     {attacks.instanced && <th>Tier</th>}
                     <th className="num">vs</th>
-                    {/* Melee only, all four. A mob's damage shield and its
+                    {/* Melee only, these four. A mob's damage shield and its
                         backstab average into a number describing neither, so
-                        the spells sit in the breakdown instead. */}
-                    <th className="num" title="Melee only — spells and shields are in the breakdown">
+                        the spells are broken out per attack instead. */}
+                    <th className="num" title="Melee only — expand a row to see spells and shields">
                       Avg swing
                     </th>
                     <th className="num">Range</th>
                     <th className="num">Max</th>
                     <th className="num">Lands</th>
                     <th className="num">Swings</th>
+                    {/* These two count everything, so an expanded row's
+                        attacks add up to the row above them. */}
+                    <th className="num" title="Everything that landed, spells and shields included">
+                      Hits
+                    </th>
+                    <th className="num">Total</th>
                     <th>Confidence</th>
                   </tr>
                 </thead>
@@ -238,41 +244,46 @@ export function IncomingPanel({ attacks, sessionId, frame, server }: Props) {
                   {rows.map((m) => {
                     const key = keyOf(m);
                     const expanded = open === key;
-                    return [
-                      <tr
-                        key={key}
-                        className="hit-row"
-                        onClick={() => setOpen(expanded ? null : key)}
-                        title="Show each attack on its own"
-                      >
-                        <td className="mob-name">
-                          <span className="expander">{expanded ? "▾" : "▸"}</span>
-                          {m.mob}
-                        </td>
-                        <td className="subtle">{m.zone}</td>
-                        {attacks.instanced && <td>{tierLabel(m)}</td>}
-                        <td className="num subtle">{m.defenderLevel ?? "?"}</td>
-                        <td className="num strong">{fmtNum(m.avgHit)}</td>
-                        <td className="num subtle">
-                          {fmtNum(m.floor)}–{fmtNum(m.ceiling)}
-                        </td>
-                        <td className="num">{fmtNum(m.maxHit)}</td>
-                        <td className="num" title={avoidanceTitle(m)}>
-                          {m.swings > 0 ? fmtRate(m.hitRate) : "—"}
-                        </td>
-                        <td className="num subtle" title={`${m.fights} fights`}>
-                          {fmtNum(m.swings)}
-                        </td>
-                        <td>
-                          <span className={`mob-confidence ${m.confidence}`}>{m.confidence}</span>
-                        </td>
-                      </tr>,
-                      ...(expanded ? [<SkillRows key={key + "|skills"} mob={m} tiers={attacks.instanced} />] : []),
-                    ];
+                    return (
+                      <Fragment key={key}>
+                        <tr
+                          className="hit-row"
+                          onClick={() => setOpen(expanded ? null : key)}
+                          title="Show each attack on its own"
+                        >
+                          <td className="mob-name">
+                            <span className="expander">{expanded ? "▾" : "▸"}</span>
+                            {m.mob}
+                          </td>
+                          <td className="subtle">{m.zone}</td>
+                          {attacks.instanced && <td>{tierLabel(m)}</td>}
+                          <td className="num subtle">{m.defenderLevel ?? "?"}</td>
+                          <td className="num strong">{fmtNum(m.avgHit)}</td>
+                          <td className="num subtle">
+                            {fmtNum(m.floor)}–{fmtNum(m.ceiling)}
+                          </td>
+                          <td className="num">{fmtNum(m.maxHit)}</td>
+                          <td className="num" title={avoidanceTitle(m)}>
+                            {m.swings > 0 ? fmtRate(m.hitRate) : "—"}
+                          </td>
+                          <td className="num subtle" title={`${m.fights} fights`}>
+                            {fmtNum(m.swings)}
+                          </td>
+                          <td className="num subtle">{fmtNum(m.landed)}</td>
+                          <td className="num subtle">{fmtNum(m.total)}</td>
+                          <td>
+                            <span className={`mob-confidence ${m.confidence}`}>
+                              {m.confidence}
+                            </span>
+                          </td>
+                        </tr>
+                        {expanded && <SkillRows mob={m} tiers={attacks.instanced} />}
+                      </Fragment>
+                    );
                   })}
                   {rows.length === 0 && (
                     <tr>
-                      <td colSpan={attacks.instanced ? 10 : 9} className="empty">
+                      <td colSpan={columnCount(attacks.instanced)} className="empty">
                         Nothing matches.
                       </td>
                     </tr>
@@ -287,49 +298,66 @@ export function IncomingPanel({ attacks, sessionId, frame, server }: Props) {
   );
 }
 
+/** Mob, Zone, [Tier,] vs, Avg swing, Range, Max, Lands, Swings, Hits, Total, Confidence. */
+function columnCount(instanced: boolean): number {
+  return instanced ? 12 : 11;
+}
+
 /**
- * One mob's attacks broken out. A single "avg hit" across a mob that both
+ * One mob's attacks broken out. A single "avg swing" across a mob that both
  * crushes and breathes fire is an average of two different things, so the
  * breakdown is where the number becomes usable.
+ *
+ * <p>These are rows of the SAME table as the matchup above them, not a nested
+ * one. A nested table lays its columns out on its own content, so "68" landed
+ * under "Zone" and "44.3%" under "Avg swing" — every figure sitting beneath a
+ * header that meant something else. Sharing the parent's columns is what makes
+ * a breakdown readable, and it is also what makes the arithmetic checkable:
+ * the Hits and Total columns count everything, so the attacks add up to the
+ * row they came from.</p>
  */
 function SkillRows({ mob, tiers }: { mob: MobAttackEstimate; tiers: boolean }) {
   return (
-    <tr className="hit-skills">
-      <td colSpan={tiers ? 10 : 9}>
-        <table className="mob-table">
-          <tbody>
-            {mob.skills.map((s) => (
-              <tr key={s.skill}>
-                <td className="mob-name">
-                  {s.skill}
-                  {s.spell && <span className="subtle"> spell</span>}
-                </td>
-                <td className="num strong">{fmtNum(s.avgHit)}</td>
-                <td className="num subtle">
-                  {fmtNum(s.floor)}–{fmtNum(s.ceiling)}
-                </td>
-                <td className="num">{fmtNum(s.maxHit)}</td>
-                {/* A spell has no attempt anyone can dodge, so it has no hit
-                    rate — an em dash rather than a 100% that would read as
-                    "unavoidable" when it means "not applicable". */}
-                <td className="num">{s.spell ? "—" : fmtRate(s.hitRate)}</td>
-                <td className="num subtle">{fmtNum(s.landed)} hits</td>
-                <td className="num subtle">{fmtNum(s.total)} total</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <p className="subtle hit-note">
+    <>
+      {mob.skills.map((s) => (
+        <tr key={s.skill} className="child-row hit-skill">
+          <td className="mob-name">
+            <span className="expander-spacer" />
+            {s.skill}
+            {s.spell && <span className="subtle"> spell</span>}
+          </td>
+          {/* Zone, tier and defender level belong to the matchup, not to one
+              of its attacks — blank rather than repeated down the group. */}
+          <td />
+          {tiers && <td />}
+          <td />
+          <td className="num strong">{fmtNum(s.avgHit)}</td>
+          <td className="num subtle">
+            {fmtNum(s.floor)}–{fmtNum(s.ceiling)}
+          </td>
+          <td className="num">{fmtNum(s.maxHit)}</td>
+          {/* A spell has no attempt anyone can dodge, so it has neither a hit
+              rate nor swings — em dashes rather than a 100% that would read as
+              "unavoidable" when it means "not applicable". */}
+          <td className="num">{s.spell ? "—" : fmtRate(s.hitRate)}</td>
+          <td className="num subtle">{s.spell ? "—" : fmtNum(s.swings)}</td>
+          <td className="num subtle">{fmtNum(s.landed)}</td>
+          <td className="num subtle">{fmtNum(s.total)}</td>
+          <td />
+        </tr>
+      ))}
+      <tr className="child-row hit-note-row">
+        <td colSpan={columnCount(tiers)}>
           Measured against {mob.defenders.join(", ")}
           {mob.defenderLevel === undefined && " (level never established)"}. Of{" "}
           {fmtNum(mob.total)} points taken, {fmtNum(mob.meleeTotal)} came from{" "}
           {fmtNum(mob.meleeHits)} landed swings and {fmtNum(mob.spellTotal)} from spells and
-          shields — which is why the columns above are melee only. Rates are over the swings
-          the log accounted for: a swing you riposted is written as your counter-attack and
-          never as an attempt, so it is in neither column.
-        </p>
-      </td>
-    </tr>
+          shields — which is why Avg swing, Range, Max and Lands are melee only. Rates are
+          over the swings the log accounted for: a swing you riposted is written as your
+          counter-attack and never as an attempt, so it is in neither column.
+        </td>
+      </tr>
+    </>
   );
 }
 

@@ -4,7 +4,6 @@ import {
   api,
   type ContextTimeline,
   type FightInfo,
-  type GearChange,
   type QuerySource,
   type QueryResult,
   type QueryRow,
@@ -41,8 +40,7 @@ import {
 } from "../chartInteractions";
 import type { ChartSettings } from "../timeControls";
 import type { TimeFrame } from "../timeFrame";
-import { fightMarkArea, OVERLAY_OFF } from "../fightOverlay";
-import { gearMarkLine } from "../gearOverlay";
+import { fightMarkArea } from "../fightOverlay";
 import { contextMarkArea, type ContextMode } from "../contextOverlay";
 
 export interface PanelContext {
@@ -54,8 +52,6 @@ export interface PanelContext {
   fights: FightInfo[];
   /** Mob-name size on those bands; 0 hides them. */
   fightLabelPx: number;
-  /** Moments the player's gear changed, marked on time charts. */
-  gearChanges: GearChange[];
   /** Where the character was and what level they were; null until it lands. */
   context: ContextTimeline | null;
   /** Which lanes of that the strip shows, if any. */
@@ -366,9 +362,6 @@ const BREAK_MS = 30_000;
 /** Series name carrying the fight bands; kept out of the legend by name. */
 const FIGHT_BANDS = "__fights";
 
-/** Likewise for the gear-change marks. */
-const GEAR_MARKS = "__gear";
-
 /** And for the zone/level strip. */
 const CONTEXT_STRIP = "__context";
 
@@ -411,7 +404,6 @@ function LinePanel({
   // instead of quietly falling back to one raw bucket.
   const smoothingSec = panelWindowSeconds(panel, ctx.frame, settings, ctx.logSpanSeconds);
   const bandsKey = fightBandsKey(ctx.fights, bucketSeconds);
-  const gearKey = ctx.gearChanges.map((c) => c.at).join(",");
   // See DpsChart: "fit" and an active zoom both mean the viewport is not the
   // clock's to move.
   const scrollWindow: [number, number] | null =
@@ -665,26 +657,6 @@ function LinePanel({
       } as echarts.SeriesOption);
     }
 
-    // Gear-change marks, same as the DPS chart: any metric over time is worth
-    // reading against what the character was wearing.
-    const markLine = extentRef.current
-      ? gearMarkLine(
-          ctx.gearChanges,
-          axisMin ?? extentRef.current[0],
-          axisMax ?? extentRef.current[1],
-          ctx.fightLabelPx > OVERLAY_OFF,
-        )
-      : undefined;
-    if (markLine) {
-      series.push({
-        name: GEAR_MARKS,
-        type: "line",
-        data: [],
-        silent: true,
-        markLine,
-      } as echarts.SeriesOption);
-    }
-
     chartRef.current.setOption(
       {
         backgroundColor: "transparent",
@@ -749,7 +721,7 @@ function LinePanel({
       key: "dataZoomSelect",
       dataZoomSelectActive: true,
     });
-  }, [result, panel.source, bucketSeconds, smoothingSec, spanSec, isZoomed, bandsKey, gearKey, ctx.fightLabelPx, ctx.scrollNowMs]);
+  }, [result, panel.source, bucketSeconds, smoothingSec, spanSec, isZoomed, bandsKey, ctx.fightLabelPx, ctx.scrollNowMs]);
 
   if (result === "no-selection") return <div className="empty">Select a fight</div>;
   return (

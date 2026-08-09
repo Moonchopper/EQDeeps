@@ -4,7 +4,6 @@ import {
   api,
   type DiscoveredLog,
   type FightInfo,
-  type GearReport,
   type MobAttackReport,
   type MobHealthReport,
   type SessionInfo,
@@ -12,7 +11,6 @@ import {
   type UpdateState,
 } from "./api";
 import { createLiveConnection, type BackfillEvent, type TickEvent } from "./live";
-import { GearPanel } from "./components/GearPanel";
 import { IncomingPanel } from "./components/IncomingPanel";
 import { MobHealthPanel } from "./components/MobHealthPanel";
 import { describeAge, SessionBar } from "./components/SessionBar";
@@ -34,7 +32,6 @@ import {
 } from "./contextOverlay";
 import { defaultPanel, newDashboard, newId, type DashboardDef } from "./dashboards/model";
 import {
-  GEAR_VIEW,
   HITS_VIEW,
   MOBS_VIEW,
   STANCES_VIEW_ID,
@@ -80,9 +77,6 @@ export default function App() {
   const [sessions, setSessions] = useState<SessionInfo[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [fights, setFights] = useState<FightInfo[]>([]);
-  // Gear snapshots for the active session's character (F24). Null until the
-  // first fetch lands, which the panel distinguishes from "none recorded".
-  const [gear, setGear] = useState<GearReport | null>(null);
   // Learned mob health for the active session's SERVER (F25). Null until the
   // first fetch lands, which the panel distinguishes from "nothing learned".
   const [mobs, setMobs] = useState<MobHealthReport | null>(null);
@@ -186,7 +180,7 @@ export default function App() {
   // a remembered view this log doesn't have falls back to Summary, and the
   // rail has to light up what is on screen rather than what was last clicked.
   const effectiveStdView =
-    activeStdView || stdView === GEAR_VIEW || stdView === MOBS_VIEW || stdView === HITS_VIEW
+    activeStdView || stdView === MOBS_VIEW || stdView === HITS_VIEW
       ? stdView
       : SUMMARY_VIEW;
   // Scrolling needs a live tail AND a log that is still being written; see
@@ -439,13 +433,6 @@ export default function App() {
             bumpRefreshThrottled();
           }
         },
-        // A dump the player just wrote: the panel and the chart marks update
-        // without them having to look for a refresh button.
-        onGear: (e) => {
-          if (e.sessionId === activeIdRef.current) {
-            setGear(e.gear);
-          }
-        },
         onConnectionLost: () =>
           setError("Lost connection to the EQDeeps server — relaunch EQDeeps.Server.exe and refresh this page."),
       }),
@@ -625,16 +612,12 @@ export default function App() {
     setActiveId(id);
     setTick(null);
     setBackfill(null);
-    setGear(null);
     setMobs(null);
     setAttacks(null);
     setContext(null);
     setFrame({ kind: "live", spanSec: chartDefaults.spanSec }); // a new log starts live
     await live.subscribe(id);
     await refreshFights(id);
-    // Best-effort: gear is context, and its absence must never keep a log from
-    // opening. The hub pushes any later dump anyway.
-    api.getGear(id).then(setGear).catch(() => undefined);
     api.getMobs(id).then(setMobs).catch(() => undefined);
   }
 
@@ -670,7 +653,6 @@ export default function App() {
     if (activeId === id) {
       setActiveId(null);
       setFights([]);
-      setGear(null);
       setMobs(null);
       setAttacks(null);
       setFrame(DEFAULT_FRAME);
@@ -799,7 +781,6 @@ export default function App() {
               frame,
               fights,
               fightLabelPx,
-              gearChanges: gear?.changes ?? [],
               context,
               contextMode,
               playedTimeOnly,
@@ -817,15 +798,12 @@ export default function App() {
             /*
              * The fight list is a time-frame selector, so it belongs on the
              * views that report over a time frame — which is all of them
-             * except two. Mobs is what this server's mobs are worth, learned
-             * across every kill ever seen; Gear is a shelf of snapshots. A
-             * pane whose every click did nothing to what was on screen would
-             * be furniture, so those two get the width instead.
+             * except one. Mobs is what this server's mobs are worth, learned
+             * across every kill ever seen, so a pane whose every click did
+             * nothing to what was on screen would be furniture — it gets the
+             * width instead.
              */
-            const showFights = !(
-              view === "overview" &&
-              (effectiveStdView === MOBS_VIEW || effectiveStdView === GEAR_VIEW)
-            );
+            const showFights = !(view === "overview" && effectiveStdView === MOBS_VIEW);
             return (
           <main
             className={
@@ -848,9 +826,6 @@ export default function App() {
                   {d.name}
                 </button>
               ))}
-              <button className={railClass(GEAR_VIEW)} onClick={() => selectStdView(GEAR_VIEW)}>
-                Gear
-              </button>
               <button
                 className={railClass(MOBS_VIEW)}
                 onClick={() => selectStdView(MOBS_VIEW)}
@@ -904,20 +879,12 @@ export default function App() {
                 </div>
               )}
             </nav>
-            {/* Four cases: Gear, a standard view, the hand-built Summary
-                that Overview opens on, or one of the user's own dashboards.
-                Gear is checked first — it is a sub-tab but not a dashboard, so
-                the standard-view lookup resolves it to nothing. */}
-            {view === "overview" && stdView === GEAR_VIEW ? (
-              <div className="dashboard-main">
-                <GearPanel
-                  ctx={panelCtx}
-                  gear={gear}
-                  character={sessions.find((s) => s.id === activeId)?.character ?? ""}
-                  chartDefaults={chartDefaults}
-                />
-              </div>
-            ) : view === "overview" && stdView === MOBS_VIEW ? (
+            {/* Three cases: a standard view, the hand-built Summary that
+                Overview opens on, or one of the user's own dashboards. Mobs
+                and Incoming are checked first — they are rail entries but not
+                dashboards, so the standard-view lookup resolves them to
+                nothing. */}
+            {view === "overview" && stdView === MOBS_VIEW ? (
               <MobHealthPanel
                 mobs={mobs}
                 server={sessions.find((s) => s.id === activeId)?.server ?? ""}
@@ -959,7 +926,6 @@ export default function App() {
                       frame={frame}
                       fights={fights}
                       fightLabelPx={fightLabelPx}
-                      gearChanges={panelCtx.gearChanges}
                       context={context}
                       contextMode={contextMode}
                       refreshKey={refreshKey}

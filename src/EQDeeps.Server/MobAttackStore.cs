@@ -20,9 +20,8 @@ namespace EQDeeps.Server;
 /// ceremony and a failed write is swallowed — the cost is re-reading logs the
 /// user still has, and it must never be the user's fight list.</para>
 ///
-/// <para>Writes are atomic (temp + move), matching <see cref="GearStore"/>,
-/// <see cref="MobHealthStore"/>, <see cref="RecentLogs"/> and
-/// <see cref="DocumentStore"/>.</para>
+/// <para>Writes are atomic (temp + move), matching <see cref="MobHealthStore"/>,
+/// <see cref="RecentLogs"/> and <see cref="DocumentStore"/>.</para>
 /// </summary>
 public sealed class MobAttackStore
 {

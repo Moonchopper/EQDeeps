@@ -7,8 +7,9 @@ dashboards).
 
 Navigation had grown into two stacked horizontal rows above every screen. The
 top row switched between Overview and the user's own dashboards; the second row,
-visible only under Overview, held the standard views. By the time Gear (F24),
-Mobs (F25) and Incoming (F26) shipped, that second row carried ten entries and
+visible only under Overview, held the standard views. By the time Gear (F24,
+since withdrawn), Mobs (F25) and Incoming (F26) shipped, that second row carried
+ten entries and
 had started scrolling sideways — `.sub-tabs` had `overflow-x: auto`, which is
 the point at which a navigation control has stopped showing you where you can
 go. Adding the eleventh would have made it worse, and the backlog has more views
@@ -43,14 +44,15 @@ disabled on every standard view, which is most of the app.
 
 The fight list is a **range selector**: what it picks becomes the app-wide time
 frame (F7). It is therefore only meaningful on views that report over a time
-frame — which is all of them except two:
+frame — which is all of them except one:
 
 - **Mobs** (F25) is what this server's mobs are worth, learned across every kill
   the app has ever seen. It has no time frame at all.
-- **Gear** (F24) is a shelf of snapshots; the frame only nudges which one opens.
 
-On those two the pane was 290px of furniture whose every click changed nothing
-on screen. It is now absent rather than collapsed: collapsing implies there is a
+(Gear was the other, until F24 was withdrawn in v0.9.4.)
+
+There the pane was 290px of furniture whose every click changed nothing on
+screen. It is now absent rather than collapsed: collapsing implies there is a
 state worth getting back to, and a spine to click would be a promise the view
 cannot keep. The panels take the width.
 

@@ -37,7 +37,7 @@ special-case rendering path, check whether it should be a query first.
 | `src/EQDeeps.Core/Ingestion/` | File tailing, batching, rotation/truncation handling, timestamp seek. |
 | `src/EQDeeps.Core/Session/` | `Session`, `RecordStore`, `FightTracker`, `IdentityRegistry`. |
 | `src/EQDeeps.Core/Query/` | `QuerySpec`, `QueryEngine`, `MetricCatalog`, `CannedQueries`, the timelines. |
-| `src/EQDeeps.Core/Gear/`, `Mobs/` | F24 inventory snapshots; F25 learned mob health; F26 learned mob attacks + defender levels. |
+| `src/EQDeeps.Core/Mobs/` | F25 learned mob health; F26 learned mob attacks + defender levels. |
 | `src/EQDeeps.Server/` | Minimal-API host, SignalR hub, session lifecycle, WebView2 shell, persistence stores, updates. |
 | `src/EQDeeps.Server/wwwroot/` | **Build output** (gitignored). The SPA is built into here and embedded into the assembly. |
 | `ui/` | React + TypeScript + Vite SPA. |
@@ -89,7 +89,7 @@ Useful server flags: `--browser` (default browser instead of the app window),
 
 Test-only redirect flags — these keep tests out of the real `%AppData%`, and any
 new store you add should get one to match: `--recentLogsRoot`, `--sampleLogRoot`,
-`--updateRoot`, `--gearRoot`, `--mobRoot`, `--attackRoot`.
+`--updateRoot`, `--mobRoot`, `--attackRoot`.
 
 ### Environment traps
 
@@ -151,7 +151,6 @@ Invariants worth not breaking:
 |---|---|---|
 | `dashboards.json`, `saved-queries.json`, `ui-settings.json` | `DocumentStore` (key-allowlisted) | No — user's own work |
 | `recent-logs.json` | MRU log list | No |
-| `gear\` | F24 inventory snapshots per character | **No.** The game overwrites its dump; a snapshot not kept is gone |
 | `mobs\` | F25 learned mob health per *server* | Yes — a cache. Corrupt file just relearns |
 | `attacks\` | F26 learned mob attacks per *server*, keyed by defender level too | Yes — a cache, same deal |
 | update preferences, staged installer | ADR-010 | Yes |
@@ -179,7 +178,7 @@ change it on the other in the same commit.
 - `timeFrame.ts` + `timeControls.tsx` — one app-wide time frame (live tail, fight
   selection, typed window like `-6h`, absolute range, or a promoted chart zoom).
 - `live.ts` — one SignalR connection for the app, per-session subscriptions via
-  hub groups. Events: `backfill`, `fights`, `tick`, `gear`.
+  hub groups. Events: `backfill`, `fights`, `tick`.
 - `colors.ts` / `highlight.tsx` — the shared 16-colour cycling palette and the
   linked-highlight behaviour (point at one reading of an entity, light up the
   rest everywhere).
@@ -242,10 +241,9 @@ copied outright with attribution in `NOTICE`.
 | **What does this log line mean? How do I parse it?** | `docs/domain/eq-log-format.md` — the crown jewels |
 | Player vs NPC vs pet vs merc; identity heuristics | same, §5 |
 | What is a fight? How is DPS/sDPS/crit rate computed? What is the denominator? | `docs/domain/metrics-and-aggregation.md` |
-| The inventory dump format (F24) | `docs/domain/inventory-file-format.md` |
 | Stack, component boundaries, QuerySpec model, persistence layout | `docs/architecture/system-overview.md` |
 | Why is ingestion built that way? | `docs/architecture/log-ingestion-brief.md` + `adr-002` |
-| Why was decision D made? | `docs/architecture/adr-001…014` (parser, ingestion, session state, query engine, API/live, SPA, dashboards, packaging, windowed shell, auto-update, gear snapshots, mob health, incoming damage, navigation rail) |
+| Why was decision D made? | `docs/architecture/adr-001…014` (parser, ingestion, session state, query engine, API/live, SPA, dashboards, packaging, windowed shell, auto-update, gear snapshots (withdrawn), mob health, incoming damage, navigation rail) |
 | Build order, status, verification strategy | `docs/HANDOFF.md` |
 | Signing, release keys, what to do before tagging | `docs/release-signing.md` |
 | How do I run it / what do the flags do? | `README.md` |
@@ -323,7 +321,7 @@ the Ed25519 check and Authenticode.
 
 Shipped: all eight build-order phases (parser, ingestion, session state, query
 engine, API + live loop, SPA, dashboards, packaging), plus the WebView2 shell
-(ADR-009), auto-update (ADR-010, F22), gear snapshots (ADR-011, F24),
+(ADR-009), auto-update (ADR-010, F22),
 estimated mob health (ADR-012, F25), and incoming damage (ADR-013, F26).
 ~1 GB/s backfill, sub-250 ms live latency.
 

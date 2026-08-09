@@ -75,8 +75,7 @@ like it had a six-day hole in it.
 On EQ Legends a character carries several **class loadouts and each levels
 independently** — the owner's log dings to 41, then to 11 an hour later, then
 climbs again, while a `/who` the next day reports 44. Swapping is not logged at
-all (see [log format §3.9c](../domain/eq-log-format.md)), the same silence F24
-already documents for gear.
+all (see [log format §3.9c](../domain/eq-log-format.md)).
 
 The *key* survives this unchanged, and is arguably better for it: a different
 loadout is a different class with different mitigation, so its numbers belong in

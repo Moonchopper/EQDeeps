@@ -47,8 +47,6 @@ public static class ServerApp
         builder.Services.AddSingleton(_ => new RecentLogs(builder.Configuration["recentLogsRoot"]));
         // --sampleLogRoot likewise redirects the extracted demo log (tests).
         builder.Services.AddSingleton(_ => new SampleLog(builder.Configuration["sampleLogRoot"]));
-        // --gearRoot likewise redirects the gear snapshot history (tests).
-        builder.Services.AddSingleton(_ => new GearStore(builder.Configuration["gearRoot"]));
         // --mobRoot likewise redirects the learned mob-health index (tests).
         builder.Services.AddSingleton(_ => new MobHealthStore(builder.Configuration["mobRoot"]));
         // --attackRoot likewise redirects the learned mob-attack profiles (tests).
@@ -241,12 +239,6 @@ public static class ServerApp
         // stored, it is the record stream read as two step functions.
         app.MapGet("/api/sessions/{id}/context", (string id, SessionManager manager) =>
             manager.Get(id) is { } host ? Results.Ok(host.Context()) : Results.NotFound());
-
-        // Gear snapshots for this session's character (F24). Read-only: the
-        // player writes these by typing /outputfile inventory in game, and the
-        // app only ever notices — it never asks the game for anything.
-        app.MapGet("/api/sessions/{id}/gear", (string id, SessionManager manager) =>
-            manager.Get(id) is { } host ? Results.Ok(host.Gear()) : Results.NotFound());
 
         // What this server's mobs are worth (F25). Keyed to the session only to
         // resolve which server is being asked about — the answer is the whole

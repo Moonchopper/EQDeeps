@@ -119,7 +119,11 @@ Every time chart draws **fight bands** behind the line: faint alternating shadin
 
 ### F7b. Standard views
 
-Overview is a section, not a page: a row of sub-tabs holds Summary (the F7 dashboard) plus the specialized standard views — Healing, Tanking, Stances (F23, only on logs that have them), Experience, Faction, Loot. Damage rankings and a live "right now" view are deliberately absent: Summary already carries both, and a standard view has to earn its tab. These ship with the app rather than being provisioned into the user's dashboard store, so they are read-only and cannot drift, be deleted, or be confused with something the user built. "Customize a copy" clones one into a custom dashboard (F8) that the user then owns.
+Overview is a section, not a page: a **left nav rail** holds Summary (the F7 dashboard) plus the specialized standard views — Healing, Tanking, Stances (F23, only on logs that have them), Experience, Faction, Loot, Gear, Mobs, Incoming. Damage rankings and a live "right now" view are deliberately absent: Summary already carries both, and a standard view has to earn its place. These ship with the app rather than being provisioned into the user's dashboard store, so they are read-only and cannot drift, be deleted, or be confused with something the user built. "Customize a copy" clones one into a custom dashboard (F8) that the user then owns.
+
+The rail is the app's only navigation: the user's own dashboards (F8) sit below a divider in the same list, so there is one place to be, not two stacked rows of tabs. Views are a growing list and a window is wider than it is tall, which is the wrong way round for a horizontal strip that was already scrolling sideways; standing it up spends width the panels were not using and gives back the height they were. The actions that belong to a selected dashboard — export, import, delete — sit under the list they act on rather than in a toolbar that would be empty on every standard view.
+
+The fight list keeps the opposite edge, and only on the views it does anything for. It is a time-frame selector (F7), so it appears wherever panels report over a time frame — which is every view except **Mobs** and **Gear**. Mobs is what this server's mobs are worth, learned across every kill ever seen, and Gear is a shelf of snapshots; on both, every click in the fight list would change nothing on screen, so the panels take the width instead.
 
 Window and span are presentation, not properties of a panel, so no panel definition carries them: there is exactly one default (`DEFAULT_CHART_SETTINGS`) and every chart in the app starts there. The top bar owns it — a control beside the version number — and changing it pushes down to every chart, Summary's DPS chart included. The setting persists across restarts.
 
@@ -138,7 +142,8 @@ Loot carries the same data read from both ends, side by side, because "what drop
 - AC: Every panel in a view reports over the same time frame — narrowing the span lowers the totals and tables, it does not merely crop the charts.
 - AC: Changing window or span on one chart and pressing "apply to all" moves every other time chart in that view to the same setting.
 - AC: Time charts draw one continuous line — a bucket with no events reads as zero, not a hole — so idle stretches sag to the axis instead of fragmenting the chart. Ranges too large to fill point-by-point fall back to breaking on long gaps rather than degrading.
-- AC: The chosen sub-tab survives a restart.
+- AC: The chosen standard view survives a restart.
+- AC: The fight list is absent on Mobs and Gear and present on every other view, including a user's own dashboards.
 
 ### F23. Stance analysis
 
@@ -148,7 +153,7 @@ What did switching stances actually buy you? Stances are a state the log announc
 
 The headline column is **per second held**, not DPS. Plain DPS divides by the time you were landing hits, which quietly refunds a stance every second it made you slower — precisely the cost you switched to weigh. Both columns sit side by side so the gap is legible rather than a matter of trusting one number.
 
-The tab is conditional. Most servers and most characters never log a switch, and a permanently empty tab teaches people to ignore the whole row, so the session reports its switch count and the view appears only when there is one.
+The entry is conditional. Most servers and most characters never log a switch, and a permanently empty view teaches people to ignore the whole rail, so the session reports its switch count and the view appears only when there is one.
 
 A stance is a fact about the log's own character: the parser can read your switches and nobody else's, because their client wrote theirs into their log. Records belonging to other players key to `(not you)` rather than being folded into whatever you were holding, and the view's panels are `ownerOnly` — a filter that resolves against whichever log is open, so a dashboard exported from one character still means "me" on another.
 

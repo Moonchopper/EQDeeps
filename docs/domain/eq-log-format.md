@@ -292,6 +292,34 @@ Absorb records: zero-damage attempts against the defender (counts toward defensi
 - **Experience:** modern servers log the level-progress delta — `You gain experience! (5.472%)` / `You gain party experience! (1.812%)` — while classic servers only announce `You gain experience!!` (no number). AA points are separate and carry a running total: `You have gained an ability point!  You now have 2 ability points.` Beware `You gain a rune for N points of absorption.`, which shares the `You gain ` prefix but is an absorb line.
 - **Considers:** `A bat regards you indifferently -- You could probably win this fight. (Lvl: 7)` — the attitude infix identifies the line (`scowls at you, ready to attack` / `glares at you threateningly` / `glowers at you dubiously` / `regards you indifferently` / `judges you amiably` / `kindly considers you` / `looks upon you warmly` / `regards you as an ally`), the threat clause varies freely, and the `(Lvl: N)` suffix (modern servers) is the accessible source of NPC levels — the mob-stats groundwork.
 - **Faction:** modern servers log the numeric delta — `Your faction standing with Frogloks of Guk has been adjusted by -4.` — while classic servers say `… got better.` / `… got worse.`; the capped variants `… could not possibly get any better/worse.` mean standing did **not** move.
+- **Levels:** `You have gained a level!  Welcome to level 42!` states the level outright rather than incrementing, which matters because it is not only ever going up.
+
+### 3.9c. The owner's level is not one number (EQ Legends)
+
+On EQ Legends a character carries several **class loadouts**, and *each levels
+independently*. One log therefore dings to 41 at 12:49, to 11 at 14:15, climbs
+to 18 by the evening, and reports 44 in a `/who` the next day — all the same
+character, none of it a de-level.
+
+**Swapping loadouts is not logged.** Not one system message; grepping 690,000
+lines of a real log finds "loadout" only in player chat. This is the same
+silence F24 hits on gear (an equip produces no line either) and the same shape
+as the unlogged instance settings in [ADR-012](../architecture/adr-012-mob-health.md).
+
+Consequences for anything that reads a level:
+
+- **A downward jump is a swap, not a de-level** — on this server, overwhelmingly.
+- **"The level at instant t" is the last level announced, and nothing better.**
+  Fights between a swap and the next ding on the new loadout are attributed to
+  the loadout that was put away. A `/who` typed after a swap corrects it from
+  then on; nothing recovers the stretch before.
+- **There is no single "current level"** to filter or label a character by. Code
+  that reduces a character to one level will silently drop everything the other
+  loadouts did — see [ADR-013](../architecture/adr-013-incoming-damage.md),
+  where exactly that hid two thirds of a real user's data.
+- Reading a `/who` backwards (the rule in `DefenderLevels` and
+  `ContextTimeline`) is still worth doing, but it is only sound back to the last
+  swap, which is invisible.
 
 ## 4. Player self-reference
 

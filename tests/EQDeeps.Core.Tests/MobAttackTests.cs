@@ -131,6 +131,30 @@ public class DefenderLevelsTests
         Assert.Null(levels.LevelOf("Kazint`s pet", T0.AddMinutes(30)));
     }
 
+    /// <summary>
+    /// On EQ Legends class loadouts level independently and swapping is not
+    /// logged, so one character's level legitimately goes 41 → 11 → 12 and back
+    /// up. A downward ding is a swap, not a de-level, and must take effect —
+    /// treating levels as monotonic would attribute a whole evening on the low
+    /// loadout to the high one. Taken from a real log.
+    /// </summary>
+    [Fact]
+    public void LoadoutSwapSendsTheLevelDownAndItSticks()
+    {
+        var levels = DefenderLevels.Build(
+            Store(
+                (0, new LevelEvent(41)),
+                (85, new LevelEvent(11)),   // swapped to another loadout
+                (133, new LevelEvent(12)),
+                (1520, new WhoEvent("Kazint", 44, "PAL/MNK/BER"))), // back on the first
+            "Kazint");
+
+        Assert.Equal(41, levels.LevelOf("Kazint", T0.AddMinutes(30)));
+        Assert.Equal(11, levels.LevelOf("Kazint", T0.AddMinutes(100)));
+        Assert.Equal(12, levels.LevelOf("Kazint", T0.AddMinutes(200)));
+        Assert.Equal(44, levels.LevelOf("Kazint", T0.AddMinutes(1600)));
+    }
+
     /// <summary>A ding is never backdated, even when it is the only thing on record.</summary>
     [Fact]
     public void DingIsNotReadBackwards()

@@ -182,6 +182,13 @@ export default function App() {
   // sub-tab is a view this log doesn't have, which is what happens when you
   // switch from a stance-using character to one who has never held one.
   const activeStdView = standard.find((d) => d.id === stdView) ?? null;
+  // Which rail entry Overview is actually showing. Not the same as `stdView`:
+  // a remembered view this log doesn't have falls back to Summary, and the
+  // rail has to light up what is on screen rather than what was last clicked.
+  const effectiveStdView =
+    activeStdView || stdView === GEAR_VIEW || stdView === MOBS_VIEW || stdView === HITS_VIEW
+      ? stdView
+      : SUMMARY_VIEW;
   // Scrolling needs a live tail AND a log that is still being written; see
   // LIVE_LOG_GRACE_MS.
   const newestRecordMs = fights.length
@@ -783,102 +790,6 @@ export default function App() {
       />
       {activeId ? (
         <>
-          {/* Two levels, because there are two kinds of thing here. Overview is
-              a section of standard views that ship with the app; everything to
-              the right of the divider is a dashboard the user built and owns. */}
-          <nav className="view-tabs">
-            <button
-              className={"view-tab" + (view === "overview" ? " on" : "")}
-              onClick={() => setView("overview")}
-            >
-              Overview
-            </button>
-            {dashboards.length > 0 && <span className="view-tab-divider" />}
-            {dashboards.map((d) => (
-              <button
-                key={d.id}
-                className={"view-tab" + (view === d.id ? " on" : "")}
-                onClick={() => setView(d.id)}
-                onDoubleClick={() => renameDashboard(d.id)}
-                title="Double-click to rename"
-              >
-                {d.name}
-              </button>
-            ))}
-            <button className="view-tab add" onClick={addDashboard} title="New dashboard">
-              +
-            </button>
-            {view !== "overview" && (
-              <span className="view-tab-actions">
-                <button className="mini-btn" onClick={() => exportDashboard(view)}>
-                  export
-                </button>
-                <label className="mini-btn" title="Import a dashboard JSON">
-                  import
-                  <input
-                    type="file"
-                    accept=".json"
-                    style={{ display: "none" }}
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) importDashboard(file);
-                      e.target.value = "";
-                    }}
-                  />
-                </label>
-                <button className="mini-btn" onClick={() => deleteDashboard(view)}>
-                  delete
-                </button>
-              </span>
-            )}
-          </nav>
-          {view === "overview" && (
-            <nav className="sub-tabs">
-              <button
-                className={
-                  "sub-tab" +
-                  (!activeStdView &&
-                  stdView !== GEAR_VIEW &&
-                  stdView !== MOBS_VIEW &&
-                  stdView !== HITS_VIEW
-                    ? " on"
-                    : "")
-                }
-                onClick={() => selectStdView(SUMMARY_VIEW)}
-              >
-                Summary
-              </button>
-              {standard.map((d) => (
-                <button
-                  key={d.id}
-                  className={"sub-tab" + (stdView === d.id ? " on" : "")}
-                  onClick={() => selectStdView(d.id)}
-                >
-                  {d.name}
-                </button>
-              ))}
-              <button
-                className={"sub-tab" + (stdView === GEAR_VIEW ? " on" : "")}
-                onClick={() => selectStdView(GEAR_VIEW)}
-              >
-                Gear
-              </button>
-              <button
-                className={"sub-tab" + (stdView === MOBS_VIEW ? " on" : "")}
-                onClick={() => selectStdView(MOBS_VIEW)}
-                title="What this server's mobs are worth, and what a difficulty tier costs"
-              >
-                Mobs
-              </button>
-              <button
-                className={"sub-tab" + (stdView === HITS_VIEW ? " on" : "")}
-                onClick={() => selectStdView(HITS_VIEW)}
-                title="What is hitting you, in order, and what this server's mobs hit for"
-              >
-                Incoming
-              </button>
-            </nav>
-          )}
           {(() => {
             // Every panel on this screen shares one context; building it once
             // keeps the three call sites from drifting apart.
@@ -901,17 +812,98 @@ export default function App() {
               onAdoptRange: adoptRange,
               logSpanSeconds,
             };
+            const railClass = (id: string) =>
+              "rail-tab" + (view === "overview" && effectiveStdView === id ? " on" : "");
+            /*
+             * The fight list is a time-frame selector, so it belongs on the
+             * views that report over a time frame — which is all of them
+             * except two. Mobs is what this server's mobs are worth, learned
+             * across every kill ever seen; Gear is a shelf of snapshots. A
+             * pane whose every click did nothing to what was on screen would
+             * be furniture, so those two get the width instead.
+             */
+            const showFights = !(
+              view === "overview" &&
+              (effectiveStdView === MOBS_VIEW || effectiveStdView === GEAR_VIEW)
+            );
             return (
-          <main className={"dashboard" + (fightsCollapsed ? " fights-collapsed" : "")}>
-            <FightList
-              fights={fights}
-              selected={framedFightIds(frame)}
-              live={isLive(frame)}
-              onSelect={selectFights}
-              onReset={backToLive}
-              collapsed={fightsCollapsed}
-              onToggleCollapsed={toggleFightsCollapsed}
-            />
+          <main
+            className={
+              "dashboard" +
+              (!showFights ? " fights-hidden" : fightsCollapsed ? " fights-collapsed" : "")
+            }
+          >
+            {/* One rail, two kinds of thing: the views that ship with the app
+                above the divider, the dashboards the user built and owns
+                below it. They were two stacked rows of tabs; standing them up
+                spends width the panels were not using and buys back height
+                they were. */}
+            <nav className="nav-rail">
+              <div className="rail-heading">Overview</div>
+              <button className={railClass(SUMMARY_VIEW)} onClick={() => selectStdView(SUMMARY_VIEW)}>
+                Summary
+              </button>
+              {standard.map((d) => (
+                <button key={d.id} className={railClass(d.id)} onClick={() => selectStdView(d.id)}>
+                  {d.name}
+                </button>
+              ))}
+              <button className={railClass(GEAR_VIEW)} onClick={() => selectStdView(GEAR_VIEW)}>
+                Gear
+              </button>
+              <button
+                className={railClass(MOBS_VIEW)}
+                onClick={() => selectStdView(MOBS_VIEW)}
+                title="What this server's mobs are worth, and what a difficulty tier costs"
+              >
+                Mobs
+              </button>
+              <button
+                className={railClass(HITS_VIEW)}
+                onClick={() => selectStdView(HITS_VIEW)}
+                title="What is hitting you, in order, and what this server's mobs hit for"
+              >
+                Incoming
+              </button>
+              <div className="rail-heading">Dashboards</div>
+              {dashboards.map((d) => (
+                <button
+                  key={d.id}
+                  className={"rail-tab" + (view === d.id ? " on" : "")}
+                  onClick={() => setView(d.id)}
+                  onDoubleClick={() => renameDashboard(d.id)}
+                  title="Double-click to rename"
+                >
+                  {d.name}
+                </button>
+              ))}
+              <button className="rail-tab add" onClick={addDashboard} title="New dashboard">
+                + New
+              </button>
+              {view !== "overview" && (
+                <div className="rail-actions">
+                  <button className="mini-btn" onClick={() => exportDashboard(view)}>
+                    export
+                  </button>
+                  <label className="mini-btn" title="Import a dashboard JSON">
+                    import
+                    <input
+                      type="file"
+                      accept=".json"
+                      style={{ display: "none" }}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) importDashboard(file);
+                        e.target.value = "";
+                      }}
+                    />
+                  </label>
+                  <button className="mini-btn" onClick={() => deleteDashboard(view)}>
+                    delete
+                  </button>
+                </div>
+              )}
+            </nav>
             {/* Four cases: Gear, a standard view, the hand-built Summary
                 that Overview opens on, or one of the user's own dashboards.
                 Gear is checked first — it is a sub-tab but not a dashboard, so
@@ -1038,6 +1030,17 @@ export default function App() {
                   <div className="empty">Dashboard not found</div>
                 );
               })()
+            )}
+            {showFights && (
+              <FightList
+                fights={fights}
+                selected={framedFightIds(frame)}
+                live={isLive(frame)}
+                onSelect={selectFights}
+                onReset={backToLive}
+                collapsed={fightsCollapsed}
+                onToggleCollapsed={toggleFightsCollapsed}
+              />
             )}
           </main>
             );

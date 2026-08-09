@@ -124,7 +124,7 @@ export function FightList({
         onClick={onToggleCollapsed}
         title="Show the fight list"
       >
-        <span className="fight-spine">Fights ›</span>
+        <span className="fight-spine">‹ Fights</span>
       </button>
     );
   }
@@ -134,7 +134,7 @@ export function FightList({
       <div className="panel-title">
         <span className="fight-title">
           <button className="fight-collapse" onClick={onToggleCollapsed} title="Hide the fight list">
-            ‹
+            ›
           </button>
           Fights
         </span>

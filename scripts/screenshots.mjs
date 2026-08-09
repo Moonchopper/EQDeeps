@@ -57,8 +57,8 @@ async function shot(name) {
   console.log("shot:", name);
 }
 
-async function subTab(label) {
-  await page.click(`.sub-tab:text-is("${label}")`);
+async function railTab(label) {
+  await page.click(`.rail-tab:text-is("${label}")`);
   await settle(3500);
 }
 
@@ -82,7 +82,7 @@ for (const [label, file] of [
   ["Loot", "loot"],
   ["Gear", "gear"],
 ]) {
-  await subTab(label);
+  await railTab(label);
   await shot(file);
 }
 

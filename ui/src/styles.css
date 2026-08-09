@@ -696,10 +696,13 @@ button.update-pill {
   line-height: 1.4;
 }
 
-/* ---- dashboard grid ---- */
+/* ---- dashboard grid ----
+   Nav rail | panels | fights. Navigation and the thing it navigates sit next
+   to each other, and the selector that sets the time frame keeps the far edge
+   rather than driving a wedge between them. */
 .dashboard {
   display: grid;
-  grid-template-columns: 290px 1fr;
+  grid-template-columns: 150px minmax(0, 1fr) 290px;
   gap: 10px;
   padding: 10px;
   flex: 1;
@@ -709,7 +712,13 @@ button.update-pill {
 /* Collapsed to a spine. It stays on screen rather than vanishing because the
    frame it set is still in force, and there has to be a way back. */
 .dashboard.fights-collapsed {
-  grid-template-columns: 26px 1fr;
+  grid-template-columns: 150px minmax(0, 1fr) 26px;
+}
+
+/* Not collapsed — absent. On Mobs and Gear there is no frame to set, so there
+   is no spine to click back to and the panels take the width. */
+.dashboard.fights-hidden {
+  grid-template-columns: 150px minmax(0, 1fr);
 }
 
 .fight-list.collapsed {
@@ -1305,81 +1314,70 @@ th.num {
   font-size: 12px;
 }
 
-/* ---- view tabs ---- */
-.view-tabs {
+/* ---- left nav rail ---- */
+.nav-rail {
   display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 6px 14px 0;
+  flex-direction: column;
+  gap: 1px;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 8px;
+  border-right: 1px solid var(--border);
 }
 
-.view-tab {
-  padding: 4px 12px;
-  border-radius: 6px 6px 0 0;
+.rail-heading {
+  padding: 10px 8px 4px;
   color: var(--muted);
-  font-weight: 600;
-  border: 1px solid transparent;
-  border-bottom: none;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
-.view-tab.on {
-  background: var(--surface);
-  color: var(--ink);
-  border-color: var(--border);
+.rail-heading:first-child {
+  padding-top: 2px;
 }
 
-.view-tab.add {
-  color: var(--accent);
-  font-size: 15px;
-}
-
-/* Standard views sit to the left of the divider, the user's own dashboards to
-   the right — the two are different kinds of thing and shouldn't read alike. */
-.view-tab-divider {
-  width: 1px;
-  align-self: stretch;
-  margin: 4px 6px 0;
-  background: var(--border);
-}
-
-.view-tab-actions {
-  display: flex;
-  gap: 6px;
-  margin-left: 8px;
-}
-
-/* ---- standard-view sub-tabs (under Overview) ---- */
-.sub-tabs {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  padding: 6px 14px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  overflow-x: auto;
-}
-
-.sub-tab {
-  padding: 3px 10px;
-  border-radius: 999px;
+.rail-tab {
+  padding: 5px 10px;
+  text-align: left;
+  border-radius: 5px;
   color: var(--muted);
   font-size: 12px;
   font-weight: 600;
   white-space: nowrap;
-  border: 1px solid transparent;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  /* The selected marker is one edge, not an outline. A rail of ten outlined
+     pills reads as ten separate controls rather than one list of views. */
+  border-left: 2px solid transparent;
 }
 
-.sub-tab:hover {
+.rail-tab:hover {
   color: var(--ink);
+  background: var(--surface);
 }
 
-.sub-tab.on {
+.rail-tab.on {
   color: var(--ink);
-  border-color: var(--border);
   background: var(--surface-2);
+  border-left-color: var(--accent);
 }
 
-.view-tab-actions label.mini-btn {
+.rail-tab.add {
+  color: var(--accent);
+}
+
+/* Only ever the selected dashboard's actions, so they sit under the list they
+   act on rather than in a toolbar that would be empty most of the time. */
+.rail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 8px 0;
+}
+
+.rail-actions label.mini-btn {
   cursor: pointer;
 }
 

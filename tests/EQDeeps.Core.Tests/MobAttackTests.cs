@@ -401,6 +401,36 @@ public class MobAttackIndexTests
     }
 
     /// <summary>
+    /// Most recently fought first, not best-evidenced first. A server's index
+    /// accumulates for months, so ranking by evidence would bury tonight's camp
+    /// under every zone the account has ever worked — and bury it deeper the
+    /// longer the app is used.
+    /// </summary>
+    [Fact]
+    public void MostRecentlyFoughtComesFirst()
+    {
+        var index = new MobAttackIndex();
+
+        // A camp worked to death last week: hundreds of swings, High confidence.
+        index.Add(Enumerable.Range(0, 40).Select(i => Named(
+            "An old favourite", Melee([.. Enumerable.Repeat(100L, 10)]), minute: i)));
+
+        // Tonight's mob, one fight in: thin evidence, and the row that matters.
+        index.Add([Named("Tonight's problem", Melee(300), minute: 10_000)]);
+
+        var estimates = index.Estimates();
+        Assert.Equal("Tonight's problem", estimates[0].Mob);
+        Assert.Equal(MobAttackConfidence.Low, estimates[0].Confidence);
+        Assert.Equal("An old favourite", estimates[1].Mob);
+        Assert.Equal(MobAttackConfidence.High, estimates[1].Confidence);
+    }
+
+    private static AttackSample Named(string mob, SkillTally tally, int minute) =>
+        new(mob, "The Ruins of Old Guk", 3, "Fused", 55, "Kazint",
+            T0.AddMinutes(minute), T0.AddMinutes(minute).AddSeconds(45),
+            new Dictionary<string, SkillTally> { ["Crushes"] = tally });
+
+    /// <summary>
     /// Round-tripped through the JSON the store actually writes, an index
     /// reports exactly what it did before — the sparse histogram included,
     /// which is the part with a shape a serializer could plausibly lose.

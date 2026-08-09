@@ -19,6 +19,33 @@ export function fmtClock(iso: string): string {
 }
 
 /**
+ * A "when" that says as much as it has to and no more.
+ *
+ * A learned index spans months, so a bare clock time is not a date — "22:33"
+ * above "09:14" reads as out of order until you know they are different days,
+ * which the row does not say. Today stays a time, because within a session that
+ * is the useful precision; anything older grows the day, and anything from
+ * another year grows the year. Nothing carries a component that is the same for
+ * every row on screen.
+ */
+export function fmtWhen(iso: string): string {
+  const d = new Date(iso);
+  const now = new Date();
+  const sameDay =
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate();
+
+  if (sameDay) {
+    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  }
+
+  return d.getFullYear() === now.getFullYear()
+    ? d.toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })
+    : d.toLocaleDateString([], { day: "numeric", month: "short", year: "numeric" });
+}
+
+/**
  * A span of seconds as a duration people read: "3d 2h 30m 15s".
  *
  * Units run from the largest non-zero one down to seconds, keeping the zeros in

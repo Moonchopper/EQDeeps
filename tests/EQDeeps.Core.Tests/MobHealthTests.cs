@@ -132,6 +132,32 @@ public class MobHealthIndexTests
     }
 
     /// <summary>
+    /// Most recently killed first, not best-known first. The index belongs to
+    /// the server and accumulates for months, so ranking by confidence would
+    /// bury tonight's camp under every zone the account has ever worked.
+    /// Confidence is a column; it does not also need to be the order.
+    /// </summary>
+    [Fact]
+    public void MostRecentlyKilledComesFirst()
+    {
+        var index = new MobHealthIndex();
+
+        // A camp worked to death last week: twelve clean kills, High confidence.
+        index.Add(Enumerable.Range(0, 12).Select(i => new KillSample(
+            "An old favourite", "The Ruins of Old Guk", 3, "Fused", 1000, T0.AddMinutes(i))));
+
+        // Tonight's mob, killed once: Low, and the row that matters.
+        index.Add([new KillSample(
+            "Tonight's problem", "The Ruins of Old Guk", 3, "Fused", 4000, T0.AddDays(7))]);
+
+        var estimates = index.Estimates();
+        Assert.Equal("Tonight's problem", estimates[0].Mob);
+        Assert.Equal(MobHealthConfidence.Low, estimates[0].Confidence);
+        Assert.Equal("An old favourite", estimates[1].Mob);
+        Assert.Equal(MobHealthConfidence.High, estimates[1].Confidence);
+    }
+
+    /// <summary>
     /// Two mobs of one name up at once are one fight, so the first death banks
     /// both their damage and the survivor's remainder banks far too little.
     /// Adjacent kills are discarded in pairs; here the pair is 9000 and 100,

@@ -259,6 +259,7 @@ It surfaces as analysis, not as a status bar — there is no live health meter, 
 - AC: The demo log teaches the index nothing.
 - AC: A fight that dealt a fraction of a mob's health says so, and one that dealt more than the median is not clamped to 100%.
 - AC: With nothing learned yet, the panel explains what would populate it rather than showing an empty table.
+- AC: The list leads with the most recently killed, not the best-evidenced — an index that accumulates for months would otherwise bury tonight's camp deeper the longer the app is used. (Changed by F26, which sorts its sibling list the same way.)
 
 ### F26. Incoming damage
 
@@ -315,6 +316,10 @@ it and whether the defender's level was known at all.
 - AC: The demo log teaches the index nothing.
 - AC: With nothing learned yet, the panel explains what would populate it rather
   than showing an empty table.
+- AC: Both the feed and the profile table lead with the most recent thing —
+  what you are fighting now, not what you have the most evidence about — and
+  the profile table shows the instant it is sorted on, dated well enough that
+  two rows from different days cannot read as out of order.
 
 ---
 

@@ -622,9 +622,19 @@ public sealed class MobAttackIndex
     }
 
     /// <summary>
-    /// One profile per key, best-evidenced first. Keys with a single fight are
-    /// included and labelled Low: one evening against a mob is a real
-    /// observation, and "hits about this hard, from one fight" beats silence.
+    /// One profile per key, <b>most recently fought first</b>.
+    ///
+    /// <para>Not best-evidenced first, which is what this originally did. A
+    /// server's index accumulates for months and the rows a player wants are
+    /// the ones about the camp they are standing in — sorting by evidence
+    /// buries tonight's mob under a hundred keys from zones they have moved on
+    /// from, and does it more thoroughly the longer the app is used. How much
+    /// evidence backs a row is a column; it does not also need to be the
+    /// order.</para>
+    ///
+    /// <para>Keys with a single fight are included and labelled Low: one
+    /// evening against a mob is a real observation, and "hits about this hard,
+    /// from one fight" beats silence.</para>
     /// </summary>
     public List<MobAttackEstimate> Estimates()
     {
@@ -635,7 +645,7 @@ public sealed class MobAttackIndex
         }
 
         return results
-            .OrderByDescending(e => e.Confidence)
+            .OrderByDescending(e => e.LastSeen)
             .ThenByDescending(e => e.Landed)
             .ThenBy(e => e.Mob, StringComparer.OrdinalIgnoreCase)
             .ToList();

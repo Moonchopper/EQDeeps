@@ -210,10 +210,18 @@ public sealed class MobHealthIndex
     }
 
     /// <summary>
-    /// One estimate per key, best-known first (High confidence, then most
-    /// kills). Keys with a single kill are included: one kill is a real
+    /// One estimate per key, <b>most recently killed first</b>.
+    ///
+    /// <para>Not best-known first, which is what this originally did. The index
+    /// belongs to the server and accumulates for months, so ranking by
+    /// confidence buries tonight's camp under every zone the account has ever
+    /// worked — and buries it further the longer the app is used. Confidence is
+    /// a column; it does not also need to be the order. Matches the attack
+    /// profiles beside it (<see cref="MobAttackIndex.Estimates"/>).</para>
+    ///
+    /// <para>Keys with a single kill are included: one kill is a real
     /// observation and saying "about this much, from one fight" is more useful
-    /// than saying nothing, so long as it is labelled Low.
+    /// than saying nothing, so long as it is labelled Low.</para>
     /// </summary>
     public List<MobHealthEstimate> Estimates()
     {
@@ -224,7 +232,7 @@ public sealed class MobHealthIndex
         }
 
         return results
-            .OrderByDescending(e => e.Confidence)
+            .OrderByDescending(e => e.LastKilled)
             .ThenByDescending(e => e.CleanSamples)
             .ThenBy(e => e.Mob, StringComparer.OrdinalIgnoreCase)
             .ToList();

@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { api, type IncomingHit, type MobAttackEstimate, type MobAttackReport } from "../api";
-import { fmtClock, fmtNum, fmtRate } from "../format";
+import { fmtClock, fmtNum, fmtRate, fmtWhen } from "../format";
 import { TableSearch } from "../dashboards/tableTools";
 import { frameScope, type TimeFrame } from "../timeFrame";
 
@@ -238,6 +238,10 @@ export function IncomingPanel({ attacks, sessionId, frame, server }: Props) {
                     </th>
                     <th className="num">Total</th>
                     <th>Confidence</th>
+                    {/* The list is ordered by this, so it has to be on screen
+                        — a ranking whose key is invisible reads as no order at
+                        all. */}
+                    <th className="num">Last fought</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -276,6 +280,9 @@ export function IncomingPanel({ attacks, sessionId, frame, server }: Props) {
                               {m.confidence}
                             </span>
                           </td>
+                          <td className="num subtle" title={`first fought ${fmtWhen(m.firstSeen)}`}>
+                            {fmtWhen(m.lastSeen)}
+                          </td>
                         </tr>
                         {expanded && <SkillRows mob={m} tiers={attacks.instanced} />}
                       </Fragment>
@@ -298,9 +305,9 @@ export function IncomingPanel({ attacks, sessionId, frame, server }: Props) {
   );
 }
 
-/** Mob, Zone, [Tier,] vs, Avg swing, Range, Max, Lands, Swings, Hits, Total, Confidence. */
+/** Mob, Zone, [Tier,] vs, Avg swing, Range, Max, Lands, Swings, Hits, Total, Confidence, Last fought. */
 function columnCount(instanced: boolean): number {
-  return instanced ? 12 : 11;
+  return instanced ? 13 : 12;
 }
 
 /**
@@ -343,6 +350,7 @@ function SkillRows({ mob, tiers }: { mob: MobAttackEstimate; tiers: boolean }) {
           <td className="num subtle">{s.spell ? "—" : fmtNum(s.swings)}</td>
           <td className="num subtle">{fmtNum(s.landed)}</td>
           <td className="num subtle">{fmtNum(s.total)}</td>
+          <td />
           <td />
         </tr>
       ))}

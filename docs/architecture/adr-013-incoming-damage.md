@@ -153,7 +153,29 @@ is the kind of thing that only shows up on somebody else's machine.
 Avoided swings are in the feed. A feed that only showed the hits would answer
 "what killed me" with the half of the story that has numbers in it.
 
-## Decision 6: what counts as incoming
+## Decision 6: both learned indexes are ordered by recency
+
+Mob health originally listed best-known first — High confidence, then most
+kills — and the attack profiles copied it. That is the wrong key for a list
+whose contents accumulate for months. The rows a player wants are the ones about
+the camp they are standing in, and ranking by evidence buries tonight's mob
+under every zone the account has ever worked; worse, it buries it *further the
+longer the app is used*, so the feature degrades exactly as it succeeds.
+
+Both indexes therefore sort by last-fought, newest first, with evidence as the
+tiebreak. Confidence is a column — it does not also need to be the order. The
+Mobs tab is changed to match rather than left inconsistent with the tab beside
+it.
+
+This makes the sort key something the reader has to be able to see, so the
+attack table gained a **Last fought** column and both tables now render the
+instant date-aware (`fmtWhen`): a bare clock time is not a date, and "22:33"
+above "09:14" reads as broken until you know they are different days, which the
+row never said. Today stays a time, older rows grow the day, and last year's
+grow the year — no row carries a component that is the same for every row on
+screen.
+
+## Decision 7: what counts as incoming
 
 The **attacker must be definitively an NPC**; the **defender only has to not
 be one**. This is exactly what the Tanking source already does, and matching it

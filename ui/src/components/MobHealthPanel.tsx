@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import type { MobHealthEstimate, MobHealthReport } from "../api";
-import { fmtClock, fmtNum } from "../format";
+import { fmtNum, fmtWhen } from "../format";
 import { TableSearch, meterStyle } from "../dashboards/tableTools";
 
 interface Props {
@@ -152,7 +152,7 @@ export function MobHealthPanel({ mobs, server }: Props) {
                   <td>
                     <span className={`mob-confidence ${m.confidence}`}>{m.confidence}</span>
                   </td>
-                  <td className="num subtle">{fmtClock(m.lastKilled)}</td>
+                  <td className="num subtle">{fmtWhen(m.lastKilled)}</td>
                 </tr>
               ))}
               {rows.length === 0 && (

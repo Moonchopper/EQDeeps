@@ -14,7 +14,7 @@
 > instance difficulty read off the zone line (ADR-012, feature F25), and
 > incoming damage — a raw ordered feed of swings taken plus a learned attack
 > profile keyed on the defender's level as well as the mob (ADR-013, feature
-> F26). Currently at **v0.9.2**. See `docs/product/features.md` for per-feature
+> F26). Currently at **v0.9.3**. See `docs/product/features.md` for per-feature
 > status. The main open items: real-log validation against EQLogParser (the
 > release gate), the spell-DB work (class detection, bane, lands-on
 > resolution — reference data files not yet copied), identity-registry disk

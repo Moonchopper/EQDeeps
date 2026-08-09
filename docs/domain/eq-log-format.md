@@ -296,6 +296,11 @@ Absorb records: zero-damage attempts against the defender (counts toward defensi
 
 ### 3.9c. The owner's level is not one number (EQ Legends)
 
+> Full record, including what `/who` reveals and which client files were checked
+> and ruled out: **[eq-legends-loadouts.md](eq-legends-loadouts.md)**. Read it
+> before writing anything that reads a level, a class, or an item on this
+> server.
+
 On EQ Legends a character carries several **class loadouts**, and *each levels
 independently*. One log therefore dings to 41 at 12:49, to 11 at 14:15, climbs
 to 18 by the evening, and reports 44 in a `/who` the next day — all the same
@@ -322,6 +327,10 @@ Consequences for anything that reads a level:
 - Reading a `/who` backwards (the rule in `DefenderLevels` and
   `ContextTimeline`) is still worth doing, but it is only sound back to the last
   swap, which is invisible.
+- **A `/who` class field lists every loadout's class**, slash-separated
+  (`[44 PAL/MNK/BER] Moonchopper`), not one class. Code treating
+  `WhoEvent.ClassText` as a single class is wrong here — see the loadouts doc
+  §3.
 
 ## 4. Player self-reference
 

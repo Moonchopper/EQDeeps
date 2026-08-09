@@ -19,5 +19,7 @@
 
   { "line": "[60 High Priest] Soandso (High Elf) <Guild Name>", "expect": { "type": "who", "player": "Soandso", "level": 60, "classText": "High Priest" } },
   { "line": "[ANONYMOUS] Soandso", "expect": { "type": "who", "player": "Soandso", "level": null, "classText": null } },
-  { "line": "[125 Stone Fist (Monk)] Kizant (Human) <Raiders>", "expect": { "type": "who", "player": "Kizant", "level": 125, "classText": "Stone Fist (Monk)" } }
+  { "line": "[125 Stone Fist (Monk)] Kizant (Human) <Raiders>", "expect": { "type": "who", "player": "Kizant", "level": 125, "classText": "Stone Fist (Monk)" } },
+  { "line": "[44 PAL/MNK/BER] Moonchopper (Troll) <Faceless> ZONE: Nagafen's Lair 18717 (soldungb)", "expect": { "type": "who", "player": "Moonchopper", "level": 44, "classText": "PAL/MNK/BER" } },
+  { "line": "[6 PAL/DRU] Soandso (Dwarf)", "expect": { "type": "who", "player": "Soandso", "level": 6, "classText": "PAL/DRU" } }
 ]

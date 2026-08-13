@@ -6,6 +6,7 @@ import type { EntityColors } from "../colors";
 import { BAR_EMPHASIS, useChartLink } from "../highlight";
 import { offsetTooltip } from "../chartInteractions";
 import { frameScope, type TimeFrame } from "../timeFrame";
+import { chartInk, chartTheme } from "../chartTheme";
 
 interface Props {
   sessionId: string;
@@ -16,7 +17,6 @@ interface Props {
 }
 
 const BAR_COLOR = "#3987e5";
-const SURFACE = "#1a1a19";
 const MAX_BARS = 14;
 const MAX_STACK_ATTACKERS = 8;
 
@@ -48,7 +48,7 @@ export function AbilityChart({ sessionId, frame, refreshKey, petRollup, colors }
 
   useEffect(() => {
     if (!divRef.current) return;
-    const chart = echarts.init(divRef.current);
+    const chart = echarts.init(divRef.current, chartTheme());
     chartRef.current = chart;
     const onResize = () => chart.resize();
     window.addEventListener("resize", onResize);
@@ -187,8 +187,12 @@ export function AbilityChart({ sessionId, frame, refreshKey, petRollup, colors }
         data: segment(key),
         itemStyle: {
           color: colors.claim(key),
-          borderColor: SURFACE,
+          borderColor: chartInk().surface,
           borderWidth: 1,
+          // Square, overriding the theme's rounded leading end: on a stack only
+          // the outermost segment is a data end, and rounding the interior ones
+          // notches the bar at every boundary.
+          borderRadius: 0,
         },
         ...BAR_EMPHASIS,
       }));
@@ -199,7 +203,12 @@ export function AbilityChart({ sessionId, frame, refreshKey, petRollup, colors }
           stack: "dmg",
           barWidth: 13,
           data: foldedSegment(),
-          itemStyle: { color: OTHER_COLOR, borderColor: SURFACE, borderWidth: 1 },
+          itemStyle: {
+            color: OTHER_COLOR,
+            borderColor: chartInk().surface,
+            borderWidth: 1,
+            borderRadius: 0,
+          },
         });
       }
     } else {

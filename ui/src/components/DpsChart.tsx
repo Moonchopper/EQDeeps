@@ -34,6 +34,7 @@ import {
 } from "../timeFrame";
 import { fightMarkArea } from "../fightOverlay";
 import { contextMarkArea, type ContextMode } from "../contextOverlay";
+import { GRID, chartTheme } from "../chartTheme";
 
 interface Props {
   sessionId: string;
@@ -149,7 +150,7 @@ export function DpsChart({
 
   useEffect(() => {
     if (!divRef.current) return;
-    const chart = echarts.init(divRef.current);
+    const chart = echarts.init(divRef.current, chartTheme());
     chartRef.current = chart;
     chart.on("datazoom", (params: unknown) => {
       if (suppressZoomEventRef.current) {
@@ -413,7 +414,7 @@ export function DpsChart({
       {
         backgroundColor: "transparent",
         animation: false,
-        grid: { left: 52, right: 12, top: 30, bottom: 40 },
+        grid: GRID.dps,
         // The zoom brush lives inside the toolbox's dataZoom feature, and
         // ECharts skips feature creation entirely when show:false — so the
         // toolbox is rendered but parked off-canvas, and the select cursor is
@@ -441,25 +442,16 @@ export function DpsChart({
           // The bands ride on their own series; it has no line to toggle, so
           // naming the real series keeps it out of the legend.
           data: top.map((row) => row.label).concat(rest.length > 0 ? [`Other (${rest.length})`] : []),
-          textStyle: { color: "#c3c2b7", fontSize: 11 },
-          inactiveColor: "#52514e",
         },
         tooltip: {
           trigger: "axis",
-          axisPointer: { type: "line", lineStyle: { color: "#52514e" } },
           position: offsetTooltip,
-          backgroundColor: "#232322",
-          borderColor: "rgba(255,255,255,0.10)",
-          textStyle: { color: "#ffffff", fontSize: 12 },
           valueFormatter: (v: unknown) => (typeof v === "number" ? fmtNum(v) : "—"),
         },
         xAxis: {
           type: "time",
           min: axisMin,
           max: axisMax,
-          axisLine: { lineStyle: { color: "#383835" } },
-          axisLabel: { color: "#898781", fontSize: 11 },
-          splitLine: { show: false },
         },
         yAxis: {
           type: "value",
@@ -467,12 +459,7 @@ export function DpsChart({
           // floor never drifts either.
           min: dataMin < 0 ? undefined : 0,
           max: axisTop,
-          axisLabel: {
-            color: "#898781",
-            fontSize: 11,
-            formatter: (v: number) => fmtNum(v),
-          },
-          splitLine: { lineStyle: { color: "#2c2c2a" } },
+          axisLabel: { formatter: (v: number) => fmtNum(v) },
         },
         series,
       },

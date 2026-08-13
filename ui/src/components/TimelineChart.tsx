@@ -4,6 +4,7 @@ import { api, type FightInfo, type TimelineItem, type TimelineResult } from "../
 import { attachWheelZoom, offsetTooltip } from "../chartInteractions";
 import { fmtNum } from "../format";
 import { frameScope, type TimeFrame } from "../timeFrame";
+import { GRID, chartTheme } from "../chartTheme";
 
 interface Props {
   sessionId: string;
@@ -264,7 +265,7 @@ export function TimelineChart({
 
   useEffect(() => {
     if (!divRef.current) return;
-    const chart = echarts.init(divRef.current);
+    const chart = echarts.init(divRef.current, chartTheme());
     chartRef.current = chart;
     chart.on("datazoom", (params: unknown) => {
       if (suppressZoomEventRef.current) return;
@@ -508,7 +509,7 @@ export function TimelineChart({
       {
         backgroundColor: "transparent",
         animation: false,
-        grid: { left: 100, right: 12, top: 30, bottom: 26 },
+        grid: GRID.timeline,
         toolbox: {
           show: true,
           top: -1000,

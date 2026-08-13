@@ -76,6 +76,12 @@
   --r-modal: 20px; /* modals */
   --r-pill: 999px; /* segmented controls, meter fills, live badge */
 
+  /* ---- type ----
+     Tokenised so chartTheme.ts can read the same stack the DOM uses; the two
+     used to disagree, because no chart set a root textStyle at all. */
+  --font-ui: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, Consolas, monospace;
+
   /* ---- spacing: real extremes, not just 8 and 16 ---- */
   --sp-1: 2px;
   --sp-2: 4px;
@@ -109,7 +115,7 @@ body {
   margin: 0;
   background: var(--page);
   color: var(--ink-2);
-  font: 13px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+  font: 13px/1.45 var(--font-ui);
 }
 
 button {

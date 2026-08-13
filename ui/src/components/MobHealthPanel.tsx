@@ -168,7 +168,7 @@ export function MobHealthPanel({ mobs, server }: Props) {
       </div>
 
       {shownLadders.length > 0 && (
-        <div className="panel">
+        <div className="panel ladder-panel">
           <div className="panel-title">
             <span className="panel-name">What a tier costs</span>
             <span className="subtle">

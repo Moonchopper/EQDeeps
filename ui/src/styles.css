@@ -1795,6 +1795,13 @@ th.num {
    its value between sessions. */
 .hit-feed-panel {
   max-height: 40vh;
+  /* And it must not be crushed either. Flex shrink is weighted by content
+     height, and the profiles panel below carries every mob this server has ever
+     been seen to swing — on a real log that is ~1900 rows against the feed's
+     few dozen, so proportional shrink took the whole overflow out of the feed
+     and left it 17px tall: a title bar clipped to a sliver. max-height caps the
+     pane, it does not floor it. */
+  flex: 0 0 auto;
 }
 
 .hit-feed {
@@ -1853,6 +1860,15 @@ th.num {
 }
 
 /* ---- the tier ladder ---- */
+/* Same crush as .hit-feed-panel: the mob table above this carries every mob the
+   server has ever been seen to kill, so proportional flex shrink took the whole
+   overflow out of the ladder and left it 4px tall. The ladder is a handful of
+   rungs — it keeps its content height and the table absorbs the rest. */
+.ladder-panel {
+  flex: 0 0 auto;
+  max-height: 45vh;
+}
+
 .mob-ladder {
   margin-top: 16px;
   padding-top: 10px;

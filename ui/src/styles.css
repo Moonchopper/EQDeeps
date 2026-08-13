@@ -1,20 +1,104 @@
-/* Dark-first surfaces and ink from the validated reference palette (ADR-006). */
+/* Dark-first surfaces and ink (ADR-006, restated by ADR-015).
+   Every value here is measured, not chosen by eye; the ratios in the comments
+   are WCAG against the surface each token is legal on. */
 :root {
   color-scheme: dark;
-  --page: #0d0d0d;
-  --surface: #1a1a19;
-  --surface-2: #232322;
-  --ink: #ffffff;
-  --ink-2: #c3c2b7;
-  --muted: #898781;
-  --grid: #2c2c2a;
-  --baseline: #383835;
-  --border: rgba(255, 255, 255, 0.1);
-  --accent: #3987e5;
-  --danger: #e66767;
-  --live: #63cf82;
-  --gold: #f5c542;
-  --sample: #b07fe8;
+
+  /* ---- surfaces: chrome recedes, content comes forward ----
+     --page carries the rail, session bar, fight list and panel gutter;
+     --surface carries panels. That inversion is why the app stops reading as
+     one undifferentiated dark rectangle.
+
+     --surface on --page measures 1.216:1. That looks low and is in fact near
+     the ceiling: the +0.05 term in the WCAG formula caps a dark-on-dark step,
+     and for this surface the theoretical maximum — against pure black — is
+     1.317:1. Do NOT chase a bigger number by lightening --surface without
+     re-running SERIES_COLORS through the palette validator against it; the
+     categorical slots are only 3:1 marks and they lose that first. */
+  --page: #0f0d0b;
+  --surface: #26211c;
+  --surface-2: #2a2520; /* sticky th, popovers, selected rows */
+  --hover: #322b25;
+  --selected: #39312a;
+
+  /* ---- ink ----
+     --muted is legal on --page / --surface / --surface-2 only. On --hover and
+     --selected it lands at 4.29 and 3.93, so anything that can sit on a raised
+     or tinted row takes --muted-raised instead. This is the easiest
+     accessibility regression to reintroduce, which is why it is a token and
+     not a note in a doc. */
+  --ink: #f1ece3; /* 13.55 on --surface */
+  --ink-2: #c5bdae; /*  8.55 on --surface */
+  --muted: #968e7e; /*  4.91 on --surface */
+  --muted-raised: #aca493; /*  5.15 on --selected */
+
+  /* ---- rules: three opaque tiers, deliberately not one alpha ----
+     --border used to be rgba(255,255,255,0.1), which gave a panel edge, a table
+     row rule and an input border identical weight — so nothing read as a region
+     boundary. Opaque also survives a light-theme swap; additive white does not. */
+  --grid: #3a342e; /* 1.30 — cell rules, chart split lines */
+  --border: #4d453d; /* 1.70 — panel and control edges */
+  --baseline: #605851; /* 2.29 — region boundaries, chart axis */
+
+  /* ---- accents ----
+     --accent is no longer SERIES_COLORS[0]. Both were #3987e5, so "selected"
+     and "series one" were the same pixel value. */
+  --accent: #e8963c; /* 6.73 on --surface */
+  --accent-ink: #1a1005; /* text and glyphs ON --accent */
+  --danger: #ef7268; /* 5.53 — never rendered on --selected (4.42) */
+  --live: #4ecb8c;
+  --gold: #e0b64e;
+  --sample: #c9a3ef;
+
+  /* ---- washes ----
+     Tokenised because these are the surfaces whose polarity has to invert for a
+     light theme; every one used to be an inline additive-white literal. Row
+     tints cap at --tint-alpha so text over a tinted row still clears 4.5:1 —
+     the app's signature "hover a name, light it up everywhere" interaction used
+     to make the row you just pointed at the hardest one to read. */
+  --wash-hover: rgba(241, 236, 227, 0.055);
+  --wash-linked: rgba(241, 236, 227, 0.1);
+  --wash-faint: rgba(241, 236, 227, 0.02);
+  --wash-gold: rgba(224, 182, 78, 0.12);
+  --scrim: rgba(6, 4, 3, 0.62);
+  --tint-alpha: 14%;
+
+  /* ---- radius: a scale keyed to element size ----
+     A 6px radius on a 900px panel and a 6px radius on a 20px chip are different
+     curvatures; one value everywhere is what makes a UI read as unconsidered.
+     The panel is 16px, NOT 8px — 8 is the framework default, and it is the
+     element the user sees twelve of. */
+  --r-tiny: 3px; /* colour chips, bar caps */
+  --r-chip: 6px; /* badges, sort-caret box, mini-buttons */
+  --r-control: 8px; /* inputs, selects, buttons */
+  --r-inner: 11px; /* fight rows, nested cards */
+  --r-card: 16px; /* panels */
+  --r-modal: 20px; /* modals */
+  --r-pill: 999px; /* segmented controls, meter fills, live badge */
+
+  /* ---- spacing: real extremes, not just 8 and 16 ---- */
+  --sp-1: 2px;
+  --sp-2: 4px;
+  --sp-3: 6px;
+  --sp-4: 10px;
+  --sp-5: 14px;
+  --sp-6: 20px;
+  --sp-7: 28px;
+  --sp-8: 48px;
+
+  /* ---- elevation ----
+     Shadows do not read on a dark ground, so elevation is a lightness step plus
+     a rim-light on the top edge. The one real shadow is reserved for things
+     that float over the page: menus, modals, chart tooltips. */
+  --rim: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  --shadow-overlay: 0 14px 34px -10px rgba(4, 3, 2, 0.72);
+
+  /* ---- z-index ----
+     .range-menu, .update-menu and .modal-backdrop were all at 40. */
+  --z-sticky: 5;
+  --z-popover: 30;
+  --z-backdrop: 40;
+  --z-modal: 41;
 }
 
 * {
@@ -81,7 +165,7 @@ optgroup {
   align-items: center;
   gap: 4px;
   padding: 3px 8px;
-  border-radius: 6px;
+  border-radius: var(--r-control);
   border: 1px solid var(--border);
 }
 
@@ -115,7 +199,7 @@ optgroup {
   flex: 1;
   background: var(--page);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--r-control);
   color: var(--ink);
   padding: 5px 9px;
   font: inherit;
@@ -123,8 +207,8 @@ optgroup {
 
 .open-form button {
   background: var(--accent);
-  color: #fff;
-  border-radius: 6px;
+  color: var(--accent-ink);
+  border-radius: var(--r-control);
   padding: 5px 12px;
   font-weight: 600;
 }
@@ -136,7 +220,7 @@ optgroup {
 .detected-select {
   background: var(--page);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--r-control);
   color: var(--ink-2);
   padding: 5px 8px;
   font: inherit;
@@ -146,7 +230,7 @@ optgroup {
 .detect-refresh {
   color: var(--muted);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--r-control);
   padding: 4px 8px;
 }
 
@@ -178,7 +262,7 @@ optgroup {
   text-align: left;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--r-card);
   padding: 10px 14px;
 }
 
@@ -209,7 +293,7 @@ optgroup {
   right: 6px;
   padding: 2px 8px;
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: var(--r-control);
   color: var(--muted);
   font-size: 13px;
   line-height: 1.2;
@@ -246,7 +330,7 @@ optgroup {
   display: inline-block;
   padding: 1px 7px;
   border: 1px solid var(--sample);
-  border-radius: 6px;
+  border-radius: var(--r-control);
   color: var(--sample);
   font-size: 11px;
   font-weight: 700;
@@ -274,7 +358,7 @@ optgroup {
   margin-left: auto;
   padding: 2px 8px;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--r-control);
 }
 
 .global-time-controls .time-controls {
@@ -303,7 +387,7 @@ optgroup {
   max-width: 190px;
   padding: 2px 8px;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--r-control);
   background: var(--page);
   color: var(--ink);
   font-size: 11px;
@@ -325,13 +409,13 @@ optgroup {
   position: absolute;
   top: 24px;
   right: 0;
-  z-index: 40;
+  z-index: var(--z-popover);
   width: 250px;
   padding: 8px 10px 10px;
   background: var(--surface-2);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  border-radius: var(--r-card);
+  box-shadow: var(--shadow-overlay);
   text-align: left;
 }
 
@@ -356,7 +440,7 @@ optgroup {
 .range-chip {
   padding: 2px 8px;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   color: var(--ink-2);
   font-size: 11px;
 }
@@ -384,7 +468,7 @@ optgroup {
   min-width: 0;
   background: var(--page);
   border: 1px solid var(--border);
-  border-radius: 5px;
+  border-radius: var(--r-chip);
   color: var(--ink);
   padding: 3px 6px;
   font: inherit;
@@ -445,13 +529,13 @@ optgroup {
   margin-left: 8px;
   padding: 2px 9px;
   border: 1px solid var(--gold);
-  border-radius: 6px;
+  border-radius: var(--r-control);
   color: var(--gold) !important; /* outweigh .version a */
   font-weight: 600;
 }
 
 .update-pill:hover {
-  background: rgba(245, 197, 66, 0.12);
+  background: var(--wash-gold);
 }
 
 /* The pill is a button while an update is actionable and plain text while one
@@ -525,8 +609,8 @@ button.update-pill {
 
 .update-download {
   background: var(--accent);
-  color: #fff;
-  border-radius: 6px;
+  color: var(--accent-ink);
+  border-radius: var(--r-control);
   padding: 5px 12px;
   font-weight: 600;
   text-decoration: none;
@@ -648,13 +732,13 @@ button.update-pill {
   position: absolute;
   top: 22px;
   right: 0;
-  z-index: 40;
+  z-index: var(--z-popover);
   min-width: 230px;
   padding: 10px 12px;
   background: var(--surface-2);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  border-radius: var(--r-card);
+  box-shadow: var(--shadow-overlay);
   text-align: left;
   font-weight: 400;
 }
@@ -836,7 +920,11 @@ button.update-pill {
 .panel {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--r-card);
+  /* Elevation on a dark ground is a lightness step plus a rim-light, not a
+     shadow — a drop shadow under a #26211c panel on a #0f0d0b page is invisible
+     and still costs a paint. */
+  box-shadow: var(--rim);
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -899,7 +987,7 @@ button.update-pill {
   align-items: flex-start;
   text-align: left;
   padding: 5px 8px;
-  border-radius: 6px;
+  border-radius: var(--r-control);
   border: 1px solid transparent;
 }
 
@@ -953,7 +1041,7 @@ button.update-pill {
 }
 
 .fight-meta {
-  color: var(--muted);
+  color: var(--muted-raised); /* the row is --selected or --hover much of the time */
   font-size: 11px;
   font-variant-numeric: tabular-nums;
 }
@@ -985,7 +1073,7 @@ button.update-pill {
   min-width: 0;
   background: var(--surface-2);
   border: 1px solid var(--border);
-  border-radius: 5px;
+  border-radius: var(--r-chip);
   color: var(--ink);
   font-size: 12px;
   padding: 3px 7px;
@@ -1078,7 +1166,7 @@ td {
 
 /* Translucent so entity row tints stay visible under the hover wash. */
 tbody tr:hover td {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--wash-hover);
 }
 
 /* ---- linked highlight ----
@@ -1089,7 +1177,7 @@ tbody tr:hover td {
    than the plain :hover wash above — that says "your pointer is here", this
    says "here it is again". */
 tbody tr.linked td {
-  background: rgba(255, 255, 255, 0.09);
+  background: var(--wash-linked);
 }
 
 tbody tr.linked td:first-child {
@@ -1110,7 +1198,7 @@ tbody tr.linked td:first-child {
   display: inline-block;
   width: 8px;
   height: 8px;
-  border-radius: 2px;
+  border-radius: var(--r-tiny);
   margin-right: 7px;
   vertical-align: baseline;
 }
@@ -1121,8 +1209,11 @@ th.num {
   font-variant-numeric: tabular-nums;
 }
 
+/* Breakdown rows sit under a row tint and take the hover and linked washes,
+   so they use the raised ink: plain --muted is 4.29 on --hover and 3.93 on
+   --selected, both under 4.5. */
 .child-row td {
-  color: var(--muted);
+  color: var(--muted-raised);
 }
 
 .expander {
@@ -1178,7 +1269,7 @@ th.num {
 .mini-btn {
   color: var(--muted);
   border: 1px solid var(--border);
-  border-radius: 5px;
+  border-radius: var(--r-chip);
   padding: 1px 8px;
   font-size: 11px;
   font-weight: 400;
@@ -1208,7 +1299,7 @@ th.num {
 
 .tab {
   padding: 3px 10px;
-  border-radius: 6px;
+  border-radius: var(--r-control);
   color: var(--muted);
   font-weight: 600;
 }
@@ -1229,7 +1320,7 @@ th.num {
 .panel-select {
   background: var(--page);
   border: 1px solid var(--border);
-  border-radius: 5px;
+  border-radius: var(--r-chip);
   color: var(--ink-2);
   padding: 2px 6px;
   font: inherit;
@@ -1263,11 +1354,11 @@ th.num {
   background: var(--surface-2);
   border: 1px solid var(--accent);
   color: var(--ink);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   padding: 3px 12px;
   font-size: 11px;
   font-weight: 600;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
+  box-shadow: var(--shadow-overlay);
 }
 
 .zoom-reset:hover {
@@ -1290,7 +1381,7 @@ th.num {
   justify-content: space-between;
   height: 24px;
   padding: 0 8px;
-  border-radius: 4px;
+  border-radius: var(--r-chip);
   overflow: hidden;
 }
 
@@ -1298,7 +1389,7 @@ th.num {
   position: absolute;
   inset: 0 auto 0 0;
   opacity: 0.28;
-  border-radius: 4px;
+  border-radius: var(--r-chip);
 }
 
 .meter-name {
@@ -1341,7 +1432,7 @@ th.num {
 .rail-tab {
   padding: 5px 10px;
   text-align: left;
-  border-radius: 5px;
+  border-radius: var(--r-chip);
   color: var(--muted);
   font-size: 12px;
   font-weight: 600;
@@ -1450,7 +1541,7 @@ th.num {
   background: var(--page);
   color: var(--ink-2);
   border: 1px solid var(--border);
-  border-radius: 5px;
+  border-radius: var(--r-chip);
   padding: 1px 4px;
   font: inherit;
   font-size: 11px;
@@ -1459,7 +1550,7 @@ th.num {
 .react-grid-item.react-grid-placeholder {
   background: var(--accent);
   opacity: 0.15;
-  border-radius: 8px;
+  border-radius: var(--r-card);
 }
 
 .tile-body {
@@ -1486,17 +1577,17 @@ th.num {
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.55);
+  background: var(--scrim);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 40;
+  z-index: var(--z-backdrop);
 }
 
 .modal {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--r-modal);
   padding: 16px 18px;
   width: min(680px, 92vw);
   max-height: 86vh;
@@ -1527,7 +1618,7 @@ th.num {
 .form-grid select {
   background: var(--page);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--r-control);
   color: var(--ink);
   padding: 5px 8px;
   font: inherit;
@@ -1560,7 +1651,7 @@ th.num {
   width: 64px;
   background: var(--page);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--r-control);
   color: var(--ink);
   padding: 3px 6px;
   font: inherit;
@@ -1589,7 +1680,7 @@ th.num {
 
 .btn {
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--r-control);
   padding: 5px 14px;
   color: var(--ink-2);
   font-weight: 600;
@@ -1601,7 +1692,7 @@ th.num {
 
 .btn.primary {
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-ink);
   border-color: var(--accent);
 }
 
@@ -1619,7 +1710,7 @@ th.num {
 .welcome code {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--r-chip);
   padding: 1px 5px;
 }
 
@@ -1739,7 +1830,7 @@ th.num {
    instead. */
 .hit-skill td,
 .hit-note-row td {
-  background: #ffffff05;
+  background: var(--wash-faint);
 }
 
 /* .child-row mutes every cell, which would swallow the one figure the
@@ -1782,7 +1873,7 @@ th.num {
   gap: 10px;
   align-items: baseline;
   padding: 3px 8px;
-  border-radius: 3px;
+  border-radius: var(--r-tiny);
   font-variant-numeric: tabular-nums;
 }
 
@@ -1806,7 +1897,7 @@ th.num {
 .fight-tier {
   margin-left: 6px;
   padding: 0 4px;
-  border-radius: 3px;
+  border-radius: var(--r-tiny);
   background: var(--surface-2);
   color: var(--muted);
   font-size: 10px;

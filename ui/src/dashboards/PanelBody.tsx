@@ -42,6 +42,7 @@ import type { ChartSettings } from "../timeControls";
 import type { TimeFrame } from "../timeFrame";
 import { fightMarkArea } from "../fightOverlay";
 import { contextMarkArea, type ContextMode } from "../contextOverlay";
+import { GRID, chartInk, chartTheme } from "../chartTheme";
 
 export interface PanelContext {
   sessionId: string;
@@ -273,7 +274,11 @@ function TablePanel({ panel, ctx, settings }: { panel: PanelDef; ctx: PanelConte
     const out = [
       <tr
         key={path}
-        className={`${depth > 0 ? "child-row" : ""} ${link?.className ?? ""}`.trim() || undefined}
+        className={
+          `${depth > 0 ? "child-row" : ""} ${
+            depth === 0 && row.key === ctx.character ? "self-row" : ""
+          } ${link?.className ?? ""}`.trim() || undefined
+        }
         style={rowStyle}
         onMouseEnter={link?.onMouseEnter}
         onMouseLeave={link?.onMouseLeave}
@@ -349,7 +354,9 @@ const EMPTY_ROWS: QueryRow[] = [];
  * little stronger than the entity-colored rows above them — where the tint is
  * a secondary cue on top of a name and a color chip.
  */
-const HEAT_ALPHA = "4d";
+// The heat ramp carries magnitude, so it runs warmer than the entity tint —
+// but not past 30%, which put --muted-raised at 3.91:1 over the olive stop.
+const HEAT_ALPHA = 0.3;
 
 function maxOf(rows: QueryRow[], metric: string): number {
   return rows.reduce((max, r) => Math.max(max, r.metrics[metric] ?? 0), 0);
@@ -429,7 +436,7 @@ function LinePanel({
 
   useEffect(() => {
     if (!divRef.current) return;
-    const chart = echarts.init(divRef.current);
+    const chart = echarts.init(divRef.current, chartTheme());
     chartRef.current = chart;
     chart.on("datazoom", (params: unknown) => {
       if (suppressZoomEventRef.current) {
@@ -661,7 +668,7 @@ function LinePanel({
       {
         backgroundColor: "transparent",
         animation: false,
-        grid: { left: 48, right: 10, top: 26, bottom: 24 },
+        grid: GRID.line,
         // Rendered-but-off-canvas toolbox: ECharts only instantiates the zoom
         // brush when the toolbox is shown (see DpsChart).
         toolbox: {
@@ -683,24 +690,18 @@ function LinePanel({
           type: "scroll",
           top: 0,
           data: top.map((row) => row.label).concat(rest.length > 0 ? [`Other (${rest.length})`] : []),
-          textStyle: { color: "#c3c2b7", fontSize: 10 },
-          inactiveColor: "#52514e",
         },
         tooltip: {
           trigger: "axis",
           position: offsetTooltip,
-          backgroundColor: "#232322",
-          borderColor: "rgba(255,255,255,0.10)",
-          textStyle: { color: "#ffffff", fontSize: 12 },
+          // The crosshair is the theme's; this panel used to leave it at
+          // ECharts' default while DpsChart styled its own.
           valueFormatter: (v: unknown) => (typeof v === "number" ? fmtLineValue(v) : "—"),
         },
         xAxis: {
           type: "time",
           min: axisMin,
           max: axisMax,
-          axisLine: { lineStyle: { color: "#383835" } },
-          axisLabel: { color: "#898781", fontSize: 10 },
-          splitLine: { show: false },
         },
         yAxis: {
           type: "value",
@@ -708,8 +709,7 @@ function LinePanel({
           // floor when the data says it is.
           min: axisFloor,
           max: axisTop,
-          axisLabel: { color: "#898781", fontSize: 10, formatter: (v: number) => fmtLineValue(v) },
-          splitLine: { lineStyle: { color: "#2c2c2a" } },
+          axisLabel: { formatter: (v: number) => fmtLineValue(v) },
         },
         series,
       },
@@ -762,7 +762,7 @@ function BarPanel({ panel, ctx, settings }: { panel: PanelDef; ctx: PanelContext
 
   useEffect(() => {
     if (!divRef.current) return;
-    const chart = echarts.init(divRef.current);
+    const chart = echarts.init(divRef.current, chartTheme());
     chartRef.current = chart;
     const observer = new ResizeObserver(() => chart.resize());
     observer.observe(divRef.current);
@@ -795,12 +795,9 @@ function BarPanel({ panel, ctx, settings }: { panel: PanelDef; ctx: PanelContext
       {
         backgroundColor: "transparent",
         animation: false,
-        grid: { left: 8, right: 56, top: 6, bottom: 6, containLabel: true },
+        grid: GRID.ability,
         tooltip: {
           position: offsetTooltip,
-          backgroundColor: "#232322",
-          borderColor: "rgba(255,255,255,0.10)",
-          textStyle: { color: "#ffffff", fontSize: 12 },
           valueFormatter: (v: unknown) =>
             typeof v === "number" ? fmtMetric(metric, v) : "—",
         },
@@ -811,19 +808,19 @@ function BarPanel({ panel, ctx, settings }: { panel: PanelDef; ctx: PanelContext
           data: ranked.map((r) => r.label),
           axisLine: { show: false },
           axisTick: { show: false },
-          axisLabel: { color: "#c3c2b7", fontSize: 11, width: 130, overflow: "truncate" },
+          axisLabel: { color: chartInk().ink2, fontSize: 11, width: 130, overflow: "truncate" },
         },
         series: [
           {
             type: "bar",
             data: ranked.map((r) => r.metrics[metric] ?? 0),
             barWidth: 13,
-            itemStyle: { color: SERIES_COLORS[0], borderRadius: [0, 4, 4, 0] },
+            itemStyle: { color: SERIES_COLORS[0] },
             ...ITEM_EMPHASIS,
             label: {
               show: true,
               position: "right",
-              color: "#898781",
+              color: chartInk().muted,
               fontSize: 11,
               formatter: (p: { value: unknown }) => fmtMetric(metric, Number(p.value)),
             },
@@ -1038,7 +1035,11 @@ function DropRatePanel({
     const out = [
       <tr
         key={path}
-        className={`${depth > 0 ? "child-row" : ""} ${link?.className ?? ""}`.trim() || undefined}
+        className={
+          `${depth > 0 ? "child-row" : ""} ${
+            depth === 0 && row.key === ctx.character ? "self-row" : ""
+          } ${link?.className ?? ""}`.trim() || undefined
+        }
         style={rowStyle}
         onMouseEnter={link?.onMouseEnter}
         onMouseLeave={link?.onMouseLeave}

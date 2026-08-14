@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import type { MobHealthEstimate, MobHealthReport } from "../api";
-import { fmtNum, fmtWhen } from "../format";
+import { SERIES_COLORS, fmtNum, fmtWhen } from "../format";
 import { TableSearch, meterStyle } from "../dashboards/tableTools";
 
 interface Props {
@@ -168,7 +168,7 @@ export function MobHealthPanel({ mobs, server }: Props) {
       </div>
 
       {shownLadders.length > 0 && (
-        <div className="panel">
+        <div className="panel ladder-panel">
           <div className="panel-title">
             <span className="panel-name">What a tier costs</span>
             <span className="subtle">
@@ -211,7 +211,7 @@ function Ladder({ ladder }: { ladder: MobLadder }) {
         <span className="subtle">{ladder.zone}</span>
       </div>
       {ladder.rungs.map((rung) => (
-        <div className="mob-rung" key={keyOf(rung)} style={meterStyle("#7aa2c4", (rung.health / max) * 100)}>
+        <div className="mob-rung" key={keyOf(rung)} style={meterStyle(SERIES_COLORS[1], (rung.health / max) * 100)}>
           <span className="mob-rung-tier">{tierLabel(rung)}</span>
           <span className="mob-rung-health">{fmtNum(rung.health)}</span>
           <span className="mob-rung-mult subtle">

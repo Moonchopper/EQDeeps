@@ -17,6 +17,12 @@ fixture corpus above.
 The published EQDeeps binary embeds or includes the following permissively
 licensed components:
 
+- IBM Plex Sans (https://github.com/IBM/plex) — SIL Open Font License 1.1,
+  Copyright 2017 IBM Corp. Designed by Mike Abbink with Bold Monday. The
+  bundled file is the variable-weight Latin subset, redistributed unmodified
+  as ui/public/fonts/ibm-plex-sans-latin-var.woff2. The OFL permits
+  redistribution as part of a larger work; the font is not sold on its own
+  and its name is unchanged.
 - Apache ECharts (https://echarts.apache.org) — Apache License 2.0,
   Copyright the Apache Software Foundation.
 - React and ReactDOM (https://react.dev) — MIT License, Copyright Meta

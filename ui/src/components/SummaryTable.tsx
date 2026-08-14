@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api, type QueryResult, type QueryRow, type QuerySource, type QuerySpec } from "../api";
 import { fmtNum, fmtRate } from "../format";
 import { defaultPanel, type PanelDef } from "../dashboards/model";
+import { meterStyle } from "../dashboards/tableTools";
 import { ENTITY_POOL, type EntityColors } from "../colors";
 import { useRowLink } from "../highlight";
 import { frameScope, type TimeFrame } from "../timeFrame";
@@ -51,6 +52,8 @@ interface Props {
   petRollup: boolean;
   onOpenInBuilder?: (seed: PanelDef) => void;
   colors: EntityColors;
+  /** The open log's own character, so their row can be marked as theirs. */
+  character: string;
 }
 
 /**
@@ -66,6 +69,7 @@ export function SummaryTable({
   petRollup,
   onOpenInBuilder,
   colors,
+  character,
 }: Props) {
   const [source, setSource] = useState<QuerySource>("damage");
   const [rowsBy, setRowsBy] = useState<"player" | "target">("player");
@@ -116,14 +120,14 @@ export function SummaryTable({
   const renderRow = (row: QueryRow, depth: number, path: string): JSX.Element[] => {
     const hasChildren = (row.children?.length ?? 0) > 0;
     const isExpanded = expanded.has(path);
+    // "Which row is me" is a question every table in this app has to answer, and
+    // until now it answered it by hoping you remembered your own colour chip.
+    const isSelf = depth === 0 && rowsBy === "player" && row.key === character;
     let rowStyle: React.CSSProperties | undefined;
     let chip: JSX.Element | null = null;
     if (depth === 0 && maxTotal > 0) {
       const color = rowsBy === "player" ? colors.claim(row.key) : colors.lookup(row.key);
-      const pct = ((row.metrics.total ?? 0) / maxTotal) * 100;
-      rowStyle = {
-        background: `linear-gradient(to right, ${color}2e ${pct.toFixed(1)}%, transparent ${pct.toFixed(1)}%)`,
-      };
+      rowStyle = meterStyle(color, ((row.metrics.total ?? 0) / maxTotal) * 100);
       chip = <span className="color-chip" style={{ background: color }} />;
     }
 
@@ -134,7 +138,10 @@ export function SummaryTable({
     const out: JSX.Element[] = [
       <tr
         key={path}
-        className={`${depth > 0 ? "child-row" : ""} ${link?.className ?? ""}`.trim() || undefined}
+        className={
+          `${depth > 0 ? "child-row" : ""} ${isSelf ? "self-row" : ""} ${link?.className ?? ""}`.trim() ||
+          undefined
+        }
         style={rowStyle}
         onMouseEnter={link?.onMouseEnter}
         onMouseLeave={link?.onMouseLeave}

@@ -91,6 +91,16 @@ export default function App() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [excludeDs, setExcludeDs] = useState(false);
   const [petRollup, setPetRollup] = useState(() => localStorage.getItem("eqdeeps.petRollup") !== "off");
+  /**
+   * Row density. Comfortable is the default and compact is the opt-in, which is
+   * the way round it has to be: this audience is 35-55, plays at night, and the
+   * recurring thread on the EverQuest interface forums is literally "font and
+   * everything too small to read". Trading four visible rows for legibility is
+   * the right default; anyone who wants the rows back can say so once.
+   */
+  const [density, setDensity] = useState<"comfortable" | "compact">(() =>
+    localStorage.getItem("eqdeeps.density") === "compact" ? "compact" : "comfortable",
+  );
   // Window/span for every chart in the app. One value, one place — panels have
   // no window/span of their own to disagree with it.
   const [chartDefaults, setChartDefaults] = useState<ChartSettings>(() => {
@@ -293,6 +303,19 @@ export default function App() {
       localStorage.setItem("eqdeeps.fightsCollapsed", on ? "off" : "on");
       return !on;
     });
+  }
+
+  // On the root rather than in a context: density is one number that a dozen
+  // unrelated rules need, and threading it through props would touch every
+  // component to change a padding.
+  useEffect(() => {
+    document.documentElement.dataset.density = density;
+  }, [density]);
+
+  function toggleDensity(compact: boolean) {
+    const next = compact ? "compact" : "comfortable";
+    setDensity(next);
+    localStorage.setItem("eqdeeps.density", next);
   }
 
   function togglePetRollup(on: boolean) {
@@ -750,6 +773,8 @@ export default function App() {
         checkNote={checkNote}
         petRollup={petRollup}
         onTogglePetRollup={togglePetRollup}
+        density={density}
+        onToggleDensity={toggleDensity}
         chartDefaults={chartDefaults}
         onChartDefaults={updateChartDefaults}
         frame={frame}
@@ -967,6 +992,7 @@ export default function App() {
                       petRollup={petRollup}
                       onOpenInBuilder={openInBuilder}
                       colors={entityColors}
+                      character={character}
                     />
                     <AbilityChart
                       sessionId={activeId}

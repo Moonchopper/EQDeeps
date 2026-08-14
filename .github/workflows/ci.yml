@@ -12,6 +12,7 @@ concurrency:
 
 env:
   DOTNET_CLI_TELEMETRY_OPTOUT: 1
+  PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
   DOTNET_NOLOGO: 1
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
 
@@ -71,6 +72,14 @@ jobs:
       # The SPA builds into src/EQDeeps.Server/wwwroot, which the server embeds.
       - name: Build SPA
         run: npm --prefix ui run build
+
+      # Geometry regression checks against the real stylesheet. Uses the
+      # runner's preinstalled Edge via playwright's `channel: msedge`, so the
+      # env var below keeps `npm ci` from fetching ~100MB of browsers it will
+      # never launch. Roughly two seconds; see ui/scripts/layout-check.mjs for
+      # the three shipped bugs that motivated it.
+      - name: Layout checks
+        run: npm --prefix ui run test:layout
 
       - name: Build
         run: dotnet build -c Release --no-restore

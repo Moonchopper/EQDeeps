@@ -2,8 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as echarts from "echarts";
 import { api, type FightInfo, type TimelineItem, type TimelineResult } from "../api";
 import { attachWheelZoom, offsetTooltip } from "../chartInteractions";
-import { fmtNum } from "../format";
+import { OTHER_COLOR, fmtNum } from "../format";
 import { frameScope, type TimeFrame } from "../timeFrame";
+import { GRID, chartInk, chartTheme } from "../chartTheme";
 
 interface Props {
   sessionId: string;
@@ -27,7 +28,7 @@ interface Props {
 const DEATH_X =
   "path://M2,0 L5,3 L8,0 L10,2 L7,5 L10,8 L8,10 L5,7 L2,10 L0,8 L3,5 L0,2 Z";
 
-const SPAN_COLOR = "#3987e5"; // buffs
+const SPAN_COLOR = "#0671d1"; // buffs — SERIES_COLORS slot 4
 
 /**
  * Stances get their own hue and their own lane. A stance is not a buff you
@@ -35,7 +36,7 @@ const SPAN_COLOR = "#3987e5"; // buffs
  * under, so reading it as a separate band under your own marks is the point:
  * the switch is where one band ends and the next begins.
  */
-const STANCE_COLOR = "#c98b1e";
+const STANCE_COLOR = "#a2991b"; // SERIES_COLORS slot 5
 
 /**
  * Magnitude rides on SIZE, because hue is already spent on what a mark is.
@@ -71,16 +72,16 @@ const INSTANT_KINDS: {
   symbol: string;
   rotate?: number;
 }[] = [
-  { key: "cast", name: "casts", color: "#d95926", symbol: "triangle" },
-  { key: "cast:heal", name: "heal casts", color: "#9163d9", symbol: "triangle" },
-  { key: "song", name: "songs", color: "#d95926", symbol: "diamond" },
-  { key: "song:heal", name: "heal songs", color: "#9163d9", symbol: "diamond" },
-  { key: "ability", name: "abilities", color: "#199e70", symbol: "rect" },
-  { key: "interrupt", name: "interrupts", color: "#898781", symbol: "triangle", rotate: 180 },
-  { key: "fizzle", name: "fizzles", color: "#898781", symbol: "emptyCircle" },
-  { key: "fade", name: "fades", color: "#898781", symbol: "emptyDiamond" },
-  { key: "resist", name: "resists", color: "#898781", symbol: "pin" },
-  { key: "death", name: "deaths", color: "#d03b3b", symbol: DEATH_X },
+  { key: "cast", name: "casts", color: "#ba5003", symbol: "triangle" },
+  { key: "cast:heal", name: "heal casts", color: "#9280f6", symbol: "triangle" },
+  { key: "song", name: "songs", color: "#ba5003", symbol: "diamond" },
+  { key: "song:heal", name: "heal songs", color: "#9280f6", symbol: "diamond" },
+  { key: "ability", name: "abilities", color: "#00814e", symbol: "rect" },
+  { key: "interrupt", name: "interrupts", color: OTHER_COLOR, symbol: "triangle", rotate: 180 },
+  { key: "fizzle", name: "fizzles", color: OTHER_COLOR, symbol: "emptyCircle" },
+  { key: "fade", name: "fades", color: OTHER_COLOR, symbol: "emptyDiamond" },
+  { key: "resist", name: "resists", color: OTHER_COLOR, symbol: "pin" },
+  { key: "death", name: "deaths", color: "#e56386", symbol: DEATH_X },
 ];
 
 const ROW_HEIGHT = 20;
@@ -264,7 +265,7 @@ export function TimelineChart({
 
   useEffect(() => {
     if (!divRef.current) return;
-    const chart = echarts.init(divRef.current);
+    const chart = echarts.init(divRef.current, chartTheme());
     chartRef.current = chart;
     chart.on("datazoom", (params: unknown) => {
       if (suppressZoomEventRef.current) return;
@@ -471,7 +472,7 @@ export function TimelineChart({
             shape: { ...rect, r: 3 },
             style: { fill: STANCE_COLOR, opacity: 0.85 },
             textContent: text
-              ? { style: { text, fill: "#1c1a15", fontSize: 10, fontWeight: 600 } }
+              ? { style: { text, fill: chartInk().onMark, fontSize: 10, fontWeight: 600 } }
               : undefined,
             textConfig: { position: "inside" },
           };
@@ -508,7 +509,7 @@ export function TimelineChart({
       {
         backgroundColor: "transparent",
         animation: false,
-        grid: { left: 100, right: 12, top: 30, bottom: 26 },
+        grid: GRID.timeline,
         toolbox: {
           show: true,
           top: -1000,
@@ -527,22 +528,16 @@ export function TimelineChart({
         legend: {
           type: "scroll",
           top: 0,
-          textStyle: { color: "#c3c2b7", fontSize: 11 },
-          inactiveColor: "#52514e",
         },
         tooltip: {
           trigger: "item",
           position: offsetTooltip,
-          backgroundColor: "#232322",
-          borderColor: "rgba(255,255,255,0.10)",
-          textStyle: { color: "#ffffff", fontSize: 12 },
         },
         xAxis: {
           type: "time",
           min: rangeBegin,
           max: rangeEnd,
-          axisLine: { lineStyle: { color: "#383835" } },
-          axisLabel: { color: "#898781", fontSize: 11 },
+          axisLabel: { color: chartInk().muted, fontSize: 11 },
           // Lanes here are categories, not values, so without vertical rules
           // there is nothing to read a mark's time against but the axis at the
           // bottom — which is far away by the time you are on the fourth lane.

@@ -21,6 +21,8 @@ interface Props {
   /** Transient result of a manual check, e.g. "up to date". */
   checkNote: string | null;
   petRollup: boolean;
+  density: "comfortable" | "compact";
+  onToggleDensity: (compact: boolean) => void;
   onTogglePetRollup: (on: boolean) => void;
   /** App-wide window/span. Owned here, pushed down to every chart. */
   chartDefaults: ChartSettings;
@@ -71,6 +73,8 @@ export function SessionBar({
   onCheckForUpdate,
   checkNote,
   petRollup,
+  density,
+  onToggleDensity,
   onTogglePetRollup,
   chartDefaults,
   onChartDefaults,
@@ -179,6 +183,17 @@ export function SessionBar({
           onChange={(e) => onTogglePetRollup(e.target.checked)}
         />
         pets → owners
+      </label>
+      <label
+        className="toggle"
+        title="Tighter table rows — about four more on screen, at the cost of some legibility"
+      >
+        <input
+          type="checkbox"
+          checked={density === "compact"}
+          onChange={(e) => onToggleDensity(e.target.checked)}
+        />
+        compact
       </label>
       {backfill && !backfill.complete && backfill.totalBytes > 0 && (
         <span className="backfill">

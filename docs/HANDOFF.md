@@ -67,6 +67,32 @@ There is no EverQuest install in the loop. The whole product is testable by **wr
 - Live-mode e2e: start the app on a temp `eqlog_Test_server.txt`, append lines on a schedule, assert UI/API updates.
 - Real-log validation: the owner has real logs; before release, compare summary numbers for a real fight against EQLogParser's output for the same file (they should agree within documented deviations).
 
+## Visual language (ADR-015)
+
+The SPA was re-themed in August 2026 to a rounded dark language: chrome on
+`--page` and panels on `--surface` (a 1.216:1 step, which is near the ceiling —
+the WCAG formula caps dark-on-dark), three opaque rule tiers replacing a single
+alpha, IBM Plex Sans bundled at 45.7 KB, and row meters as rounded pills drawn
+by a pseudo-element rather than a row background.
+
+Two things to know before touching it:
+
+- **`ui/src/chartTheme.ts` is where ECharts is told what the app looks like.**
+  It builds itself by reading the CSS custom properties, so `styles.css` stays
+  the single source of truth. Before it existed the chart layer held 66 colour
+  literals and no root `textStyle`, so every chart drew its labels in a
+  different typeface from the DOM.
+- **Eight is the ceiling for chart colours on a dark ground**, and sixteen
+  mutually separable fills do not exist at any level of care — the arithmetic
+  is in ADR-015. Slots 1–8 are gated on all pairs, 9–16 on adjacency, and they
+  are reached only by table rows where the name labels the chip.
+
+`npm --prefix ui run test:layout` renders the dense surfaces and asserts
+geometry; it runs in CI. Every check in it has been confirmed to fail before
+being trusted, which is worth preserving — three checks passed over broken
+output during the re-theme by asserting the easy adjacent property rather than
+the one that carried the meaning.
+
 ## Working agreements
 
 - Update the domain docs when reality disagrees with them — they are the spec of record.

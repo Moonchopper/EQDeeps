@@ -1,20 +1,160 @@
-/* Dark-first surfaces and ink from the validated reference palette (ADR-006). */
+/* IBM Plex Sans, variable weight, Latin subset (45.7 KB), self-hosted.
+   SIL OFL 1.1 — Mike Abbink and Bold Monday for IBM; see NOTICE.
+
+   Bundled rather than linked because the app is a localhost exe with no
+   network: a webfont URL would silently fall back to Segoe UI on every launch.
+   `font-display: block` for the same reason — the file is local and instant, so
+   there is no flash to trade against, and a swap would reflow every table.
+
+   The single variable file replaces what would otherwise be four static
+   weights, which is what makes a 450 and a 520 affordable. Hierarchy in a dense
+   table is carried by weight rather than brightness: promoting a row costs no
+   contrast, where brightening it spends the little that a dark ground has. */
+@font-face {
+  font-family: "IBM Plex Sans";
+  src: url("/fonts/ibm-plex-sans-latin-var.woff2") format("woff2-variations");
+  font-weight: 100 700;
+  font-style: normal;
+  font-display: block;
+}
+
+/* Dark-first surfaces and ink (ADR-006, restated by ADR-015).
+   Every value here is measured, not chosen by eye; the ratios in the comments
+   are WCAG against the surface each token is legal on. */
 :root {
   color-scheme: dark;
-  --page: #0d0d0d;
-  --surface: #1a1a19;
-  --surface-2: #232322;
-  --ink: #ffffff;
-  --ink-2: #c3c2b7;
-  --muted: #898781;
-  --grid: #2c2c2a;
-  --baseline: #383835;
-  --border: rgba(255, 255, 255, 0.1);
-  --accent: #3987e5;
-  --danger: #e66767;
-  --live: #63cf82;
-  --gold: #f5c542;
-  --sample: #b07fe8;
+
+  /* ---- surfaces: chrome recedes, content comes forward ----
+     --page carries the rail, session bar, fight list and panel gutter;
+     --surface carries panels. That inversion is why the app stops reading as
+     one undifferentiated dark rectangle.
+
+     --surface on --page measures 1.216:1. That looks low and is in fact near
+     the ceiling: the +0.05 term in the WCAG formula caps a dark-on-dark step,
+     and for this surface the theoretical maximum — against pure black — is
+     1.317:1. Do NOT chase a bigger number by lightening --surface without
+     re-running SERIES_COLORS through the palette validator against it; the
+     categorical slots are only 3:1 marks and they lose that first. */
+  --page: #0f0d0b;
+  --surface: #26211c;
+  --surface-2: #2a2520; /* sticky th, popovers, selected rows */
+  --hover: #322b25;
+  --selected: #39312a;
+
+  /* ---- ink ----
+     --muted is legal on --page / --surface / --surface-2 only. On --hover and
+     --selected it lands at 4.29 and 3.93, so anything that can sit on a raised
+     or tinted row takes --muted-raised instead. This is the easiest
+     accessibility regression to reintroduce, which is why it is a token and
+     not a note in a doc. */
+  --ink: #f1ece3; /* 13.55 on --surface */
+  --ink-2: #c5bdae; /*  8.55 on --surface */
+  --muted: #968e7e; /*  4.91 on --surface */
+  --muted-raised: #aca493; /*  5.15 on --selected */
+
+  /* ---- rules: three opaque tiers, deliberately not one alpha ----
+     --border used to be rgba(255,255,255,0.1), which gave a panel edge, a table
+     row rule and an input border identical weight — so nothing read as a region
+     boundary. Opaque also survives a light-theme swap; additive white does not. */
+  --grid: #3a342e; /* 1.30 — cell rules, chart split lines */
+  --border: #4d453d; /* 1.70 — panel and control edges */
+  --baseline: #605851; /* 2.29 — region boundaries, chart axis */
+
+  /* ---- accents ----
+     --accent is no longer SERIES_COLORS[0]. Both were #3987e5, so "selected"
+     and "series one" were the same pixel value. */
+  --accent: #e8963c; /* 6.73 on --surface */
+  --accent-ink: #1a1005; /* text and glyphs ON --accent */
+  --danger: #ef7268; /* 5.53 — never rendered on --selected (4.42) */
+  --live: #4ecb8c;
+  --gold: #e0b64e;
+  --sample: #c9a3ef;
+
+  /* ---- washes ----
+     Tokenised because these are the surfaces whose polarity has to invert for a
+     light theme; every one used to be an inline additive-white literal. Row
+     tints cap at --tint-alpha so text over a tinted row still clears 4.5:1 —
+     the app's signature "hover a name, light it up everywhere" interaction used
+     to make the row you just pointed at the hardest one to read. */
+  --wash-hover: rgba(241, 236, 227, 0.055);
+  --wash-linked: rgba(241, 236, 227, 0.1);
+  --wash-faint: rgba(241, 236, 227, 0.02);
+  --wash-gold: rgba(224, 182, 78, 0.12);
+  --scrim: rgba(6, 4, 3, 0.62);
+  --tint-alpha: 14%;
+
+  /* ---- radius: a scale keyed to element size ----
+     A 6px radius on a 900px panel and a 6px radius on a 20px chip are different
+     curvatures; one value everywhere is what makes a UI read as unconsidered.
+     The panel is 16px, NOT 8px — 8 is the framework default, and it is the
+     element the user sees twelve of. */
+  --r-tiny: 3px; /* colour chips, bar caps */
+  --r-chip: 6px; /* badges, sort-caret box, mini-buttons */
+  --r-control: 8px; /* inputs, selects, buttons */
+  --r-inner: 11px; /* fight rows, nested cards */
+  --r-card: 16px; /* panels */
+  --r-modal: 20px; /* modals */
+  --r-pill: 999px; /* segmented controls, meter fills, live badge */
+
+  /* ---- type ----
+     Tokenised so chartTheme.ts can read the same stack the DOM uses; the two
+     used to disagree, because no chart set a root textStyle at all. */
+  --font-ui: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, Consolas, monospace;
+
+  /* Eight sizes, which is what the file already used minus a stray 9px. The
+     scale was not invented here; it was measured and then tidied. */
+  --fs-micro: 10px; /* rail headings, chart-adjacent meta */
+  --fs-tiny: 11px; /* column headers, controls, chips */
+  --fs-small: 12px; /* secondary meta */
+  --fs-base: 13px; /* body and table cells */
+  --fs-lg: 14px; /* panel and section names */
+  --fs-xl: 15px; /* stat values */
+  --fs-display: 34px; /* dashboard tile values */
+
+  /* 450 and 520 are the point of shipping a variable face: 400-to-600 is a
+     shove, and a dense table wants a nudge. */
+  --w-normal: 400;
+  --w-medium: 450;
+  --w-strong: 520;
+  --w-bold: 600;
+  --w-heavy: 700;
+
+  /* ---- density ----
+     One number, because every surface that has a row has to agree with every
+     other one: a table row, a sticky header, a live-meter row and a fight row
+     all move together or the app looks like it was assembled from parts.
+
+     Comfortable is the default. See App.tsx for why that way round. */
+  --row-pad-y: 5px;
+
+  /* ---- spacing: real extremes, not just 8 and 16 ---- */
+  --sp-1: 2px;
+  --sp-2: 4px;
+  --sp-3: 6px;
+  --sp-4: 10px;
+  --sp-5: 14px;
+  --sp-6: 20px;
+  --sp-7: 28px;
+  --sp-8: 48px;
+
+  /* ---- elevation ----
+     Shadows do not read on a dark ground, so elevation is a lightness step plus
+     a rim-light on the top edge. The one real shadow is reserved for things
+     that float over the page: menus, modals, chart tooltips. */
+  --rim: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  --shadow-overlay: 0 14px 34px -10px rgba(4, 3, 2, 0.72);
+
+  /* ---- z-index ----
+     .range-menu, .update-menu and .modal-backdrop were all at 40. */
+  --z-sticky: 5;
+  --z-popover: 30;
+  --z-backdrop: 40;
+  --z-modal: 41;
+}
+
+:root[data-density="compact"] {
+  --row-pad-y: 3px;
 }
 
 * {
@@ -25,7 +165,7 @@ body {
   margin: 0;
   background: var(--page);
   color: var(--ink-2);
-  font: 13px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+  font: var(--fs-base) / 1.45 var(--font-ui);
 }
 
 button {
@@ -55,18 +195,25 @@ optgroup {
 }
 
 /* ---- top bar ---- */
+/* The session bar sits on the page ground with the nav rail, not on a panel
+   surface. That is the whole elevation inversion made visible: chrome recedes
+   into the dark and the panels come forward out of it. The double rule — a lit
+   line over a dark one — is spent here and under the sticky table header, and
+   nowhere else; it is the strongest separator in the app and it marks the two
+   places where a region genuinely ends. */
 .session-bar {
   display: flex;
   align-items: center;
   gap: 14px;
   padding: 8px 14px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
+  background: var(--page);
+  border-bottom: 1px solid var(--baseline);
+  box-shadow: 0 1px 0 var(--page);
   flex-wrap: wrap;
 }
 
 .brand {
-  font-weight: 700;
+  font-weight: var(--w-heavy);
   color: var(--ink);
   letter-spacing: 0.3px;
 }
@@ -81,7 +228,7 @@ optgroup {
   align-items: center;
   gap: 4px;
   padding: 3px 8px;
-  border-radius: 6px;
+  border-radius: var(--r-control);
   border: 1px solid var(--border);
 }
 
@@ -115,7 +262,7 @@ optgroup {
   flex: 1;
   background: var(--page);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--r-control);
   color: var(--ink);
   padding: 5px 9px;
   font: inherit;
@@ -123,10 +270,10 @@ optgroup {
 
 .open-form button {
   background: var(--accent);
-  color: #fff;
-  border-radius: 6px;
+  color: var(--accent-ink);
+  border-radius: var(--r-control);
   padding: 5px 12px;
-  font-weight: 600;
+  font-weight: var(--w-bold);
 }
 
 .backfill {
@@ -136,7 +283,7 @@ optgroup {
 .detected-select {
   background: var(--page);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--r-control);
   color: var(--ink-2);
   padding: 5px 8px;
   font: inherit;
@@ -146,7 +293,7 @@ optgroup {
 .detect-refresh {
   color: var(--muted);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--r-control);
   padding: 4px 8px;
 }
 
@@ -178,7 +325,7 @@ optgroup {
   text-align: left;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--r-card);
   padding: 10px 14px;
 }
 
@@ -188,18 +335,18 @@ optgroup {
 
 .discovered-name {
   color: var(--ink);
-  font-weight: 600;
-  font-size: 14px;
+  font-weight: var(--w-bold);
+  font-size: var(--fs-lg);
 }
 
 .discovered-meta {
   color: var(--ink-2);
-  font-size: 12px;
+  font-size: var(--fs-small);
 }
 
 .discovered-path {
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--fs-tiny);
   font-family: ui-monospace, Consolas, monospace;
 }
 
@@ -209,9 +356,9 @@ optgroup {
   right: 6px;
   padding: 2px 8px;
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: var(--r-control);
   color: var(--muted);
-  font-size: 13px;
+  font-size: var(--fs-base);
   line-height: 1.2;
   opacity: 0;
 }
@@ -246,10 +393,10 @@ optgroup {
   display: inline-block;
   padding: 1px 7px;
   border: 1px solid var(--sample);
-  border-radius: 6px;
+  border-radius: var(--r-control);
   color: var(--sample);
-  font-size: 11px;
-  font-weight: 700;
+  font-size: var(--fs-tiny);
+  font-weight: var(--w-heavy);
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
@@ -261,7 +408,7 @@ optgroup {
 
 .subtle {
   color: var(--muted);
-  font-weight: 400;
+  font-weight: var(--w-normal);
 }
 
 /* The app-wide chart setting, parked at the right end of the top bar next to
@@ -274,7 +421,7 @@ optgroup {
   margin-left: auto;
   padding: 2px 8px;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--r-control);
 }
 
 .global-time-controls .time-controls {
@@ -292,8 +439,8 @@ optgroup {
 
 .range-label {
   color: var(--muted);
-  font-size: 11px;
-  font-weight: 400;
+  font-size: var(--fs-tiny);
+  font-weight: var(--w-normal);
 }
 
 .range-trigger {
@@ -303,11 +450,11 @@ optgroup {
   max-width: 190px;
   padding: 2px 8px;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--r-control);
   background: var(--page);
   color: var(--ink);
-  font-size: 11px;
-  font-weight: 600;
+  font-size: var(--fs-tiny);
+  font-weight: var(--w-bold);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -325,19 +472,19 @@ optgroup {
   position: absolute;
   top: 24px;
   right: 0;
-  z-index: 40;
+  z-index: var(--z-popover);
   width: 250px;
   padding: 8px 10px 10px;
   background: var(--surface-2);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  border-radius: var(--r-card);
+  box-shadow: var(--shadow-overlay);
   text-align: left;
 }
 
 .range-section {
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--fs-micro);
   text-transform: uppercase;
   letter-spacing: 0.07em;
   margin: 6px 0 4px;
@@ -356,9 +503,9 @@ optgroup {
 .range-chip {
   padding: 2px 8px;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   color: var(--ink-2);
-  font-size: 11px;
+  font-size: var(--fs-tiny);
 }
 
 .range-chip:hover {
@@ -384,16 +531,16 @@ optgroup {
   min-width: 0;
   background: var(--page);
   border: 1px solid var(--border);
-  border-radius: 5px;
+  border-radius: var(--r-chip);
   color: var(--ink);
   padding: 3px 6px;
   font: inherit;
-  font-size: 11px;
+  font-size: var(--fs-tiny);
 }
 
 .range-note {
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--fs-micro);
   margin: -1px 0 2px;
 }
 
@@ -419,7 +566,7 @@ optgroup {
 .fight-hint {
   padding: 5px 10px;
   border-top: 1px solid var(--border);
-  font-size: 10px;
+  font-size: var(--fs-micro);
 }
 
 .fight-actions .mini-btn.on {
@@ -429,7 +576,7 @@ optgroup {
 
 .version {
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--fs-tiny);
 }
 
 .version a {
@@ -445,13 +592,13 @@ optgroup {
   margin-left: 8px;
   padding: 2px 9px;
   border: 1px solid var(--gold);
-  border-radius: 6px;
+  border-radius: var(--r-control);
   color: var(--gold) !important; /* outweigh .version a */
-  font-weight: 600;
+  font-weight: var(--w-bold);
 }
 
 .update-pill:hover {
-  background: rgba(245, 197, 66, 0.12);
+  background: var(--wash-gold);
 }
 
 /* The pill is a button while an update is actionable and plain text while one
@@ -466,7 +613,7 @@ button.update-pill {
 .update-pill-quiet {
   border-color: var(--border);
   color: var(--muted) !important;
-  font-weight: 400;
+  font-weight: var(--w-normal);
 }
 
 /* Determinate progress: the pill itself fills left-to-right as --pct rises,
@@ -476,8 +623,8 @@ button.update-pill {
   overflow: hidden;
   border-color: var(--accent);
   color: var(--ink) !important;
-  font-weight: 400;
-  font-variant-numeric: tabular-nums;
+  font-weight: var(--w-normal);
+  font-variant-numeric: tabular-nums slashed-zero lining-nums;
 }
 
 .update-pill-progress::before {
@@ -525,10 +672,10 @@ button.update-pill {
 
 .update-download {
   background: var(--accent);
-  color: #fff;
-  border-radius: 6px;
+  color: var(--accent-ink);
+  border-radius: var(--r-control);
   padding: 5px 12px;
-  font-weight: 600;
+  font-weight: var(--w-bold);
   text-decoration: none;
   cursor: pointer;
 }
@@ -536,7 +683,7 @@ button.update-pill {
 /* Sets expectations before the user commits: nothing is interrupted. */
 .update-when {
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--fs-small);
   margin: 10px 0 8px;
 }
 
@@ -545,7 +692,7 @@ button.update-pill {
   align-items: center;
   gap: 6px;
   color: var(--ink-2);
-  font-size: 12px;
+  font-size: var(--fs-small);
   margin-bottom: 10px;
   cursor: pointer;
 }
@@ -565,7 +712,7 @@ button.update-pill {
   border: none;
   padding: 0;
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--fs-small);
   text-decoration: underline;
   text-underline-offset: 2px;
   cursor: pointer;
@@ -619,7 +766,7 @@ button.update-pill {
 
 .check-icon {
   display: inline-block;
-  font-size: 13px;
+  font-size: var(--fs-base);
 }
 
 .spinning {
@@ -648,20 +795,20 @@ button.update-pill {
   position: absolute;
   top: 22px;
   right: 0;
-  z-index: 40;
+  z-index: var(--z-popover);
   min-width: 230px;
   padding: 10px 12px;
   background: var(--surface-2);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  border-radius: var(--r-card);
+  box-shadow: var(--shadow-overlay);
   text-align: left;
-  font-weight: 400;
+  font-weight: var(--w-normal);
 }
 
 .update-menu-title {
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--fs-tiny);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   margin-bottom: 6px;
@@ -673,7 +820,7 @@ button.update-pill {
   gap: 7px;
   padding: 3px 0;
   color: var(--ink-2);
-  font-size: 12px;
+  font-size: var(--fs-small);
   cursor: pointer;
 }
 
@@ -692,7 +839,7 @@ button.update-pill {
 
 .update-menu-note {
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--fs-tiny);
   line-height: 1.4;
 }
 
@@ -735,8 +882,8 @@ button.update-pill {
 .fight-spine {
   writing-mode: vertical-rl;
   color: var(--muted);
-  font-weight: 600;
-  font-size: 11px;
+  font-weight: var(--w-bold);
+  font-size: var(--fs-tiny);
   letter-spacing: 0.04em;
 }
 
@@ -748,7 +895,7 @@ button.update-pill {
 
 .fight-collapse {
   color: var(--muted);
-  font-size: 14px;
+  font-size: var(--fs-lg);
   line-height: 1;
   padding: 0 4px 0 0;
 }
@@ -836,7 +983,11 @@ button.update-pill {
 .panel {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--r-card);
+  /* Elevation on a dark ground is a lightness step plus a rim-light, not a
+     shadow — a drop shadow under a #26211c panel on a #0f0d0b page is invisible
+     and still costs a paint. */
+  box-shadow: var(--rim);
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -850,14 +1001,65 @@ button.update-pill {
   gap: 8px;
   padding: 8px 12px;
   color: var(--ink);
-  font-weight: 600;
+  font-weight: var(--w-bold);
   border-bottom: 1px solid var(--border);
 }
 
+/* One class served ten messages — "Loading…", "No fights yet", "Dashboard not
+   found" and "Nothing matches." all looked identical, so a thing that is still
+   arriving was indistinguishable from a thing that is not there and from a
+   thing that went wrong. Three states, three treatments.
+
+   Copy rule for all of them, worth writing down because it is the part that
+   rots: literal and declarative, no second person, no flavour verbs. "No combat
+   recorded in this range", never "The mobs grow restless…". */
 .empty {
   color: var(--muted);
-  padding: 18px;
+  padding: var(--sp-6);
   text-align: center;
+}
+
+/* Still arriving. Skeleton bars rather than a spinner: a spinner says "wait"
+   and a skeleton says "here is the shape of what is coming", and this app is
+   nearly always loading a table. */
+.empty-loading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-5) var(--sp-6);
+}
+
+.empty-loading::before,
+.empty-loading::after {
+  content: "";
+  height: 9px;
+  border-radius: var(--r-tiny);
+  background: var(--surface-2);
+}
+
+.empty-loading::after {
+  width: 62%;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .empty-loading::before,
+  .empty-loading::after {
+    animation: skeleton 1.6s ease-in-out infinite;
+  }
+}
+
+@keyframes skeleton {
+  50% {
+    background: var(--hover);
+  }
+}
+
+/* Went wrong. A rule rather than a filled banner: an error in a panel is a
+   note about that panel, not an alarm about the app. */
+.empty-error {
+  color: var(--danger);
+  padding: var(--sp-4) var(--sp-6);
+  border-left: 2px solid var(--danger);
 }
 
 /* ---- fight list ---- */
@@ -870,7 +1072,7 @@ button.update-pill {
   align-items: center;
   gap: 5px;
   color: var(--ink-2);
-  font-weight: 400;
+  font-weight: var(--w-normal);
 }
 
 .fight-scroll {
@@ -883,7 +1085,7 @@ button.update-pill {
 
 .fight-group {
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--fs-tiny);
   padding: 6px 4px 2px;
   text-align: left;
 }
@@ -899,7 +1101,7 @@ button.update-pill {
   align-items: flex-start;
   text-align: left;
   padding: 5px 8px;
-  border-radius: 6px;
+  border-radius: var(--r-control);
   border: 1px solid transparent;
 }
 
@@ -953,9 +1155,9 @@ button.update-pill {
 }
 
 .fight-meta {
-  color: var(--muted);
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
+  color: var(--muted-raised); /* the row is --selected or --hover much of the time */
+  font-size: var(--fs-tiny);
+  font-variant-numeric: tabular-nums slashed-zero lining-nums;
 }
 
 /* ---- tables ---- */
@@ -985,9 +1187,9 @@ button.update-pill {
   min-width: 0;
   background: var(--surface-2);
   border: 1px solid var(--border);
-  border-radius: 5px;
+  border-radius: var(--r-chip);
   color: var(--ink);
-  font-size: 12px;
+  font-size: var(--fs-small);
   padding: 3px 7px;
 }
 
@@ -996,21 +1198,20 @@ button.update-pill {
 }
 
 .search-input:focus {
-  outline: none;
   border-color: var(--accent);
 }
 
 .search-count {
   color: var(--muted);
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-tiny);
+  font-variant-numeric: tabular-nums slashed-zero lining-nums;
   white-space: nowrap;
 }
 
 .search-hit {
   background: none;
   color: var(--accent);
-  font-weight: 600;
+  font-weight: var(--w-bold);
 }
 
 th.sortable {
@@ -1031,7 +1232,7 @@ th.sorted {
   display: inline-block;
   width: 12px;
   margin-left: 3px;
-  font-size: 9px;
+  font-size: var(--fs-micro);
   color: var(--muted);
 }
 
@@ -1045,8 +1246,8 @@ th.sorted .sort-caret {
 .share-pct {
   margin-left: 8px;
   color: var(--muted);
-  font-size: 10px;
-  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-micro);
+  font-variant-numeric: tabular-nums slashed-zero lining-nums;
 }
 
 table {
@@ -1056,7 +1257,7 @@ table {
 
 th,
 td {
-  padding: 4px 10px;
+  padding: var(--row-pad-y) 10px;
   text-align: left;
   white-space: nowrap;
 }
@@ -1066,8 +1267,8 @@ th {
   top: 0;
   background: var(--surface);
   color: var(--muted);
-  font-weight: 600;
-  font-size: 11px;
+  font-weight: var(--w-bold);
+  font-size: var(--fs-tiny);
   border-bottom: 1px solid var(--grid);
 }
 
@@ -1078,7 +1279,7 @@ td {
 
 /* Translucent so entity row tints stay visible under the hover wash. */
 tbody tr:hover td {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--wash-hover);
 }
 
 /* ---- linked highlight ----
@@ -1089,7 +1290,7 @@ tbody tr:hover td {
    than the plain :hover wash above — that says "your pointer is here", this
    says "here it is again". */
 tbody tr.linked td {
-  background: rgba(255, 255, 255, 0.09);
+  background: var(--wash-linked);
 }
 
 tbody tr.linked td:first-child {
@@ -1110,7 +1311,7 @@ tbody tr.linked td:first-child {
   display: inline-block;
   width: 8px;
   height: 8px;
-  border-radius: 2px;
+  border-radius: var(--r-tiny);
   margin-right: 7px;
   vertical-align: baseline;
 }
@@ -1118,11 +1319,14 @@ tbody tr.linked td:first-child {
 td.num,
 th.num {
   text-align: right;
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: tabular-nums slashed-zero lining-nums;
 }
 
+/* Breakdown rows sit under a row tint and take the hover and linked washes,
+   so they use the raised ink: plain --muted is 4.29 on --hover and 3.93 on
+   --selected, both under 4.5. */
 .child-row td {
-  color: var(--muted);
+  color: var(--muted-raised);
 }
 
 .expander {
@@ -1160,13 +1364,13 @@ th.num {
 
 .stat-value {
   color: var(--ink);
-  font-size: 15px;
-  font-weight: 700;
+  font-size: var(--fs-xl);
+  font-weight: var(--w-heavy);
 }
 
 .stat-label {
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--fs-tiny);
 }
 
 .fight-actions {
@@ -1178,10 +1382,10 @@ th.num {
 .mini-btn {
   color: var(--muted);
   border: 1px solid var(--border);
-  border-radius: 5px;
+  border-radius: var(--r-chip);
   padding: 1px 8px;
-  font-size: 11px;
-  font-weight: 400;
+  font-size: var(--fs-tiny);
+  font-weight: var(--w-normal);
 }
 
 .mini-btn:hover:enabled {
@@ -1196,7 +1400,7 @@ th.num {
 }
 
 .tab.small {
-  font-size: 11px;
+  font-size: var(--fs-tiny);
   padding: 2px 8px;
 }
 
@@ -1208,9 +1412,9 @@ th.num {
 
 .tab {
   padding: 3px 10px;
-  border-radius: 6px;
+  border-radius: var(--r-control);
   color: var(--muted);
-  font-weight: 600;
+  font-weight: var(--w-bold);
 }
 
 .tab.on {
@@ -1223,17 +1427,17 @@ th.num {
   align-items: center;
   gap: 5px;
   color: var(--ink-2);
-  font-weight: 400;
+  font-weight: var(--w-normal);
 }
 
 .panel-select {
   background: var(--page);
   border: 1px solid var(--border);
-  border-radius: 5px;
+  border-radius: var(--r-chip);
   color: var(--ink-2);
   padding: 2px 6px;
   font: inherit;
-  font-size: 12px;
+  font-size: var(--fs-small);
 }
 
 /* ---- chart ---- */
@@ -1263,11 +1467,11 @@ th.num {
   background: var(--surface-2);
   border: 1px solid var(--accent);
   color: var(--ink);
-  border-radius: 999px;
+  border-radius: var(--r-pill);
   padding: 3px 12px;
-  font-size: 11px;
-  font-weight: 600;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
+  font-size: var(--fs-tiny);
+  font-weight: var(--w-bold);
+  box-shadow: var(--shadow-overlay);
 }
 
 .zoom-reset:hover {
@@ -1288,9 +1492,12 @@ th.num {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 24px;
+  /* Derived rather than fixed, so a meter row and a table row move together.
+     A hardcoded 24px here was one of the font-metric couplings the audit
+     flagged: it clips the moment the base size or the density changes. */
+  height: calc(14px + var(--row-pad-y) * 2);
   padding: 0 8px;
-  border-radius: 4px;
+  border-radius: var(--r-chip);
   overflow: hidden;
 }
 
@@ -1298,20 +1505,20 @@ th.num {
   position: absolute;
   inset: 0 auto 0 0;
   opacity: 0.28;
-  border-radius: 4px;
+  border-radius: var(--r-chip);
 }
 
 .meter-name {
   position: relative;
   color: var(--ink);
-  font-weight: 600;
+  font-weight: var(--w-bold);
 }
 
 .meter-nums {
   position: relative;
   color: var(--ink-2);
-  font-variant-numeric: tabular-nums;
-  font-size: 12px;
+  font-variant-numeric: tabular-nums slashed-zero lining-nums;
+  font-size: var(--fs-small);
 }
 
 /* ---- left nav rail ---- */
@@ -1328,8 +1535,8 @@ th.num {
 .rail-heading {
   padding: 10px 8px 4px;
   color: var(--muted);
-  font-size: 10px;
-  font-weight: 700;
+  font-size: var(--fs-micro);
+  font-weight: var(--w-heavy);
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -1341,10 +1548,10 @@ th.num {
 .rail-tab {
   padding: 5px 10px;
   text-align: left;
-  border-radius: 5px;
+  border-radius: var(--r-chip);
   color: var(--muted);
-  font-size: 12px;
-  font-weight: 600;
+  font-size: var(--fs-small);
+  font-weight: var(--w-bold);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1442,24 +1649,48 @@ th.num {
   align-items: center;
   gap: 3px;
   color: var(--muted);
-  font-size: 11px;
-  font-weight: 400;
+  font-size: var(--fs-tiny);
+  font-weight: var(--w-normal);
 }
 
 .time-controls select {
   background: var(--page);
   color: var(--ink-2);
   border: 1px solid var(--border);
-  border-radius: 5px;
+  border-radius: var(--r-chip);
   padding: 1px 4px;
   font: inherit;
-  font-size: 11px;
+  font-size: var(--fs-tiny);
 }
 
 .react-grid-item.react-grid-placeholder {
   background: var(--accent);
   opacity: 0.15;
-  border-radius: 8px;
+  border-radius: var(--r-card);
+}
+
+/* react-grid-layout ships a dark chevron as a background image, which on a dark
+   panel is a resize affordance you cannot see. Two strokes instead, at the
+   corner, in the strongest rule tier. */
+.react-resizable-handle {
+  background: none;
+  padding: 0;
+}
+
+.react-resizable-handle::after {
+  content: "";
+  position: absolute;
+  right: 5px;
+  bottom: 5px;
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid var(--baseline);
+  border-bottom: 2px solid var(--baseline);
+  border-bottom-right-radius: var(--r-tiny);
+}
+
+.panel:hover .react-resizable-handle::after {
+  border-color: var(--accent);
 }
 
 .tile-body {
@@ -1473,30 +1704,30 @@ th.num {
 
 .tile-value {
   color: var(--ink);
-  font-size: 34px;
-  font-weight: 700;
+  font-size: var(--fs-display);
+  font-weight: var(--w-heavy);
 }
 
 .tile-label {
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--fs-small);
 }
 
 /* ---- modal / query builder ---- */
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.55);
+  background: var(--scrim);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 40;
+  z-index: var(--z-backdrop);
 }
 
 .modal {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--r-modal);
   padding: 16px 18px;
   width: min(680px, 92vw);
   max-height: 86vh;
@@ -1505,8 +1736,8 @@ th.num {
 
 .modal-title {
   color: var(--ink);
-  font-weight: 700;
-  font-size: 15px;
+  font-weight: var(--w-heavy);
+  font-size: var(--fs-xl);
   margin-bottom: 12px;
 }
 
@@ -1519,7 +1750,7 @@ th.num {
 
 .form-grid > label {
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--fs-small);
 }
 
 .form-grid input[type="text"],
@@ -1527,7 +1758,7 @@ th.num {
 .form-grid select {
   background: var(--page);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--r-control);
   color: var(--ink);
   padding: 5px 8px;
   font: inherit;
@@ -1560,7 +1791,7 @@ th.num {
   width: 64px;
   background: var(--page);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--r-control);
   color: var(--ink);
   padding: 3px 6px;
   font: inherit;
@@ -1577,7 +1808,7 @@ th.num {
   display: flex;
   align-items: center;
   gap: 5px;
-  font-size: 12px;
+  font-size: var(--fs-small);
 }
 
 .modal-actions {
@@ -1589,10 +1820,10 @@ th.num {
 
 .btn {
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--r-control);
   padding: 5px 14px;
   color: var(--ink-2);
-  font-weight: 600;
+  font-weight: var(--w-bold);
 }
 
 .btn:hover {
@@ -1601,7 +1832,7 @@ th.num {
 
 .btn.primary {
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-ink);
   border-color: var(--accent);
 }
 
@@ -1619,7 +1850,7 @@ th.num {
 .welcome code {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--r-chip);
   padding: 1px 5px;
 }
 
@@ -1668,13 +1899,13 @@ th.num {
 
 .strong {
   color: var(--ink);
-  font-weight: 600;
+  font-weight: var(--w-bold);
 }
 
 /* Confidence is a word, not a colour alone — the tint is a second channel so
    the grade survives a monochrome screen and red-green colour blindness. */
 .mob-confidence {
-  font-size: 11px;
+  font-size: var(--fs-tiny);
   text-transform: lowercase;
   letter-spacing: 0.02em;
 }
@@ -1698,10 +1929,17 @@ th.num {
    its value between sessions. */
 .hit-feed-panel {
   max-height: 40vh;
+  /* And it must not be crushed either. Flex shrink is weighted by content
+     height, and the profiles panel below carries every mob this server has ever
+     been seen to swing — on a real log that is ~1900 rows against the feed's
+     few dozen, so proportional shrink took the whole overflow out of the feed
+     and left it 17px tall: a title bar clipped to a sliver. max-height caps the
+     pane, it does not floor it. */
+  flex: 0 0 auto;
 }
 
 .hit-feed {
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: tabular-nums slashed-zero lining-nums;
 }
 
 /* An avoided swing is still evidence, but it is not the thing being scanned
@@ -1711,7 +1949,7 @@ th.num {
 }
 
 .hit-outcome {
-  font-size: 11px;
+  font-size: var(--fs-tiny);
   color: var(--muted);
 }
 
@@ -1739,7 +1977,7 @@ th.num {
    instead. */
 .hit-skill td,
 .hit-note-row td {
-  background: #ffffff05;
+  background: var(--wash-faint);
 }
 
 /* .child-row mutes every cell, which would swallow the one figure the
@@ -1756,6 +1994,15 @@ th.num {
 }
 
 /* ---- the tier ladder ---- */
+/* Same crush as .hit-feed-panel: the mob table above this carries every mob the
+   server has ever been seen to kill, so proportional flex shrink took the whole
+   overflow out of the ladder and left it 4px tall. The ladder is a handful of
+   rungs — it keeps its content height and the table absorbs the rest. */
+.ladder-panel {
+  flex: 0 0 auto;
+  max-height: 45vh;
+}
+
 .mob-ladder {
   margin-top: 16px;
   padding-top: 10px;
@@ -1778,12 +2025,17 @@ th.num {
    shape of the climb reads the same whether the mob is worth 500 or 12,000. */
 .mob-rung {
   display: grid;
-  grid-template-columns: minmax(120px, 1fr) 90px 90px auto;
+  /* Every column is fixed, including the confidence one. Each rung is its own
+     grid, so an `auto` track there sized to that ROW's word — "medium" is 42px
+     and "low" is 19px — and the 1fr column absorbed the difference, walking the
+     health and multiplier columns 23px left and right down the ladder. A ladder
+     is a column of numbers to compare; they have to line up. */
+  grid-template-columns: minmax(120px, 1fr) 90px 90px 46px;
   gap: 10px;
   align-items: baseline;
   padding: 3px 8px;
-  border-radius: 3px;
-  font-variant-numeric: tabular-nums;
+  border-radius: var(--r-tiny);
+  font-variant-numeric: tabular-nums slashed-zero lining-nums;
 }
 
 .mob-rung-tier {
@@ -1799,6 +2051,41 @@ th.num {
   text-align: right;
 }
 
+/* ---- the row meter ----
+   Drawn as a pseudo-element on the first cell rather than as the row's own
+   background, because a <tr> background cannot be rounded and the fill wants to
+   read as a bar. z-index -1 puts it above the cell's background — so the hover
+   and linked washes still stack under it — and below the cell's text, without
+   the label needing a wrapper element to sit in.
+
+   With --meter-pct unset the width is zero, so untinted rows pay nothing for
+   this and no markup has to know whether a meter is coming. */
+tbody td:first-child,
+.mob-rung {
+  position: relative;
+  /* isolation, not decoration: a z-index -1 pseudo-element otherwise paints
+     behind the nearest ancestor that has a background — which here is .panel,
+     so the fill vanished entirely while still computing a correct width.
+     Isolating makes the cell its own stacking context, so -1 means "under this
+     cell's text" rather than "under the whole panel". */
+  isolation: isolate;
+}
+
+tbody td:first-child::before,
+.mob-rung::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  left: 3px;
+  top: 2px;
+  bottom: 2px;
+  width: var(--meter-pct, 0);
+  background: var(--meter-color, transparent);
+  opacity: var(--meter-alpha, 0.26);
+  border-radius: var(--r-pill);
+  pointer-events: none;
+}
+
 /* ---- the fight list's borrowings ---- */
 
 /* Difficulty beside the mob name. Small and quiet: on an instanced server it
@@ -1806,11 +2093,11 @@ th.num {
 .fight-tier {
   margin-left: 6px;
   padding: 0 4px;
-  border-radius: 3px;
+  border-radius: var(--r-tiny);
   background: var(--surface-2);
   color: var(--muted);
-  font-size: 10px;
-  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-micro);
+  font-variant-numeric: tabular-nums slashed-zero lining-nums;
 }
 
 .fight-share {
@@ -1821,4 +2108,72 @@ th.num {
    finished it. Worth marking, because it is why a pull's numbers look thin. */
 .fight-share.partial {
   color: var(--gold);
+}
+
+/* ---- your own row ----
+   EverQuest's chat colours encode relevance as brightness rather than hue: what
+   you do is white, what happens to you is red, and what two other people do to
+   each other is grey. Twenty-five years of players read that without being
+   taught it, and it runs on a channel the sixteen-slot entity palette does not
+   touch — so it costs no hue budget and no CVD budget.
+
+   Here it is weight rather than brightness, which is the same trick spent more
+   cheaply: promoting a row costs no contrast at all, where brightening it
+   spends the little a dark ground has to give. This is what the 520 in the
+   weight ladder exists for; 400-to-600 would read as a heading. */
+.self-row td {
+  color: var(--ink);
+  font-weight: var(--w-strong);
+}
+
+/* ---- controls, unified ----
+   These eleven button looks and eight field looks were written one at a time
+   across eight build phases, and had drifted: fields disagreed on background,
+   radius and padding; the search box removed its own focus ring; and in 1,900
+   lines there were three focus rules total, one of which was `outline: none`.
+   The block below is deliberately last in the file so it settles those
+   arguments without unpicking every rule that made them.
+
+   Class names are left alone on purpose. Renaming .mini-btn to .btn-quiet
+   across twelve components would be a large diff for no behaviour, and the
+   inconsistency worth removing is the treatment, not the vocabulary. */
+
+/* One field. Recessed rather than raised — a socket says "you may type here"
+   with no fill colour and no glow, which is the one idea worth keeping from the
+   client's own inventory slots. */
+.open-form input,
+.search-input,
+.num-input,
+.range-row input,
+.form-grid input,
+.form-grid input[type="text"],
+.form-grid input:not([type]),
+.panel-select,
+.detected-select,
+.time-controls select {
+  background: var(--page);
+  border: 1px solid var(--border);
+  border-radius: var(--r-control);
+  color: var(--ink);
+}
+
+/* One focus model, for everything focusable. An outline rather than a border
+   or a shadow: a border resizes the control and a glow is the look this
+   re-theme is escaping. Only :focus-visible, so a pointer click never draws a
+   ring the mouse user did not ask for. */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* A text button is still a target. Negative margin keeps it aligned with the
+   text it sits beside while the padding gives it something to hit. */
+.link-btn {
+  padding: 2px 4px;
+  margin: 0 -4px;
 }

@@ -84,57 +84,85 @@ export function fmtDuration(beginIso: string, endIso: string): string {
 }
 
 /**
- * Categorical slots for the dark surface (#1a1a19), in claim order.
+ * Categorical slots for the dark panel surface (--surface #26211c), in claim
+ * order. Re-derived for ADR-015; the structure of the previous set is kept
+ * because its reasoning was right, but the gate it was validated against was
+ * the wrong one for half its job.
  *
- * Slots 1–8 are the validated eight and have not moved — a palette's ORDER is
- * its colorblind-safety mechanism, so re-ordering it is never cosmetic.
+ * ## Two tiers, because CVD collapses hue and keeps lightness
  *
- * Slots 9–16 are those same eight hue families stepped down in lightness
- * (OKLCH L 0.545, chroma held). Lightness is the axis worth growing along:
- * protanopia and deuteranopia collapse hue but preserve lightness, so a darker
- * step of a hue stays separable where a *new* hue squeezed between two existing
- * ones does not. An earlier attempt at four extra hues at the same lightness
- * failed outright — indigo against pink came out at ΔE 3.3 under deuteranopia.
- * Their order within the tier was brute-forced over all 8! arrangements for the
- * best worst-adjacent pair.
+ * Slots 1–8 are eight distinct hues. Slots 9–16 are those same eight hue
+ * families at a different lightness — protanopia and deuteranopia flatten hue
+ * but preserve lightness, so a lightness step of a known-good hue separates
+ * where a *new* hue squeezed between two existing ones does not. Their order
+ * within the tier is brute-forced over all 8! arrangements for the best
+ * worst-adjacent pair, including the junction into tier one and the wrap from
+ * slot 16 back to slot 1.
  *
- * Sixteen is the ceiling here, not a round number to stop at. A third tier has
- * nowhere to go: the dark band is L 0.48–0.67, and stepping below ~0.52 drops
- * under 3:1 contrast on this surface while collapsing into the tier above it
- * (a 24-slot attempt failed on both counts — worst adjacent ΔE 4.5 deutan, 8.2
- * normal-vision, with eight slots under contrast). So past the sixteenth the
- * registry REPEATS this list instead of extending it: a seventeenth color that
- * fails contrast would be worse than reusing one that passes. The wrap pair
- * (slot 16 → slot 1) is validated alongside the rest.
+ * Tier two steps DOWN in lightness for most hues and UP for orange, olive and
+ * blue. The previous set stepped everything down, which worked against the old
+ * #1a1a19 surface; the panel is lighter now, and orange has no darker step left
+ * that still clears 3:1 on it. The separation argument is about the size of the
+ * lightness gap, not its direction.
  *
- * Validated as a set with the data-viz validator (adjacent pairlist, dark mode,
- * surface #1a1a19): lightness band, chroma floor, CVD separation (worst
- * adjacent ΔE 8.4 protan — the original yellow↔aqua pair, unchanged by the
- * extension), normal-vision floor (16.3, over the 15 gate), and contrast (all
- * 16 at or above 3:1). Charts still cap at eight series and fold the rest into
- * "Other": a ninth SERIES is a different question from a ninth row tint, and
- * only the tint has a label beside it doing the identifying.
+ * ## The gate, and why it changed
+ *
+ * A chart draws its eight series SIMULTANEOUSLY, so the right question for the
+ * chart set is every pair, not neighbouring pairs. The previous palette was
+ * validated on adjacency and passed; checked on all pairs its first eight
+ * collapsed to ΔE 1.6 under deuteranopia (#d55181 against #199e70) and 7.1
+ * under ordinary vision. Two series on the busiest chart in the app were, for
+ * practical purposes, the same colour.
+ *
+ * So the two halves are now held to different standards, matching what each is
+ * actually asked to do:
+ *
+ *   Slots 1–8   ALL PAIRS. Worst ΔE 8.2 protan, 15.3 normal-vision, every slot
+ *               at or above 3:1 on both --surface and --surface-2. Verified
+ *               against both, because a chip on a selected row sits on the
+ *               lighter one.
+ *   Slots 1–16  ADJACENT, the historical gate. Worst ΔE 9.5 deutan, 17.4
+ *               normal-vision, all 16 at or above 3:1.
+ *
+ * All sixteen do NOT clear all-pairs, and no sixteen-colour set does. Searching
+ * 9,443 candidates inside the dark band with a 3:1 floor, the best achievable
+ * worst pair scores 0.68 against the 1.0 pass line at sixteen slots, 0.80 at
+ * twelve, 0.94 at ten, and only reaches 1.06 at eight — and that one is close
+ * to neon. Sixteen mutually distinguishable fills on a dark ground do not
+ * exist, at any level of care. That is why slots 9–16 are reached only by table
+ * rows, where the entity's NAME sits beside the chip and colour is never the
+ * sole channel, and why charts fold everything past the eighth into "Other".
+ *
+ * Past the sixteenth the registry repeats this list rather than extending it: a
+ * seventeenth colour that fails contrast is worse than reusing one that passes.
+ *
+ * A series colour is a 3:1 MARK. It is never text. Legend entries, axis labels
+ * and tooltip bodies take --ink-2 and the swatch beside them carries identity;
+ * chartTheme.ts enforces that for every chart in the app.
  */
 export const SERIES_COLORS = [
-  "#3987e5",
-  "#d95926",
-  "#199e70",
-  "#c98500",
-  "#d55181",
-  "#008300",
-  "#9085e9",
-  "#e66767",
-  "#0e880c",
-  "#1e6fcb",
-  "#bd4100",
-  "#06855c",
-  "#986405",
-  "#ba386a",
-  "#6c5fbf",
-  "#bb3f43",
+  // tier one — the chart set, mutually separable across all pairs
+  "#e56386",
+  "#03a8ba",
+  "#ba5003",
+  "#0671d1",
+  "#a2991b",
+  "#9280f6",
+  "#00814e",
+  "#9f51a0",
+  // tier two — the same eight families, stepped in lightness; table tints only
+  "#3195fe",
+  "#a95469",
+  "#2aae70",
+  "#c96bca",
+  "#e96a19",
+  "#028f9e",
+  "#79720e",
+  "#6f63b8",
 ];
 
 /** The eight chart-series slots — see SERIES_COLORS on why charts stop at eight. */
 export const CHART_SERIES_LIMIT = 8;
 
-export const OTHER_COLOR = "#898781";
+/** Everything folded past the chart cap. Tracks --muted: "not an entity". */
+export const OTHER_COLOR = "#968e7e";

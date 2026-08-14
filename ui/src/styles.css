@@ -183,13 +183,20 @@ optgroup {
 }
 
 /* ---- top bar ---- */
+/* The session bar sits on the page ground with the nav rail, not on a panel
+   surface. That is the whole elevation inversion made visible: chrome recedes
+   into the dark and the panels come forward out of it. The double rule — a lit
+   line over a dark one — is spent here and under the sticky table header, and
+   nowhere else; it is the strongest separator in the app and it marks the two
+   places where a region genuinely ends. */
 .session-bar {
   display: flex;
   align-items: center;
   gap: 14px;
   padding: 8px 14px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
+  background: var(--page);
+  border-bottom: 1px solid var(--baseline);
+  box-shadow: 0 1px 0 var(--page);
   flex-wrap: wrap;
 }
 
@@ -1953,6 +1960,41 @@ th.num {
 
 .mob-rung-mult {
   text-align: right;
+}
+
+/* ---- the row meter ----
+   Drawn as a pseudo-element on the first cell rather than as the row's own
+   background, because a <tr> background cannot be rounded and the fill wants to
+   read as a bar. z-index -1 puts it above the cell's background — so the hover
+   and linked washes still stack under it — and below the cell's text, without
+   the label needing a wrapper element to sit in.
+
+   With --meter-pct unset the width is zero, so untinted rows pay nothing for
+   this and no markup has to know whether a meter is coming. */
+tbody td:first-child,
+.mob-rung {
+  position: relative;
+  /* isolation, not decoration: a z-index -1 pseudo-element otherwise paints
+     behind the nearest ancestor that has a background — which here is .panel,
+     so the fill vanished entirely while still computing a correct width.
+     Isolating makes the cell its own stacking context, so -1 means "under this
+     cell's text" rather than "under the whole panel". */
+  isolation: isolate;
+}
+
+tbody td:first-child::before,
+.mob-rung::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  left: 3px;
+  top: 2px;
+  bottom: 2px;
+  width: var(--meter-pct, 0);
+  background: var(--meter-color, transparent);
+  opacity: var(--meter-alpha, 0.26);
+  border-radius: var(--r-pill);
+  pointer-events: none;
 }
 
 /* ---- the fight list's borrowings ---- */

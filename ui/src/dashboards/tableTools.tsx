@@ -193,26 +193,31 @@ export function TableSearch({
 }
 
 /**
- * Row tint alpha, capped rather than chosen by eye. Measured over all sixteen
- * slots on --surface: at 30% the raised ink lands 3.91:1 against the worst tint
- * (the olive), under the 4.5 bar; at 18% it is 4.85 and at 14% it is 5.19. The
- * entity tint is identity, so it takes the quiet end; the heat ramp is
- * magnitude and takes 18%.
+ * The meter behind a row, handed over as custom properties rather than a
+ * finished background.
+ *
+ * It used to return a `linear-gradient` painted on the `<tr>`, which worked and
+ * could never be given a shape: a row background has no box to round. Passing
+ * the value and the colour separately lets a pseudo-element draw the fill, so
+ * it can be a rounded pill sitting behind the name — and it retires the part of
+ * the old contract that was quietly dangerous, which built the colour by
+ * string-concatenating hex and alpha. Anything but 6-digit hex produced an
+ * invalid gradient stop, which resolves to `none`, which meant every meter bar
+ * in every table disappeared with no error and nothing to catch it. Alpha is
+ * now `opacity` on the fill, so the colour can be any CSS colour at all.
+ *
+ * Alpha is capped rather than chosen by eye. Measured across all sixteen slots:
+ * at 30% the raised ink lands 3.91:1 over the worst tint (the olive), under the
+ * 4.5 bar; the fill only ever sits behind a name in --ink or --ink-2, but
+ * breakdown rows put --muted-raised there, so it takes the quiet end.
  */
-const TINT_ALPHA = "24"; // 14%
-
-/**
- * The meter fill behind a table row: a tint from the left edge, sized as a
- * share of the biggest value at that level. Top-level rows have always drawn
- * this way; breakdown rows now do too, so an expanded row reads as a
- * distribution at a glance instead of a column of numbers to divide in your
- * head. Alpha is low enough that the row text stays the foreground.
- */
-export function meterStyle(color: string, pct: number, alpha = TINT_ALPHA): React.CSSProperties {
+export function meterStyle(color: string, pct: number, alpha = 0.26): React.CSSProperties {
   const width = Math.max(0, Math.min(100, pct)).toFixed(1);
   return {
-    background: `linear-gradient(to right, ${color}${alpha} ${width}%, transparent ${width}%)`,
-  };
+    "--meter-pct": `${width}%`,
+    "--meter-color": color,
+    "--meter-alpha": alpha,
+  } as React.CSSProperties;
 }
 
 /**

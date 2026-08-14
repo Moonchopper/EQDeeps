@@ -350,9 +350,9 @@ const EMPTY_ROWS: QueryRow[] = [];
  * little stronger than the entity-colored rows above them — where the tint is
  * a secondary cue on top of a name and a color chip.
  */
-// 18%: the heat ramp carries magnitude so it runs warmer than the entity
-// tint, but 30% put --muted-raised at 3.91:1 over the olive stop.
-const HEAT_ALPHA = "2e";
+// The heat ramp carries magnitude, so it runs warmer than the entity tint —
+// but not past 30%, which put --muted-raised at 3.91:1 over the olive stop.
+const HEAT_ALPHA = 0.3;
 
 function maxOf(rows: QueryRow[], metric: string): number {
   return rows.reduce((max, r) => Math.max(max, r.metrics[metric] ?? 0), 0);

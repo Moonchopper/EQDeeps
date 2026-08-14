@@ -56,9 +56,10 @@ if (shotsDir) mkdirSync(shotsDir, { recursive: true });
 
 const rows = (n, f) => Array.from({ length: n }, (_, i) => f(i)).join("");
 
-/** A row tint exactly as tableTools.meterStyle builds it, alpha included. */
+/** The meter exactly as tableTools.meterStyle hands it over: custom properties
+    that a pseudo-element turns into the fill. */
 const tint = (color, pct) =>
-  `background: linear-gradient(to right, ${color}24 ${pct.toFixed(1)}%, transparent ${pct.toFixed(1)}%)`;
+  `--meter-pct:${pct.toFixed(1)}%;--meter-color:${color};--meter-alpha:0.26`;
 
 const FIXTURES = [
   {
@@ -185,16 +186,30 @@ const CHECKS = {
 
   rowTintsPaint: () => {
     const out = [];
-    const tinted = [...document.querySelectorAll("tbody tr[style*='gradient']")];
+    // The meter is a pseudo-element sized from --meter-pct. If meterStyle ever
+    // emits something the property parser rejects, the width falls back to 0
+    // and every bar in every table vanishes with no error and no exception —
+    // which is precisely what this check exists to notice.
+    const tinted = [...document.querySelectorAll("tbody tr[style*='--meter-pct']")];
     for (const tr of tinted) {
-      // meterStyle concatenates hex + alpha as a string. An invalid stop
-      // resolves to `none` and every bar in the app vanishes with no error.
-      if (getComputedStyle(tr).backgroundImage === "none") {
-        out.push("a row tint resolved to no gradient — meterStyle produced an invalid colour");
+      const cell = tr.querySelector("td:first-child");
+      const cs = getComputedStyle(cell);
+      const w = parseFloat(getComputedStyle(cell, "::before").width) || 0;
+      if (w <= 0) {
+        out.push("a row meter computed to zero width — meterStyle emitted a value the parser rejected");
+        break;
+      }
+      // Width alone is not enough, and this check learned that the hard way:
+      // the fill sits at z-index -1, so without a stacking context on the cell
+      // it paints behind the panel's background and disappears while still
+      // measuring correctly. A green check on an invisible bar is worse than
+      // no check, so the context is asserted too.
+      if (cs.isolation !== "isolate" && cs.zIndex === "auto" && cs.position === "static") {
+        out.push("the meter cell establishes no stacking context — the fill will paint behind the panel");
         break;
       }
     }
-    return tinted.length === 0 ? ["fixture has no tinted rows to check"] : out;
+    return tinted.length === 0 ? ["fixture has no metered rows to check"] : out;
   },
 
   numericColumnsAlign: () => {

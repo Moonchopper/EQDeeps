@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api, type QueryResult, type QueryRow, type QuerySource, type QuerySpec } from "../api";
 import { fmtNum, fmtRate } from "../format";
 import { defaultPanel, type PanelDef } from "../dashboards/model";
+import { meterStyle } from "../dashboards/tableTools";
 import { ENTITY_POOL, type EntityColors } from "../colors";
 import { useRowLink } from "../highlight";
 import { frameScope, type TimeFrame } from "../timeFrame";
@@ -120,10 +121,7 @@ export function SummaryTable({
     let chip: JSX.Element | null = null;
     if (depth === 0 && maxTotal > 0) {
       const color = rowsBy === "player" ? colors.claim(row.key) : colors.lookup(row.key);
-      const pct = ((row.metrics.total ?? 0) / maxTotal) * 100;
-      rowStyle = {
-        background: `linear-gradient(to right, ${color}2e ${pct.toFixed(1)}%, transparent ${pct.toFixed(1)}%)`,
-      };
+      rowStyle = meterStyle(color, ((row.metrics.total ?? 0) / maxTotal) * 100);
       chip = <span className="color-chip" style={{ background: color }} />;
     }
 

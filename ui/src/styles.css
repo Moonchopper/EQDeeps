@@ -1135,7 +1135,6 @@ button.update-pill {
 }
 
 .search-input:focus {
-  outline: none;
   border-color: var(--accent);
 }
 
@@ -2019,4 +2018,56 @@ tbody td:first-child::before,
    finished it. Worth marking, because it is why a pull's numbers look thin. */
 .fight-share.partial {
   color: var(--gold);
+}
+
+/* ---- controls, unified ----
+   These eleven button looks and eight field looks were written one at a time
+   across eight build phases, and had drifted: fields disagreed on background,
+   radius and padding; the search box removed its own focus ring; and in 1,900
+   lines there were three focus rules total, one of which was `outline: none`.
+   The block below is deliberately last in the file so it settles those
+   arguments without unpicking every rule that made them.
+
+   Class names are left alone on purpose. Renaming .mini-btn to .btn-quiet
+   across twelve components would be a large diff for no behaviour, and the
+   inconsistency worth removing is the treatment, not the vocabulary. */
+
+/* One field. Recessed rather than raised — a socket says "you may type here"
+   with no fill colour and no glow, which is the one idea worth keeping from the
+   client's own inventory slots. */
+.open-form input,
+.search-input,
+.num-input,
+.range-row input,
+.form-grid input,
+.form-grid input[type="text"],
+.form-grid input:not([type]),
+.panel-select,
+.detected-select,
+.time-controls select {
+  background: var(--page);
+  border: 1px solid var(--border);
+  border-radius: var(--r-control);
+  color: var(--ink);
+}
+
+/* One focus model, for everything focusable. An outline rather than a border
+   or a shadow: a border resizes the control and a glow is the look this
+   re-theme is escaping. Only :focus-visible, so a pointer click never draws a
+   ring the mouse user did not ask for. */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* A text button is still a target. Negative margin keeps it aligned with the
+   text it sits beside while the padding gives it something to hit. */
+.link-btn {
+  padding: 2px 4px;
+  margin: 0 -4px;
 }

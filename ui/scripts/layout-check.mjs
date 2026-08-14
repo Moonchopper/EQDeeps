@@ -130,6 +130,35 @@ const FIXTURES = [
     checks: ["noOverflow", "panelsNotCollapsed"],
   },
   {
+    name: "controls",
+    // Every button and field treatment in the app, side by side. They were
+    // written one at a time over eight phases and had drifted into eleven
+    // button looks and eight field looks; this fixture is what keeps them
+    // agreeing from here on.
+    viewport: { width: 900, height: 320 },
+    focusStops: 12,
+    html: `
+      <div class="panel" style="padding:14px;display:flex;flex-direction:column;gap:12px">
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <button class="btn primary">Open log</button>
+          <button class="btn">Cancel</button>
+          <button class="mini-btn">edit</button>
+          <button class="mini-btn on">live</button>
+          <button class="detect-refresh">↻</button>
+          <button class="range-chip">-6h</button>
+          <button class="range-chip on">-1h</button>
+          <button class="link-btn">not now</button>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <input class="search-input" placeholder="Filter" />
+          <input class="num-input" value="30" />
+          <select class="panel-select"><option>everyone</option></select>
+          <select class="detected-select"><option>Detected logs (2)…</option></select>
+        </div>
+      </div>`,
+    checks: ["noOverflow", "controlsConsistent"],
+  },
+  {
     name: "live-meter",
     viewport: { width: 480, height: 240 },
     html: `
@@ -254,6 +283,28 @@ const CHECKS = {
     return out;
   },
 
+  controlsConsistent: () => {
+    const out = [];
+    const fields = [...document.querySelectorAll("input, select")];
+    const seen = new Map();
+    for (const f of fields) {
+      const cs = getComputedStyle(f);
+      const key = `${cs.backgroundColor} | ${cs.borderTopColor} | ${cs.borderTopLeftRadius}`;
+      seen.set(key, (seen.get(key) ?? 0) + 1);
+    }
+    // One field treatment. Eight different backgrounds and radii across eight
+    // inputs is where "hand-rolled CSS accreted" actually shows.
+    if (seen.size > 1) {
+      out.push(`fields disagree: ${seen.size} distinct background/border/radius combinations — ${[...seen.keys()].join("  ·  ")}`);
+    }
+    // Nothing interactive should be shorter than the text inside it plus air.
+    for (const el of document.querySelectorAll("button, input, select")) {
+      const h = el.getBoundingClientRect().height;
+      if (h < 18) out.push(`"${(el.textContent || el.value || el.className).trim().slice(0, 20)}" is only ${Math.round(h)}px tall`);
+    }
+    return out;
+  },
+
   densityBudget: () => {
     const out = [];
     const trs = [...document.querySelectorAll("tbody tr")];
@@ -297,6 +348,30 @@ for (const fx of FIXTURES) {
   for (const name of fx.checks) {
     const found = await page.evaluate(`(${CHECKS[name].toString()})()`);
     failures.push(...found.map((f) => `${name}: ${f}`));
+  }
+
+  if (fx.focusStops) {
+    // :focus-visible only engages for keyboard interaction, so the focus has to
+    // arrive by Tab rather than by element.focus().
+    await page.evaluate(() => document.body.insertAdjacentHTML("afterbegin", '<a href="#" id="__seed">seed</a>'));
+    await page.focus("#__seed");
+    for (let i = 0; i < fx.focusStops; i++) {
+      await page.keyboard.press("Tab");
+      const stop = await page.evaluate(() => {
+        const el = document.activeElement;
+        if (!el || el === document.body) return null;
+        const cs = getComputedStyle(el);
+        // outline-width computes independently of outline-style, so `outline:
+        // none` still reports a width. Style is the property that decides
+        // whether anything is actually drawn.
+        const ring = cs.outlineStyle === "none" ? 0 : parseFloat(cs.outlineWidth) || 0;
+        const shadow = cs.boxShadow !== "none";
+        return { tag: el.tagName.toLowerCase(), cls: el.className, ring, shadow };
+      });
+      if (stop && stop.ring === 0 && !stop.shadow) {
+        failures.push(`focus: <${stop.tag} class="${stop.cls}"> shows no focus indicator when tabbed to`);
+      }
+    }
   }
 
   if (shotsDir) await page.screenshot({ path: join(shotsDir, `${fx.name}.png`), fullPage: false });

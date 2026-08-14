@@ -14,7 +14,7 @@
 > profile keyed on the defender's level as well as the mob (ADR-013, feature
 > F26), and navigation reorganized into a single left rail with the fight list
 > hidden on the one view that has no time frame to select (ADR-014).
-> Currently at **v0.9.4**. See `docs/product/features.md` for per-feature
+> Currently at **v0.10.0**. See `docs/product/features.md` for per-feature
 > status. The main open items: real-log validation against EQLogParser (the
 > release gate), the spell-DB work (class detection, bane, lands-on
 > resolution — reference data files not yet copied), identity-registry disk

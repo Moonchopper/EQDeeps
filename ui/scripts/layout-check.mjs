@@ -37,7 +37,18 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 // was run against the pre-fix file and watched to go red before being trusted.
 const cssAt = process.argv.indexOf("--css");
 const cssPath = cssAt === -1 ? join(root, "src/styles.css") : process.argv[cssAt + 1];
-const css = readFileSync(cssPath, "utf8");
+// Fonts are inlined as data URIs. The stylesheet is injected with setContent,
+// so a root-relative @font-face url resolves against about:blank and quietly
+// fails — the page would then render in the fallback and every metric-sensitive
+// check here (row height above all) would be measuring the wrong typeface while
+// reporting green.
+const css = readFileSync(cssPath, "utf8").replace(
+  /url\("\/fonts\/([^"]+)"\)/g,
+  (_, file) => {
+    const bytes = readFileSync(join(root, "public/fonts", file));
+    return `url("data:font/woff2;base64,${bytes.toString("base64")}")`;
+  },
+);
 
 const shotsAt = process.argv.indexOf("--shots");
 const shotsDir = shotsAt === -1 ? null : process.argv[shotsAt + 1];
@@ -257,7 +268,17 @@ for (const fx of FIXTURES) {
   );
   await page.waitForTimeout(120);
 
-  const failures = [];
+  // Guard against the harness measuring a fallback face and reporting green.
+  // NOT document.fonts.check(): that answers "could this family be resolved",
+  // which is true for any system-installed name and so never fires. Ask the
+  // FontFaceSet whether the @font-face rule itself produced a loaded face.
+  await page.evaluate(() => document.fonts.ready);
+  const bundled = await page.evaluate(() =>
+    [...document.fonts].filter((f) => f.status === "loaded").map((f) => f.family),
+  );
+  const failures = bundled.length
+    ? []
+    : ["font: no @font-face loaded — every metric below is a fallback typeface"];
   for (const name of fx.checks) {
     const found = await page.evaluate(`(${CHECKS[name].toString()})()`);
     failures.push(...found.map((f) => `${name}: ${f}`));

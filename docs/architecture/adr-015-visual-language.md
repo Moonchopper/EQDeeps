@@ -164,8 +164,30 @@ what mattered, font-family availability where loading was what mattered,
   field treatments was done by settling their *treatment* in one block at the end
   of the stylesheet, not by renaming `.mini-btn` across twelve components.
 
+## Decision 7: two densities, comfortable by default
+
+One `--row-pad-y` token drives table rows, sticky headers and live-meter rows
+together, switched by `data-density` on the root: comfortable 31px rows,
+compact 27px. It also retires a hardcoded `height: 24px` on `.meter-row`, one
+of the font-metric couplings the audit flagged as clipping the moment the base
+size moves.
+
+Comfortable is the default and compact is the opt-in, which is the way round it
+has to be. This audience is 35-55, plays at night, and the recurring thread on
+the EverQuest interface forums is literally "font and everything too small to
+read". Four visible rows is the right price for legibility, and anyone who
+wants them back says so once.
+
+The harness holds each mode to its own ceiling — 32px comfortable, 28px compact
+— rather than letting the tighter one inherit the looser budget.
+
 ## Still open
 
-Density mode (compact 24px / comfortable 28px, persisted in `ui-settings.json`),
-the `LORE ITEM`-style property tags, the ~30 Unicode glyph icons that still fall
-through to Segoe UI Symbol, and the con chip above.
+The `LORE ITEM`-style property tags, the ~30 Unicode glyph icons that still fall
+through to Segoe UI Symbol and will look increasingly out of place beside Plex,
+and the con chip above.
+
+None of it has been seen in the running app on a real log. The ground split, the
+pill meters, the amber accent and the spline curvature are all things that would
+be obviously wrong within seconds of looking, and everything to date has been
+verified against fixtures and a headless browser.

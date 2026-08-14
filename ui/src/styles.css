@@ -120,6 +120,14 @@
   --w-bold: 600;
   --w-heavy: 700;
 
+  /* ---- density ----
+     One number, because every surface that has a row has to agree with every
+     other one: a table row, a sticky header, a live-meter row and a fight row
+     all move together or the app looks like it was assembled from parts.
+
+     Comfortable is the default. See App.tsx for why that way round. */
+  --row-pad-y: 5px;
+
   /* ---- spacing: real extremes, not just 8 and 16 ---- */
   --sp-1: 2px;
   --sp-2: 4px;
@@ -143,6 +151,10 @@
   --z-popover: 30;
   --z-backdrop: 40;
   --z-modal: 41;
+}
+
+:root[data-density="compact"] {
+  --row-pad-y: 3px;
 }
 
 * {
@@ -1245,7 +1257,7 @@ table {
 
 th,
 td {
-  padding: 4px 10px;
+  padding: var(--row-pad-y) 10px;
   text-align: left;
   white-space: nowrap;
 }
@@ -1480,7 +1492,10 @@ th.num {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 24px;
+  /* Derived rather than fixed, so a meter row and a table row move together.
+     A hardcoded 24px here was one of the font-metric couplings the audit
+     flagged: it clips the moment the base size or the density changes. */
+  height: calc(14px + var(--row-pad-y) * 2);
   padding: 0 8px;
   border-radius: var(--r-chip);
   overflow: hidden;

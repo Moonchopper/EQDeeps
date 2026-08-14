@@ -86,6 +86,24 @@ const FIXTURES = [
     checks: ["noOverflow", "panelsNotCollapsed", "stickyHeaderOpaque", "rowTintsPaint", "numericColumnsAlign", "densityBudget", "selfRowStandsOut"],
   },
   {
+    name: "dense-table-compact",
+    // The same table with the opt-in density, so the tighter mode is held to
+    // its own ceiling rather than inheriting the comfortable one.
+    viewport: { width: 1100, height: 700 },
+    density: "compact",
+    html: `
+      <div class="panel" style="height:640px">
+        <div class="panel-title"><span class="panel-name">Damage</span></div>
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>Name</th><th class="num">Total</th></tr></thead>
+            <tbody>${rows(30, (i) => `<tr><td>Nightreaver ${i}</td><td class="num">849.9K</td></tr>`)}</tbody>
+          </table>
+        </div>
+      </div>`,
+    checks: ["noOverflow", "densityBudget", "numericColumnsAlign"],
+  },
+  {
     name: "tier-ladder",
     viewport: { width: 1100, height: 400 },
     html: `
@@ -323,6 +341,8 @@ const CHECKS = {
     const trs = [...document.querySelectorAll("tbody tr")];
     if (!trs.length) return out;
     const tallest = Math.max(...trs.map((r) => r.getBoundingClientRect().height));
+    const compact = document.documentElement.dataset.density === "compact";
+    const ceiling = compact ? 28 : 32;
     // 15-40 rows on screen is non-negotiable per the brief, so row height is
     // the number a typography or density change must not quietly cross.
     //
@@ -331,7 +351,9 @@ const CHECKS = {
     // slack: a bundled face with a larger x-height than Segoe UI may need a
     // hair more leading to stay comfortable. Spending more than that is a
     // density decision, and it should be argued for rather than discovered.
-    if (tallest > 32) out.push(`table row height ${tallest.toFixed(1)}px exceeds the 32px density budget (was 30.0 before the re-theme)`);
+    if (tallest > ceiling) {
+      out.push(`table row height ${tallest.toFixed(1)}px exceeds the ${ceiling}px budget for ${compact ? "compact" : "comfortable"}`);
+    }
     return out;
   },
 };
@@ -342,7 +364,8 @@ let failed = 0;
 for (const fx of FIXTURES) {
   const page = await browser.newPage({ viewport: fx.viewport, colorScheme: "dark" });
   await page.setContent(
-    `<!doctype html><html><head><meta charset="utf-8"><style>${css}</style></head><body>${fx.html}</body></html>`,
+    `<!doctype html><html data-density="${fx.density ?? "comfortable"}"><head><meta charset="utf-8">` +
+      `<style>${css}</style></head><body>${fx.html}</body></html>`,
     { waitUntil: "load" },
   );
   await page.waitForTimeout(120);

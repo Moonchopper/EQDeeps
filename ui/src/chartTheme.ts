@@ -66,6 +66,10 @@ export function chartInk() {
     surface: token("--surface", "#26211c"),
     surface2: token("--surface-2", "#2a2520"),
     accent: token("--accent", "#e8963c"),
+    /* Text drawn ON a saturated series fill — a stance band's own label. The
+       series slots are 3:1 marks, so only a near-black clears 4.5:1 on all of
+       them; --accent-ink is already that colour for the same reason. */
+    onMark: token("--accent-ink", "#1a1005"),
   };
 }
 

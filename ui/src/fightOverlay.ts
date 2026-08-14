@@ -1,4 +1,5 @@
 import type { FightInfo } from "./api";
+import { chartInk } from "./chartTheme";
 
 /**
  * Fight bands drawn behind a time chart: the stretches where something was
@@ -42,8 +43,8 @@ export const LABEL_SIZE_CHOICES: { value: number; label: string }[] = [
 ];
 
 // Alternating tints so two pulls that touch are still distinguishable.
-const TINT_A = "rgba(255, 255, 255, 0.05)";
-const TINT_B = "rgba(255, 255, 255, 0.09)";
+const TINT_A = "rgba(241, 236, 227, 0.055)"; // --wash-hover
+const TINT_B = "rgba(241, 236, 227, 0.1)"; // --wash-linked
 
 export interface MarkArea {
   silent: true;
@@ -111,7 +112,7 @@ export function fightMarkArea(
       rotate: 90,
       align: "left",
       verticalAlign: "middle",
-      color: "#898781",
+      color: chartInk().muted,
       fontSize: labelPx || DEFAULT_LABEL_PX,
       overflow: "truncate",
       width: Math.max(24, plotHeightPx - 24),

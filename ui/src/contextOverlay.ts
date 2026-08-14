@@ -1,4 +1,5 @@
 import type { ContextSpan, ContextTimeline } from "./api";
+import { chartInk } from "./chartTheme";
 
 /**
  * The context strip: where the character was and what level they were, drawn
@@ -47,10 +48,10 @@ const MIN_LABEL_PX = 26;
 // Alternating tints, so two zones that touch are still two zones. Warmer than
 // the fight bands' neutral wash: this is a different kind of fact and reading
 // it as "another pull" would be worse than not drawing it.
-const ZONE_TINT_A = "rgba(126, 176, 255, 0.16)";
-const ZONE_TINT_B = "rgba(126, 176, 255, 0.09)";
-const LEVEL_TINT_A = "rgba(245, 197, 66, 0.16)";
-const LEVEL_TINT_B = "rgba(245, 197, 66, 0.09)";
+const ZONE_TINT_A = "rgba(6, 113, 209, 0.22)"; // SERIES_COLORS slot 4
+const ZONE_TINT_B = "rgba(6, 113, 209, 0.12)";
+const LEVEL_TINT_A = "rgba(224, 182, 78, 0.16)"; // --gold
+const LEVEL_TINT_B = "rgba(224, 182, 78, 0.09)";
 
 export interface ContextMarkArea {
   silent: true;
@@ -158,7 +159,7 @@ export function contextMarkArea(
     label: {
       show: true,
       position: "inside",
-      color: "#c3c2b7",
+      color: chartInk().ink2,
       fontSize: 10,
       overflow: "truncate",
     },

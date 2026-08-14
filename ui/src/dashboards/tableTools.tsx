@@ -193,13 +193,22 @@ export function TableSearch({
 }
 
 /**
+ * Row tint alpha, capped rather than chosen by eye. Measured over all sixteen
+ * slots on --surface: at 30% the raised ink lands 3.91:1 against the worst tint
+ * (the olive), under the 4.5 bar; at 18% it is 4.85 and at 14% it is 5.19. The
+ * entity tint is identity, so it takes the quiet end; the heat ramp is
+ * magnitude and takes 18%.
+ */
+const TINT_ALPHA = "24"; // 14%
+
+/**
  * The meter fill behind a table row: a tint from the left edge, sized as a
  * share of the biggest value at that level. Top-level rows have always drawn
  * this way; breakdown rows now do too, so an expanded row reads as a
  * distribution at a glance instead of a column of numbers to divide in your
  * head. Alpha is low enough that the row text stays the foreground.
  */
-export function meterStyle(color: string, pct: number, alpha = "2e"): React.CSSProperties {
+export function meterStyle(color: string, pct: number, alpha = TINT_ALPHA): React.CSSProperties {
   const width = Math.max(0, Math.min(100, pct)).toFixed(1);
   return {
     background: `linear-gradient(to right, ${color}${alpha} ${width}%, transparent ${width}%)`,
@@ -218,9 +227,9 @@ export function meterStyle(color: string, pct: number, alpha = "2e"): React.CSSP
  * red-green color blindness, since lightness moves along with hue.
  */
 const HEAT_STOPS: readonly (readonly [number, number, number])[] = [
-  [0xe6, 0x67, 0x67], // --danger
-  [0xf5, 0xc5, 0x42], // --gold
-  [0x63, 0xcf, 0x82], // --live
+  [0xef, 0x72, 0x68], // --danger
+  [0xe0, 0xb6, 0x4e], // --gold
+  [0x4e, 0xcb, 0x8c], // --live
 ];
 
 /** `t` is 0 (coldest) to 1 (hottest). Returns 6-digit hex, so alpha can be appended. */

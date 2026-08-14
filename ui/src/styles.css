@@ -1891,7 +1891,12 @@ th.num {
    shape of the climb reads the same whether the mob is worth 500 or 12,000. */
 .mob-rung {
   display: grid;
-  grid-template-columns: minmax(120px, 1fr) 90px 90px auto;
+  /* Every column is fixed, including the confidence one. Each rung is its own
+     grid, so an `auto` track there sized to that ROW's word — "medium" is 42px
+     and "low" is 19px — and the 1fr column absorbed the difference, walking the
+     health and multiplier columns 23px left and right down the ladder. A ladder
+     is a column of numbers to compare; they have to line up. */
+  grid-template-columns: minmax(120px, 1fr) 90px 90px 46px;
   gap: 10px;
   align-items: baseline;
   padding: 3px 8px;

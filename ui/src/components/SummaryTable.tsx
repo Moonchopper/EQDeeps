@@ -52,6 +52,8 @@ interface Props {
   petRollup: boolean;
   onOpenInBuilder?: (seed: PanelDef) => void;
   colors: EntityColors;
+  /** The open log's own character, so their row can be marked as theirs. */
+  character: string;
 }
 
 /**
@@ -67,6 +69,7 @@ export function SummaryTable({
   petRollup,
   onOpenInBuilder,
   colors,
+  character,
 }: Props) {
   const [source, setSource] = useState<QuerySource>("damage");
   const [rowsBy, setRowsBy] = useState<"player" | "target">("player");
@@ -117,6 +120,9 @@ export function SummaryTable({
   const renderRow = (row: QueryRow, depth: number, path: string): JSX.Element[] => {
     const hasChildren = (row.children?.length ?? 0) > 0;
     const isExpanded = expanded.has(path);
+    // "Which row is me" is a question every table in this app has to answer, and
+    // until now it answered it by hoping you remembered your own colour chip.
+    const isSelf = depth === 0 && rowsBy === "player" && row.key === character;
     let rowStyle: React.CSSProperties | undefined;
     let chip: JSX.Element | null = null;
     if (depth === 0 && maxTotal > 0) {
@@ -132,7 +138,10 @@ export function SummaryTable({
     const out: JSX.Element[] = [
       <tr
         key={path}
-        className={`${depth > 0 ? "child-row" : ""} ${link?.className ?? ""}`.trim() || undefined}
+        className={
+          `${depth > 0 ? "child-row" : ""} ${isSelf ? "self-row" : ""} ${link?.className ?? ""}`.trim() ||
+          undefined
+        }
         style={rowStyle}
         onMouseEnter={link?.onMouseEnter}
         onMouseLeave={link?.onMouseLeave}

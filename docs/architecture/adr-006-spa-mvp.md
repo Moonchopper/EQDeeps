@@ -14,11 +14,16 @@ default dashboard (features F1–F5, F7; the query-builder UI is phase 7).
   Built assets and `node_modules` are not committed; dev mode proxies `/api` +
   `/hubs` (websockets) to the backend on 5487. Packaging (phase 8) embeds
   wwwroot into the published exe.
-- **Dark-first, single theme for the MVP.** Raiders run dark UIs at night; the
-  app ships the validated dark palette (reference instance of the dataviz
-  method) — surfaces `#0d0d0d`/`#1a1a19`, ink tokens, and the 8-slot
-  categorical series order validated against the dark surface (all six checks
-  pass). A light theme is a later variable swap, not a rework.
+- **Dark-first, single theme for the MVP.** Raiders run dark UIs at night.
+  *(Superseded by ADR-015. The surfaces are now `#0f0d0b`/`#26211c` and the
+  series palette has been re-derived; the eight chart slots are validated on
+  ALL pairs rather than adjacent ones, which the original set failed at ΔE 1.6
+  under deuteranopia. The sentence that used to end this bullet — "a light
+  theme is a later variable swap, not a rework" — was **wrong**, and stayed
+  wrong for long enough to be worth naming: 74 colour literals live in
+  `.ts`/`.tsx` where no CSS variable reaches, seven surfaces were additive
+  white, and the categorical palette needs re-derivation rather than inversion.
+  The app is dark-only by decision now, not by staging.)*
 - **Chart discipline** (dataviz method): line chart, one axis, per-second
   landed totals; top-8 players by total with the rest folded into a dashed
   gray "Other" — never a ninth generated hue; colors assigned per entity for

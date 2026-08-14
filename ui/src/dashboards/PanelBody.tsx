@@ -274,7 +274,11 @@ function TablePanel({ panel, ctx, settings }: { panel: PanelDef; ctx: PanelConte
     const out = [
       <tr
         key={path}
-        className={`${depth > 0 ? "child-row" : ""} ${link?.className ?? ""}`.trim() || undefined}
+        className={
+          `${depth > 0 ? "child-row" : ""} ${
+            depth === 0 && row.key === ctx.character ? "self-row" : ""
+          } ${link?.className ?? ""}`.trim() || undefined
+        }
         style={rowStyle}
         onMouseEnter={link?.onMouseEnter}
         onMouseLeave={link?.onMouseLeave}
@@ -1031,7 +1035,11 @@ function DropRatePanel({
     const out = [
       <tr
         key={path}
-        className={`${depth > 0 ? "child-row" : ""} ${link?.className ?? ""}`.trim() || undefined}
+        className={
+          `${depth > 0 ? "child-row" : ""} ${
+            depth === 0 && row.key === ctx.character ? "self-row" : ""
+          } ${link?.className ?? ""}`.trim() || undefined
+        }
         style={rowStyle}
         onMouseEnter={link?.onMouseEnter}
         onMouseLeave={link?.onMouseLeave}

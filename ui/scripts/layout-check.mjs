@@ -75,7 +75,7 @@ const FIXTURES = [
             <thead><tr><th>Name</th><th class="num">Total</th><th class="num">DPS</th><th class="num">Crit</th></tr></thead>
             <tbody>
               ${rows(30, (i) => `
-                <tr style="${tint("#e56386", 100 - i * 3)}">
+                <tr class="${i === 0 ? "self-row" : ""}" style="${tint("#e56386", 100 - i * 3)}">
                   <td>Nightreaver ${i}</td>
                   <td class="num">849.9K</td><td class="num">92</td><td class="num">31%</td>
                 </tr>`)}
@@ -83,7 +83,7 @@ const FIXTURES = [
           </table>
         </div>
       </div>`,
-    checks: ["noOverflow", "panelsNotCollapsed", "stickyHeaderOpaque", "rowTintsPaint", "numericColumnsAlign", "densityBudget"],
+    checks: ["noOverflow", "panelsNotCollapsed", "stickyHeaderOpaque", "rowTintsPaint", "numericColumnsAlign", "densityBudget", "selfRowStandsOut"],
   },
   {
     name: "tier-ladder",
@@ -303,6 +303,19 @@ const CHECKS = {
       if (h < 18) out.push(`"${(el.textContent || el.value || el.className).trim().slice(0, 20)}" is only ${Math.round(h)}px tall`);
     }
     return out;
+  },
+
+  selfRowStandsOut: () => {
+    const self = document.querySelector("tr.self-row td");
+    const other = document.querySelector("tr:not(.self-row) td");
+    if (!self || !other) return ["fixture has no self row to compare"];
+    const a = getComputedStyle(self), b = getComputedStyle(other);
+    // Weight, not brightness: promoting a row must not spend contrast, so the
+    // colour may differ but the weight is the channel doing the work.
+    if (Number(a.fontWeight) <= Number(b.fontWeight)) {
+      return [`the monitored character's row is weight ${a.fontWeight}, no heavier than everyone else's ${b.fontWeight}`];
+    }
+    return [];
   },
 
   densityBudget: () => {

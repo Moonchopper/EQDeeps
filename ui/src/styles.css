@@ -993,10 +993,61 @@ button.update-pill {
   border-bottom: 1px solid var(--border);
 }
 
+/* One class served ten messages — "Loading…", "No fights yet", "Dashboard not
+   found" and "Nothing matches." all looked identical, so a thing that is still
+   arriving was indistinguishable from a thing that is not there and from a
+   thing that went wrong. Three states, three treatments.
+
+   Copy rule for all of them, worth writing down because it is the part that
+   rots: literal and declarative, no second person, no flavour verbs. "No combat
+   recorded in this range", never "The mobs grow restless…". */
 .empty {
   color: var(--muted);
-  padding: 18px;
+  padding: var(--sp-6);
   text-align: center;
+}
+
+/* Still arriving. Skeleton bars rather than a spinner: a spinner says "wait"
+   and a skeleton says "here is the shape of what is coming", and this app is
+   nearly always loading a table. */
+.empty-loading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-5) var(--sp-6);
+}
+
+.empty-loading::before,
+.empty-loading::after {
+  content: "";
+  height: 9px;
+  border-radius: var(--r-tiny);
+  background: var(--surface-2);
+}
+
+.empty-loading::after {
+  width: 62%;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .empty-loading::before,
+  .empty-loading::after {
+    animation: skeleton 1.6s ease-in-out infinite;
+  }
+}
+
+@keyframes skeleton {
+  50% {
+    background: var(--hover);
+  }
+}
+
+/* Went wrong. A rule rather than a filled banner: an error in a panel is a
+   note about that panel, not an alarm about the app. */
+.empty-error {
+  color: var(--danger);
+  padding: var(--sp-4) var(--sp-6);
+  border-left: 2px solid var(--danger);
 }
 
 /* ---- fight list ---- */
@@ -1603,6 +1654,30 @@ th.num {
   border-radius: var(--r-card);
 }
 
+/* react-grid-layout ships a dark chevron as a background image, which on a dark
+   panel is a resize affordance you cannot see. Two strokes instead, at the
+   corner, in the strongest rule tier. */
+.react-resizable-handle {
+  background: none;
+  padding: 0;
+}
+
+.react-resizable-handle::after {
+  content: "";
+  position: absolute;
+  right: 5px;
+  bottom: 5px;
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid var(--baseline);
+  border-bottom: 2px solid var(--baseline);
+  border-bottom-right-radius: var(--r-tiny);
+}
+
+.panel:hover .react-resizable-handle::after {
+  border-color: var(--accent);
+}
+
 .tile-body {
   flex: 1;
   display: flex;
@@ -2018,6 +2093,22 @@ tbody td:first-child::before,
    finished it. Worth marking, because it is why a pull's numbers look thin. */
 .fight-share.partial {
   color: var(--gold);
+}
+
+/* ---- your own row ----
+   EverQuest's chat colours encode relevance as brightness rather than hue: what
+   you do is white, what happens to you is red, and what two other people do to
+   each other is grey. Twenty-five years of players read that without being
+   taught it, and it runs on a channel the sixteen-slot entity palette does not
+   touch — so it costs no hue budget and no CVD budget.
+
+   Here it is weight rather than brightness, which is the same trick spent more
+   cheaply: promoting a row costs no contrast at all, where brightening it
+   spends the little a dark ground has to give. This is what the 520 in the
+   weight ladder exists for; 400-to-600 would read as a heading. */
+.self-row td {
+  color: var(--ink);
+  font-weight: var(--w-strong);
 }
 
 /* ---- controls, unified ----

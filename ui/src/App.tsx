@@ -967,6 +967,7 @@ export default function App() {
                       petRollup={petRollup}
                       onOpenInBuilder={openInBuilder}
                       colors={entityColors}
+                      character={character}
                     />
                     <AbilityChart
                       sessionId={activeId}

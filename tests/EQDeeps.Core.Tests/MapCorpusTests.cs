@@ -13,7 +13,7 @@ namespace EQDeeps.Core.Tests;
 /// coverage, and only the second kind catches a hand-edited file doing
 /// something the format never documented.</para>
 ///
-/// <para>Measured on a stock install (v0.10.0, 1904 files): 3,244,827 segments
+/// <para>Measured on a stock EQ Legends install of 1904 files: 3,244,827 segments
 /// and 35,719 labels, zero malformed. That zero is the point of the test — the
 /// two quirks the parser handles specially (commas inside labels, records that
 /// run together) were both found this way rather than by reading the spec,

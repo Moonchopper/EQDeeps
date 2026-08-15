@@ -452,8 +452,21 @@ export function ZoneGraphView({ onOpenZone, era, onEraChange }: Props) {
   // time a handful of zones fill the frame everything has a name. Drawing all
   // 247 at once is a smear, and drawing none is the complaint that prompted
   // this.
+  //
+  // The cut is a *rank*, not a number of connections. An absolute threshold —
+  // "seven or more" at a distance — was tuned to the full world, and under an
+  // era filter the world shrinks and degree is recounted on what is left: the
+  // 86-zone classic world has no seven-way hub at all, so it drew no names
+  // whatever. Naming the top share of whatever is drawn, with a floor of ten
+  // so a small world still gets its landmarks, holds up at any size. Ties at
+  // the cut are all named, which keeps the choice deterministic.
   const zoom = fitted.w / box.w;
-  const labelAbove = zoom >= 6 ? 0 : zoom >= 3 ? 1 : zoom >= 1.6 ? 3 : 7;
+  const share = zoom >= 6 ? 1 : zoom >= 3 ? 0.6 : zoom >= 1.6 ? 0.3 : 0.06;
+  const byDegree = [...drawn.graph.zones].sort(
+    (a, b) => b.degree - a.degree || a.shortName.localeCompare(b.shortName),
+  );
+  const budget = Math.min(byDegree.length, Math.max(10, Math.ceil(byDegree.length * share)));
+  const labelAbove = budget > 0 ? byDegree[budget - 1].degree : Infinity;
 
   const sorted = [...drawn.graph.zones].sort((a, b) =>
     (a.displayName ?? a.shortName).localeCompare(b.displayName ?? b.shortName),

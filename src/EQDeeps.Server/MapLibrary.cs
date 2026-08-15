@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Text.Json;
 using EQDeeps.Core.Maps;
 
 namespace EQDeeps.Server;
@@ -19,10 +20,15 @@ public sealed record MapCatalogEntry(
 /// What the app found on disk. <paramref name="Roots"/> is reported even when
 /// empty so the UI can say *where it looked* rather than only that it failed.
 /// </summary>
+/// <param name="UserRoot">
+/// The folder the user nominated, if any — so the UI can show what it is
+/// currently set to rather than only offering to set it.
+/// </param>
 public sealed record MapCatalog(
     bool Found,
     IReadOnlyList<string> Roots,
-    IReadOnlyList<MapCatalogEntry> Zones);
+    IReadOnlyList<MapCatalogEntry> Zones,
+    string? UserRoot = null);
 
 /// <summary>
 /// The player's own map files, read from their EverQuest install (F27,
@@ -51,6 +57,7 @@ public sealed class MapLibrary
     private const int MaxCachedZones = 24;
 
     private readonly string? _rootOverride;
+    private readonly DocumentStore? _settings;
     private readonly ConcurrentDictionary<string, ZoneMap> _cache = new(StringComparer.OrdinalIgnoreCase);
     private readonly object _gate = new();
 
@@ -62,7 +69,156 @@ public sealed class MapLibrary
     /// tests never depend on a game being installed, the same pattern the other
     /// stores follow.
     /// </param>
-    public MapLibrary(string? rootOverride = null) => _rootOverride = rootOverride;
+    /// <param name="settings">
+    /// Where the folder the *user* pointed at is kept, for the machine that has
+    /// the logs but not the game — a copied maps folder, or an install on a
+    /// drive discovery does not walk. Read through the document store rather
+    /// than a private file because it is a correction the user made, and those
+    /// live with their dashboards.
+    /// </param>
+    public MapLibrary(string? rootOverride = null, DocumentStore? settings = null)
+    {
+        _rootOverride = rootOverride;
+        _settings = settings;
+    }
+
+    /// <summary>
+    /// The folder the user nominated, or null. <c>--mapRoot</c> deliberately
+    /// does not appear here: a test's redirect is not a user preference, and
+    /// showing it as one would let a test's path be saved back into a real
+    /// document.
+    /// </summary>
+    public string? UserRoot
+    {
+        get
+        {
+            if (_settings?.Read("map-settings") is not { } doc)
+            {
+                return null;
+            }
+
+            return doc.ValueKind == JsonValueKind.Object
+                && doc.TryGetProperty("root", out var root)
+                && root.ValueKind == JsonValueKind.String
+                && !string.IsNullOrWhiteSpace(root.GetString())
+                ? root.GetString()
+                : null;
+        }
+    }
+
+    /// <summary>
+    /// Points the library at a folder, or clears it with null. Returns false
+    /// with a reason rather than throwing, because every failure here is
+    /// something the user should be told in the box they typed into.
+    /// </summary>
+    public bool TrySetUserRoot(string? path, out string? error)
+    {
+        error = null;
+
+        if (!string.IsNullOrWhiteSpace(path))
+        {
+            if (!Directory.Exists(path))
+            {
+                error = "There is no folder at that path.";
+                return false;
+            }
+
+            // A folder that holds no maps is almost always the install root
+            // rather than the maps folder inside it — a mistake worth naming
+            // exactly, since the fix is one directory away.
+            if (!LooksLikeMaps(path))
+            {
+                error = Directory.Exists(Path.Combine(path, "maps"))
+                    ? "That is the install folder. Point at the 'maps' folder inside it."
+                    : "No EverQuest map files in that folder.";
+                return false;
+            }
+        }
+
+        Persist(string.IsNullOrWhiteSpace(path) ? null : path);
+
+        // Everything derived is now stale: which zones exist, their geometry,
+        // and the world built from their labels.
+        lock (_gate)
+        {
+            _catalog = null;
+            _graph = null;
+            _cache.Clear();
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// One parseable map file is enough. Reads at most a handful, because this
+    /// runs while the user waits and a maps folder holds ~1900 files.
+    /// </summary>
+    private static bool LooksLikeMaps(string path)
+    {
+        try
+        {
+            foreach (var file in Directory.EnumerateFiles(path, "*.txt").Take(8))
+            {
+                var layer = MapFileParser.Parse(File.ReadAllText(file));
+                if (layer.Lines.Count > 0 || layer.Labels.Count > 0)
+                {
+                    return true;
+                }
+            }
+        }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Read-modify-write: the same document carries the user's per-zone map
+    /// choices, which belong to the client and must survive this.
+    /// </summary>
+    private void Persist(string? path)
+    {
+        if (_settings is null)
+        {
+            return;
+        }
+
+        var fields = new Dictionary<string, JsonElement>(StringComparer.Ordinal);
+
+        if (_settings.Read("map-settings") is { ValueKind: JsonValueKind.Object } existing)
+        {
+            foreach (var property in existing.EnumerateObject())
+            {
+                fields[property.Name] = property.Value.Clone();
+            }
+        }
+
+        fields.Remove("root");
+
+        using var buffer = new MemoryStream();
+        using (var writer = new Utf8JsonWriter(buffer))
+        {
+            writer.WriteStartObject();
+            foreach (var (name, value) in fields)
+            {
+                writer.WritePropertyName(name);
+                value.WriteTo(writer);
+            }
+
+            if (path is not null)
+            {
+                writer.WriteString("root", path);
+            }
+
+            writer.WriteEndObject();
+        }
+
+        _settings.Write("map-settings", JsonDocument.Parse(buffer.ToArray()).RootElement);
+    }
 
     public ZoneTable Table => ZoneTable.Default;
 
@@ -256,7 +412,8 @@ public sealed class MapLibrary
         return new MapCatalog(
             zones.Length > 0,
             roots.Select(r => r.Root).ToArray(),
-            zones);
+            zones,
+            UserRoot);
     }
 
     /// <summary>
@@ -268,10 +425,14 @@ public sealed class MapLibrary
     {
         var roots = new List<(string, string)>();
 
-        if (!string.IsNullOrWhiteSpace(_rootOverride))
+        // --mapRoot beats the user's own setting, so a test can never be
+        // steered by whatever a real document happens to contain.
+        var pinned = _rootOverride is { Length: > 0 } ? _rootOverride : UserRoot;
+
+        if (!string.IsNullOrWhiteSpace(pinned))
         {
-            roots.Add((_rootOverride, "default"));
-            roots.Add((Path.Combine(_rootOverride, "brewalls"), "brewalls"));
+            roots.Add((pinned, "default"));
+            roots.Add((Path.Combine(pinned, "brewalls"), "brewalls"));
             return roots;
         }
 

@@ -83,6 +83,11 @@ public sealed record ZoneMapDto(
     }
 }
 
+/// <param name="Path">
+/// A maps folder, or null/empty to clear the setting and return to discovery.
+/// </param>
+public sealed record SetMapRootRequest(string? Path);
+
 /// <summary>A zone in the world graph, with the exits that were resolvable.</summary>
 public sealed record ZoneGraphNode(string ShortName, string? DisplayName, int Degree);
 

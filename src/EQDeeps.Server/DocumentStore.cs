@@ -16,6 +16,11 @@ public sealed class DocumentStore
         "dashboards",
         "saved-queries",
         "ui-settings",
+        // F27. Holds the maps folder the user pointed at when discovery found
+        // nothing, and which map they chose for a zone the table gets wrong or
+        // does not know. Both are corrections to what the app worked out for
+        // itself, which is why they are the user's document and not a cache.
+        "map-settings",
     };
 
     private readonly string _root;

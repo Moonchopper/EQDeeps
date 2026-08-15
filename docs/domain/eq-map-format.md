@@ -176,6 +176,25 @@ The table is knowingly incomplete: 264 of 581 short names, covering 128 of the
 133 zones a stock client ships a map for. An unknown zone resolves to no map and
 the user picks one, which is also how a wrong pairing gets corrected.
 
+### 5.0 The user outranks the table
+
+Because the table is incomplete and fallible by construction, the person who can
+see both the map and the game gets the last word. `map-settings.json` in the
+document store — beside their dashboards, because it is their work and not a
+cache — holds two corrections:
+
+| Field | What |
+|---|---|
+| `root` | A maps folder they nominated, when discovery found none. Replaces discovery outright. |
+| `chosen` | Normalized zone name → map short name. Beats anything the table says. |
+
+The key is normalized exactly as `ZoneTable.Normalize` does it, with the
+instance suffix stripped first, so a choice made against "The Estate of Unrest
+4 (Refined)" is found again for "The Estate of Unrest". The two normalizers are
+written out separately in C# and TypeScript; if they ever drift, overrides
+silently stop applying, which is the one failure here that would be hard to
+notice.
+
 ### 5.1 One display name, several maps
 
 Normal, not a defect. A revamped zone keeps its old map beside the new one and

@@ -286,6 +286,8 @@ export function ZoneGraphView({ onOpenZone, era, onEraChange }: Props) {
   const [noRoute, setNoRoute] = useState(false);
   const [hover, setHover] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  /** Whether a search also lights the zones connected to what it found. */
+  const [withLinks, setWithLinks] = useState(true);
 
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<{ x: number; y: number } | null>(null);
@@ -447,6 +449,14 @@ export function ZoneGraphView({ onOpenZone, era, onEraChange }: Props) {
    * a short-name hit lights the zone and marks nothing, rather than marking
    * letters in a name that is not the one on screen.
    *
+   * <p>With the connections toggle on, every zone one step from a hit is
+   * lit as well — "Feerrott" then shows Innothule Swamp and Cazic-Thule
+   * beside it — and each such zone remembers which hits it touches, so the
+   * picture can say <em>why</em> it is lit: the connecting edge is drawn
+   * and the label reads "via The Feerrott". Only edges in the drawn world
+   * count, so under an era filter a neighbour that does not exist yet stays
+   * dark.</p>
+   *
    * <p>Null when nothing is being searched, which is a different state from
    * "everything matched": with no query, nothing is dimmed and the labels
    * follow the rank rule; with a query, only hits are named and everything
@@ -466,8 +476,27 @@ export function ZoneGraphView({ onOpenZone, era, onEraChange }: Props) {
         hits.set(z.shortName, { score: 0, positions: [] });
       }
     }
-    return hits;
-  }, [drawn, search]);
+
+    // Neighbour → the hits it is connected to, in name order so the label
+    // reads the same every time.
+    const via = new Map<string, string[]>();
+    if (withLinks) {
+      for (const e of drawn.graph.edges) {
+        for (const [hitEnd, other] of [[e.from, e.to], [e.to, e.from]] as const) {
+          if (hits.has(hitEnd) && !hits.has(other)) {
+            const list = via.get(other) ?? [];
+            list.push(hitEnd);
+            via.set(other, list);
+          }
+        }
+      }
+      for (const list of via.values()) {
+        list.sort((a, b) => (names.get(a) ?? a).localeCompare(names.get(b) ?? b));
+      }
+    }
+
+    return { hits, via };
+  }, [drawn, search, withLinks, names]);
 
   const onRoute = () => {
     if (!from || !to) {
@@ -562,7 +591,9 @@ export function ZoneGraphView({ onOpenZone, era, onEraChange }: Props) {
             {drawn.unknown > 0 && ` · ${drawn.unknown} of unknown era kept`}
             {drawn.omitted > 0 &&
               ` · ${drawn.omitted} with no labelled exit${eraLimit === undefined ? "" : " in this era"} not drawn`}
-            {found && ` · ${found.size === 0 ? "nothing matches" : `${found.size} match`} “${search.trim()}”`}
+            {found &&
+              ` · ${found.hits.size === 0 ? "nothing matches" : `${found.hits.size} match`} “${search.trim()}”` +
+                (found.via.size > 0 ? ` and ${found.via.size} connected` : "")}
             {" · scroll to zoom, drag to pan"}
           </span>
         </div>
@@ -580,6 +611,16 @@ export function ZoneGraphView({ onOpenZone, era, onEraChange }: Props) {
             onKeyDown={(e) => e.key === "Escape" && setSearch("")}
             title="Fuzzy: “gfay” finds The Greater Faydark. Matching zones light up and the rest dim."
           />
+          {/* Also light what a match connects to. Each such zone says which
+              match it is next to and the connecting line is drawn, so nobody
+              is left asking why Innothule Swamp lit up for "Feerrott". */}
+          <button
+            className={"mini-btn" + (withLinks ? " on" : "")}
+            onClick={() => setWithLinks((v) => !v)}
+            title="Also light the zones connected to a match, with the connection drawn and named"
+          >
+            connections
+          </button>
           {/* Which expansion the server has reached. The player's call: the
               log names only zones already visited, and the map files carry no
               content gating, so nothing here can guess it (issue #57). */}
@@ -680,9 +721,12 @@ export function ZoneGraphView({ onOpenZone, era, onEraChange }: Props) {
 
             const key = e.from < e.to ? `${e.from} ${e.to}` : `${e.to} ${e.from}`;
             const lit = onPath.has(key);
-            // An edge that touches no hit steps back with the zones it joins.
-            // A route stays lit regardless: it was asked for too.
-            const dim = found !== null && !lit && !found.has(e.from) && !found.has(e.to);
+            // A search hit's own connections are drawn out — that line is the
+            // answer to "why is this neighbour lit". Everything else that
+            // touches no hit steps back with the zones it joins. A route stays
+            // lit regardless: it was asked for too.
+            const link = found !== null && (found.hits.has(e.from) || found.hits.has(e.to));
+            const dim = found !== null && !lit && !link;
 
             return (
               <line
@@ -691,11 +735,13 @@ export function ZoneGraphView({ onOpenZone, era, onEraChange }: Props) {
                 y1={a.y}
                 x2={b.x}
                 y2={b.y}
-                className={"zone-edge" + (lit ? " on" : "") + (dim ? " dim" : "")}
+                className={
+                  "zone-edge" + (lit ? " on" : "") + (link && !lit ? " link" : "") + (dim ? " dim" : "")
+                }
                 // Inline, not the strokeWidth attribute: a CSS rule beats a
                 // presentation attribute, so the stylesheet's width would win
                 // and every line would thicken into a ribbon as you zoom in.
-                style={{ strokeWidth: (lit ? 3 : 1) * unit }}
+                style={{ strokeWidth: (lit ? 3 : link ? 2 : 1) * unit }}
               />
             );
           })}
@@ -708,8 +754,17 @@ export function ZoneGraphView({ onOpenZone, era, onEraChange }: Props) {
 
             const lit = onRouteNode.has(z.shortName);
             const near = hover === z.shortName;
-            const hit = found?.get(z.shortName);
-            const dim = found !== null && hit === undefined && !lit;
+            const hit = found?.hits.get(z.shortName);
+            const via = found?.via.get(z.shortName);
+            const dim = found !== null && hit === undefined && via === undefined && !lit;
+            const viaNote = via
+              ? "via " +
+                via
+                  .slice(0, 2)
+                  .map((v) => names.get(v) ?? v)
+                  .join(", ") +
+                (via.length > 2 ? ` +${via.length - 2}` : "")
+              : "";
 
             // With an era chosen, a zone the table could not place is kept
             // but marked: it may or may not exist on this server.
@@ -729,6 +784,7 @@ export function ZoneGraphView({ onOpenZone, era, onEraChange }: Props) {
                   (lit ? " on" : "") +
                   (unsure ? " unsure" : "") +
                   (hit ? " hit" : "") +
+                  (via ? " via" : "") +
                   (dim ? " dim" : "")
                 }
                 onMouseEnter={() => setHover(z.shortName)}
@@ -743,17 +799,23 @@ export function ZoneGraphView({ onOpenZone, era, onEraChange }: Props) {
                   {names.get(z.shortName)} — {z.degree}{" "}
                   {z.degree === 1 ? "connection" : "connections"}
                   {eraNote}
+                  {via && ` · lit because it connects to ${via.map((v) => names.get(v) ?? v).join(", ")}`}
                 </title>
-                {/* While searching, only hits are named — a dimmed label is
-                    clutter over what you are looking for — and every hit is,
-                    however small, because it is what you asked for. */}
-                {(found ? hit !== undefined || near || lit : z.degree >= labelAbove || near || lit) && (
+                {/* While searching, only hits and their connections are named
+                    — a dimmed label is clutter over what you are looking for —
+                    and every hit is, however small, because it is what you
+                    asked for. A connected zone carries its reason in the
+                    label itself. */}
+                {(found
+                  ? hit !== undefined || via !== undefined || near || lit
+                  : z.degree >= labelAbove || near || lit) && (
                   <text
                     x={0}
                     y={-nameSize * 0.7}
                     style={{ fontSize: nameSize, strokeWidth: nameSize / 4 }}
                   >
                     {nameRuns(names.get(z.shortName) ?? z.shortName, hit)}
+                    {via && <tspan className="via"> · {viaNote}</tspan>}
                   </text>
                 )}
               </g>

@@ -19,7 +19,7 @@
 > own connection labels (ADR-016, feature F27; the format is documented in
 > `docs/domain/eq-map-format.md`, which is the only domain doc with no
 > reference implementation behind it).
-> Currently at **v0.11.0**. See `docs/product/features.md` for per-feature
+> Currently at **v0.11.1**. See `docs/product/features.md` for per-feature
 > status. The main open items: real-log validation against EQLogParser (the
 > release gate), the spell-DB work (class detection, bane, lands-on
 > resolution — reference data files not yet copied), identity-registry disk

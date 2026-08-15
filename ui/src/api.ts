@@ -286,11 +286,34 @@ async function json<T>(response: Response): Promise<T> {
 /** How a zone's display name was arrived at. Only the first two are verifiable. */
 export type ZoneNameSource = "name" | "graph" | "curated";
 
+/**
+ * How a zone's era was arrived at: from the band its client zone id falls in,
+ * or set by hand where the band is known to be wrong (issue #57).
+ */
+export type ZoneEraSource = "id" | "curated";
+
+/** One expansion, in release order. `id` is what the table and the API use. */
+export interface ZoneEra {
+  id: string;
+  /** Full title — "The Ruins of Kunark". */
+  name: string;
+  /** What players call it — "Kunark". */
+  short: string;
+  year: number;
+}
+
 export interface MapCatalogEntry {
   shortName: string;
   /** Absent when the zone table does not know this map's name. */
   displayName?: string;
   nameSource?: ZoneNameSource;
+  /**
+   * The earliest expansion the place exists in, as a `ZoneEra.id`. Absent
+   * when the table cannot say — which means shown under every era filter,
+   * never hidden.
+   */
+  era?: string;
+  eraSource?: ZoneEraSource;
   /** Map sets holding this zone, best first — usually "default", "brewalls". */
   sets: string[];
 }
@@ -348,6 +371,8 @@ export interface ZoneMap {
   shortName: string;
   displayName?: string;
   nameSource?: ZoneNameSource;
+  era?: string;
+  eraSource?: ZoneEraSource;
   set: string;
   sets: string[];
   bounds: MapBounds;
@@ -355,9 +380,15 @@ export interface ZoneMap {
 }
 
 export interface ZoneGraphNode {
+  /** The place's representative map — the first of `maps`. */
   shortName: string;
   displayName?: string;
+  /** Every map that draws this place; two when a revamp sits beside its original. */
+  maps: string[];
   degree: number;
+  /** Earliest expansion the zone exists in; absent when unknown (and so always shown). */
+  era?: string;
+  eraSource?: ZoneEraSource;
 }
 
 export interface ZoneGraphEdge {
@@ -368,6 +399,8 @@ export interface ZoneGraphEdge {
 export interface ZoneGraph {
   zones: ZoneGraphNode[];
   edges: ZoneGraphEdge[];
+  /** Every expansion in release order, so era codes can be compared. */
+  eras: ZoneEra[];
 }
 
 export interface ZoneRouteStep {
@@ -627,8 +660,13 @@ export const api = {
   /** The whole world. First call reads every map's labels and takes seconds. */
   zoneGraph: (): Promise<ZoneGraph> => fetch("/api/maps/graph").then((r) => json(r)),
 
-  zoneRoute: (from: string, to: string): Promise<ZoneRoute> =>
+  /**
+   * `era` is the expansion the player says their server has reached; the
+   * route then avoids zones from later ones. Omit it for the whole world.
+   */
+  zoneRoute: (from: string, to: string, era?: string): Promise<ZoneRoute> =>
     fetch(
-      `/api/maps/route?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
+      `/api/maps/route?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}` +
+        (era ? `&era=${encodeURIComponent(era)}` : ""),
     ).then((r) => json(r)),
 };

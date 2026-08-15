@@ -31,10 +31,16 @@ public sealed record MapLayerDto(int Index, MapStrokes[] Strokes, MapLabelDto[] 
 /// <c>curated</c>. Surfaced rather than hidden because only the first two are
 /// verifiable; see ADR-016.
 /// </param>
+/// <param name="Era">
+/// The earliest expansion the place exists in, and <paramref name="EraSource"/>
+/// how that was decided — the same pair the catalogue carries.
+/// </param>
 public sealed record ZoneMapDto(
     string ShortName,
     string? DisplayName,
     string? NameSource,
+    string? Era,
+    string? EraSource,
     string Set,
     IReadOnlyList<string> Sets,
     MapBoundsDto Bounds,
@@ -44,6 +50,8 @@ public sealed record ZoneMapDto(
         map.ShortName,
         entry.DisplayName,
         entry.NameSource,
+        entry.Era,
+        entry.EraSource,
         set,
         entry.Sets,
         new MapBoundsDto(
@@ -88,8 +96,25 @@ public sealed record ZoneMapDto(
 /// </param>
 public sealed record SetMapRootRequest(string? Path);
 
-/// <summary>A zone in the world graph, with the exits that were resolvable.</summary>
-public sealed record ZoneGraphNode(string ShortName, string? DisplayName, int Degree);
+/// <summary>A place in the world graph, with the exits that were resolvable.</summary>
+/// <param name="ShortName">
+/// The place's representative map — the first of <paramref name="Maps"/>. A
+/// place with two drawings ("West Freeport" is <c>freportw</c> and
+/// <c>freeportwest</c>) is one node, not two; see <see cref="ZoneGraph"/>.
+/// </param>
+/// <param name="Maps">Every map short name that draws this place, representative first.</param>
+/// <param name="Era">
+/// The earliest expansion the zone exists in, or absent when unknown. The
+/// client does the hiding, because whether to hide or dim is a drawing
+/// decision and toggling it should not cost a round trip.
+/// </param>
+public sealed record ZoneGraphNode(
+    string ShortName,
+    string? DisplayName,
+    IReadOnlyList<string> Maps,
+    int Degree,
+    string? Era,
+    string? EraSource);
 
 /// <summary>
 /// An undirected connection, written once with the ends in a stable order so
@@ -97,7 +122,12 @@ public sealed record ZoneGraphNode(string ShortName, string? DisplayName, int De
 /// </summary>
 public sealed record ZoneGraphEdge(string From, string To);
 
-public sealed record ZoneGraphDto(ZoneGraphNode[] Zones, ZoneGraphEdge[] Edges);
+/// <param name="Eras">
+/// Every expansion in release order, so the client can order the nodes' era
+/// codes without carrying its own copy of the list. Sent with the graph
+/// because the graph is what it is for.
+/// </param>
+public sealed record ZoneGraphDto(ZoneGraphNode[] Zones, ZoneGraphEdge[] Edges, IReadOnlyList<ZoneEra> Eras);
 
 /// <param name="Found">
 /// Whether the labels join the two zones at all.

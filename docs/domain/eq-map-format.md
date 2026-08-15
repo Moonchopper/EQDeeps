@@ -156,9 +156,9 @@ EQDeeps ships a table built three ways, each row marked with which
 
 | Source | Rows | How |
 |---|---|---|
-| `name` | 108 | Short name and display name agree once punctuation and a leading "The" are removed. |
+| `name` | 107 | Short name and display name agree once punctuation and a leading "The" are removed. |
 | `graph` | 31 | Deduced from connection labels: a known zone's `to` labels name its neighbours in **display-name space**, so an unknown zone is pinned by the neighbours pointing at it, and confirmed when it points back. |
-| `curated` | 125 | Written down by hand. |
+| `curated` | 130 | Written down by hand. |
 
 The graph step needs **two independent neighbours plus a reciprocated edge**. A
 single neighbour proves nothing — it merely names whatever is left over, which
@@ -172,7 +172,16 @@ curated rows — "Permafrost Caverns" for Permafrost Keep, "Neriak Commons" for
 invented name; it cannot catch an invented pairing**, which is why provenance is
 carried to the UI rather than smoothed away.
 
-The table is knowingly incomplete: 264 of 581 short names, covering 128 of the
+Nor can it catch a *real* name attached to the wrong place. The mechanical
+`name` join matched `hole` to "The Hole" — a real client name, but id 539, an
+event copy — when the map is the classic zone the client calls "The Ruins of
+Old Paineel" (id 39), which is what the log prints. `fearplane` had been paired
+with "Fear Itself", a House of Thule zone, rather than "The Plane of Fear".
+Both were found by joining the table to the client's zone ids (§5.3) and asking
+which rows landed somewhere implausible; that join is a second, cheap check
+worth re-running when rows are added.
+
+The table is knowingly incomplete: 268 of 581 short names, covering 128 of the
 133 zones a stock client ships a map for. An unknown zone resolves to no map and
 the user picks one, which is also how a wrong pairing gets corrected.
 
@@ -187,6 +196,7 @@ cache — holds two corrections:
 |---|---|
 | `root` | A maps folder they nominated, when discovery found none. Replaces discovery outright. |
 | `chosen` | Normalized zone name → map short name. Beats anything the table says. |
+| `era` | The expansion their server has reached, as an era id (§5.3). Absent means the whole world. |
 
 The key is normalized exactly as `ZoneTable.Normalize` does it, with the
 instance suffix stripped first, so a choice made against "The Estate of Unrest
@@ -200,7 +210,7 @@ notice.
 Normal, not a defect. A revamped zone keeps its old map beside the new one and
 both claim the name: `freportw` and `freeportwest` are both "West Freeport";
 `tox` and `toxxulia` are both "Toxxulia Forest", 699 segments against 7738.
-**Eleven** display names in the shipped table have two maps:
+**Twelve** display names in the shipped table have two maps:
 
 ```
 The Bazaar          barter, bazaar          East Freeport   freeporteast, freporte
@@ -208,24 +218,160 @@ Befallen            befallen, befallenb     West Freeport   freeportwest, frepor
 The Temple of Droga droga, overtheretwo     Highpass Hold   highpass, highpasshold
 Erud's Crossing     erudsxing, erudsxing2   Misty Thicket   misty, mistythicket
 The Ocean of Tears  oceanoftears, oot       Steamfont Mts   steamfont, steamfontmts
-Toxxulia Forest     tox, toxxulia
+The Plane of Hate   hateplane, hateplaneb   Toxxulia Forest tox, toxxulia
 ```
 
 Offer both — only the player knows which they mean. But offer them as one
 *place* with a choice of drawing, not as two identical rows in a zone list:
 the two cases behind a shared name (one zone drawn twice; two zones that share
 a name across a revamp) are indistinguishable from the data, and in both the
-player wants the place first and the file second.
+player wants the place first and the file second. The world graph follows the
+same rule — one node per place, its exits pooled across the drawings — because
+a label to "The Plane of Hate" resolves to both files, and drawn per file that
+made two Planes of Hate off the Oasis of Marr.
 
 Note this is **not** the same axis as the map *sets*. A zone present in both
 `maps/` and `maps/brewalls/` is one entry with two sets; `tox` and `toxxulia`
 are two entries, each of which happens to exist in both sets.
+
+The reverse — **one map claimed by several client names** — is real too and the
+table cannot say it. Event and Hardcore Heritage copies keep the geometry and
+rename the zone: `crushbone` is "Clan Crushbone" and "Reinforced Clan
+Crushbone", `hateplane` is "The Plane of Hate" and, on EQ Legends, "The Plane
+of Hate - Group". A row has one display name, so the second name resolves to
+nothing and the user is asked to pick. Known gap; the fix is a many-to-many
+table, not more curated rows.
 
 ### 5.2 Instances
 
 The log names an instance with its difficulty attached: `The Estate of Unrest 4
 (Refined)`. An instance is the same geometry as its open-world zone, so strip
 the suffix (`InstanceZone.Parse`) before looking a map up.
+
+### 5.3 Eras: which expansion a zone is from
+
+**A stock install ships every expansion's maps whether or not the server has
+unlocked them, and nothing on the disk says which it has.** The log names only
+zones already visited — a lower bound at best. The map files carry geometry and
+labels. `ZoneNames.txt` lists every zone that ever existed. So the World view's
+era filter is **chosen by the player and never inferred**; with none chosen the
+view is exactly what it was before eras existed.
+
+What *can* be read off the client is a zone id per display name, and the ids
+were handed out in blocks as expansions shipped. That is folklore, so it was
+checked against the file itself — 699 rows in the install this was derived from
+— and turned into two more columns of `zones.tsv`, `era` and `eraSource`, by
+`scripts/derive-zone-eras.mjs`. The result is **checked in as data**: the app
+never reads the player's `ZoneNames.txt`, and the derivation can be re-run and
+argued with (`node scripts/derive-zone-eras.mjs --check` says whether the table
+still matches the install it points at).
+
+**What an era means.** The *earliest* expansion the place can exist in — a
+lower bound. The World view hides a zone whose era is later than the chosen one
+and routes only through zones that are not hidden. A zone with **no** era is
+shown under every filter: the same bias as the rest of this feature, where a
+smaller truthful graph beats hiding a place the player can walk into.
+
+**One name, several ids.** Revamps and event copies keep the display name:
+"The Ocean of Tears" is 69, 409 and 569; "The Sleeper's Tomb" is 128, 628, 801
+and 831. A row takes the **lowest** id, because the place has been there since
+then whichever drawing the player holds. 71 of 268 rows have ids in more than
+one band and every one resolves to the earliest, which is what the log on a
+classic-era server confirms: it prints "West Commonlands" (21), "The Northern
+Desert of Ro" (34), "North Freeport" (8) — the launch names, not "The
+Commonlands" (408) or "North Desert of Ro" (392), which are new names and
+correctly get later eras.
+
+**The bands**, inclusive, with the names at their edges so a later reader can
+tell whether their file still agrees:
+
+| Ids | Era | Edges |
+|---|---|---|
+| 1–77 | classic | South Qeynos … The Arena |
+| 78–109 | kunark | The Field of Bone … Veksar (see overrides for the launch zones filed here) |
+| 110–130 | velious | The Iceclad Ocean … The Marauders Mire |
+| 150–182 | luclin | Shadow Haven … The Akheva Ruins; Arenatwo, Jaggedpine Forest, Nedaria's Landing fill 180–182 |
+| 200–223 | pop | Ruins of Lxanvom (the Crypt of Decay) … The Prison of the Forsaken |
+| 224–228 | loy | The Gulf of Gunthak … Hate's Fury |
+| 229–277 | ldon | Deepest Guk: Cauldron of Lost Souls … Chardok: The Halls of Betrayal |
+| 278–299 | god | The Caverns of Exile … Qvic |
+| 300–336 | oow | Wall of Slaughter … The Ruined City of Dranik |
+| 337–346 | don | The Broodlands … The Accursed Nest; Guild Lobby, Guild Hall, The Bartering Quarter |
+| 347–368 | dodh | Ruins of Illsalin … Shadowed Grove |
+| 369–393 | por | Arcstone … Deathknell; the Freeport revamp (382–391) and North/South Desert of Ro (392–393) |
+| 394–415 | tss | Crescent Reach … Ashengate; revamps of nine older zones (407–415), only The Commonlands a new name |
+| 416–435 | tbs | Katta Castrum … The Open Sea |
+| 436–451 | sof | Fortress Mechanotus … Deepscar's Den |
+| 452–479 | sod | Field of Scale … Ngreth's Den |
+| 480–495 | uf | Brell's Rest … Lair of the Fallen |
+| 700–723 | hot | The Feerrott (revamp) … Hermit's Hideaway Interior |
+| 724–751 | voa | Argath … Modest Guild Hall |
+| 752–769 | rof | Shard's Landing … Heart of Fear: The Epicenter |
+| 770–776 | cotf | Bixie Warfront … Argin-Hiz |
+| 777 | tbm | Sul Vius: Demiplane of Life, filed ahead of the next block |
+| 778–785 | tds | Arx Mentis … Tempest Temple |
+| 786–816 | tbm | **interleaved**: The Broken Mirror (796–798), Empires of Kunark (788, 790–791, 793–795, 799–800), Ring of Scale (789, 792, 813–816), anniversary and Hardcore Heritage revamps. Nothing here predates The Broken Mirror, so that is the bound; a zone here may really be later. |
+| 817–823 | tbl | Plane of Smoke … Chamber of Tears |
+| 824–830 | tov | The Eastern Wastes … Crystal Caverns |
+| 831–836 | cov | The Sleeper's Tomb … The Temple of Veeshan |
+| 843–848 | tol | Maiden's Eye … Basilica of Adumbration |
+| 849–856 | nos | Bloodfalls … Deepshade |
+| 857–863 | ls | Firefall Pass … Moors of Nokk |
+| 864–865, 870–871 | tob | Unkempt Woods, Timorous Falls; Hodstock Hills, The Theater of Eternity |
+
+Not banded, and left blank: 131–149 (unused), 183–199 (system zones — `Load`,
+`CLZ`, the tutorials — and Shadowrest, see below), 502–699 (event and Hardcore
+Heritage copies of older zones: "Reinforced Clan Crushbone", "The Feast of
+Tishe Virm"), 837–842 and 866–869 (seasonal: Winter, Frostfell, Stomples Day),
+and 872 onward (content newer than the vocabulary, plus 900 "Lake Nerius" and
+the 99x test zones). Anything there that also has a lower id resolves to that;
+Shadowrest is the only shipped row that lands nowhere else, and it is set by
+hand.
+
+**Where the band is wrong**, the row is set by hand and marked `curated`. Every
+override carries its reason in the script; the shape of them is:
+
+- **Launch zones filed in the Kunark block.** The Temple of Solusek Ro is id
+  80, Erud's Crossing 98. Both are `classic`.
+- **Free content between expansions.** The Stonebrunt Mountains (100) and The
+  Warrens (101) were added on Odus within months of Kunark; on a classic-era
+  ruleset they are open (a classic-era EQ Legends log enters both), so hiding
+  them before Kunark would be the wrong mistake. Both are `classic`. Veksar
+  (109) is left to its band: it cannot predate Kunark, which is what a lower
+  bound has to get right.
+- **A reused gap.** Neriak - Fourth Gate is id 43, in the launch block, and was
+  added in 2016. Its own map connects it to Ethernere Tainted West Karana
+  (Call of the Forsaken), so it is `cotf`. Shadowrest (187, among the system
+  zones) has one labelled exit, to the Plane of Knowledge, so it is `pop`.
+- **The interleaved block.** Where the expansion is beyond doubt — The
+  Scorched Woods and Lceanium (Empires of Kunark), Gorowyn (Ring of Scale) —
+  the row says so rather than settling for the block's bound.
+- **No expansion to give.** New Sebilis Expedition (99) is EQ Legends-only and
+  belongs to nothing; it is left blank and so always shown.
+
+The result: 267 of 268 rows carry an era, 257 from their band and 10 by hand;
+87 are classic, 28 Kunark, 15 Velious, 24 Luclin, 15 Planes of Power, and the
+rest thin out along the tail.
+
+**Two things the era deliberately does not know.** A *connection* has no era.
+The maps annotate present-day exits — Brewall's Ruins of Old Paineel labels a
+"portal" to Neriak - Third Gate, and the classic-only route from Qeynos to
+Faydwer walks straight through it — and gating edges would need a second table
+this corpus cannot supply. And a modern-client server
+keeps the revamped versions of some old zones from day one — TLP-style servers
+have the merged Commonlands and the rebuilt Freeport in "classic" — so a revamp
+with a *new* name may exist earlier than its band says. EQ Legends does not do
+this (its log prints the launch names), which is the case that was checked.
+
+**An observation, not used.** In the Legends install the third and fourth
+columns of `ZoneNames.txt` are `12^60` (or `12^0` for Kedge, Fear, Permafrost
+and Hate) for exactly 77 rows: the launch zones minus the never-shipped ones
+(Highpass Caves, Sunset Home, Nektropos, Aviak) and The Arena, plus 80, 98–101
+and the two Legends-only zones. Every other row is `0^0`. That is a
+classic-shaped set on a classic-era server, and it corroborates the band; but
+the columns are undocumented, could not be checked against a live install, and
+issue #57 rules out inferring the era from the client anyway. Recorded so the
+next person does not have to rediscover it.
 
 ## 6. Sizes
 

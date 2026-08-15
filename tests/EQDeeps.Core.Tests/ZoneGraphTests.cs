@@ -11,7 +11,9 @@ public class ZoneGraphTests
         butcher	Butcherblock Mountains	curated
         crushbone	Clan Crushbone	curated
         oot	The Ocean of Tears	curated
+        oceanoftears	The Ocean of Tears	name
         felwithea	Northern Felwithe	curated
+        cauldron	Dagnor's Cauldron	curated
         """);
 
     private static ZoneMap Map(string shortName, params string[] labels) =>
@@ -161,5 +163,74 @@ public class ZoneGraphTests
 
         Assert.Null(graph.Route("gfaydark", "oot"));
         Assert.Null(graph.Route("gfaydark", "nosuchzone"));
+    }
+
+    /// <summary>
+    /// Two drawings of one place are one node. A label to "The Ocean of Tears"
+    /// resolves to both <c>oot</c> and <c>oceanoftears</c>; drawn per file that
+    /// made two zones off Butcherblock where the player knows one. The node
+    /// takes the first drawing's name, answers to either, and its exits are
+    /// the union of both drawings' labels — a route can leave by a label only
+    /// the other drawing wrote down.
+    /// </summary>
+    [Fact]
+    public void MapsSharingANameAreOnePlace()
+    {
+        var graph = ZoneGraph.Build(
+            new[]
+            {
+                Map("butcher", "to The Ocean of Tears (Boat)"),
+                Map("oot", "to Butcherblock Mountains"),
+                Map("oceanoftears", "to Northern Felwithe"),
+                Map("felwithea"),
+            },
+            Table);
+
+        Assert.Equal(new[] { "butcher", "felwithea", "oot" }, graph.Zones.OrderBy(z => z).ToArray());
+        Assert.Equal(new[] { "oot", "oceanoftears" }, graph.MapsOf("oot"));
+        Assert.Equal("oot", graph.PlaceOf("oceanoftears"));
+
+        // One label, one edge — not one per file that claims the name.
+        Assert.Single(graph.From("butcher"));
+        Assert.Equal(new[] { "oot" }, graph.Neighbours("butcher"));
+
+        // Exits are pooled across the drawings, and either name asks the place.
+        Assert.Equal(new[] { "butcher", "felwithea" }, graph.Neighbours("oceanoftears").OrderBy(n => n).ToArray());
+        Assert.Equal(new[] { "butcher", "oot", "felwithea" }, graph.Route("butcher", "felwithea"));
+        Assert.Equal(new[] { "oot", "butcher" }, graph.Route("oceanoftears", "butcher"));
+        Assert.Equal(new[] { "oot" }, graph.Route("oceanoftears", "oot"));
+    }
+
+    /// <summary>
+    /// The era filter reaches routing as an allow-list. A shortcut through a
+    /// zone that is not allowed is not taken — the longer way round is the
+    /// answer, and no way round at all is "no route", never the shortcut.
+    /// </summary>
+    [Fact]
+    public void RoutesOnlyThroughAllowedZones()
+    {
+        // crushbone - gfaydark - butcher - oot, with felwithea as a shortcut
+        // straight from crushbone to oot.
+        var graph = ZoneGraph.Build(
+            new[]
+            {
+                Map("crushbone", "to The Greater Faydark", "to Northern Felwithe"),
+                Map("gfaydark", "to Butcherblock Mountains"),
+                Map("butcher", "to The Ocean of Tears"),
+                Map("felwithea", "to The Ocean of Tears"),
+                Map("oot"),
+            },
+            Table);
+
+        Assert.Equal(new[] { "crushbone", "felwithea", "oot" }, graph.Route("crushbone", "oot"));
+
+        Assert.Equal(
+            new[] { "crushbone", "gfaydark", "butcher", "oot" },
+            graph.Route("crushbone", "oot", z => z != "felwithea"));
+
+        // An end that is not allowed is not somewhere the route can start or
+        // finish, either.
+        Assert.Null(graph.Route("crushbone", "felwithea", z => z != "felwithea"));
+        Assert.Null(graph.Route("crushbone", "oot", z => z != "oot"));
     }
 }

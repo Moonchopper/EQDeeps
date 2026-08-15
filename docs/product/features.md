@@ -377,11 +377,21 @@ zones. The maps' own connection labels close most of the rest: they name
 neighbours in *display-name* space, so a known zone identifies its unknown
 neighbours, and the pairing is confirmed when they name it back.
 
-The shipped table is **264 rows covering 128 of the 133 zones a stock client
+The shipped table is **268 rows covering 128 of the 133 zones a stock client
 ships a map for**, each marked with how it was arrived at — matched, deduced, or
 hand-written. It is knowingly incomplete, and that is safe: an unknown zone
 resolves to no map and the user picks one, which is the same escape hatch that
 corrects a pairing this table gets wrong.
+
+**Eras** (issue #57, 2026-08-15). A stock install ships every expansion's maps
+whether or not the server has unlocked them, so on a classic-era server the
+World view drew and routed through content that does not exist yet. Nothing on
+the disk says what era a server is running, so the era is **chosen by the
+player** in the World view and remembered; zones from later expansions are
+hidden and never routed through. Which expansion a zone is *from* comes from
+the client's zone-id bands, validated against the file and checked in as two
+more columns of the table with their provenance — a lower bound, and a zone
+the table cannot place is shown rather than hidden.
 
 - AC: A zone the table does not know is an invitation to pick a map, never an
   error or an empty screen with no explanation.
@@ -396,6 +406,12 @@ corrects a pairing this table gets wrong.
   an explanation and a way to point at a maps folder.
 - AC: A route the labels cannot support is reported as "no route known", never
   invented from partial data.
+- AC: The era is chosen by the player and never guessed from the log; with no
+  era chosen the World view and routing behave exactly as before.
+- AC: With an era chosen, no zone from a later expansion is drawn or routed
+  through; a zone whose era the table cannot determine is shown, not hidden.
+- AC: The era derivation is committed as data with the script that produced
+  it, and the id bands are written into the map format doc with their evidence.
 - AC: The largest zone (`everfrost`, 26,383 segments) pans and zooms without
   dropping frames.
 - AC: Maps are drawn legibly on the app's dark surfaces despite the files'

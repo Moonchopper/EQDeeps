@@ -28,9 +28,15 @@ public sealed class MapEndpointTests : IAsyncLifetime
         var maps = Path.Combine(_dir, "maps");
         Directory.CreateDirectory(Path.Combine(maps, "brewalls"));
 
-        // Three zones in a row: Greater Faydark - Butcherblock - Ocean of Tears.
-        // Only the first link is written from both ends; the second is written
-        // once, which is the normal case and the reason routing is undirected.
+        // Faydwer in a row: Greater Faydark - Butcherblock - Ocean of Tears,
+        // and Butcherblock - Dagnor's Cauldron - Unrest. Only the first link
+        // is written from both ends; the rest are written once, which is the
+        // normal case and the reason routing is undirected.
+        //
+        // The Plane of Knowledge is a shortcut from Greater Faydark straight to
+        // Unrest — not real geography, but the era filter needs a zone from a
+        // later expansion to refuse, and PoK is the one every player would
+        // recognise as "not there yet" on a classic server (issue #57).
         File.WriteAllText(Path.Combine(maps, "gfaydark.txt"),
             """
             L 0, 0, 0, 100, 100, 0, 64, 64, 64
@@ -46,8 +52,20 @@ public sealed class MapEndpointTests : IAsyncLifetime
             L 0, 0, 0, 10, 10, 0, 0, 204, 0
             P 5, 5, 0, 0, 0, 240, 3, to_The_Greater_Faydark
             P 9, 9, 0, 0, 0, 240, 3, to_The_Ocean_of_Tears_(Boat)
+            P 1, 9, 0, 0, 0, 240, 3, to_Dagnor`s_Cauldron
             """);
         File.WriteAllText(Path.Combine(maps, "oot.txt"), "L 1, 1, 1, 2, 2, 2, 0, 0, 255");
+        // A second drawing of the same place, as a revamp leaves behind: the
+        // graph must show one Ocean of Tears, not two.
+        File.WriteAllText(Path.Combine(maps, "oceanoftears.txt"), "L 1, 1, 1, 3, 3, 3, 0, 0, 255");
+        File.WriteAllText(Path.Combine(maps, "cauldron.txt"),
+            "P 1, 1, 0, 0, 0, 240, 3, to_The_Estate_of_Unrest");
+        File.WriteAllText(Path.Combine(maps, "unrest.txt"), "L 1, 1, 1, 2, 2, 2, 0, 0, 255");
+        File.WriteAllText(Path.Combine(maps, "poknowledge.txt"),
+            """
+            P 1, 1, 0, 0, 0, 240, 3, to_The_Greater_Faydark
+            P 2, 2, 0, 0, 0, 240, 3, to_The_Estate_of_Unrest
+            """);
 
         // Same zone in the other set, so "which drawing" is a real choice.
         File.WriteAllText(Path.Combine(maps, "brewalls", "gfaydark.txt"),
@@ -96,7 +114,7 @@ public sealed class MapEndpointTests : IAsyncLifetime
         Assert.True(catalog.GetProperty("found").GetBoolean());
 
         var zones = catalog.GetProperty("zones").EnumerateArray().ToList();
-        Assert.Equal(3, zones.Count);
+        Assert.Equal(7, zones.Count);
 
         var fay = zones.Single(z => z.GetProperty("shortName").GetString() == "gfaydark");
         Assert.Equal("The Greater Faydark", fay.GetProperty("displayName").GetString());
@@ -120,6 +138,24 @@ public sealed class MapEndpointTests : IAsyncLifetime
             .ToList();
 
         Assert.All(sources, s => Assert.Contains(s, new[] { "name", "graph", "curated" }));
+    }
+
+    /// <summary>
+    /// The era reaches the client with its own provenance, for the same reason
+    /// the name does: it is a claim about the row, and a hand-set one deserves
+    /// a different confidence from a derived one (issue #57).
+    /// </summary>
+    [Fact]
+    public async Task CatalogSaysWhichEraEachZoneIsFrom()
+    {
+        var zones = (await Get("/api/maps")).GetProperty("zones").EnumerateArray().ToList();
+
+        var fay = zones.Single(z => z.GetProperty("shortName").GetString() == "gfaydark");
+        Assert.Equal("classic", fay.GetProperty("era").GetString());
+        Assert.Equal("id", fay.GetProperty("eraSource").GetString());
+
+        var pok = zones.Single(z => z.GetProperty("shortName").GetString() == "poknowledge");
+        Assert.Equal("pop", pok.GetProperty("era").GetString());
     }
 
     [Fact]
@@ -218,18 +254,65 @@ public sealed class MapEndpointTests : IAsyncLifetime
             .OrderBy(s => s)
             .ToArray();
 
-        // gfaydark<->butcher is labelled from both sides but is still one edge.
-        Assert.Equal(new[] { "butcher->gfaydark", "butcher->oot" }, edges);
+        // gfaydark<->butcher is labelled from both sides but is still one edge,
+        // and butcher's one label to the Ocean of Tears is one edge to the one
+        // Ocean of Tears node, however many drawings of it are on disk.
+        Assert.Equal(
+            new[]
+            {
+                "butcher->cauldron", "butcher->gfaydark", "butcher->oceanoftears",
+                "cauldron->unrest", "gfaydark->poknowledge", "poknowledge->unrest",
+            },
+            edges);
+    }
+
+    /// <summary>
+    /// A place with two drawings is one node that lists both, so the client
+    /// can open whichever the user prefers and never shows a zone twice.
+    /// </summary>
+    [Fact]
+    public async Task TwoDrawingsOfAPlaceAreOneNode()
+    {
+        var zones = (await Get("/api/maps/graph")).GetProperty("zones").EnumerateArray().ToList();
+
+        var oceans = zones.Where(z => z.GetProperty("displayName").GetString() == "The Ocean of Tears").ToList();
+        var ocean = Assert.Single(oceans);
+
+        Assert.Equal("oceanoftears", ocean.GetProperty("shortName").GetString());
+        Assert.Equal(
+            new[] { "oceanoftears", "oot" },
+            ocean.GetProperty("maps").EnumerateArray().Select(m => m.GetString()).ToArray());
+    }
+
+    /// <summary>
+    /// The graph carries each zone's era and the ordered list of eras, so the
+    /// client can hide by expansion without a copy of the list of its own.
+    /// </summary>
+    [Fact]
+    public async Task GraphCarriesErasAndTheirOrder()
+    {
+        var graph = await Get("/api/maps/graph");
+
+        var eras = graph.GetProperty("eras").EnumerateArray()
+            .Select(e => e.GetProperty("id").GetString())
+            .ToList();
+        Assert.Equal("classic", eras[0]);
+        Assert.True(eras.IndexOf("kunark") < eras.IndexOf("pop"));
+
+        var pok = graph.GetProperty("zones").EnumerateArray()
+            .Single(z => z.GetProperty("shortName").GetString() == "poknowledge");
+        Assert.Equal("pop", pok.GetProperty("era").GetString());
     }
 
     [Fact]
     public async Task RoutesAcrossTheWorldAndSaysHowEachHopIsUsed()
     {
+        // Asked for by its other drawing's name; answered in places.
         var route = (await Get("/api/maps/route?from=gfaydark&to=oot"))
             .GetProperty("route").EnumerateArray().ToList();
 
         Assert.Equal(
-            new[] { "gfaydark", "butcher", "oot" },
+            new[] { "gfaydark", "butcher", "oceanoftears" },
             route.Select(s => s.GetProperty("shortName").GetString()).ToArray());
 
         Assert.Equal("The Ocean of Tears", route[2].GetProperty("displayName").GetString());
@@ -237,6 +320,46 @@ public sealed class MapEndpointTests : IAsyncLifetime
         // The parenthetical is dropped from the destination but kept on the
         // step, because "(Boat)" is how you make the crossing.
         Assert.Contains("Boat", route[2].GetProperty("via").GetString()!);
+    }
+
+    /// <summary>
+    /// With no era given, routing is exactly what it was: the shortest way,
+    /// through whatever the labels join. With one, a zone from a later
+    /// expansion is not there to be walked through — the longer classic way is
+    /// the answer, and a later zone is not a destination at all.
+    /// </summary>
+    [Fact]
+    public async Task AnEraKeepsRoutesInsideWhatTheServerHasUnlocked()
+    {
+        static string[] Steps(JsonElement route) =>
+            route.GetProperty("route").EnumerateArray()
+                .Select(s => s.GetProperty("shortName").GetString()!)
+                .ToArray();
+
+        var open = await Get("/api/maps/route?from=gfaydark&to=unrest");
+        Assert.Equal(new[] { "gfaydark", "poknowledge", "unrest" }, Steps(open));
+
+        var classic = await Get("/api/maps/route?from=gfaydark&to=unrest&era=classic");
+        Assert.Equal(new[] { "gfaydark", "butcher", "cauldron", "unrest" }, Steps(classic));
+
+        // Everything through Planes of Power is allowed again, so the shortcut is back.
+        var pop = await Get("/api/maps/route?from=gfaydark&to=unrest&era=pop");
+        Assert.Equal(new[] { "gfaydark", "poknowledge", "unrest" }, Steps(pop));
+
+        var toPok = await Get("/api/maps/route?from=gfaydark&to=poknowledge&era=classic");
+        Assert.False(toPok.GetProperty("found").GetBoolean());
+    }
+
+    /// <summary>
+    /// An era this build does not know is refused rather than ignored: ignored
+    /// would route through everything while the caller believed it had a filter.
+    /// </summary>
+    [Fact]
+    public async Task AnUnknownEraIsRefused()
+    {
+        var response = await _http.GetAsync("/api/maps/route?from=gfaydark&to=unrest&era=atlantis");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
     /// <summary>
@@ -255,8 +378,8 @@ public sealed class MapEndpointTests : IAsyncLifetime
 
     /// <summary>
     /// The table maps one display name onto every map that claims it, so
-    /// "The Ocean of Tears" is both oot and oceanoftears. Only the map this
-    /// machine actually has may become an edge.
+    /// "West Freeport" is both freportw and freeportwest. Neither is on this
+    /// machine, so a label to it is not an edge and it is not a node.
     /// </summary>
     [Fact]
     public async Task DoesNotLinkToZonesThisMachineCannotDraw()
@@ -267,6 +390,7 @@ public sealed class MapEndpointTests : IAsyncLifetime
             .Select(z => z.GetProperty("shortName").GetString())
             .ToArray();
 
-        Assert.DoesNotContain("oceanoftears", zones);
+        Assert.DoesNotContain("freportw", zones);
+        Assert.DoesNotContain("freeportwest", zones);
     }
 }

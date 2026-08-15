@@ -18,7 +18,10 @@
 > with pan and zoom, plus the world as a routable graph built from the maps'
 > own connection labels (ADR-016, feature F27; the format is documented in
 > `docs/domain/eq-map-format.md`, which is the only domain doc with no
-> reference implementation behind it).
+> reference implementation behind it), now with a player-chosen era filter so a
+> classic-era server is not routed through Planes of Power (issue #57; the
+> zone-id bands behind it are in that doc's §5.3 and re-derivable with
+> `scripts/derive-zone-eras.mjs`).
 > Currently at **v0.11.1**. See `docs/product/features.md` for per-feature
 > status. The main open items: real-log validation against EQLogParser (the
 > release gate), the spell-DB work (class detection, bane, lands-on

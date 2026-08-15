@@ -6,7 +6,7 @@ import { api } from "../api";
  *
  * <p>These are corrections rather than preferences, which is why they live in
  * the document store beside dashboards instead of in a cache. The zone table
- * ships 264 hand-checked and deduced rows and is knowingly incomplete and
+ * ships 268 hand-checked and deduced rows and is knowingly incomplete and
  * knowingly fallible — ADR-016 promises the user an escape hatch, and this is
  * it. A choice made here outranks anything the table says.</p>
  */
@@ -15,6 +15,12 @@ export interface MapSettings {
   root?: string;
   /** Normalized zone name → map short name. */
   chosen?: Record<string, string>;
+  /**
+   * The expansion the player's server has reached, as a `ZoneEra.id`, or
+   * absent for "any". Chosen by the player and never inferred: nothing in a
+   * log or a map file says what a server has unlocked (issue #57).
+   */
+  era?: string;
 }
 
 /**
@@ -80,6 +86,24 @@ export async function rememberMap(
   }
 
   const next: MapSettings = { ...current, chosen };
+  await api.putStore("map-settings", next);
+  return next;
+}
+
+/**
+ * Remembers which expansion the server has reached, or forgets it when null.
+ * Read-modify-write for the same reason as `rememberMap`.
+ */
+export async function rememberEra(era: string | null): Promise<MapSettings> {
+  const current = await loadMapSettings();
+  const next: MapSettings = { ...current };
+
+  if (era) {
+    next.era = era;
+  } else {
+    delete next.era;
+  }
+
   await api.putStore("map-settings", next);
   return next;
 }

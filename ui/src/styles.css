@@ -2438,6 +2438,87 @@ textarea:focus-visible,
   fill: var(--accent);
 }
 
+/* With an era chosen, a zone the table could not place is kept but hollowed:
+   it may or may not exist on this server, and the tooltip says so. */
+.zone-node.unsure circle {
+  fill: var(--page);
+  stroke: var(--muted);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.zone-node.unsure:hover circle {
+  stroke: var(--ink);
+}
+
+/* Searching the world: hits come forward, everything else steps back. Gold
+   rather than the accent, so a search hit is not mistaken for a route step —
+   the two can be on screen together. */
+.zone-node.hit circle {
+  fill: var(--gold);
+}
+
+.zone-node.hit text {
+  fill: var(--ink);
+}
+
+/* The letters the fuzzy match landed on, so the hit shows its reasoning. */
+.zone-node text .hit {
+  fill: var(--gold);
+  font-weight: var(--w-bold);
+}
+
+/* A zone lit only because it connects to a hit: a ring, not a dot, so it
+   reads as "next to" rather than "found", and its label says which hit. The
+   connecting edge is drawn in the same gold, so the reason is on the picture. */
+.zone-node.via circle {
+  fill: var(--page);
+  stroke: var(--gold);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.zone-node.via text {
+  fill: var(--ink);
+}
+
+.zone-node text .via {
+  fill: var(--muted);
+  font-weight: var(--w-normal);
+}
+
+.zone-edge.link {
+  stroke: var(--gold);
+}
+
+/* Where the log says the character is: a ring in the accent, the dot itself
+   left alone so search and route colours still read through it. */
+.zone-node .here-ring {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.zone-node text .here {
+  fill: var(--accent);
+  font-weight: var(--w-normal);
+}
+
+.zone-node.dim {
+  opacity: 0.22;
+}
+
+.zone-edge.dim {
+  opacity: 0.25;
+}
+
+.map-search {
+  width: 150px;
+  padding: 3px 8px;
+  font-size: var(--fs-tiny);
+}
+
 /* Size and halo width are set inline, in viewBox units: SVG scales text with
    the drawing, so a fixed pixel size renders differently for every world. */
 .zone-node text {

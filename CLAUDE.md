@@ -38,7 +38,7 @@ special-case rendering path, check whether it should be a query first.
 | `src/EQDeeps.Core/Session/` | `Session`, `RecordStore`, `FightTracker`, `IdentityRegistry`. |
 | `src/EQDeeps.Core/Query/` | `QuerySpec`, `QueryEngine`, `MetricCatalog`, `CannedQueries`, the timelines. |
 | `src/EQDeeps.Core/Mobs/` | F25 learned mob health; F26 learned mob attacks + defender levels. |
-| `src/EQDeeps.Core/Maps/` | F27 zone maps: the EQ map-file grammar, the zone-name table (`zones.tsv`), the world graph. |
+| `src/EQDeeps.Core/Maps/` | F27 zone maps: the EQ map-file grammar, the zone-name table (`zones.tsv`, with each zone's era), the world graph. |
 | `src/EQDeeps.Server/` | Minimal-API host, SignalR hub, session lifecycle, WebView2 shell, persistence stores, updates. |
 | `src/EQDeeps.Server/wwwroot/` | **Build output** (gitignored). The SPA is built into here and embedded into the assembly. |
 | `ui/` | React + TypeScript + Vite SPA. |
@@ -48,7 +48,7 @@ special-case rendering path, check whether it should be a query first.
 | `tools/EQDeeps.Bench/` | Log generator + backfill/latency benchmarks. |
 | `docs/` | The spec of record. See §7. |
 | `installer/EQDeeps.iss` | Inno Setup script (per-user install by default). |
-| `scripts/` | `publish.ps1`, `screenshots.mjs`, icon + signing setup. |
+| `scripts/` | `publish.ps1`, `screenshots.mjs`, `derive-zone-eras.mjs` (regenerates the era columns of `zones.tsv` from a client's `ZoneNames.txt`), icon + signing setup. |
 | `.github/workflows/` | `ci.yml`, `release.yml`, `verify-signing-key.yml`. |
 
 Solution: `EQDeeps.sln`. Shared MSBuild settings in `Directory.Build.props`
@@ -163,7 +163,7 @@ Invariants worth not breaking:
 
 | File / folder | What | Redirect flag | Recomputable? |
 |---|---|---|---|
-| `dashboards.json`, `saved-queries.json`, `ui-settings.json`, `map-settings.json` | `DocumentStore` (key-allowlisted) | `--storeRoot` | **No — user's own work, and no history to recover from** |
+| `dashboards.json`, `saved-queries.json`, `ui-settings.json`, `map-settings.json` | `DocumentStore` (key-allowlisted); `map-settings` holds the user's map corrections and chosen era | `--storeRoot` | **No — user's own work, and no history to recover from** |
 | `recent-logs.json` | MRU log list | `--recentLogsRoot` | No |
 | `mobs\` | F25 learned mob health per *server* | `--mobRoot` | Yes — a cache. Corrupt file just relearns |
 | `attacks\` | F26 learned mob attacks per *server*, keyed by defender level too | `--attackRoot` | Yes — a cache, same deal |

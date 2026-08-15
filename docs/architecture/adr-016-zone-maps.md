@@ -75,7 +75,7 @@ unassigned target does not identify anything, it just names whatever is left
 over. Requiring two independent neighbours plus a reciprocated edge took the
 suspect count to zero.
 
-**The rest is hand-written**, and marked as such. 125 rows are curated. Every
+**The rest is hand-written**, and marked as such. 130 rows are curated. Every
 display name in the file, derived or curated, is checked verbatim against the
 client's own `ZoneNames.txt` by `ZoneTableTests`. That check is not ceremony: it
 rejected **31 of the first 89 curated rows** — "Permafrost Caverns" for
@@ -87,7 +87,7 @@ is the one thing in this feature resting on somebody's word. So
 `ZoneNameSource` — `Name`, `Graph`, `Curated` — is carried all the way to the UI
 rather than smoothed away, and the user can override any zone's map.
 
-**The table is deliberately incomplete**: 264 of 581 short names, covering 128
+**The table is deliberately incomplete**: 268 of 581 short names, covering 128
 of the 133 zones a stock client ships a map for. An unknown zone resolves to no
 map and the user picks one; that same escape hatch is how a wrong pairing gets
 corrected. Completing it by transcribing an external zone dataset was considered
@@ -114,6 +114,68 @@ Routing is breadth-first and unweighted. The graph carries no travel times, so
 "fewest zones" is the only ordering the data supports, and neighbours are walked
 in name order so the same question gives the same answer twice.
 
+**A node is a place, not a file.** Twelve display names have two maps each
+(map format doc §5.1), and a label naming one of them resolves to both. Drawn
+one node per file, every such place appeared twice, each copy wired to the same
+neighbours — the Oasis of Marr's one label to the Plane of Hate made two Planes
+of Hate. So maps sharing a display name are one node: it takes the first
+drawing's short name in catalogue order (which agrees with what the zone list
+opens), lists all of them, answers routing questions asked by any of them, and
+its exits are the union of its drawings' labels — for the same reason both map
+*sets* are read. This is Decision 3's "place first, file second" applied to the
+graph.
+
+## Decision 5: the era is chosen, and a zone's era is a lower bound
+
+A stock install ships every expansion's maps regardless of what the server has
+unlocked, so on a classic-era server the world graph drew — and routed through
+— Planes of Power and Gates of Discord content that does not exist yet (issue
+#57).
+
+**Nothing available says what era a server is running**, and this is not
+inferred. The log names zones already visited, a lower bound at best; the map
+files carry no content gating; the client's zone table lists every zone that
+ever existed. So the era is a setting: chosen in the World view, remembered in
+`map-settings.json` beside the user's other map corrections, and with none
+chosen the view is exactly what it was.
+
+**What the table can say** is which expansion a zone is *from*, because the
+client's zone ids were handed out in blocks as expansions shipped. That is
+folklore, so it was validated against the file (every band is quoted with the
+names at its edges in the map format doc §5.3) and the result is checked in as
+two more columns of `zones.tsv`, derived offline by
+`scripts/derive-zone-eras.mjs`. The runtime never reads the player's
+`ZoneNames.txt`.
+
+Three rules make it safe to act on:
+
+- **A zone's era is the earliest expansion it can exist in.** A display name
+  with several ids — revamps and event copies keep the name — takes the lowest,
+  because the place has been there since then whichever drawing the player
+  holds. That is the same "place first, file second" reading as Decision 3.
+- **Where the band is knowably wrong, the row is set by hand and marked
+  `curated`**, with the reason kept in the script: launch zones filed in the
+  Kunark block, a 2016 zone in a reused classic-era gap. `ZoneEraSource` is
+  carried to the UI beside `ZoneNameSource`, because a derived era inherits the
+  doubt of the pairing it was derived through, and a hand-set one is a claim
+  resting on somebody's word.
+- **A zone with no era is shown under every filter.** Hiding a place the
+  player can walk into is the worse mistake, and this feature has always
+  preferred a smaller truthful graph to an invented one.
+
+Routing respects the filter: a route through a zone the server has not
+unlocked is worse than "no route known", so such zones are simply not there to
+be walked. Edges carry no era — the maps annotate present-day exits, and a
+classic route may still use a portal drawn on a classic map — which is a known
+limit, not an oversight; gating edges would need a second table this corpus
+cannot supply.
+
+The join also caught three wrong pairings in the shipped table (`fearplane`
+was "Fear Itself"; `hole` was an event copy's name; `cazicthule` a Hardcore
+Heritage one) by asking which rows landed somewhere implausible. Joining the
+table to the client's ids is a cheap second check worth re-running when rows
+are added.
+
 ## Consequences
 
 - The map parser is a pure function of the file text, like the log grammars, so
@@ -125,6 +187,10 @@ in name order so the same question gives the same answer twice.
   are opt-in via `EQDEEPS_MAPS` / `EQDEEPS_EQ`, since CI has no game on it.
   Measured on a stock install: 3,244,827 segments, 35,719 labels, **zero
   malformed**.
+- The era filter is a setting, never a guess, and the era column is a lower
+  bound with provenance rather than a fact. `node scripts/derive-zone-eras.mjs
+  --check` says whether the checked-in table still matches the install it is
+  pointed at; nothing in CI reads a game install.
 - Rendering budget is set by the largest zone, `everfrost` at 26,383 segments.
   That is comfortable for a 2D canvas and rules out an SVG DOM node per segment.
 - The maps' colours were chosen for the client's light background — the darkest

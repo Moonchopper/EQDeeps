@@ -467,14 +467,25 @@ export function ZoneGraphView({ onOpenZone, era, onEraChange }: Props) {
       return null;
     }
 
-    const hits = new Map<string, FuzzyHit>();
+    let hits = new Map<string, FuzzyHit>();
     for (const z of drawn.graph.zones) {
       const byDisplay = fuzzyMatch(z.displayName ?? z.shortName, search);
       if (byDisplay) {
         hits.set(z.shortName, byDisplay);
-      } else if (fuzzyMatch(z.shortName, search)) {
+      } else if (z.maps.some((m) => fuzzyMatch(m, search))) {
         hits.set(z.shortName, { score: 0, positions: [] });
       }
+    }
+
+    // A scattered subsequence is how "gfay" finds The Greater Faydark, but it
+    // is also how "hate" finds eleven zones that merely contain those letters
+    // in order. The matcher scores a literal substring far above any scatter,
+    // so when anything matches literally, only literal matches light; the
+    // scatter is the fallback for abbreviations, not a peer of the real thing.
+    const tokens = search.trim().split(/\s+/).length;
+    const literal = new Map([...hits].filter(([, h]) => h.score >= 900 * tokens));
+    if (literal.size > 0) {
+      hits = literal;
     }
 
     // Neighbour → the hits it is connected to, in name order so the label
@@ -799,6 +810,7 @@ export function ZoneGraphView({ onOpenZone, era, onEraChange }: Props) {
                   {names.get(z.shortName)} — {z.degree}{" "}
                   {z.degree === 1 ? "connection" : "connections"}
                   {eraNote}
+                  {z.maps.length > 1 && ` · ${z.maps.length} maps: ${z.maps.join(", ")}`}
                   {via && ` · lit because it connects to ${via.map((v) => names.get(v) ?? v).join(", ")}`}
                 </title>
                 {/* While searching, only hits and their connections are named

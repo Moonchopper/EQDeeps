@@ -12,7 +12,14 @@ import { queryBucketSeconds } from "../chartInteractions";
  * It still carries an ordinary QuerySpec, so it queries, scopes and filters
  * like everything else.
  */
-export type PanelViz = "table" | "line" | "bar" | "tile" | "droprate";
+/**
+ * "map" is the one viz that reads no query at all (F27). Every other panel
+ * here, droprate included, is a reading of records the log produced; a map is a
+ * drawing on disk. Its panel still carries a QuerySpec because `PanelDef` has
+ * one, but nothing runs it — see ADR-016 for why the map is a rail destination
+ * first and a panel second.
+ */
+export type PanelViz = "table" | "line" | "bar" | "tile" | "droprate" | "map";
 export type PanelScopeMode = "selection" | "all" | "recent";
 
 export interface PanelDef {
@@ -42,6 +49,12 @@ export interface PanelDef {
    * open, which is what "me" has to mean for a stored view.
    */
   ownerOnly?: boolean;
+  /**
+   * Map panels: the zone to show, as a map short name. Unset means "wherever
+   * the character is", which is what makes the panel worth having beside a
+   * parse — pinning it is for watching somewhere you are not.
+   */
+  mapZone?: string;
   /**
    * Line panels: the server-side bucket width. This is a QUERY parameter —
    * it decides what the server aggregates. The rolling window and the

@@ -346,10 +346,11 @@ it and whether the defender's level was known at all.
   the profile table shows the instant it is sorted on, dated well enough that
   two rows from different days cannot read as out of order.
 
-### F27. Zone maps — **in progress (2026-08-14)**
+### F27. Zone maps — **shipped (2026-08-15)**
 
 Explore the zones and how they join up, in the app. See
-[ADR-016](../architecture/adr-016-zone-maps.md).
+[ADR-016](../architecture/adr-016-zone-maps.md) and
+[map format](../domain/eq-map-format.md).
 
 The material is already on the player's disk: a stock install ships 1904 map
 files carrying both the geometry and, in their labels, the zone connections.

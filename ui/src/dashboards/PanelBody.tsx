@@ -9,6 +9,7 @@ import {
   type QueryRow,
 } from "../api";
 import { CHART_SERIES_LIMIT, fmtNum, fmtRate, fmtSpan, OTHER_COLOR, SERIES_COLORS } from "../format";
+import { MapPanel } from "../maps/MapPanel";
 import {
   buildSpec,
   METRIC_LABELS,
@@ -140,6 +141,9 @@ export function PanelBody({
       return <BarPanel panel={panel} ctx={ctx} settings={settings} />;
     case "droprate":
       return <DropRatePanel panel={panel} ctx={ctx} settings={settings} />;
+    // No query runs for this one — it reads a folder on disk, not the log.
+    case "map":
+      return <MapPanel context={ctx.context} pinned={panel.mapZone} />;
     default:
       return <TilePanel panel={panel} ctx={ctx} settings={settings} />;
   }

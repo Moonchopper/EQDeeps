@@ -2437,16 +2437,30 @@ textarea:focus-visible,
   fill: var(--accent);
 }
 
+/* Size and halo width are set inline, in viewBox units: SVG scales text with
+   the drawing, so a fixed pixel size renders differently for every world. */
 .zone-node text {
   fill: var(--ink-2);
-  font-size: 9px;
   text-anchor: middle;
   pointer-events: none;
   paint-order: stroke;
   stroke: var(--page);
-  stroke-width: 3px;
 }
 
 .zone-node.on text {
   fill: var(--accent);
+}
+
+/* The map as a dashboard panel: the drawing fills the tile and brings no
+   controls of its own, since every one would compete with it for space. */
+.map-panel {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+
+.map-panel .map-canvas-wrap {
+  position: absolute;
+  inset: 0;
 }

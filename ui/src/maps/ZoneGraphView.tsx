@@ -17,11 +17,16 @@ interface Point {
  */
 function layout(graph: ZoneGraph, iterations = 400): Map<string, Point> {
   const nodes = graph.zones.map((z) => z.shortName);
+  const degree = new Map(graph.zones.map((z) => [z.shortName, z.degree]));
   const index = new Map(nodes.map((n, i) => [n, i]));
   const n = nodes.length;
   const pos: Point[] = [];
 
-  const radius = 400;
+  // The starting circle scales with the node count so that the *spacing*
+  // between zones comes out the same in every component. A fixed radius gives
+  // a five-zone pocket the same area as a two-hundred-zone continent, and once
+  // those are packed side by side the pocket takes half the frame.
+  const radius = Math.max(60, 34 * Math.sqrt(n));
   for (let i = 0; i < n; i++) {
     const a = (i / Math.max(1, n)) * Math.PI * 2;
     pos.push({ x: Math.cos(a) * radius, y: Math.sin(a) * radius });
@@ -85,6 +90,16 @@ function layout(graph: ZoneGraph, iterations = 400): Map<string, Point> {
       disp[b].y += fy;
     }
 
+    // Gravity. Without it nothing bounds repulsion, and a zone with few
+    // connections drifts until it is off in a corner on its own — which then
+    // sets the viewBox and squashes the entire world into a speck in the
+    // middle. Edges alone cannot hold a sparse graph together.
+    for (let i = 0; i < n; i++) {
+      const pull = 0.06 * (1 + Math.min(4, degree.get(nodes[i]) ?? 0));
+      disp[i].x -= pos[i].x * pull;
+      disp[i].y -= pos[i].y * pull;
+    }
+
     for (let i = 0; i < n; i++) {
       const d = Math.sqrt(disp[i].x * disp[i].x + disp[i].y * disp[i].y) || 0.01;
       const limit = Math.min(d, temp);
@@ -96,6 +111,98 @@ function layout(graph: ZoneGraph, iterations = 400): Map<string, Point> {
   }
 
   return new Map(nodes.map((name, i) => [name, pos[i]]));
+}
+
+/**
+ * Splits the graph into connected components, lays each out on its own, and
+ * packs them into rows.
+ *
+ * <p>The world is not one piece. Beyond the mainland there are pockets of two
+ * or three zones that connect to each other and to nothing else, and running
+ * one simulation over the lot pushes those pockets to the far corners — where
+ * they set the viewBox and squash the mainland into the middle third. Laying
+ * them out separately and placing them costs a little code and buys back most
+ * of the frame.</p>
+ */
+function packedLayout(graph: ZoneGraph): Map<string, Point> {
+  const adjacency = new Map<string, string[]>();
+  for (const z of graph.zones) {
+    adjacency.set(z.shortName, []);
+  }
+  for (const e of graph.edges) {
+    adjacency.get(e.from)?.push(e.to);
+    adjacency.get(e.to)?.push(e.from);
+  }
+
+  const seen = new Set<string>();
+  const components: string[][] = [];
+
+  for (const z of graph.zones) {
+    if (seen.has(z.shortName)) {
+      continue;
+    }
+
+    const members: string[] = [];
+    const queue = [z.shortName];
+    seen.add(z.shortName);
+
+    while (queue.length) {
+      const at = queue.pop()!;
+      members.push(at);
+      for (const next of adjacency.get(at) ?? []) {
+        if (!seen.has(next)) {
+          seen.add(next);
+          queue.push(next);
+        }
+      }
+    }
+
+    components.push(members);
+  }
+
+  components.sort((a, b) => b.length - a.length);
+
+  const out = new Map<string, Point>();
+  let cursorX = 0;
+  let cursorY = 0;
+  let rowHeight = 0;
+  let rowWidth = 0;
+  const maxRowWidth = Math.max(600, Math.sqrt(graph.zones.length) * 90);
+
+  for (const members of components) {
+    const keep = new Set(members);
+    const sub: ZoneGraph = {
+      zones: graph.zones.filter((z) => keep.has(z.shortName)),
+      edges: graph.edges.filter((e) => keep.has(e.from) && keep.has(e.to)),
+    };
+
+    // A pair or a triple does not need 400 iterations to find its shape.
+    const placed = layout(sub, members.length > 8 ? 400 : 80);
+    const pts = [...placed.values()];
+    const minX = Math.min(...pts.map((p) => p.x));
+    const maxX = Math.max(...pts.map((p) => p.x));
+    const minY = Math.min(...pts.map((p) => p.y));
+    const maxY = Math.max(...pts.map((p) => p.y));
+    const w = maxX - minX + 70;
+    const h = maxY - minY + 70;
+
+    if (rowWidth > 0 && rowWidth + w > maxRowWidth) {
+      cursorX = 0;
+      cursorY += rowHeight;
+      rowHeight = 0;
+      rowWidth = 0;
+    }
+
+    for (const [name, p] of placed) {
+      out.set(name, { x: p.x - minX + cursorX, y: p.y - minY + cursorY });
+    }
+
+    cursorX += w;
+    rowWidth += w;
+    rowHeight = Math.max(rowHeight, h);
+  }
+
+  return out;
 }
 
 interface Props {
@@ -118,7 +225,30 @@ export function ZoneGraphView({ onOpenZone }: Props) {
       .catch((e: Error) => setError(e.message));
   }, []);
 
-  const positions = useMemo(() => (graph ? layout(graph) : new Map<string, Point>()), [graph]);
+  /**
+   * Only zones with a labelled exit are drawn. A zone nothing connects to has
+   * nothing to show in a picture whose entire subject is connections, and
+   * drawing it puts a lone dot somewhere the layout has no reason to place.
+   * The count is reported rather than quietly dropped.
+   */
+  const drawn = useMemo(() => {
+    if (!graph) {
+      return null;
+    }
+
+    const zones = graph.zones.filter((z) => z.degree > 0);
+    const keep = new Set(zones.map((z) => z.shortName));
+
+    return {
+      graph: { zones, edges: graph.edges.filter((e) => keep.has(e.from) && keep.has(e.to)) },
+      omitted: graph.zones.length - zones.length,
+    };
+  }, [graph]);
+
+  const positions = useMemo(
+    () => (drawn ? packedLayout(drawn.graph) : new Map<string, Point>()),
+    [drawn],
+  );
 
   const names = useMemo(() => {
     const m = new Map<string, string>();
@@ -166,7 +296,7 @@ export function ZoneGraphView({ onOpenZone }: Props) {
     return <div className="map-empty">Could not build the world graph: {error}</div>;
   }
 
-  if (!graph) {
+  if (!graph || !drawn) {
     return (
       <div className="map-empty">
         Reading every map's exits… this takes a few seconds the first time, then
@@ -181,7 +311,10 @@ export function ZoneGraphView({ onOpenZone }: Props) {
   const minY = Math.min(...points.map((p) => p.y)) - 40;
   const maxY = Math.max(...points.map((p) => p.y)) + 40;
 
-  const sorted = [...graph.zones].sort((a, b) =>
+  // Roughly 11px once the viewBox is fitted to the frame.
+  const nameSize = (maxX - minX) / 95;
+
+  const sorted = [...drawn.graph.zones].sort((a, b) =>
     (a.displayName ?? a.shortName).localeCompare(b.displayName ?? b.shortName),
   );
 
@@ -191,8 +324,9 @@ export function ZoneGraphView({ onOpenZone }: Props) {
         <div>
           <h2>The world</h2>
           <span className="map-sub">
-            {graph.zones.length} zones · {graph.edges.length} connections, from the maps' own
-            labels
+            {drawn.graph.zones.length} zones · {drawn.graph.edges.length} connections, from the
+            maps' own labels
+            {drawn.omitted > 0 && ` · ${drawn.omitted} with no labelled exit not drawn`}
           </span>
         </div>
 
@@ -225,7 +359,7 @@ export function ZoneGraphView({ onOpenZone }: Props) {
           viewBox={`${minX} ${minY} ${maxX - minX} ${maxY - minY}`}
           preserveAspectRatio="xMidYMid meet"
         >
-          {graph.edges.map((e) => {
+          {drawn.graph.edges.map((e) => {
             const a = positions.get(e.from);
             const b = positions.get(e.to);
             if (!a || !b) {
@@ -247,7 +381,7 @@ export function ZoneGraphView({ onOpenZone }: Props) {
             );
           })}
 
-          {graph.zones.map((z) => {
+          {drawn.graph.zones.map((z) => {
             const p = positions.get(z.shortName);
             if (!p) {
               return null;
@@ -267,9 +401,15 @@ export function ZoneGraphView({ onOpenZone }: Props) {
               >
                 <circle r={Math.min(10, 3 + z.degree * 0.5)} />
                 {/* Only the hubs and whatever is being pointed at get a name:
-                    264 labels at once is a smear, not a map. */}
+                    247 labels at once is a smear, not a map. Text is sized in
+                    viewBox units, since SVG scales it with everything else and
+                    a fixed pixel size renders differently for every world. */}
                 {(z.degree >= 7 || near || lit) && (
-                  <text x={0} y={-9}>
+                  <text
+                    x={0}
+                    y={-nameSize * 0.7}
+                    style={{ fontSize: nameSize, strokeWidth: nameSize / 4 }}
+                  >
                     {names.get(z.shortName)}
                   </text>
                 )}

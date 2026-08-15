@@ -242,6 +242,7 @@ copied outright with attribution in `NOTICE`.
 | **What does this log line mean? How do I parse it?** | `docs/domain/eq-log-format.md` — the crown jewels |
 | Player vs NPC vs pet vs merc; identity heuristics | same, §5 |
 | **Why does one character have three levels and three classes?** | `docs/domain/eq-legends-loadouts.md` — read before touching anything level-, class- or item-related |
+| What is in a map file? Why can't the log name one? | `docs/domain/eq-map-format.md` — no reference implementation exists for this one; the corpus is the authority |
 | What is a fight? How is DPS/sDPS/crit rate computed? What is the denominator? | `docs/domain/metrics-and-aggregation.md` |
 | Stack, component boundaries, QuerySpec model, persistence layout | `docs/architecture/system-overview.md` |
 | Why is ingestion built that way? | `docs/architecture/log-ingestion-brief.md` + `adr-002` |

@@ -1,5 +1,5 @@
-import { useState } from "react";
-import type { Dimension, QuerySource } from "../api";
+import { useEffect, useState } from "react";
+import { api, type Dimension, type MapCatalogEntry, type QuerySource } from "../api";
 import { DIMENSIONS, METRIC_LABELS, VALIDITY_FLAGS, type PanelDef } from "./model";
 
 interface Props {
@@ -18,6 +18,16 @@ const SOURCES: QuerySource[] =
  */
 export function QueryBuilder({ panel, onSave, onCancel }: Props) {
   const [draft, setDraft] = useState<PanelDef>({ ...panel });
+  const [zones, setZones] = useState<MapCatalogEntry[]>([]);
+
+  // Only the map viz needs these, but the fetch is cheap and cached by the
+  // server, and loading it lazily would empty the picker on first open.
+  useEffect(() => {
+    api
+      .mapCatalog()
+      .then((c) => setZones(c.zones.filter((z) => z.displayName)))
+      .catch(() => setZones([]));
+  }, []);
   const set = <K extends keyof PanelDef>(key: K, value: PanelDef[K]) =>
     setDraft((d) => ({ ...d, [key]: value }));
 
@@ -45,7 +55,7 @@ export function QueryBuilder({ panel, onSave, onCancel }: Props) {
 
           <label>Show as</label>
           <div className="radio-row">
-            {(["table", "line", "bar", "tile", "droprate"] as const).map((v) => (
+            {(["table", "line", "bar", "tile", "droprate", "map"] as const).map((v) => (
               <label key={v}>
                 <input
                   type="radio"
@@ -56,6 +66,32 @@ export function QueryBuilder({ panel, onSave, onCancel }: Props) {
               </label>
             ))}
           </div>
+
+          {/* A map reads a folder on disk rather than the log, so none of the
+              query below applies to it. Saying so beats leaving the user to
+              wonder why changing the source does nothing (F27). */}
+          {draft.viz === "map" && (
+            <>
+              <label>Zone</label>
+              <div>
+                <select
+                  value={draft.mapZone ?? ""}
+                  onChange={(e) => set("mapZone", e.target.value || undefined)}
+                >
+                  <option value="">Wherever the character is</option>
+                  {zones.map((z) => (
+                    <option key={z.shortName} value={z.shortName}>
+                      {z.displayName ?? z.shortName}
+                    </option>
+                  ))}
+                </select>
+                <div className="subtle">
+                  A map is a drawing, not a parse — the source, grouping, metrics
+                  and time frame below have no effect on this panel.
+                </div>
+              </div>
+            </>
+          )}
 
           <label>Source</label>
           <select

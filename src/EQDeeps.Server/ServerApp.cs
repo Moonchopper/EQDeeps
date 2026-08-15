@@ -33,7 +33,21 @@ public static class ServerApp
         builder.Services.ConfigureHttpJsonOptions(o => ConfigureJson(o.SerializerOptions));
         builder.Services.AddSignalR().AddJsonProtocol(o => ConfigureJson(o.PayloadSerializerOptions));
         builder.Services.AddSingleton<SessionManager>();
-        builder.Services.AddSingleton<DocumentStore>();
+        // --storeRoot redirects the user's own documents — dashboards, saved
+        // queries, UI settings.
+        //
+        // This one matters more than the caches below it, and was the last to
+        // get a flag. DocumentStore always took a root; it was simply never
+        // wired to configuration, so no flag could move it and every other
+        // redirect gave a false sense of isolation. Anything driving the real
+        // SPA against a built server writes here — App.tsx PUTs `dashboards`
+        // on load as part of its migration, before the user touches anything —
+        // and a PUT replaces the whole document. That is how a UI test
+        // overwrote a real dashboard: five stores were redirected, this one
+        // could not be, and nobody noticed because no test had needed it.
+        //
+        // Unlike mobs and attacks, what is lost here is not recomputable.
+        builder.Services.AddSingleton(_ => new DocumentStore(builder.Configuration["storeRoot"]));
         // Update stack (ADR-010). --updateRoot redirects the preference and
         // staged-installer files the same way --recentLogsRoot does, so tests
         // never touch the real %AppData%.

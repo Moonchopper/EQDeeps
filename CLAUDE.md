@@ -90,7 +90,20 @@ Useful server flags: `--browser` (default browser instead of the app window),
 
 Test-only redirect flags — these keep tests out of the real `%AppData%`, and any
 new store you add should get one to match: `--recentLogsRoot`, `--sampleLogRoot`,
-`--updateRoot`, `--mobRoot`, `--attackRoot`.
+`--updateRoot`, `--mobRoot`, `--attackRoot`, `--storeRoot`, `--mapRoot`.
+
+**Pass all of them, always** — including for a test that only touches one. A
+harness that redirects most of the stores reads as isolated, and the gap is
+invisible until something writes. `--storeRoot` is the one that matters most:
+it covers `DocumentStore` — dashboards, saved queries, UI settings — which is
+the only store holding work the user cannot get back. It was also the last to
+exist, and its absence cost a real dashboard: a UI test drove the built SPA,
+which PUTs `dashboards` during its load migration before the user touches
+anything, and a PUT replaces the whole document.
+
+`--mapRoot` is the odd one out: it points at a maps folder the app only ever
+*reads*, so it is about not depending on a game install rather than about
+protecting anything.
 
 ### Environment traps
 
@@ -148,16 +161,22 @@ Invariants worth not breaking:
 
 ### On-disk state — `%AppData%\EQDeeps\`
 
-| File / folder | What | Recomputable? |
-|---|---|---|
-| `dashboards.json`, `saved-queries.json`, `ui-settings.json` | `DocumentStore` (key-allowlisted) | No — user's own work |
-| `recent-logs.json` | MRU log list | No |
-| `mobs\` | F25 learned mob health per *server* | Yes — a cache. Corrupt file just relearns |
-| `attacks\` | F26 learned mob attacks per *server*, keyed by defender level too | Yes — a cache, same deal |
-| update preferences, staged installer | ADR-010 | Yes |
+| File / folder | What | Redirect flag | Recomputable? |
+|---|---|---|---|
+| `dashboards.json`, `saved-queries.json`, `ui-settings.json` | `DocumentStore` (key-allowlisted) | `--storeRoot` | **No — user's own work, and no history to recover from** |
+| `recent-logs.json` | MRU log list | `--recentLogsRoot` | No |
+| `mobs\` | F25 learned mob health per *server* | `--mobRoot` | Yes — a cache. Corrupt file just relearns |
+| `attacks\` | F26 learned mob attacks per *server*, keyed by defender level too | `--attackRoot` | Yes — a cache, same deal |
+| update preferences, staged installer | ADR-010 | `--updateRoot` | Yes |
+| extracted demo log | bundled sample | `--sampleLogRoot` | Yes |
 
 All stores write atomically (temp + move) and take a `root` constructor
-parameter so tests can redirect them. Follow that pattern for anything new.
+parameter so tests can redirect them. Follow that pattern for anything new —
+**and wire the flag at the same time**. `DocumentStore` took a root from the
+start but was registered as a bare `AddSingleton<DocumentStore>()` for a long
+while, so no flag could reach it; the parameter existing is not the same as the
+redirect working, and the top row is the one where getting that wrong is
+unrecoverable.
 
 ---
 

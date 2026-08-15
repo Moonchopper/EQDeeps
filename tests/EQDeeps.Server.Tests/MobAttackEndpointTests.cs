@@ -32,6 +32,7 @@ public sealed class MobAttackEndpointTests : IAsyncLifetime
             "--updateRoot", _dir,
             "--mobRoot", _dir,
             "--attackRoot", _dir,
+            "--storeRoot", _dir,
         ]);
         await _app.StartAsync();
         _http = new HttpClient { BaseAddress = new Uri(_app.Urls.First()) };

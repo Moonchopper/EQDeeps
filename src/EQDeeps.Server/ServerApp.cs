@@ -51,6 +51,10 @@ public static class ServerApp
         builder.Services.AddSingleton(_ => new MobHealthStore(builder.Configuration["mobRoot"]));
         // --attackRoot likewise redirects the learned mob-attack profiles (tests).
         builder.Services.AddSingleton(_ => new MobAttackStore(builder.Configuration["attackRoot"]));
+        // --mapRoot points at a maps folder instead of discovering one, so the
+        // map tests do not need EverQuest installed. Unlike the stores above
+        // this reads a folder the app never writes to (F27).
+        builder.Services.AddSingleton(_ => new MapLibrary(builder.Configuration["mapRoot"]));
 
         var app = builder.Build();
 
@@ -202,6 +206,96 @@ public static class ServerApp
 
             store.Write(key, body);
             return Results.NoContent();
+        });
+
+        // ---- zone maps (F27 / ADR-016) -------------------------------------
+        // Read-only throughout: these serve the player's own map folder, and
+        // nothing here writes to their install.
+
+        app.MapGet("/api/maps", (MapLibrary maps) => Results.Ok(maps.Catalog()));
+
+        // Which map to open for a name off a zone line. Returns every candidate
+        // rather than choosing, because a revamped zone shares its display name
+        // with the classic one and only the player knows which they are in.
+        app.MapGet("/api/maps/resolve", (string zone, MapLibrary maps) =>
+            Results.Ok(new { zone, shortNames = maps.MapsFor(zone) }));
+
+        app.MapGet("/api/maps/graph", (MapLibrary maps) =>
+        {
+            var graph = maps.Graph();
+            var table = maps.Table;
+
+            var nodes = graph.Zones
+                .Select(z => new ZoneGraphNode(z, table.DisplayFor(z), graph.Neighbours(z).Count))
+                .OrderByDescending(n => n.Degree)
+                .ToArray();
+
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var edges = new List<ZoneGraphEdge>();
+
+            foreach (var zone in graph.Zones)
+            {
+                foreach (var neighbour in graph.Neighbours(zone))
+                {
+                    // One edge per pair: order the ends so A→B and B→A collide.
+                    var (a, b) = string.CompareOrdinal(zone, neighbour) <= 0
+                        ? (zone, neighbour)
+                        : (neighbour, zone);
+
+                    if (seen.Add(a + " " + b))
+                    {
+                        edges.Add(new ZoneGraphEdge(a, b));
+                    }
+                }
+            }
+
+            return Results.Ok(new ZoneGraphDto(nodes, edges.ToArray()));
+        });
+
+        app.MapGet("/api/maps/route", (string from, string to, MapLibrary maps) =>
+        {
+            var graph = maps.Graph();
+            var route = graph.Route(from, to);
+
+            if (route is null)
+            {
+                return Results.Ok(ZoneRouteDto.NoRoute);
+            }
+
+            var steps = new List<ZoneRouteStep>(route.Count);
+
+            for (var i = 0; i < route.Count; i++)
+            {
+                // How the previous zone described this exit — "(Boat)" and the
+                // like is the only statement of *how* a connection is used.
+                var via = i == 0
+                    ? null
+                    : graph.From(route[i - 1])
+                        .FirstOrDefault(c => string.Equals(c.ToShortName, route[i], StringComparison.OrdinalIgnoreCase))
+                        ?.Label;
+
+                steps.Add(new ZoneRouteStep(route[i], maps.Table.DisplayFor(route[i]), via));
+            }
+
+            return Results.Ok(new ZoneRouteDto(true, steps));
+        });
+
+        // Last, so the literal routes above are not swallowed by the wildcard.
+        app.MapGet("/api/maps/{shortName}", (string shortName, string? set, MapLibrary maps) =>
+        {
+            var entry = maps.Catalog().Zones.FirstOrDefault(
+                z => string.Equals(z.ShortName, shortName, StringComparison.OrdinalIgnoreCase));
+
+            if (entry is null || maps.Load(shortName, set) is not { } map)
+            {
+                return Results.NotFound(new { error = "no map for that zone", shortName });
+            }
+
+            var chosen = set is not null && entry.Sets.Contains(set, StringComparer.OrdinalIgnoreCase)
+                ? set
+                : entry.Sets[0];
+
+            return Results.Ok(ZoneMapDto.From(map, entry, chosen));
         });
 
         app.MapGet("/api/sessions", (SessionManager manager) => Results.Ok(manager.List()));

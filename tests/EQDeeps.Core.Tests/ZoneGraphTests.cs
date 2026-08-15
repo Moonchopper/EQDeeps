@@ -63,7 +63,12 @@ public class ZoneGraphTests
     public void BuildsEdgesFromLabelsAndResolvesThemToMaps()
     {
         var graph = ZoneGraph.Build(
-            new[] { Map("gfaydark", "to Butcherblock Mountains", "to Clan Crushbone") },
+            new[]
+            {
+                Map("gfaydark", "to Butcherblock Mountains", "to Clan Crushbone"),
+                Map("butcher"),
+                Map("crushbone"),
+            },
             Table);
 
         var exits = graph.From("gfaydark");
@@ -79,10 +84,30 @@ public class ZoneGraphTests
     [Fact]
     public void ConnectionsAreTraversableFromEitherEnd()
     {
-        var graph = ZoneGraph.Build(new[] { Map("gfaydark", "to Butcherblock Mountains") }, Table);
+        var graph = ZoneGraph.Build(
+            new[] { Map("gfaydark", "to Butcherblock Mountains"), Map("butcher") },
+            Table);
 
         Assert.Contains("butcher", graph.Neighbours("gfaydark"));
         Assert.Contains("gfaydark", graph.Neighbours("butcher"));
+    }
+
+    /// <summary>
+    /// A label naming a zone this machine has no map for is not a connection
+    /// the player can be shown, so it is not an edge. This bites in the real
+    /// corpus because the table maps one display name onto every map claiming
+    /// it — "The Ocean of Tears" is both oot and oceanoftears — and only the
+    /// installed one may be linked.
+    /// </summary>
+    [Fact]
+    public void LabelsPointingAtZonesWithNoMapHereAreDropped()
+    {
+        var graph = ZoneGraph.Build(
+            new[] { Map("gfaydark", "to Butcherblock Mountains") },
+            Table);
+
+        Assert.Empty(graph.From("gfaydark"));
+        Assert.DoesNotContain("butcher", graph.Zones);
     }
 
     [Fact]
@@ -110,6 +135,7 @@ public class ZoneGraphTests
                 Map("crushbone", "to The Greater Faydark"),
                 Map("gfaydark", "to Butcherblock Mountains"),
                 Map("butcher", "to The Ocean of Tears"),
+                Map("oot"),
             },
             Table);
 

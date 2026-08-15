@@ -118,6 +118,31 @@ public class MapFileParserTests
     }
 
     /// <summary>
+    /// The world graph wants a zone's exits, not its drawing. Skipped geometry
+    /// must not be counted as malformed — that number means "this file has
+    /// something wrong with it".
+    /// </summary>
+    [Fact]
+    public void ReadsLabelsWithoutTheGeometryWhenAsked()
+    {
+        var layer = MapFileParser.Parse(
+            """
+            L 1, 2, 3, 4, 5, 6, 7, 8, 9
+            L 9, 8, 7, 6, 5, 4, 3, 2, 1
+            P 10, 20, 30, 0, 0, 240, 3, to_Butcherblock_Mountains
+            """,
+            labelsOnly: true);
+
+        Assert.Empty(layer.Lines);
+        Assert.Equal("to Butcherblock Mountains", Assert.Single(layer.Labels).Text);
+        Assert.Equal(0, layer.Malformed);
+
+        // Bounds still cover the labels, which is all that was read.
+        Assert.Equal(10, layer.Bounds.MinX);
+        Assert.Equal(10, layer.Bounds.MaxX);
+    }
+
+    /// <summary>
     /// Colour channels are clamped rather than rejected: the corpus is
     /// hand-edited and an out-of-range channel is a cosmetic defect, not a
     /// reason to drop a zone's geometry.

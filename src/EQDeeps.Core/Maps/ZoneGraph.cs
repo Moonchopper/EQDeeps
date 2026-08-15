@@ -135,6 +135,25 @@ public sealed class ZoneGraph
         var outgoing = new Dictionary<string, List<ZoneConnection>>(StringComparer.OrdinalIgnoreCase);
         var adjacency = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
 
+        // Only zones this machine can both draw and name take part.
+        //
+        // Drawable, because the table maps one display name onto every map that
+        // claims it — "The Ocean of Tears" is both oot and oceanoftears — and an
+        // edge to a zone with no map here is a route the player cannot be shown.
+        //
+        // Nameable, because a map set is full of alternates and archives:
+        // nektulos_1_original, oldcommons, feerrott2. They are real files and
+        // worth drawing, but a route that says "go through nektulos_1_original"
+        // names a file rather than a place. Restricting to zones the table names
+        // is what keeps a route something a player can follow.
+        var all = (maps as IReadOnlyCollection<ZoneMap> ?? maps.ToList())
+            .Where(m => table.DisplayFor(m.ShortName) is not null)
+            .ToList();
+
+        var routable = all
+            .Select(m => m.ShortName)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
         HashSet<string> Adjacent(string zone)
         {
             if (!adjacency.TryGetValue(zone, out var set))
@@ -145,7 +164,7 @@ public sealed class ZoneGraph
             return set;
         }
 
-        foreach (var map in maps)
+        foreach (var map in all)
         {
             Adjacent(map.ShortName);
 
@@ -155,7 +174,8 @@ public sealed class ZoneGraph
                 {
                     foreach (var target in table.MapsFor(destination))
                     {
-                        if (string.Equals(target, map.ShortName, StringComparison.OrdinalIgnoreCase))
+                        if (string.Equals(target, map.ShortName, StringComparison.OrdinalIgnoreCase) ||
+                            !routable.Contains(target))
                         {
                             continue;
                         }

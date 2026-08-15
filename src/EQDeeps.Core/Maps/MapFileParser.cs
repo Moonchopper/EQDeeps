@@ -38,7 +38,16 @@ public static class MapFileParser
     /// </summary>
     private const int MaxRecordLength = 512;
 
-    public static MapLayer Parse(string text, int layerIndex = 0)
+    /// <param name="labelsOnly">
+    /// Skip the geometry and read only the labelled points.
+    ///
+    /// <para>For the world graph, which needs a zone's exits and nothing it
+    /// draws. Segments are 99% of the corpus — 3,244,827 of them against 35,719
+    /// labels — so parsing them to discard them dominated the graph build.
+    /// Skipping them is not merely an optimisation of degree: it is the
+    /// difference between reading a map and reading its index.</para>
+    /// </param>
+    public static MapLayer Parse(string text, int layerIndex = 0, bool labelsOnly = false)
     {
         var lines = new List<MapLine>();
         var labels = new List<MapLabel>();
@@ -55,6 +64,11 @@ public static class MapFileParser
 
             switch (record[0])
             {
+                // Skipped by request is not the same as unparseable, so this
+                // must not reach the malformed count.
+                case 'L' when labelsOnly:
+                    break;
+
                 case 'L' when TryParseLine(record, out var line):
                     lines.Add(line);
                     bounds = bounds.Add(line.From).Add(line.To);

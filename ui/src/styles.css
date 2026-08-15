@@ -2482,3 +2482,43 @@ textarea:focus-visible,
   font-family: var(--font-mono);
   flex: none;
 }
+
+/* Pointing at a maps folder, for the machine that has the logs but not the
+   game. Sits in the empty state, since that is the only place it is needed. */
+.map-root-set {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.map-root-set .map-filter {
+  flex: 1;
+  font-family: var(--font-mono);
+  font-size: var(--fs-tiny);
+}
+
+.map-root-error {
+  color: var(--danger);
+  font-size: var(--fs-small);
+}
+
+/* The log named a zone the table does not know. Not an error — an invitation
+   to correct it, which is the escape hatch ADR-016 promises. */
+.map-notice {
+  border: 1px solid var(--accent);
+  border-radius: var(--r-inner);
+  background: var(--surface);
+  color: var(--ink-2);
+  padding: 6px 10px;
+  font-size: var(--fs-small);
+}
+
+.map-notice strong {
+  color: var(--ink);
+}
+
+.map-notice em {
+  color: var(--accent);
+  font-style: normal;
+}

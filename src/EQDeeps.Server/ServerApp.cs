@@ -68,7 +68,9 @@ public static class ServerApp
         // --mapRoot points at a maps folder instead of discovering one, so the
         // map tests do not need EverQuest installed. Unlike the stores above
         // this reads a folder the app never writes to (F27).
-        builder.Services.AddSingleton(_ => new MapLibrary(builder.Configuration["mapRoot"]));
+        builder.Services.AddSingleton(sp => new MapLibrary(
+            builder.Configuration["mapRoot"],
+            sp.GetRequiredService<DocumentStore>()));
 
         var app = builder.Build();
 
@@ -227,6 +229,14 @@ public static class ServerApp
         // nothing here writes to their install.
 
         app.MapGet("/api/maps", (MapLibrary maps) => Results.Ok(maps.Catalog()));
+
+        // Point the app at a maps folder. For the machine that has the logs but
+        // not the game, or an install somewhere discovery does not walk.
+        // A null or empty path clears it and returns to discovery.
+        app.MapPost("/api/maps/root", (SetMapRootRequest request, MapLibrary maps) =>
+            maps.TrySetUserRoot(request.Path, out var error)
+                ? Results.Ok(maps.Catalog())
+                : Results.BadRequest(new { error }));
 
         // Which map to open for a name off a zone line. Returns every candidate
         // rather than choosing, because a revamped zone shares its display name

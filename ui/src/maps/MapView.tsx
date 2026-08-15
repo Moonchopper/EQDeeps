@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { api, type MapCatalog, type MapCatalogEntry, type ZoneMap } from "../api";
 import { fuzzyMatch } from "../fuzzy";
 import { MapCanvas } from "./MapCanvas";
+import { chosenFor, loadMapSettings, rememberMap, type MapSettings } from "./mapSettings";
 import { ZoneGraphView } from "./ZoneGraphView";
 
 /** How a name was arrived at, said plainly. Only the first two are verifiable. */
@@ -14,9 +15,14 @@ const SOURCE_NOTE: Record<string, string> = {
 interface Props {
   /** The zone the log says the character is in, if a log is open. */
   currentZone?: string;
+  /**
+   * Whether a log is open at all — the signal for "a zone is coming, wait for
+   * it" as opposed to "nobody is playing, draw anything".
+   */
+  hasLog?: boolean;
 }
 
-export function MapView({ currentZone }: Props) {
+export function MapView({ currentZone, hasLog = false }: Props) {
   const [catalog, setCatalog] = useState<MapCatalog | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState<"zone" | "world">("zone");
@@ -31,40 +37,126 @@ export function MapView({ currentZone }: Props) {
   const [trueColors, setTrueColors] = useState(false);
   const [highlight, setHighlight] = useState<string | null>(null);
 
+  const [settings, setSettings] = useState<MapSettings>({});
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const [rootDraft, setRootDraft] = useState("");
+  const [rootError, setRootError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  /** True once the log's zone has no map and the user has not said otherwise. */
+  const [unresolved, setUnresolved] = useState(false);
+
   // The zone the log is in wins once, on arrival. After that the user is
   // steering: auto-following every zone line would yank the map out from under
   // someone reading it.
+  //
+  // State rather than a ref because the fallback below has to wait for it. A
+  // ref settles silently and the fallback, already rendered, never reconsiders
+  // — which is how opening the Map tab could land on an unrelated zone and
+  // stay there.
   const followed = useRef(false);
+  const [followDone, setFollowDone] = useState(false);
+
+  /**
+   * The user has chosen a zone themselves, so the log must not move the map
+   * again.
+   *
+   * <p>The zone timeline is built after the backfill and can take half a minute
+   * on a large log. Without this the follow arrives late and yanks the map off
+   * whatever the user opened in the meantime — which reads as the app fighting
+   * them, and is worst on exactly the logs where waiting is longest.</p>
+   */
+  const [steered, setSteered] = useState(false);
+
+  /**
+   * Backstop for the wait below. A live log that has not named a zone yet may
+   * never do so, and refusing to draw anything forever is its own failure.
+   */
+  const [graceOver, setGraceOver] = useState(false);
+
+  useEffect(() => {
+    if (!hasLog) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => setGraceOver(true), 12_000);
+    return () => window.clearTimeout(timer);
+  }, [hasLog]);
 
   useEffect(() => {
     api
       .mapCatalog()
-      .then(setCatalog)
+      .then((c) => {
+        setCatalog(c);
+        setRootDraft(c.userRoot ?? "");
+      })
       .catch((e: Error) => setError(e.message));
+
+    loadMapSettings()
+      .then(setSettings)
+      .catch(() => undefined)
+      .finally(() => setSettingsLoaded(true));
   }, []);
 
+  // Follow the log, once. The user's own choice for this zone wins over the
+  // table, which is the whole point of recording one — the table is knowingly
+  // incomplete and knowingly fallible, and this is the correction.
   useEffect(() => {
-    if (!catalog?.found || followed.current || !currentZone) {
+    if (!catalog?.found || !settingsLoaded || followed.current || !currentZone || steered) {
       return;
     }
 
     followed.current = true;
+    const known = (s: string) => catalog.zones.some((z) => z.shortName === s);
+    const override = chosenFor(settings, currentZone);
+
+    if (override && known(override)) {
+      setSelected(override);
+      setFollowDone(true);
+      return;
+    }
+
     api
       .resolveZone(currentZone)
       .then((r) => {
-        if (r.shortNames.length > 0) {
-          setSelected(r.shortNames[0]);
+        const hit = r.shortNames.find(known);
+        if (hit) {
+          setSelected(hit);
+        } else {
+          // Not an error: the table does not claim to know every zone. Say so
+          // and let them point at the right map (ADR-016).
+          setUnresolved(true);
         }
       })
-      .catch(() => undefined);
-  }, [catalog, currentZone]);
+      .catch(() => undefined)
+      .finally(() => setFollowDone(true));
+  }, [catalog, currentZone, settings, settingsLoaded]);
 
-  // Fall back to the first zone so the view is never an empty frame.
+  // Fall back to the first zone so the view is never an empty frame — but not
+  // while a log is still telling us where the character is. Landing on an
+  // arbitrary zone and staying there is worse than a moment of nothing, and
+  // that is what happened: the catalogue arrives before the zone timeline, so
+  // the fallback fired first and the follow had nothing left to correct.
   useEffect(() => {
-    if (!selected && catalog?.zones.length) {
-      setSelected(catalog.zones[0].shortName);
+    if (selected || !catalog?.zones.length) {
+      return;
     }
-  }, [catalog, selected]);
+
+    // Wait while a log is still working out where the character is. Landing on
+    // an arbitrary zone and jumping off it seconds later is worse than a moment
+    // of nothing, and the gap is real: the catalogue arrives long before the
+    // zone timeline, which is built after the backfill.
+    //
+    // Note the wait is on `currentZone`, not on `contextLoaded`. The context
+    // arrives non-null with an empty zone list and fills in afterwards, so
+    // "loaded" fires too early to be the signal — which is exactly how this
+    // was landing on an unrelated zone despite being gated.
+    if (hasLog && !currentZone && !followDone && !graceOver) {
+      return;
+    }
+
+    setSelected(catalog.zones[0].shortName);
+  }, [catalog, selected, currentZone, followDone, hasLog, graceOver]);
 
   useEffect(() => {
     if (!selected) {
@@ -151,6 +243,43 @@ export function MapView({ currentZone }: Props) {
     (z) => z.shortName === selected,
   );
 
+  /** Opens a place on whichever of its maps the user last chose. */
+  const openPlace = (p: { name: string; maps: MapCatalogEntry[] }) => {
+    const override = chosenFor(settings, p.name);
+    const target =
+      override && p.maps.some((m) => m.shortName === override) ? override : p.maps[0].shortName;
+
+    setSelected(target);
+    setSet(undefined);
+    setSteered(true);
+  };
+
+  /** Binds a zone name to a map, or forgets the binding when null. */
+  const bind = (zone: string, shortName: string | null) => {
+    rememberMap(zone, shortName)
+      .then((next) => {
+        setSettings(next);
+        setUnresolved(false);
+      })
+      .catch(() => undefined);
+  };
+
+  const applyRoot = (path: string | null) => {
+    setBusy(true);
+    setRootError(null);
+
+    api
+      .setMapRoot(path)
+      .then((c) => {
+        setCatalog(c);
+        setRootDraft(c.userRoot ?? "");
+        setSelected(null);
+        followed.current = false;
+      })
+      .catch((e: Error) => setRootError(e.message))
+      .finally(() => setBusy(false));
+  };
+
   /** Follow an exit label — "to Butcherblock Mountains (Boat)". */
   const travel = (label: string) => {
     const destination = label
@@ -167,6 +296,7 @@ export function MapView({ currentZone }: Props) {
         if (target) {
           setSelected(target);
           setSet(undefined);
+          setSteered(true);
         }
       })
       .catch(() => undefined);
@@ -208,7 +338,8 @@ export function MapView({ currentZone }: Props) {
         <h3>No EverQuest maps found</h3>
         <p>
           Maps are read from your EverQuest install rather than shipped with
-          EQDeeps, so this needs the game on this machine.
+          EQDeeps, so this needs the game's <code>maps</code> folder — or a copy
+          of one — on this machine.
         </p>
         {catalog.roots.length > 0 ? (
           <>
@@ -222,6 +353,26 @@ export function MapView({ currentZone }: Props) {
         ) : (
           <p>No EverQuest install was found on this machine.</p>
         )}
+
+        <p>Point at one instead:</p>
+        <div className="map-root-set">
+          <input
+            className="map-filter"
+            placeholder="D:\EverQuest\maps"
+            value={rootDraft}
+            spellCheck={false}
+            onChange={(e) => setRootDraft(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && applyRoot(rootDraft.trim() || null)}
+          />
+          <button
+            className="mini-btn"
+            disabled={busy || rootDraft.trim().length === 0}
+            onClick={() => applyRoot(rootDraft.trim())}
+          >
+            {busy ? "checking…" : "use this folder"}
+          </button>
+        </div>
+        {rootError && <p className="map-root-error">{rootError}</p>}
       </div>
     );
   }
@@ -258,10 +409,7 @@ export function MapView({ currentZone }: Props) {
                 <button
                   key={p.key}
                   className={"map-zone" + (place?.key === p.key ? " on" : "")}
-                  onClick={() => {
-                    setSelected(p.maps[0].shortName);
-                    setSet(undefined);
-                  }}
+                  onClick={() => openPlace(p)}
                   title={p.maps.map((m) => m.shortName).join(", ")}
                 >
                   <span className="map-zone-name">{p.name}</span>
@@ -305,6 +453,10 @@ export function MapView({ currentZone }: Props) {
                   onChange={(e) => {
                     setSelected(e.target.value);
                     setSet(undefined);
+                    setSteered(true);
+                    // Remembered against the place, so this zone opens on the
+                    // drawing they picked next time rather than the first one.
+                    bind(place.name, e.target.value);
                   }}
                   title="More than one map file claims this zone name"
                 >
@@ -357,8 +509,38 @@ export function MapView({ currentZone }: Props) {
               >
                 true colour
               </button>
+
+              {/* The table can be wrong or silent about a zone. This is how the
+                  person who can see both the map and the game corrects it. */}
+              {currentZone && selected && chosenFor(settings, currentZone) !== selected && (
+                <button
+                  className="mini-btn"
+                  onClick={() => bind(currentZone, selected)}
+                  title={`Remember this map as the one for "${currentZone}"`}
+                >
+                  use for “{currentZone}”
+                </button>
+              )}
+
+              {currentZone && chosenFor(settings, currentZone) === selected && (
+                <button
+                  className="mini-btn on"
+                  onClick={() => bind(currentZone, null)}
+                  title="Forget this choice and go back to the shipped table"
+                >
+                  remembered ✕
+                </button>
+              )}
             </div>
           </header>
+
+          {unresolved && currentZone && (
+            <div className="map-notice">
+              The log says you are in <strong>{currentZone}</strong>, and no map
+              is known for that name. Pick one on the left, then press{" "}
+              <em>use for “{currentZone}”</em> and it will be remembered.
+            </div>
+          )}
 
           <div className="map-body">
             {loading && <div className="map-loading">Reading the map…</div>}
@@ -371,7 +553,13 @@ export function MapView({ currentZone }: Props) {
                 onTravel={travel}
               />
             )}
-            {!map && !loading && <div className="map-empty-small">No map for that zone.</div>}
+            {!map && !loading && (
+              <div className="map-empty-small">
+                {!selected && hasLog
+                  ? "Waiting for the log to say where you are…"
+                  : "No map for that zone."}
+              </div>
+            )}
           </div>
 
           {exits.length > 0 && (

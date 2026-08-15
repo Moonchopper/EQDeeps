@@ -938,7 +938,13 @@ export default function App() {
               />
             ) : view === "overview" && stdView === MAPS_VIEW ? (
               // The last zone the log named is where the character is now.
-              <MapView currentZone={context?.zones?.[context.zones.length - 1]?.label} />
+              // `hasLog` says one is coming: the zone timeline is built after
+              // the backfill, so without it the Map view cannot tell "nobody is
+              // playing" from "wait a moment" and settles on an unrelated zone.
+              <MapView
+                currentZone={context?.zones?.[context.zones.length - 1]?.label}
+                hasLog={Boolean(activeId)}
+              />
             ) : view === "overview" && activeStdView ? (
               <DashboardView
                 dashboard={activeStdView}

@@ -300,6 +300,8 @@ export interface MapCatalog {
   /** Where the app looked, reported even when it found nothing. */
   roots: string[];
   zones: MapCatalogEntry[];
+  /** The folder the user nominated, if they have. */
+  userRoot?: string;
 }
 
 /**
@@ -588,6 +590,26 @@ export const api = {
   // ---- zone maps (F27) ----------------------------------------------------
 
   mapCatalog: (): Promise<MapCatalog> => fetch("/api/maps").then((r) => json(r)),
+
+  /**
+   * Point the app at a maps folder, or pass null to clear it and go back to
+   * discovery. Rejects with the server's reason, which is written to be shown
+   * next to the box the path was typed into.
+   */
+  setMapRoot: async (path: string | null): Promise<MapCatalog> => {
+    const response = await fetch("/api/maps/root", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path }),
+    });
+
+    if (!response.ok) {
+      const body = (await response.json().catch(() => null)) as { error?: string } | null;
+      throw new Error(body?.error ?? `${response.status}`);
+    }
+
+    return (await response.json()) as MapCatalog;
+  },
 
   /**
    * Which maps could be the zone a log line named. Plural on purpose: a

@@ -163,7 +163,7 @@ Invariants worth not breaking:
 
 | File / folder | What | Redirect flag | Recomputable? |
 |---|---|---|---|
-| `dashboards.json`, `saved-queries.json`, `ui-settings.json` | `DocumentStore` (key-allowlisted) | `--storeRoot` | **No — user's own work, and no history to recover from** |
+| `dashboards.json`, `saved-queries.json`, `ui-settings.json`, `map-settings.json` | `DocumentStore` (key-allowlisted) | `--storeRoot` | **No — user's own work, and no history to recover from** |
 | `recent-logs.json` | MRU log list | `--recentLogsRoot` | No |
 | `mobs\` | F25 learned mob health per *server* | `--mobRoot` | Yes — a cache. Corrupt file just relearns |
 | `attacks\` | F26 learned mob attacks per *server*, keyed by defender level too | `--attackRoot` | Yes — a cache, same deal |

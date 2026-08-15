@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, type ContextTimeline, type ZoneMap } from "../api";
 import { MapCanvas } from "./MapCanvas";
+import { chosenFor, loadMapSettings, type MapSettings } from "./mapSettings";
 
 /**
  * The map, shrunk to sit in a dashboard beside a parse (F27).
@@ -25,8 +26,17 @@ export function MapPanel({
 }) {
   const [map, setMap] = useState<ZoneMap | null>(null);
   const [state, setState] = useState<"idle" | "loading" | "missing">("idle");
+  const [settings, setSettings] = useState<MapSettings | null>(null);
 
   const zoneName = context?.zones?.[context.zones.length - 1]?.label;
+
+  // The correction the user made in the Map tab has to reach the panel too,
+  // or the same zone draws two different maps in one window.
+  useEffect(() => {
+    loadMapSettings()
+      .then(setSettings)
+      .catch(() => setSettings({}));
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -62,6 +72,20 @@ export function MapPanel({
       return;
     }
 
+    // Wait for the overrides rather than drawing the table's answer and
+    // swapping it a moment later.
+    if (settings === null) {
+      return;
+    }
+
+    const override = chosenFor(settings, zoneName);
+    if (override) {
+      load(override);
+      return () => {
+        cancelled = true;
+      };
+    }
+
     api
       .resolveZone(zoneName)
       .then((r) => {
@@ -82,7 +106,7 @@ export function MapPanel({
     return () => {
       cancelled = true;
     };
-  }, [pinned, zoneName]);
+  }, [pinned, zoneName, settings]);
 
   if (state === "missing" || !map) {
     return (

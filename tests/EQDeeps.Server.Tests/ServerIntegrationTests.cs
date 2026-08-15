@@ -27,9 +27,13 @@ public sealed class ServerIntegrationTests : IAsyncLifetime
     public async Task InitializeAsync()
     {
         Directory.CreateDirectory(_dir);
-        // recentLogsRoot/sampleLogRoot/updateRoot/mobRoot/attackRoot: keep the
-        // MRU file, the extracted demo log, the update preferences and both
-        // learned mob indexes inside the test sandbox, not %AppData%.
+        // recentLogsRoot/sampleLogRoot/updateRoot/mobRoot/attackRoot/storeRoot:
+        // keep the MRU file, the extracted demo log, the update preferences,
+        // both learned mob indexes and the user's own dashboards and saved
+        // queries inside the test sandbox, not %AppData%. Pass all of them,
+        // even for a test that touches only some — a harness that redirects
+        // most of the stores reads as isolated, and storeRoot is the one whose
+        // contents cannot be relearned.
         _app = ServerApp.Build([
             "--urls", "http://127.0.0.1:0",
             "--recentLogsRoot", _dir,
@@ -37,6 +41,7 @@ public sealed class ServerIntegrationTests : IAsyncLifetime
             "--updateRoot", _dir,
             "--mobRoot", _dir,
             "--attackRoot", _dir,
+            "--storeRoot", _dir,
         ]);
         await _app.StartAsync();
         _baseUrl = _app.Urls.First();

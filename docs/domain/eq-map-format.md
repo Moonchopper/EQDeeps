@@ -180,8 +180,27 @@ the user picks one, which is also how a wrong pairing gets corrected.
 
 Normal, not a defect. A revamped zone keeps its old map beside the new one and
 both claim the name: `freportw` and `freeportwest` are both "West Freeport";
-`tox` and `toxxulia` are both "Toxxulia Forest". Eight display names in the
-shipped table have two maps. Offer both — only the player knows which they mean.
+`tox` and `toxxulia` are both "Toxxulia Forest", 699 segments against 7738.
+**Eleven** display names in the shipped table have two maps:
+
+```
+The Bazaar          barter, bazaar          East Freeport   freeporteast, freporte
+Befallen            befallen, befallenb     West Freeport   freeportwest, freportw
+The Temple of Droga droga, overtheretwo     Highpass Hold   highpass, highpasshold
+Erud's Crossing     erudsxing, erudsxing2   Misty Thicket   misty, mistythicket
+The Ocean of Tears  oceanoftears, oot       Steamfont Mts   steamfont, steamfontmts
+Toxxulia Forest     tox, toxxulia
+```
+
+Offer both — only the player knows which they mean. But offer them as one
+*place* with a choice of drawing, not as two identical rows in a zone list:
+the two cases behind a shared name (one zone drawn twice; two zones that share
+a name across a revamp) are indistinguishable from the data, and in both the
+player wants the place first and the file second.
+
+Note this is **not** the same axis as the map *sets*. A zone present in both
+`maps/` and `maps/brewalls/` is one entry with two sets; `tox` and `toxxulia`
+are two entries, each of which happens to exist in both sets.
 
 ### 5.2 Instances
 

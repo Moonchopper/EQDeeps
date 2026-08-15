@@ -32,7 +32,7 @@ cabeast	Cabilis East	graph
 cabwest	Cabilis West	graph
 cauldron	Dagnor's Cauldron	curated
 causeway	Nobles' Causeway	graph
-cazicthule	Accursed Temple of Cazic-Thule	curated
+cazicthule	Temple of Cazic-Thule	curated
 chamberoftears	Chamber of Tears	name
 chapterhouse	Chapterhouse of the Fallen	graph
 charasis	Howling Stones	curated
@@ -72,7 +72,7 @@ erudsxing	Erud's Crossing	curated
 erudsxing2	Erud's Crossing	curated
 ethernere	Ethernere Tainted West Karana	graph
 everfrost	Everfrost Peaks	graph
-fearplane	Fear Itself	curated
+fearplane	The Plane of Fear	curated
 feerrott	The Feerrott	name
 felwithea	Northern Felwithe	curated
 felwitheb	Southern Felwithe	curated
@@ -106,6 +106,8 @@ gukbottom	The Ruins of Old Guk	curated
 guktop	The City of Guk	curated
 halas	Halas	name
 harbingers	Harbinger's Spire	curated
+hateplane	The Plane of Hate	curated
+hateplaneb	The Plane of Hate	curated
 hatesfury	Hate's Fury	name
 herosforge	The Hero's Forge	name
 highkeep	High Keep	name
@@ -113,7 +115,7 @@ highpass	Highpass Hold	curated
 highpasshold	Highpass Hold	name
 hillsofshade	Hills of Shade	name
 hohonora	The Halls of Honor	curated
-hole	The Hole	name
+hole	The Ruins of Old Paineel	curated
 hollowshade	Hollowshade Moor	curated
 iceclad	The Iceclad Ocean	curated
 icefall	Icefall Glacier	graph
@@ -158,6 +160,7 @@ nektulos	Nektulos Forest	curated
 neriaka	Neriak - Foreign Quarter	curated
 neriakb	Neriak - Commons	curated
 neriakc	Neriak - Third Gate	curated
+neriakd	Neriak - Fourth Gate	curated
 newsebexp	New Sebilis Expedition	curated
 nexus	The Nexus	name
 northkarana	The Northern Plains of Karana	curated
@@ -236,6 +239,7 @@ theater	Theater	name
 thedeep	The Deep	name
 thegrey	The Grey	name
 thevoida	The Void	graph
+thuledream	Fear Itself	curated
 thurgadina	The City of Thurgadin	curated
 thurgadinb	Icewell Keep	curated
 timorous	Timorous Deep	curated

@@ -7,6 +7,8 @@ import {
   loadMapSettings,
   rememberEra,
   rememberMap,
+  stripInstance,
+  zoneKey,
   type MapSettings,
 } from "./mapSettings";
 import { ZoneGraphView } from "./ZoneGraphView";
@@ -57,6 +59,13 @@ export function MapView({ currentZone, hasLog = false }: Props) {
 
   /** True once the log's zone has no map and the user has not said otherwise. */
   const [unresolved, setUnresolved] = useState(false);
+
+  /**
+   * The user has said the map the log's zone opened on is the wrong one and
+   * is off to pick another. Turns the "use for <zone>" button on while they
+   * browse, and off again once they press it or give up.
+   */
+  const [correcting, setCorrecting] = useState(false);
 
   // The zone the log is in wins once, on arrival. After that the user is
   // steering: auto-following every zone line would yank the map out from under
@@ -272,9 +281,27 @@ export function MapView({ currentZone, hasLog = false }: Props) {
       .then((next) => {
         setSettings(next);
         setUnresolved(false);
+        setCorrecting(false);
       })
       .catch(() => undefined);
   };
+
+  /**
+   * The place on screen is the one the log's zone name means. The place's own
+   * "use for" control and the zone's are then one setting under one key, so
+   * only the place's is shown.
+   */
+  const sameName = !!currentZone && !!place && zoneKey(place.name) === zoneKey(currentZone);
+
+  /**
+   * The zone name as a binding sees it — instance suffix off, since "The Ruins
+   * of Old Guk 3 (Fused)" is remembered as, and reads better as, the Ruins of
+   * Old Guk.
+   */
+  const zoneName = currentZone ? stripInstance(currentZone) : "";
+
+  /** The map on screen is one the user bound the log's zone name to. */
+  const boundHere = !!currentZone && !!selected && chosenFor(settings, currentZone) === selected;
 
   const applyRoot = (path: string | null) => {
     setBusy(true);
@@ -489,7 +516,11 @@ export function MapView({ currentZone, hasLog = false }: Props) {
 
             <div className="map-controls">
               {/* Which map file to draw this place from. Only appears when
-                  something is actually being chosen between. */}
+                  something is actually being chosen between. Switching here
+                  is just looking; the button beside it is what makes the
+                  choice stick — which drawing is right depends on the server
+                  (a classic-era server has the old Freeport, live the new), and
+                  a silent write on every look was invisible and surprising. */}
               {place && place.maps.length > 1 && (
                 <select
                   className="mini-select"
@@ -498,11 +529,8 @@ export function MapView({ currentZone, hasLog = false }: Props) {
                     setSelected(e.target.value);
                     setSet(undefined);
                     setSteered(true);
-                    // Remembered against the place, so this zone opens on the
-                    // drawing they picked next time rather than the first one.
-                    bind(place.name, e.target.value);
                   }}
-                  title="More than one map file claims this zone name"
+                  title={`More than one map file claims "${place.name}"`}
                 >
                   {place.maps.map((m) => (
                     <option key={m.shortName} value={m.shortName}>
@@ -510,6 +538,26 @@ export function MapView({ currentZone, hasLog = false }: Props) {
                     </option>
                   ))}
                 </select>
+              )}
+
+              {place && place.maps.length > 1 && selected && chosenFor(settings, place.name) !== selected && (
+                <button
+                  className="mini-btn"
+                  onClick={() => bind(place.name, selected)}
+                  title={`Open "${place.name}" on ${selected} from now on — the drawing your server uses`}
+                >
+                  use for “{place.name}”
+                </button>
+              )}
+
+              {place && place.maps.length > 1 && selected && chosenFor(settings, place.name) === selected && (
+                <button
+                  className="mini-btn on"
+                  onClick={() => bind(place.name, null)}
+                  title={`"${place.name}" opens on ${selected} on this machine. Click to forget and go back to the first drawing.`}
+                >
+                  remembered ✕
+                </button>
               )}
 
               {entry && entry.sets.length > 1 && (
@@ -554,25 +602,44 @@ export function MapView({ currentZone, hasLog = false }: Props) {
                 true colour
               </button>
 
-              {/* The table can be wrong or silent about a zone. This is how the
-                  person who can see both the map and the game corrects it. */}
-              {currentZone && selected && chosenFor(settings, currentZone) !== selected && (
+              {/* The table can be wrong or silent about the zone the log names.
+                  This is how the person who can see both the map and the game
+                  corrects it — but only offered while a correction is actually
+                  in progress: with no map for the zone, or after "wrong map?".
+                  Offered on every map, it read as "use East Freeport for the
+                  Ruins of Old Guk" to someone merely browsing. */}
+              {currentZone && selected && !sameName && !boundHere && (unresolved || correcting) && (
                 <button
                   className="mini-btn"
                   onClick={() => bind(currentZone, selected)}
-                  title={`Remember this map as the one for "${currentZone}"`}
+                  title={`Remember this map as the one for "${zoneName}"`}
                 >
-                  use for “{currentZone}”
+                  use for “{zoneName}”
                 </button>
               )}
 
-              {currentZone && chosenFor(settings, currentZone) === selected && (
+              {/* On a map the user bound the log's zone to: the undo. Unless
+                  the place's own control above already stands for it — same
+                  name, same key. */}
+              {currentZone && boundHere && !(sameName && place && place.maps.length > 1) && (
                 <button
                   className="mini-btn on"
                   onClick={() => bind(currentZone, null)}
-                  title="Forget this choice and go back to the shipped table"
+                  title={`"${zoneName}" opens on this map because you said so. Click to forget and go back to the shipped table.`}
                 >
-                  remembered ✕
+                  remembered for “{zoneName}” ✕
+                </button>
+              )}
+
+              {/* On the map the table opened for the log's zone: the way to
+                  say it is the wrong one, which turns "use for" on elsewhere. */}
+              {currentZone && sameName && !boundHere && !correcting && (
+                <button
+                  className="mini-btn"
+                  onClick={() => setCorrecting(true)}
+                  title={`The table opened this map for "${zoneName}". If that is wrong, pick the right one and it will be remembered.`}
+                >
+                  wrong map?
                 </button>
               )}
             </div>
@@ -580,9 +647,20 @@ export function MapView({ currentZone, hasLog = false }: Props) {
 
           {unresolved && currentZone && (
             <div className="map-notice">
-              The log says you are in <strong>{currentZone}</strong>, and no map
+              The log says you are in <strong>{zoneName}</strong>, and no map
               is known for that name. Pick one on the left, then press{" "}
-              <em>use for “{currentZone}”</em> and it will be remembered.
+              <em>use for “{zoneName}”</em> and it will be remembered.
+            </div>
+          )}
+
+          {correcting && !unresolved && currentZone && (
+            <div className="map-notice">
+              Pick the right map for <strong>{zoneName}</strong> on the left,
+              then press <em>use for “{zoneName}”</em> and it will open there
+              from now on.{" "}
+              <button className="mini-btn" onClick={() => setCorrecting(false)}>
+                never mind
+              </button>
             </div>
           )}
 

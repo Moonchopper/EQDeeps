@@ -31,7 +31,7 @@ export interface MapSettings {
  * the tier word at letters, so a zone legitimately ending in a parenthetical is
  * not mistaken for an instance.</p>
  */
-function stripInstance(zone: string): string {
+export function stripInstance(zone: string): string {
   const match = /^(.+?) (\d{1,2}) \(([A-Za-z][A-Za-z ]*)\)$/.exec(zone.trim());
   return match ? match[1] : zone.trim();
 }

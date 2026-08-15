@@ -31,8 +31,10 @@ import {
   type ContextMode,
 } from "./contextOverlay";
 import { defaultPanel, newDashboard, newId, type DashboardDef } from "./dashboards/model";
+import { MapView } from "./maps/MapView";
 import {
   HITS_VIEW,
+  MAPS_VIEW,
   MOBS_VIEW,
   STANCES_VIEW_ID,
   SUMMARY_VIEW,
@@ -190,7 +192,7 @@ export default function App() {
   // a remembered view this log doesn't have falls back to Summary, and the
   // rail has to light up what is on screen rather than what was last clicked.
   const effectiveStdView =
-    activeStdView || stdView === MOBS_VIEW || stdView === HITS_VIEW
+    activeStdView || stdView === MOBS_VIEW || stdView === HITS_VIEW || stdView === MAPS_VIEW
       ? stdView
       : SUMMARY_VIEW;
   // Scrolling needs a live tail AND a log that is still being written; see
@@ -828,7 +830,13 @@ export default function App() {
              * nothing to what was on screen would be furniture — it gets the
              * width instead.
              */
-            const showFights = !(view === "overview" && effectiveStdView === MOBS_VIEW);
+            // The fight list scopes a parse. Mobs reads a server-wide index and
+            // the Map reads a folder on disk; neither has anything for a fight
+            // selection to act on, so the list would be furniture.
+            const showFights = !(
+              view === "overview" &&
+              (effectiveStdView === MOBS_VIEW || effectiveStdView === MAPS_VIEW)
+            );
             return (
           <main
             className={
@@ -864,6 +872,13 @@ export default function App() {
                 title="What is hitting you, in order, and what this server's mobs hit for"
               >
                 Incoming
+              </button>
+              <button
+                className={railClass(MAPS_VIEW)}
+                onClick={() => selectStdView(MAPS_VIEW)}
+                title="Your own zone maps, and how the world joins up"
+              >
+                Map
               </button>
               <div className="rail-heading">Dashboards</div>
               {dashboards.map((d) => (
@@ -921,6 +936,9 @@ export default function App() {
                 frame={frame}
                 server={sessions.find((s) => s.id === activeId)?.server ?? ""}
               />
+            ) : view === "overview" && stdView === MAPS_VIEW ? (
+              // The last zone the log named is where the character is now.
+              <MapView currentZone={context?.zones?.[context.zones.length - 1]?.label} />
             ) : view === "overview" && activeStdView ? (
               <DashboardView
                 dashboard={activeStdView}

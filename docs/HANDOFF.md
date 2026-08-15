@@ -13,7 +13,12 @@
 > incoming damage — a raw ordered feed of swings taken plus a learned attack
 > profile keyed on the defender's level as well as the mob (ADR-013, feature
 > F26), and navigation reorganized into a single left rail with the fight list
-> hidden on the one view that has no time frame to select (ADR-014).
+> hidden on the one view that has no time frame to select (ADR-014), and zone
+> maps — the player's own map files read from their EverQuest install, drawn
+> with pan and zoom, plus the world as a routable graph built from the maps'
+> own connection labels (ADR-016, feature F27; the format is documented in
+> `docs/domain/eq-map-format.md`, which is the only domain doc with no
+> reference implementation behind it).
 > Currently at **v0.10.0**. See `docs/product/features.md` for per-feature
 > status. The main open items: real-log validation against EQLogParser (the
 > release gate), the spell-DB work (class detection, bane, lands-on

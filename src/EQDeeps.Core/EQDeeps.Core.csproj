@@ -3,4 +3,15 @@
     <RootNamespace>EQDeeps.Core</RootNamespace>
     <Description>EQDeeps domain core: log-line parsing and typed game events.</Description>
   </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="EQDeeps.Core.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The zone table (F27). Embedded rather than shipped beside the exe so a
+         portable unzip cannot lose it, and kept as TSV rather than generated
+         C# so a correction is a one-line diff a non-programmer can read. -->
+    <EmbeddedResource Include="Maps\zones.tsv" />
+  </ItemGroup>
 </Project>

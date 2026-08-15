@@ -346,6 +346,62 @@ it and whether the defender's level was known at all.
   the profile table shows the instant it is sorted on, dated well enough that
   two rows from different days cannot read as out of order.
 
+### F27. Zone maps — **shipped (2026-08-15)**
+
+Explore the zones and how they join up, in the app. See
+[ADR-016](../architecture/adr-016-zone-maps.md) and
+[map format](../domain/eq-map-format.md).
+
+The material is already on the player's disk: a stock install ships 1904 map
+files carrying both the geometry and, in their labels, the zone connections.
+They are **read from the EverQuest install, never bundled** — the community map
+sets are freely distributed but not licensed for redistribution, players edit
+their own copies, and the set is ~100 MB against a much smaller installer.
+
+Three surfaces. A **Map destination** on the navigation rail: pick a zone,
+pan and zoom, toggle the up-to-four layers a zone is split across, and click a
+`to <Zone>` point to travel to that zone's map. A **world graph** of zones and
+their connections, with fewest-zones routing between any two. And a **compact
+dashboard panel**, for "where am I" beside a parse.
+
+A map is deliberately **not a QuerySpec** — no records, no time frame, no
+metric, nothing for the app-wide time control to act on — which is why it is a
+rail destination rather than a panel type forced to carry a query it never runs.
+
+The hard part is a join that does not exist. The log says `You have entered The
+Estate of Unrest.`; the map file is `unrest.txt`; **nothing in an EverQuest
+install connects those two names**, because the server tells the client its
+short name on zone-in and the client therefore never needs a table. Short names
+are historical abbreviations, so string matching alone resolves 108 of 581
+zones. The maps' own connection labels close most of the rest: they name
+neighbours in *display-name* space, so a known zone identifies its unknown
+neighbours, and the pairing is confirmed when they name it back.
+
+The shipped table is **264 rows covering 128 of the 133 zones a stock client
+ships a map for**, each marked with how it was arrived at — matched, deduced, or
+hand-written. It is knowingly incomplete, and that is safe: an unknown zone
+resolves to no map and the user picks one, which is the same escape hatch that
+corrects a pairing this table gets wrong.
+
+- AC: A zone the table does not know is an invitation to pick a map, never an
+  error or an empty screen with no explanation.
+- AC: Where a zone has more than one map — a revamp beside its classic version,
+  like `freportw` and `freeportwest` — both are offered rather than one being
+  guessed, and the choice sticks.
+- AC: Every display name in the shipped table is one the client itself uses,
+  checked against `Resources/ZoneNames.txt` rather than trusted.
+- AC: A hand-written pairing is distinguishable in the UI from a derived one,
+  because only the second kind is verifiable.
+- AC: No machine without EverQuest installed shows a broken Map view; it shows
+  an explanation and a way to point at a maps folder.
+- AC: A route the labels cannot support is reported as "no route known", never
+  invented from partial data.
+- AC: The largest zone (`everfrost`, 26,383 segments) pans and zooms without
+  dropping frames.
+- AC: Maps are drawn legibly on the app's dark surfaces despite the files'
+  colours having been chosen for the client's light background, and the file's
+  own colours are never rewritten.
+
 ---
 
 ## P2 — Later

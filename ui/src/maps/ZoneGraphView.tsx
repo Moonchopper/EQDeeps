@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api, type ZoneGraph, type ZoneGraphNode, type ZoneRouteStep } from "../api";
 import { fuzzyMatch, type FuzzyHit } from "../fuzzy";
+import { zoneKey } from "./mapSettings";
 
 interface Point {
   x: number;
@@ -275,9 +276,22 @@ interface Props {
    */
   era?: string;
   onEraChange: (era: string | null) => void;
+  /** The zone the log last said the character entered, if a log is open. */
+  currentZone?: string;
+  /**
+   * The map the user chose for that zone, if they chose one — so "you are
+   * here" lands on the drawing they picked when a name has two.
+   */
+  currentMap?: string;
 }
 
-export function ZoneGraphView({ onOpenZone, era, onEraChange }: Props) {
+export function ZoneGraphView({
+  onOpenZone,
+  era,
+  onEraChange,
+  currentZone,
+  currentMap,
+}: Props) {
   const [graph, setGraph] = useState<ZoneGraph | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [from, setFrom] = useState("");
@@ -509,6 +523,51 @@ export function ZoneGraphView({ onOpenZone, era, onEraChange }: Props) {
     return { hits, via };
   }, [drawn, search, withLinks, names]);
 
+  /**
+   * The node the character is standing in, or null. Resolved through the
+   * user's chosen map first, then by name — the log says a display name, with
+   * an instance suffix the graph does not carry, so both go through the same
+   * key the zone list uses. Looked up in the whole graph rather than the drawn
+   * one, so "you are somewhere this picture is not showing" can be said.
+   */
+  const here = useMemo(() => {
+    if (!graph || !currentZone) {
+      return null;
+    }
+
+    const byChoice = currentMap
+      ? graph.zones.find((z) => z.maps.includes(currentMap))
+      : undefined;
+    const key = zoneKey(currentZone);
+    const node =
+      byChoice ?? graph.zones.find((z) => z.displayName && zoneKey(z.displayName) === key);
+
+    return node?.shortName ?? null;
+  }, [graph, currentZone, currentMap]);
+
+  const hereDrawn = here !== null && positions.has(here);
+
+  // Where you are is the natural start of a route. Filled in only while
+  // nothing is chosen, so it never overrides a pick — and only when the zone
+  // is actually in this picture, since a hidden zone cannot be routed from.
+  useEffect(() => {
+    if (hereDrawn && here) {
+      setFrom((f) => f || here);
+    }
+  }, [here, hereDrawn]);
+
+  /** Frames the current zone at a readable zoom without losing the room around it. */
+  const goHere = () => {
+    const p = here ? positions.get(here) : undefined;
+    if (!p) {
+      return;
+    }
+
+    const w = fitted.w / 3;
+    const h = fitted.h / 3;
+    setView({ x: p.x - w / 2, y: p.y - h / 2, w, h });
+  };
+
   const onRoute = () => {
     if (!from || !to) {
       return;
@@ -605,6 +664,13 @@ export function ZoneGraphView({ onOpenZone, era, onEraChange }: Props) {
             {found &&
               ` · ${found.hits.size === 0 ? "nothing matches" : `${found.hits.size} match`} “${search.trim()}”` +
                 (found.via.size > 0 ? ` and ${found.via.size} connected` : "")}
+            {/* Said out loud, because a silent marker that never appears reads
+                as a bug. If the era filter is what hid it, that is worth
+                knowing: the character is standing in a zone the filter says
+                does not exist yet. */}
+            {currentZone && here === null && ` · you are in ${currentZone}, which is not in the world graph`}
+            {currentZone && here !== null && !hereDrawn &&
+              ` · you are in ${currentZone}, ${eraLimit === undefined ? "which has no labelled exit and is not drawn" : "which the era filter hides"}`}
             {" · scroll to zoom, drag to pan"}
           </span>
         </div>
@@ -667,6 +733,15 @@ export function ZoneGraphView({ onOpenZone, era, onEraChange }: Props) {
           <button className="mini-btn" onClick={onRoute} disabled={!from || !to}>
             route
           </button>
+          {hereDrawn && (
+            <button
+              className="mini-btn"
+              onClick={goHere}
+              title={`Zoom to ${currentZone}, where the log says you are`}
+            >
+              here
+            </button>
+          )}
           <button
             className="mini-btn"
             onClick={() => setView(null)}
@@ -767,7 +842,8 @@ export function ZoneGraphView({ onOpenZone, era, onEraChange }: Props) {
             const near = hover === z.shortName;
             const hit = found?.hits.get(z.shortName);
             const via = found?.via.get(z.shortName);
-            const dim = found !== null && hit === undefined && via === undefined && !lit;
+            const isHere = z.shortName === here;
+            const dim = found !== null && hit === undefined && via === undefined && !lit && !isHere;
             const viaNote = via
               ? "via " +
                 via
@@ -796,6 +872,7 @@ export function ZoneGraphView({ onOpenZone, era, onEraChange }: Props) {
                   (unsure ? " unsure" : "") +
                   (hit ? " hit" : "") +
                   (via ? " via" : "") +
+                  (isHere ? " here" : "") +
                   (dim ? " dim" : "")
                 }
                 onMouseEnter={() => setHover(z.shortName)}
@@ -805,11 +882,15 @@ export function ZoneGraphView({ onOpenZone, era, onEraChange }: Props) {
                 {/* Sizes are in view units scaled by `unit`, so a dot stays the
                     same size on screen however far in you are — zooming shows
                     more of the world, not a bigger picture of less of it. */}
+                {/* Where the log says you are: a ring around the dot, in the
+                    accent, drawn under it so the dot keeps its own colour. */}
+                {isHere && <circle className="here-ring" r={12 * unit} />}
                 <circle r={Math.min(7, 2.5 + z.degree * 0.4) * unit} />
                 <title>
                   {names.get(z.shortName)} — {z.degree}{" "}
                   {z.degree === 1 ? "connection" : "connections"}
                   {eraNote}
+                  {isHere && " · you are here, by the log"}
                   {z.maps.length > 1 && ` · ${z.maps.length} maps: ${z.maps.join(", ")}`}
                   {via && ` · lit because it connects to ${via.map((v) => names.get(v) ?? v).join(", ")}`}
                 </title>
@@ -819,15 +900,16 @@ export function ZoneGraphView({ onOpenZone, era, onEraChange }: Props) {
                     asked for. A connected zone carries its reason in the
                     label itself. */}
                 {(found
-                  ? hit !== undefined || via !== undefined || near || lit
-                  : z.degree >= labelAbove || near || lit) && (
+                  ? hit !== undefined || via !== undefined || near || lit || isHere
+                  : z.degree >= labelAbove || near || lit || isHere) && (
                   <text
                     x={0}
-                    y={-nameSize * 0.7}
+                    y={-nameSize * (isHere ? 1.3 : 0.7)}
                     style={{ fontSize: nameSize, strokeWidth: nameSize / 4 }}
                   >
                     {nameRuns(names.get(z.shortName) ?? z.shortName, hit)}
                     {via && <tspan className="via"> · {viaNote}</tspan>}
+                    {isHere && <tspan className="here"> · you are here</tspan>}
                   </text>
                 )}
               </g>

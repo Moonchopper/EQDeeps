@@ -455,6 +455,8 @@ export function MapView({ currentZone, hasLog = false }: Props) {
               setSelected(shortName);
             }
           }}
+          currentZone={currentZone}
+          currentMap={currentZone ? chosenFor(settings, currentZone) : undefined}
           era={settings.era}
           onEraChange={(era) => {
             rememberEra(era)

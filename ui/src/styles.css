@@ -2491,6 +2491,20 @@ textarea:focus-visible,
   stroke: var(--gold);
 }
 
+/* Where the log says the character is: a ring in the accent, the dot itself
+   left alone so search and route colours still read through it. */
+.zone-node .here-ring {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.zone-node text .here {
+  fill: var(--accent);
+  font-weight: var(--w-normal);
+}
+
 .zone-node.dim {
   opacity: 0.22;
 }

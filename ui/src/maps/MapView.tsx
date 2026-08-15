@@ -2,7 +2,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { api, type MapCatalog, type MapCatalogEntry, type ZoneMap } from "../api";
 import { fuzzyMatch } from "../fuzzy";
 import { MapCanvas } from "./MapCanvas";
-import { chosenFor, loadMapSettings, rememberMap, type MapSettings } from "./mapSettings";
+import {
+  chosenFor,
+  loadMapSettings,
+  rememberEra,
+  rememberMap,
+  type MapSettings,
+} from "./mapSettings";
 import { ZoneGraphView } from "./ZoneGraphView";
 
 /** How a name was arrived at, said plainly. Only the first two are verifiable. */
@@ -10,6 +16,12 @@ const SOURCE_NOTE: Record<string, string> = {
   name: "Name matches the client's own zone table.",
   graph: "Deduced from neighbouring maps, and confirmed by them naming it back.",
   curated: "Written down by hand — the name is checked, the pairing is not.",
+};
+
+/** How the era was arrived at. It inherits whatever doubt the name pairing has. */
+const ERA_NOTE: Record<string, string> = {
+  id: "Earliest expansion this place exists in, from the band its client zone id falls in.",
+  curated: "Earliest expansion this place exists in, set by hand where the zone-id band is known to be wrong.",
 };
 
 interface Props {
@@ -431,15 +443,35 @@ export function MapView({ currentZone, hasLog = false }: Props) {
       </aside>
 
       {mode === "world" ? (
-        <ZoneGraphView onOpenZone={(shortName) => { setMode("zone"); setSelected(shortName); }} />
+        <ZoneGraphView
+          onOpenZone={(shortName) => { setMode("zone"); setSelected(shortName); }}
+          era={settings.era}
+          onEraChange={(era) => {
+            rememberEra(era)
+              .then(setSettings)
+              .catch(() => undefined);
+          }}
+        />
       ) : (
         <section className="map-stage">
           <header className="map-header">
             <div>
               <h2>{entry?.displayName ?? selected}</h2>
-              <span className="map-sub" title={entry?.nameSource ? SOURCE_NOTE[entry.nameSource] : undefined}>
+              <span className="map-sub">
                 {selected}
-                {entry?.nameSource && <em className="map-prov"> · {entry.nameSource}</em>}
+                {entry?.nameSource && (
+                  <em className="map-prov" title={SOURCE_NOTE[entry.nameSource]}>
+                    {" "}· {entry.nameSource}
+                  </em>
+                )}
+                {/* The era code as the table writes it, beside the name's
+                    provenance: both are claims about this row, and both are
+                    only as good as how they were arrived at. */}
+                {entry?.era && (
+                  <em className="map-prov" title={ERA_NOTE[entry.eraSource ?? "id"]}>
+                    {" "}· {entry.era}
+                  </em>
+                )}
               </span>
             </div>
 

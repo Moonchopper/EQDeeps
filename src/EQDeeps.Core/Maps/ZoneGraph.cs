@@ -68,9 +68,19 @@ public sealed class ZoneGraph
     /// reproducible route beats one that changes each time the maps are
     /// re-read.</para>
     /// </summary>
-    public IReadOnlyList<string>? Route(string from, string to)
+    /// <param name="allowed">
+    /// Which zones the route may use, ends included; null allows every zone.
+    /// This is how the era filter reaches routing: a route through a zone the
+    /// server has not unlocked is worse than "no route known", so such zones
+    /// are simply not there to be walked. The predicate is asked once per zone,
+    /// so it can be as slow as a table lookup without hurting the search.
+    /// </param>
+    public IReadOnlyList<string>? Route(string from, string to, Func<string, bool>? allowed = null)
     {
-        if (!_adjacency.ContainsKey(from) || !_adjacency.ContainsKey(to))
+        allowed ??= static _ => true;
+
+        if (!_adjacency.ContainsKey(from) || !_adjacency.ContainsKey(to)
+            || !allowed(from) || !allowed(to))
         {
             return null;
         }
@@ -91,7 +101,9 @@ public sealed class ZoneGraph
 
             foreach (var next in Neighbours(current).OrderBy(n => n, StringComparer.Ordinal))
             {
-                if (!seen.Add(next))
+                // Marked seen before the era check so a disallowed zone is
+                // asked about once, not once per neighbour that reaches it.
+                if (!seen.Add(next) || !allowed(next))
                 {
                     continue;
                 }

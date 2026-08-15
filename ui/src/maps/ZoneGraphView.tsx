@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { api, type ZoneGraph, type ZoneRouteStep } from "../api";
+import { api, type ZoneGraph, type ZoneGraphNode, type ZoneRouteStep } from "../api";
 
 interface Point {
   x: number;
@@ -174,6 +174,7 @@ function packedLayout(graph: ZoneGraph): Map<string, Point> {
     const sub: ZoneGraph = {
       zones: graph.zones.filter((z) => keep.has(z.shortName)),
       edges: graph.edges.filter((e) => keep.has(e.from) && keep.has(e.to)),
+      eras: graph.eras,
     };
 
     // A pair or a triple does not need 400 iterations to find its shape.
@@ -222,9 +223,16 @@ const MIN_ZOOM = 0.6;
 
 interface Props {
   onOpenZone: (shortName: string) => void;
+  /**
+   * The expansion the player says their server has reached, as a `ZoneEra.id`,
+   * or undefined for the whole world. Zones from later expansions are hidden
+   * and never routed through; zones whose era is unknown stay (issue #57).
+   */
+  era?: string;
+  onEraChange: (era: string | null) => void;
 }
 
-export function ZoneGraphView({ onOpenZone }: Props) {
+export function ZoneGraphView({ onOpenZone, era, onEraChange }: Props) {
   const [graph, setGraph] = useState<ZoneGraph | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [from, setFrom] = useState("");
@@ -262,25 +270,78 @@ export function ZoneGraphView({ onOpenZone }: Props) {
       .catch((e: Error) => setError(e.message));
   }, []);
 
+  /** Position of each era in release order, from the server's own list. */
+  const eraOrdinal = useMemo(
+    () => new Map((graph?.eras ?? []).map((e, i) => [e.id, i])),
+    [graph],
+  );
+  const eraById = useMemo(() => new Map((graph?.eras ?? []).map((e) => [e.id, e])), [graph]);
+
+  /**
+   * The chosen era as an ordinal, or undefined for no filter — which is also
+   * what an era code this build does not know collapses to. Not filtering is
+   * the safe reading of a setting we cannot interpret.
+   */
+  const eraLimit = era ? eraOrdinal.get(era) : undefined;
+
   /**
    * Only zones with a labelled exit are drawn. A zone nothing connects to has
    * nothing to show in a picture whose entire subject is connections, and
    * drawing it puts a lone dot somewhere the layout has no reason to place.
    * The count is reported rather than quietly dropped.
+   *
+   * <p>The era filter removes zones outright rather than dimming them: the
+   * classic world is a fraction of the whole, and laid out on its own it
+   * reads as the continents it is, where dimmed it would still be squeezed
+   * into the corners by two hundred zones that are not there. Degree is
+   * recomputed on what is left, so a hub is a hub *in this era* — the
+   * Commonlands matter more in a world with no Plane of Knowledge to skip
+   * them. A zone with no era is always
+   * in: the table could not place it, and hiding a place the player can walk
+   * into is the worse mistake.</p>
    */
   const drawn = useMemo(() => {
     if (!graph) {
       return null;
     }
 
-    const zones = graph.zones.filter((z) => z.degree > 0);
-    const keep = new Set(zones.map((z) => z.shortName));
+    const withinEra = (z: ZoneGraphNode) =>
+      eraLimit === undefined || !z.era || (eraOrdinal.get(z.era) ?? -1) <= eraLimit;
+
+    const beyond = new Set(graph.zones.filter((z) => !withinEra(z)).map((z) => z.shortName));
+    const edges = graph.edges.filter((e) => !beyond.has(e.from) && !beyond.has(e.to));
+
+    const degree = new Map<string, number>();
+    for (const e of edges) {
+      degree.set(e.from, (degree.get(e.from) ?? 0) + 1);
+      degree.set(e.to, (degree.get(e.to) ?? 0) + 1);
+    }
+
+    const zones = graph.zones
+      .filter((z) => !beyond.has(z.shortName) && (degree.get(z.shortName) ?? 0) > 0)
+      .map((z) => ({ ...z, degree: degree.get(z.shortName) ?? 0 }));
 
     return {
-      graph: { zones, edges: graph.edges.filter((e) => keep.has(e.from) && keep.has(e.to)) },
-      omitted: graph.zones.length - zones.length,
+      graph: { zones, edges, eras: graph.eras },
+      hidden: beyond.size,
+      unknown: eraLimit === undefined ? 0 : zones.filter((z) => !z.era).length,
+      omitted: graph.zones.length - beyond.size - zones.length,
     };
-  }, [graph]);
+  }, [graph, eraLimit, eraOrdinal]);
+
+  // A different era is a different world: whatever was picked or routed in
+  // the old one may not exist in this one.
+  useEffect(() => {
+    if (!drawn) {
+      return;
+    }
+
+    const keep = new Set(drawn.graph.zones.map((z) => z.shortName));
+    setFrom((f) => (f && !keep.has(f) ? "" : f));
+    setTo((t) => (t && !keep.has(t) ? "" : t));
+    setRoute(null);
+    setNoRoute(false);
+  }, [drawn]);
 
   const positions = useMemo(
     () => (drawn ? packedLayout(drawn.graph) : new Map<string, Point>()),
@@ -337,7 +398,7 @@ export function ZoneGraphView({ onOpenZone }: Props) {
     }
 
     api
-      .zoneRoute(from, to)
+      .zoneRoute(from, to, era)
       .then((r) => {
         setRoute(r.found ? r.route : null);
         setNoRoute(!r.found);
@@ -406,12 +467,32 @@ export function ZoneGraphView({ onOpenZone }: Props) {
           <span className="map-sub">
             {drawn.graph.zones.length} zones · {drawn.graph.edges.length} connections, from the
             maps' own labels
-            {drawn.omitted > 0 && ` · ${drawn.omitted} with no labelled exit not drawn`}
+            {drawn.hidden > 0 &&
+              ` · ${drawn.hidden} later than ${eraById.get(era ?? "")?.short ?? era} hidden`}
+            {drawn.unknown > 0 && ` · ${drawn.unknown} of unknown era kept`}
+            {drawn.omitted > 0 &&
+              ` · ${drawn.omitted} with no labelled exit${eraLimit === undefined ? "" : " in this era"} not drawn`}
             {" · scroll to zoom, drag to pan"}
           </span>
         </div>
 
         <div className="map-controls">
+          {/* Which expansion the server has reached. The player's call: the
+              log names only zones already visited, and the map files carry no
+              content gating, so nothing here can guess it (issue #57). */}
+          <select
+            className="mini-select"
+            value={eraLimit === undefined ? "" : era}
+            onChange={(e) => onEraChange(e.target.value || null)}
+            title="How far your server has unlocked. Zones from later expansions are hidden and never routed through; zones whose era is unknown stay. Nothing in the log can say this, so it is yours to set."
+          >
+            <option value="">Any era</option>
+            {graph.eras.map((e, i) => (
+              <option key={e.id} value={e.id}>
+                {i === 0 ? `${e.short} only` : `through ${e.short}`} ({e.year})
+              </option>
+            ))}
+          </select>
           <select className="mini-select" value={from} onChange={(e) => setFrom(e.target.value)}>
             <option value="">From…</option>
             {sorted.map((z) => (
@@ -522,11 +603,20 @@ export function ZoneGraphView({ onOpenZone }: Props) {
             const lit = onRouteNode.has(z.shortName);
             const near = hover === z.shortName;
 
+            // With an era chosen, a zone the table could not place is kept
+            // but marked: it may or may not exist on this server.
+            const unsure = eraLimit !== undefined && !z.era;
+            const eraNote = z.era
+              ? ` · ${eraById.get(z.era)?.short ?? z.era}${z.eraSource === "curated" ? " (set by hand)" : ""}`
+              : unsure
+                ? " · era unknown, kept"
+                : "";
+
             return (
               <g
                 key={z.shortName}
                 transform={`translate(${p.x} ${p.y})`}
-                className={"zone-node" + (lit ? " on" : "")}
+                className={"zone-node" + (lit ? " on" : "") + (unsure ? " unsure" : "")}
                 onMouseEnter={() => setHover(z.shortName)}
                 onMouseLeave={() => setHover(null)}
                 onClick={() => onOpenZone(z.shortName)}
@@ -538,6 +628,7 @@ export function ZoneGraphView({ onOpenZone }: Props) {
                 <title>
                   {names.get(z.shortName)} — {z.degree}{" "}
                   {z.degree === 1 ? "connection" : "connections"}
+                  {eraNote}
                 </title>
                 {(z.degree >= labelAbove || near || lit) && (
                   <text
@@ -558,8 +649,9 @@ export function ZoneGraphView({ onOpenZone }: Props) {
         <footer className="map-exits">
           <span className="map-exits-label">No route</span>
           <span className="map-empty-small">
-            The maps' labels do not join those two. That is a gap in the
-            annotation, not proof you cannot walk it.
+            {eraLimit === undefined
+              ? "The maps' labels do not join those two. That is a gap in the annotation, not proof you cannot walk it."
+              : `The maps' labels do not join those two using only zones through ${eraById.get(era ?? "")?.short ?? era}. Either a later expansion is the way — try "Any era" — or the annotation has a gap.`}
           </span>
         </footer>
       )}

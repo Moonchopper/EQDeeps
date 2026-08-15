@@ -8,10 +8,13 @@ public class ZoneTableTests
     private static ZoneTable Sample => ZoneTable.Parse(
         """
         # comment
-        unrest	The Estate of Unrest	curated
+        unrest	The Estate of Unrest	curated	classic	id
         freportw	West Freeport	name
-        freeportwest	West Freeport	curated
-        gukbottom	The Ruins of Old Guk	graph
+        freeportwest	West Freeport	curated	classic	id
+        gukbottom	The Ruins of Old Guk	graph	classic	curated
+        poknowledge	The Plane of Knowledge	curated	pop	id
+        newsebexp	New Sebilis Expedition	curated
+        oddity	Halas	curated	atlantis	id
 
         """);
 
@@ -62,6 +65,57 @@ public class ZoneTableTests
         Assert.Equal(ZoneNameSource.Graph, Sample.EntryFor("gukbottom")!.Source);
         Assert.Equal(ZoneNameSource.Name, Sample.EntryFor("freportw")!.Source);
         Assert.Equal(ZoneNameSource.Curated, Sample.EntryFor("unrest")!.Source);
+    }
+
+    /// <summary>
+    /// The era columns are optional and carry their own provenance. A code this
+    /// build does not know reads as no era rather than failing the row: an
+    /// unplaced zone is shown under every filter, so that is the safe reading.
+    /// </summary>
+    [Fact]
+    public void ReadsTheEraColumnsAndTheirProvenance()
+    {
+        Assert.Equal("classic", Sample.EraFor("unrest"));
+        Assert.Equal(ZoneEraSource.Id, Sample.EntryFor("unrest")!.EraSource);
+        Assert.Equal(ZoneEraSource.Curated, Sample.EntryFor("gukbottom")!.EraSource);
+        Assert.Equal("pop", Sample.EraFor("poknowledge"));
+
+        // Three columns: the row says nothing about eras.
+        Assert.Null(Sample.EraFor("freportw"));
+        Assert.Null(Sample.EntryFor("freportw")!.EraSource);
+        Assert.Null(Sample.EraFor("newsebexp"));
+
+        // An era this build does not know is no era, and no source either.
+        Assert.Null(Sample.EraFor("oddity"));
+        Assert.Null(Sample.EntryFor("oddity")!.EraSource);
+
+        Assert.Null(Sample.EraFor("nosuchmap"));
+    }
+
+    /// <summary>
+    /// The shipped eras were derived by <c>scripts/derive-zone-eras.mjs</c>
+    /// and are pinned here in outline: every era names a real expansion,
+    /// carries a source, and the spot checks are the cases the derivation
+    /// argues about — a launch zone filed in the Kunark id block, a place
+    /// whose revamps keep its name, and a Legends-only zone left unplaced.
+    /// </summary>
+    [Fact]
+    public void ShippedTableErasAreKnownAndSourced()
+    {
+        var table = ZoneTable.Default;
+
+        var withEra = table.Entries.Where(e => e.Era is not null).ToList();
+        Assert.True(withEra.Count > 250, $"Only {withEra.Count} rows carry an era.");
+        Assert.All(withEra, e => Assert.True(ZoneEras.IsKnown(e.Era), $"{e.ShortName}: unknown era {e.Era}"));
+        Assert.All(withEra, e => Assert.NotNull(e.EraSource));
+        Assert.All(table.Entries.Where(e => e.Era is null), e => Assert.Null(e.EraSource));
+
+        Assert.Equal(("classic", ZoneEraSource.Id), (table.EraFor("gfaydark"), table.EntryFor("gfaydark")!.EraSource));
+        Assert.Equal(("classic", ZoneEraSource.Curated), (table.EraFor("soltemple"), table.EntryFor("soltemple")!.EraSource));
+        Assert.Equal("classic", table.EraFor("oceanoftears"));
+        Assert.Equal("pop", table.EraFor("poknowledge"));
+        Assert.Equal("cotf", table.EraFor("neriakd"));
+        Assert.Null(table.EraFor("newsebexp"));
     }
 
     [Fact]

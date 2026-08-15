@@ -2438,6 +2438,19 @@ textarea:focus-visible,
   fill: var(--accent);
 }
 
+/* With an era chosen, a zone the table could not place is kept but hollowed:
+   it may or may not exist on this server, and the tooltip says so. */
+.zone-node.unsure circle {
+  fill: var(--page);
+  stroke: var(--muted);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.zone-node.unsure:hover circle {
+  stroke: var(--ink);
+}
+
 /* Size and halo width are set inline, in viewBox units: SVG scales text with
    the drawing, so a fixed pixel size renders differently for every world. */
 .zone-node text {

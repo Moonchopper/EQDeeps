@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using EQDeeps.Core.Maps;
 using EQDeeps.Core.Query;
 using EQDeeps.Server.Updates;
 
@@ -250,7 +251,16 @@ public static class ServerApp
             var table = maps.Table;
 
             var nodes = graph.Zones
-                .Select(z => new ZoneGraphNode(z, table.DisplayFor(z), graph.Neighbours(z).Count))
+                .Select(z =>
+                {
+                    var entry = table.EntryFor(z);
+                    return new ZoneGraphNode(
+                        z,
+                        entry?.DisplayName,
+                        graph.Neighbours(z).Count,
+                        entry?.Era,
+                        entry?.EraSource?.ToString().ToLowerInvariant());
+                })
                 .OrderByDescending(n => n.Degree)
                 .ToArray();
 
@@ -273,13 +283,29 @@ public static class ServerApp
                 }
             }
 
-            return Results.Ok(new ZoneGraphDto(nodes, edges.ToArray()));
+            return Results.Ok(new ZoneGraphDto(nodes, edges.ToArray(), ZoneEras.All));
         });
 
-        app.MapGet("/api/maps/route", (string from, string to, MapLibrary maps) =>
+        // `era` is the expansion the player says their server has reached; a
+        // route then uses only zones that exist by then, plus zones the table
+        // cannot place (issue #57). It comes from the client rather than the
+        // settings document so this stays a plain function of its query string
+        // — the client already holds the setting and is the one acting on it.
+        // Absent or empty means what it always meant; a code this build does not
+        // know is refused rather than silently ignored, because "ignored" would
+        // route through everything while the caller believed it had a filter.
+        app.MapGet("/api/maps/route", (string from, string to, string? era, MapLibrary maps) =>
         {
+            if (!string.IsNullOrEmpty(era) && !ZoneEras.IsKnown(era))
+            {
+                return Results.BadRequest(new { error = "unknown era", era });
+            }
+
             var graph = maps.Graph();
-            var route = graph.Route(from, to);
+            var table = maps.Table;
+            var route = string.IsNullOrEmpty(era)
+                ? graph.Route(from, to)
+                : graph.Route(from, to, z => ZoneEras.Within(table.EraFor(z), era));
 
             if (route is null)
             {

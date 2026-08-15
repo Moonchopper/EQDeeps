@@ -5,6 +5,17 @@ using EQDeeps.Core.Maps;
 namespace EQDeeps.Server;
 
 /// <summary>One zone the library can draw, and where its geometry came from.</summary>
+/// <param name="Era">
+/// The earliest expansion the place exists in — <c>classic</c>, <c>kunark</c>…
+/// — or absent when the table cannot say. Absent means "shown under every era
+/// filter", never "hidden"; see <see cref="ZoneEras"/>.
+/// </param>
+/// <param name="EraSource">
+/// <c>id</c> when the era came from the zone's client-id band, <c>curated</c>
+/// when it was set by hand. Carried for the same reason as
+/// <paramref name="NameSource"/>: a hand-set value deserves a different
+/// confidence, and it inherits whatever doubt the name pairing already had.
+/// </param>
 /// <param name="Sets">
 /// The map sets holding this zone, best first. A player who has copied Brewall's
 /// set in has two drawings of the same place, and which one they mean is theirs
@@ -14,6 +25,8 @@ public sealed record MapCatalogEntry(
     string ShortName,
     string? DisplayName,
     string? NameSource,
+    string? Era,
+    string? EraSource,
     IReadOnlyList<string> Sets);
 
 /// <summary>
@@ -400,6 +413,8 @@ public sealed class MapLibrary
                     kv.Key,
                     entry?.DisplayName,
                     entry?.Source.ToString().ToLowerInvariant(),
+                    entry?.Era,
+                    entry?.EraSource?.ToString().ToLowerInvariant(),
                     SetOrder.Where(kv.Value.ContainsKey).ToArray());
             })
             // Named zones first, then alphabetically: a player looking for a

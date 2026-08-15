@@ -30,8 +30,21 @@ public enum ZoneNameSource
     Curated,
 }
 
-/// <summary>One zone's short name, the name the log says, and where the pairing came from.</summary>
-public sealed record ZoneEntry(string ShortName, string DisplayName, ZoneNameSource Source);
+/// <summary>
+/// One zone's short name, the name the log says, and where the pairing came
+/// from — plus the earliest expansion the place exists in, when the table can
+/// say (<see cref="ZoneEras"/>).
+/// </summary>
+/// <param name="Era">
+/// A <see cref="ZoneEra.Id"/>, or null when unknown. Null is a first-class
+/// answer, not a gap: it means "shown under every era filter".
+/// </param>
+public sealed record ZoneEntry(
+    string ShortName,
+    string DisplayName,
+    ZoneNameSource Source,
+    string? Era = null,
+    ZoneEraSource? EraSource = null);
 
 /// <summary>
 /// Joins the name the log speaks ("The Estate of Unrest") to the name the map
@@ -55,16 +68,23 @@ public sealed record ZoneEntry(string ShortName, string DisplayName, ZoneNameSou
 /// evidence: it merely names whatever is left over, which is how an early pass
 /// decided <c>oldblackburrow</c> was The Void.</para>
 ///
-/// <para>The remaining 84 rows are hand-written, and every display name in the
+/// <para>The remaining 130 rows are hand-written, and every display name in the
 /// file — derived or curated — is checked verbatim against the client's own
 /// name table by <c>ZoneTableTests</c>. That catches an invented name but not
 /// an invented pairing, which is why <see cref="ZoneNameSource"/> is carried
 /// through to the UI rather than smoothed away.</para>
 ///
-/// <para><b>The table is deliberately incomplete.</b> 223 of 581 short names,
+/// <para><b>The table is deliberately incomplete.</b> 268 of 581 short names,
 /// covering 128 of the 133 zones a stock client ships a map for. An unknown
 /// zone is not an error — it resolves to no map and the user picks one, which
 /// is also the escape hatch for a pairing this file gets wrong.</para>
+///
+/// <para><b>Eras.</b> Two further columns say the earliest expansion each place
+/// exists in and how that was decided. They are derived offline from the zone
+/// ids in the client's own name table by <c>scripts/derive-zone-eras.mjs</c>
+/// and checked in as data, so the app never reads the player's install for
+/// them; see <see cref="ZoneEras"/> for what an era means and the map format
+/// doc §5.3 for the id bands and their evidence.</para>
 /// </summary>
 public sealed class ZoneTable
 {
@@ -124,9 +144,18 @@ public sealed class ZoneTable
         _byShortName.TryGetValue(shortName, out var entry) ? entry : null;
 
     /// <summary>
-    /// Reads the TSV form: <c>shortname\tdisplay\tsource</c>. Blank lines and
-    /// <c>#</c> comments are skipped; a row that does not parse is skipped
-    /// rather than thrown, on the same principle as the log parser.
+    /// The earliest expansion a map's zone exists in, or null when the table
+    /// cannot say — which includes a short name it does not know at all.
+    /// </summary>
+    public string? EraFor(string shortName) =>
+        _byShortName.TryGetValue(shortName, out var entry) ? entry.Era : null;
+
+    /// <summary>
+    /// Reads the TSV form: <c>shortname\tdisplay\tsource[\tera\terasource]</c>.
+    /// Blank lines and <c>#</c> comments are skipped; a row that does not parse
+    /// is skipped rather than thrown, on the same principle as the log parser.
+    /// An era code this build does not recognise is read as no era — shown, not
+    /// hidden — for the same reason.
     /// </summary>
     public static ZoneTable Parse(string tsv)
     {
@@ -134,36 +163,45 @@ public sealed class ZoneTable
 
         foreach (var line in tsv.Split('\n'))
         {
-            var row = line.AsSpan().Trim();
-            if (row.IsEmpty || row[0] == '#')
+            var row = line.Trim();
+            if (row.Length == 0 || row[0] == '#')
             {
                 continue;
             }
 
-            var first = row.IndexOf('\t');
-            if (first <= 0)
+            var cells = row.Split('\t');
+            if (cells.Length < 2)
             {
                 continue;
             }
 
-            var rest = row[(first + 1)..];
-            var second = rest.IndexOf('\t');
-            var display = (second < 0 ? rest : rest[..second]).Trim();
-            if (display.IsEmpty)
+            var shortName = cells[0].Trim();
+            var display = cells[1].Trim();
+            if (shortName.Length == 0 || display.Length == 0)
             {
                 continue;
             }
 
-            var source = second < 0
+            var source = cells.Length < 3
                 ? ZoneNameSource.Curated
-                : rest[(second + 1)..].Trim() switch
+                : cells[2].Trim() switch
                 {
                     "name" => ZoneNameSource.Name,
                     "graph" => ZoneNameSource.Graph,
                     _ => ZoneNameSource.Curated,
                 };
 
-            entries.Add(new ZoneEntry(row[..first].Trim().ToString(), display.ToString(), source));
+            var era = cells.Length > 3 ? ZoneEras.Find(cells[3].Trim())?.Id : null;
+
+            // A source only means anything beside an era. A row that names one
+            // without the other is treated as saying nothing about eras.
+            var eraSource = era is null
+                ? (ZoneEraSource?)null
+                : cells.Length > 4 && cells[4].Trim() == "curated"
+                    ? ZoneEraSource.Curated
+                    : ZoneEraSource.Id;
+
+            entries.Add(new ZoneEntry(shortName, display, source, era, eraSource));
         }
 
         return new ZoneTable(entries);

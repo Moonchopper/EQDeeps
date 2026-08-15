@@ -162,4 +162,37 @@ public class ZoneGraphTests
         Assert.Null(graph.Route("gfaydark", "oot"));
         Assert.Null(graph.Route("gfaydark", "nosuchzone"));
     }
+
+    /// <summary>
+    /// The era filter reaches routing as an allow-list. A shortcut through a
+    /// zone that is not allowed is not taken — the longer way round is the
+    /// answer, and no way round at all is "no route", never the shortcut.
+    /// </summary>
+    [Fact]
+    public void RoutesOnlyThroughAllowedZones()
+    {
+        // crushbone - gfaydark - butcher - oot, with felwithea as a shortcut
+        // straight from crushbone to oot.
+        var graph = ZoneGraph.Build(
+            new[]
+            {
+                Map("crushbone", "to The Greater Faydark", "to Northern Felwithe"),
+                Map("gfaydark", "to Butcherblock Mountains"),
+                Map("butcher", "to The Ocean of Tears"),
+                Map("felwithea", "to The Ocean of Tears"),
+                Map("oot"),
+            },
+            Table);
+
+        Assert.Equal(new[] { "crushbone", "felwithea", "oot" }, graph.Route("crushbone", "oot"));
+
+        Assert.Equal(
+            new[] { "crushbone", "gfaydark", "butcher", "oot" },
+            graph.Route("crushbone", "oot", z => z != "felwithea"));
+
+        // An end that is not allowed is not somewhere the route can start or
+        // finish, either.
+        Assert.Null(graph.Route("crushbone", "felwithea", z => z != "felwithea"));
+        Assert.Null(graph.Route("crushbone", "oot", z => z != "oot"));
+    }
 }

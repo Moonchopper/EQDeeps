@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api, type ZoneGraph, type ZoneRouteStep } from "../api";
 
 interface Point {
@@ -205,6 +205,21 @@ function packedLayout(graph: ZoneGraph): Map<string, Point> {
   return out;
 }
 
+interface Box {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/**
+ * Deep enough to read a crowded corner, not so deep you end up in the gap
+ * between two zones with nothing on screen. The world is ~5000 units across
+ * and 40× put the viewport inside a single edge.
+ */
+const MAX_ZOOM = 12;
+const MIN_ZOOM = 0.6;
+
 interface Props {
   onOpenZone: (shortName: string) => void;
 }
@@ -217,6 +232,28 @@ export function ZoneGraphView({ onOpenZone }: Props) {
   const [route, setRoute] = useState<ZoneRouteStep[] | null>(null);
   const [noRoute, setNoRoute] = useState(false);
   const [hover, setHover] = useState<string | null>(null);
+
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+  const dragRef = useRef<{ x: number; y: number } | null>(null);
+  const [size, setSize] = useState({ w: 0, h: 0 });
+
+  /** The viewBox, or null to sit at whatever currently fits. */
+  const [view, setView] = useState<Box | null>(null);
+
+  useEffect(() => {
+    const wrap = wrapRef.current;
+    if (!wrap) {
+      return;
+    }
+
+    const observer = new ResizeObserver(() =>
+      setSize({ w: wrap.clientWidth, h: wrap.clientHeight }),
+    );
+    observer.observe(wrap);
+    setSize({ w: wrap.clientWidth, h: wrap.clientHeight });
+
+    return () => observer.disconnect();
+  }, [graph]);
 
   useEffect(() => {
     api
@@ -249,6 +286,42 @@ export function ZoneGraphView({ onOpenZone }: Props) {
     () => (drawn ? packedLayout(drawn.graph) : new Map<string, Point>()),
     [drawn],
   );
+
+  /**
+   * The whole world, framed to the container's shape.
+   *
+   * <p>Matched to the container's aspect ratio on purpose. With a viewBox of a
+   * different shape, SVG letterboxes it, and then screen pixels no longer map
+   * linearly onto view coordinates — which makes zooming about the pointer
+   * quietly wrong, drifting a little further off with every notch.</p>
+   */
+  const fitted = useMemo<Box>(() => {
+    const pts = [...positions.values()];
+    if (pts.length === 0 || size.w === 0 || size.h === 0) {
+      return { x: 0, y: 0, w: 1000, h: 1000 };
+    }
+
+    const minX = Math.min(...pts.map((p) => p.x)) - 60;
+    const maxX = Math.max(...pts.map((p) => p.x)) + 60;
+    const minY = Math.min(...pts.map((p) => p.y)) - 40;
+    const maxY = Math.max(...pts.map((p) => p.y)) + 40;
+
+    const aspect = size.h / size.w;
+    const contentW = Math.max(1, maxX - minX);
+    const contentH = Math.max(1, maxY - minY);
+    const w = contentH / contentW > aspect ? contentH / aspect : contentW;
+    const h = w * aspect;
+
+    return {
+      x: (minX + maxX) / 2 - w / 2,
+      y: (minY + maxY) / 2 - h / 2,
+      w,
+      h,
+    };
+  }, [positions, size]);
+
+  // A different world, or a resized frame, invalidates wherever we were.
+  useEffect(() => setView(null), [positions, size.w, size.h]);
 
   const names = useMemo(() => {
     const m = new Map<string, string>();
@@ -305,14 +378,21 @@ export function ZoneGraphView({ onOpenZone }: Props) {
     );
   }
 
-  const points = [...positions.values()];
-  const minX = Math.min(...points.map((p) => p.x)) - 60;
-  const maxX = Math.max(...points.map((p) => p.x)) + 60;
-  const minY = Math.min(...points.map((p) => p.y)) - 40;
-  const maxY = Math.max(...points.map((p) => p.y)) + 40;
+  const box = view ?? fitted;
 
-  // Roughly 11px once the viewBox is fitted to the frame.
-  const nameSize = (maxX - minX) / 95;
+  // World units per screen pixel. Everything that should stay a constant size
+  // on screen — dots, labels, stroke widths — is multiplied by this, so zooming
+  // in shows *more* of the world rather than a bigger drawing of less of it.
+  const unit = size.w > 0 ? box.w / size.w : 1;
+  const nameSize = 11 * unit;
+
+  // Labels thin out by connectedness rather than by chance, and the threshold
+  // relaxes as you zoom in: at a distance only the hubs are named, and by the
+  // time a handful of zones fill the frame everything has a name. Drawing all
+  // 247 at once is a smear, and drawing none is the complaint that prompted
+  // this.
+  const zoom = fitted.w / box.w;
+  const labelAbove = zoom >= 6 ? 0 : zoom >= 3 ? 1 : zoom >= 1.6 ? 3 : 7;
 
   const sorted = [...drawn.graph.zones].sort((a, b) =>
     (a.displayName ?? a.shortName).localeCompare(b.displayName ?? b.shortName),
@@ -327,6 +407,7 @@ export function ZoneGraphView({ onOpenZone }: Props) {
             {drawn.graph.zones.length} zones · {drawn.graph.edges.length} connections, from the
             maps' own labels
             {drawn.omitted > 0 && ` · ${drawn.omitted} with no labelled exit not drawn`}
+            {" · scroll to zoom, drag to pan"}
           </span>
         </div>
 
@@ -350,14 +431,61 @@ export function ZoneGraphView({ onOpenZone }: Props) {
           <button className="mini-btn" onClick={onRoute} disabled={!from || !to}>
             route
           </button>
+          <button
+            className="mini-btn"
+            onClick={() => setView(null)}
+            disabled={view === null}
+            title="Frame the whole world again"
+          >
+            {zoom > 1.05 ? `fit (${zoom.toFixed(1)}×)` : "fit"}
+          </button>
         </div>
       </header>
 
-      <div className="map-body">
+      <div className="map-body" ref={wrapRef}>
         <svg
           className="zone-graph"
-          viewBox={`${minX} ${minY} ${maxX - minX} ${maxY - minY}`}
+          viewBox={`${box.x} ${box.y} ${box.w} ${box.h}`}
           preserveAspectRatio="xMidYMid meet"
+          style={{ cursor: dragRef.current ? "grabbing" : "grab" }}
+          onWheel={(e) => {
+            const rect = e.currentTarget.getBoundingClientRect();
+            const fx = (e.clientX - rect.left) / rect.width;
+            const fy = (e.clientY - rect.top) / rect.height;
+
+            // The world point under the cursor has to stay under it.
+            const wx = box.x + fx * box.w;
+            const wy = box.y + fy * box.h;
+
+            const factor = Math.exp(-e.deltaY * 0.0015);
+            const wanted = box.w / factor;
+            const w = Math.min(fitted.w / MIN_ZOOM, Math.max(fitted.w / MAX_ZOOM, wanted));
+            const h = w * (box.h / box.w);
+
+            setView({ x: wx - fx * w, y: wy - fy * h, w, h });
+          }}
+          onPointerDown={(e) => {
+            e.currentTarget.setPointerCapture(e.pointerId);
+            dragRef.current = { x: e.clientX, y: e.clientY };
+          }}
+          onPointerMove={(e) => {
+            const drag = dragRef.current;
+            if (!drag) {
+              return;
+            }
+
+            setView({
+              ...box,
+              x: box.x - (e.clientX - drag.x) * unit,
+              y: box.y - (e.clientY - drag.y) * unit,
+            });
+            dragRef.current = { x: e.clientX, y: e.clientY };
+          }}
+          onPointerUp={() => (dragRef.current = null)}
+          onPointerLeave={() => {
+            dragRef.current = null;
+            setHover(null);
+          }}
         >
           {drawn.graph.edges.map((e) => {
             const a = positions.get(e.from);
@@ -377,6 +505,10 @@ export function ZoneGraphView({ onOpenZone }: Props) {
                 x2={b.x}
                 y2={b.y}
                 className={"zone-edge" + (lit ? " on" : "")}
+                // Inline, not the strokeWidth attribute: a CSS rule beats a
+                // presentation attribute, so the stylesheet's width would win
+                // and every line would thicken into a ribbon as you zoom in.
+                style={{ strokeWidth: (lit ? 3 : 1) * unit }}
               />
             );
           })}
@@ -399,12 +531,15 @@ export function ZoneGraphView({ onOpenZone }: Props) {
                 onMouseLeave={() => setHover(null)}
                 onClick={() => onOpenZone(z.shortName)}
               >
-                <circle r={Math.min(10, 3 + z.degree * 0.5)} />
-                {/* Only the hubs and whatever is being pointed at get a name:
-                    247 labels at once is a smear, not a map. Text is sized in
-                    viewBox units, since SVG scales it with everything else and
-                    a fixed pixel size renders differently for every world. */}
-                {(z.degree >= 7 || near || lit) && (
+                {/* Sizes are in view units scaled by `unit`, so a dot stays the
+                    same size on screen however far in you are — zooming shows
+                    more of the world, not a bigger picture of less of it. */}
+                <circle r={Math.min(7, 2.5 + z.degree * 0.4) * unit} />
+                <title>
+                  {names.get(z.shortName)} — {z.degree}{" "}
+                  {z.degree === 1 ? "connection" : "connections"}
+                </title>
+                {(z.degree >= labelAbove || near || lit) && (
                   <text
                     x={0}
                     y={-nameSize * 0.7}

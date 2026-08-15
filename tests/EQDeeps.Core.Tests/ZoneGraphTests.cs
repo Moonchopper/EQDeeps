@@ -11,7 +11,9 @@ public class ZoneGraphTests
         butcher	Butcherblock Mountains	curated
         crushbone	Clan Crushbone	curated
         oot	The Ocean of Tears	curated
+        oceanoftears	The Ocean of Tears	name
         felwithea	Northern Felwithe	curated
+        cauldron	Dagnor's Cauldron	curated
         """);
 
     private static ZoneMap Map(string shortName, params string[] labels) =>
@@ -161,6 +163,42 @@ public class ZoneGraphTests
 
         Assert.Null(graph.Route("gfaydark", "oot"));
         Assert.Null(graph.Route("gfaydark", "nosuchzone"));
+    }
+
+    /// <summary>
+    /// Two drawings of one place are one node. A label to "The Ocean of Tears"
+    /// resolves to both <c>oot</c> and <c>oceanoftears</c>; drawn per file that
+    /// made two zones off Butcherblock where the player knows one. The node
+    /// takes the first drawing's name, answers to either, and its exits are
+    /// the union of both drawings' labels — a route can leave by a label only
+    /// the other drawing wrote down.
+    /// </summary>
+    [Fact]
+    public void MapsSharingANameAreOnePlace()
+    {
+        var graph = ZoneGraph.Build(
+            new[]
+            {
+                Map("butcher", "to The Ocean of Tears (Boat)"),
+                Map("oot", "to Butcherblock Mountains"),
+                Map("oceanoftears", "to Northern Felwithe"),
+                Map("felwithea"),
+            },
+            Table);
+
+        Assert.Equal(new[] { "butcher", "felwithea", "oot" }, graph.Zones.OrderBy(z => z).ToArray());
+        Assert.Equal(new[] { "oot", "oceanoftears" }, graph.MapsOf("oot"));
+        Assert.Equal("oot", graph.PlaceOf("oceanoftears"));
+
+        // One label, one edge — not one per file that claims the name.
+        Assert.Single(graph.From("butcher"));
+        Assert.Equal(new[] { "oot" }, graph.Neighbours("butcher"));
+
+        // Exits are pooled across the drawings, and either name asks the place.
+        Assert.Equal(new[] { "butcher", "felwithea" }, graph.Neighbours("oceanoftears").OrderBy(n => n).ToArray());
+        Assert.Equal(new[] { "butcher", "oot", "felwithea" }, graph.Route("butcher", "felwithea"));
+        Assert.Equal(new[] { "oot", "butcher" }, graph.Route("oceanoftears", "butcher"));
+        Assert.Equal(new[] { "oot" }, graph.Route("oceanoftears", "oot"));
     }
 
     /// <summary>

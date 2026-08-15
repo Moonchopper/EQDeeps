@@ -96,7 +96,13 @@ public sealed record ZoneMapDto(
 /// </param>
 public sealed record SetMapRootRequest(string? Path);
 
-/// <summary>A zone in the world graph, with the exits that were resolvable.</summary>
+/// <summary>A place in the world graph, with the exits that were resolvable.</summary>
+/// <param name="ShortName">
+/// The place's representative map — the first of <paramref name="Maps"/>. A
+/// place with two drawings ("West Freeport" is <c>freportw</c> and
+/// <c>freeportwest</c>) is one node, not two; see <see cref="ZoneGraph"/>.
+/// </param>
+/// <param name="Maps">Every map short name that draws this place, representative first.</param>
 /// <param name="Era">
 /// The earliest expansion the zone exists in, or absent when unknown. The
 /// client does the hiding, because whether to hide or dim is a drawing
@@ -105,6 +111,7 @@ public sealed record SetMapRootRequest(string? Path);
 public sealed record ZoneGraphNode(
     string ShortName,
     string? DisplayName,
+    IReadOnlyList<string> Maps,
     int Degree,
     string? Era,
     string? EraSource);

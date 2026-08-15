@@ -3,6 +3,15 @@ namespace EQDeeps.Core.Maps;
 /// <summary>
 /// One way out of a zone, as a mapmaker wrote it down.
 /// </summary>
+/// <param name="FromShortName">
+/// The map file that carried the label — the actual drawing, not the place it
+/// belongs to, because that is where the point <paramref name="At"/> lives.
+/// </param>
+/// <param name="ToShortName">
+/// The place it leads to, as that place's representative short name (see
+/// <see cref="ZoneGraph"/>): a label to "West Freeport" lands on the one West
+/// Freeport node, whichever of its two drawings the player has open.
+/// </param>
 /// <param name="Label">
 /// The raw label, kept because it carries the part the graph throws away — a
 /// parenthetical like "(Boat)" or "(click stone block)" is often the only
@@ -17,8 +26,22 @@ public sealed record ZoneConnection(
     MapPoint At);
 
 /// <summary>
-/// The world as a graph: zones for nodes, the maps' own <c>to_&lt;Zone&gt;</c>
+/// The world as a graph: places for nodes, the maps' own <c>to_&lt;Zone&gt;</c>
 /// labels for edges.
+///
+/// <para><b>A node is a place, not a file.</b> Several maps can carry one
+/// display name — <c>freportw</c> and <c>freeportwest</c> are both "West
+/// Freeport", <c>hateplane</c> and <c>hateplaneb</c> both "The Plane of Hate"
+/// — and a label naming that place resolves to every map that claims it. Drawn
+/// one node per file, every such place appeared twice, each copy wired to the
+/// same neighbours, and the Plane of Hate looked like two zones off the Oasis
+/// of Marr. So maps sharing a display name are one node, identified by the
+/// first of their short names in the order the maps were given (the catalogue's
+/// order, so it agrees with what the zone list opens), and the node's exits are
+/// the union of its drawings' labels — the same reason both map <em>sets</em>
+/// are read: which drawing you look at is taste, which exits exist is not.
+/// <see cref="MapsOf"/> gives the drawings back; <see cref="PlaceOf"/> takes
+/// any of them to the node, so callers may still speak in file names.</para>
 ///
 /// <para>The edges are community annotation, not game data, and they read like
 /// it — inconsistent apostrophes, "(Boat)" suffixes, and points that name three
@@ -37,26 +60,53 @@ public sealed class ZoneGraph
 {
     private readonly Dictionary<string, List<ZoneConnection>> _out;
     private readonly Dictionary<string, HashSet<string>> _adjacency;
+    private readonly Dictionary<string, List<string>> _maps;
+    private readonly Dictionary<string, string> _placeOf;
 
     private ZoneGraph(
         Dictionary<string, List<ZoneConnection>> outgoing,
-        Dictionary<string, HashSet<string>> adjacency)
+        Dictionary<string, HashSet<string>> adjacency,
+        Dictionary<string, List<string>> maps,
+        Dictionary<string, string> placeOf)
     {
         _out = outgoing;
         _adjacency = adjacency;
+        _maps = maps;
+        _placeOf = placeOf;
     }
 
+    /// <summary>Every place, by its representative short name.</summary>
     public IReadOnlyCollection<string> Zones => _adjacency.Keys;
 
     public int ConnectionCount => _out.Values.Sum(v => v.Count);
 
-    /// <summary>Every labelled exit out of a zone. Empty for an unmapped or unlabelled zone.</summary>
-    public IReadOnlyList<ZoneConnection> From(string shortName) =>
-        _out.TryGetValue(shortName, out var list) ? list : Array.Empty<ZoneConnection>();
+    /// <summary>
+    /// The map short names that draw a place, representative first. A single
+    /// entry for most places; two for a revamp kept beside its original.
+    /// </summary>
+    public IReadOnlyList<string> MapsOf(string place) =>
+        _maps.TryGetValue(Canonical(place), out var list) ? list : Array.Empty<string>();
 
-    /// <summary>Zones reachable in one step, in either written direction.</summary>
+    /// <summary>
+    /// The place a map belongs to, or null if the map is not in the graph.
+    /// Every other lookup here accepts a map short name and resolves it this
+    /// way, so nothing has to know which of two drawings is the representative.
+    /// </summary>
+    public string? PlaceOf(string shortName) =>
+        _placeOf.TryGetValue(shortName, out var place) ? place : null;
+
+    private string Canonical(string shortName) => PlaceOf(shortName) ?? shortName;
+
+    /// <summary>
+    /// Every labelled exit out of a place, across all of its drawings. Empty
+    /// for an unmapped or unlabelled zone.
+    /// </summary>
+    public IReadOnlyList<ZoneConnection> From(string shortName) =>
+        _out.TryGetValue(Canonical(shortName), out var list) ? list : Array.Empty<ZoneConnection>();
+
+    /// <summary>Places reachable in one step, in either written direction.</summary>
     public IReadOnlyCollection<string> Neighbours(string shortName) =>
-        _adjacency.TryGetValue(shortName, out var set) ? set : Array.Empty<string>();
+        _adjacency.TryGetValue(Canonical(shortName), out var set) ? set : Array.Empty<string>();
 
     /// <summary>
     /// The fewest-zones route from one short name to another, inclusive of
@@ -78,6 +128,10 @@ public sealed class ZoneGraph
     public IReadOnlyList<string>? Route(string from, string to, Func<string, bool>? allowed = null)
     {
         allowed ??= static _ => true;
+
+        // Either end may be named by any of its drawings; the route is in places.
+        from = Canonical(from);
+        to = Canonical(to);
 
         if (!_adjacency.ContainsKey(from) || !_adjacency.ContainsKey(to)
             || !allowed(from) || !allowed(to))
@@ -146,6 +200,8 @@ public sealed class ZoneGraph
     {
         var outgoing = new Dictionary<string, List<ZoneConnection>>(StringComparer.OrdinalIgnoreCase);
         var adjacency = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
+        var placeMaps = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+        var placeOf = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
         // Only zones this machine can both draw and name take part.
         //
@@ -162,15 +218,28 @@ public sealed class ZoneGraph
             .Where(m => table.DisplayFor(m.ShortName) is not null)
             .ToList();
 
-        var routable = all
-            .Select(m => m.ShortName)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-
-        HashSet<string> Adjacent(string zone)
+        // Maps that share a display name are one place. The first drawing seen
+        // stands for the place, so the order the maps come in — the catalogue's
+        // — decides the name a route step carries.
+        var byDisplay = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var map in all)
         {
-            if (!adjacency.TryGetValue(zone, out var set))
+            var display = table.DisplayFor(map.ShortName)!;
+            if (!byDisplay.TryGetValue(display, out var place))
             {
-                adjacency[zone] = set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                byDisplay[display] = place = map.ShortName;
+                placeMaps[place] = new List<string>();
+            }
+
+            placeMaps[place].Add(map.ShortName);
+            placeOf[map.ShortName] = place;
+        }
+
+        HashSet<string> Adjacent(string place)
+        {
+            if (!adjacency.TryGetValue(place, out var set))
+            {
+                adjacency[place] = set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             }
 
             return set;
@@ -178,23 +247,31 @@ public sealed class ZoneGraph
 
         foreach (var map in all)
         {
-            Adjacent(map.ShortName);
+            var here = placeOf[map.ShortName];
+            Adjacent(here);
 
             foreach (var label in map.Layers.SelectMany(l => l.Labels))
             {
                 foreach (var destination in Destinations(label.Text))
                 {
-                    foreach (var target in table.MapsFor(destination))
+                    // Every drawing of the destination lands on the same place,
+                    // so one label to "The Plane of Hate" is one edge, not one
+                    // per file that claims the name.
+                    var targets = table.MapsFor(destination)
+                        .Where(placeOf.ContainsKey)
+                        .Select(t => placeOf[t])
+                        .Distinct(StringComparer.OrdinalIgnoreCase);
+
+                    foreach (var target in targets)
                     {
-                        if (string.Equals(target, map.ShortName, StringComparison.OrdinalIgnoreCase) ||
-                            !routable.Contains(target))
+                        if (string.Equals(target, here, StringComparison.OrdinalIgnoreCase))
                         {
                             continue;
                         }
 
-                        if (!outgoing.TryGetValue(map.ShortName, out var list))
+                        if (!outgoing.TryGetValue(here, out var list))
                         {
-                            outgoing[map.ShortName] = list = new List<ZoneConnection>();
+                            outgoing[here] = list = new List<ZoneConnection>();
                         }
 
                         // One label can name several destinations; each becomes
@@ -206,14 +283,14 @@ public sealed class ZoneGraph
                             label.Text,
                             label.At));
 
-                        Adjacent(map.ShortName).Add(target);
-                        Adjacent(target).Add(map.ShortName);
+                        Adjacent(here).Add(target);
+                        Adjacent(target).Add(here);
                     }
                 }
             }
         }
 
-        return new ZoneGraph(outgoing, adjacency);
+        return new ZoneGraph(outgoing, adjacency, placeMaps, placeOf);
     }
 
     /// <summary>

@@ -55,6 +55,9 @@ public sealed class MapEndpointTests : IAsyncLifetime
             P 1, 9, 0, 0, 0, 240, 3, to_Dagnor`s_Cauldron
             """);
         File.WriteAllText(Path.Combine(maps, "oot.txt"), "L 1, 1, 1, 2, 2, 2, 0, 0, 255");
+        // A second drawing of the same place, as a revamp leaves behind: the
+        // graph must show one Ocean of Tears, not two.
+        File.WriteAllText(Path.Combine(maps, "oceanoftears.txt"), "L 1, 1, 1, 3, 3, 3, 0, 0, 255");
         File.WriteAllText(Path.Combine(maps, "cauldron.txt"),
             "P 1, 1, 0, 0, 0, 240, 3, to_The_Estate_of_Unrest");
         File.WriteAllText(Path.Combine(maps, "unrest.txt"), "L 1, 1, 1, 2, 2, 2, 0, 0, 255");
@@ -111,7 +114,7 @@ public sealed class MapEndpointTests : IAsyncLifetime
         Assert.True(catalog.GetProperty("found").GetBoolean());
 
         var zones = catalog.GetProperty("zones").EnumerateArray().ToList();
-        Assert.Equal(6, zones.Count);
+        Assert.Equal(7, zones.Count);
 
         var fay = zones.Single(z => z.GetProperty("shortName").GetString() == "gfaydark");
         Assert.Equal("The Greater Faydark", fay.GetProperty("displayName").GetString());
@@ -251,14 +254,34 @@ public sealed class MapEndpointTests : IAsyncLifetime
             .OrderBy(s => s)
             .ToArray();
 
-        // gfaydark<->butcher is labelled from both sides but is still one edge.
+        // gfaydark<->butcher is labelled from both sides but is still one edge,
+        // and butcher's one label to the Ocean of Tears is one edge to the one
+        // Ocean of Tears node, however many drawings of it are on disk.
         Assert.Equal(
             new[]
             {
-                "butcher->cauldron", "butcher->gfaydark", "butcher->oot",
+                "butcher->cauldron", "butcher->gfaydark", "butcher->oceanoftears",
                 "cauldron->unrest", "gfaydark->poknowledge", "poknowledge->unrest",
             },
             edges);
+    }
+
+    /// <summary>
+    /// A place with two drawings is one node that lists both, so the client
+    /// can open whichever the user prefers and never shows a zone twice.
+    /// </summary>
+    [Fact]
+    public async Task TwoDrawingsOfAPlaceAreOneNode()
+    {
+        var zones = (await Get("/api/maps/graph")).GetProperty("zones").EnumerateArray().ToList();
+
+        var oceans = zones.Where(z => z.GetProperty("displayName").GetString() == "The Ocean of Tears").ToList();
+        var ocean = Assert.Single(oceans);
+
+        Assert.Equal("oceanoftears", ocean.GetProperty("shortName").GetString());
+        Assert.Equal(
+            new[] { "oceanoftears", "oot" },
+            ocean.GetProperty("maps").EnumerateArray().Select(m => m.GetString()).ToArray());
     }
 
     /// <summary>
@@ -284,11 +307,12 @@ public sealed class MapEndpointTests : IAsyncLifetime
     [Fact]
     public async Task RoutesAcrossTheWorldAndSaysHowEachHopIsUsed()
     {
+        // Asked for by its other drawing's name; answered in places.
         var route = (await Get("/api/maps/route?from=gfaydark&to=oot"))
             .GetProperty("route").EnumerateArray().ToList();
 
         Assert.Equal(
-            new[] { "gfaydark", "butcher", "oot" },
+            new[] { "gfaydark", "butcher", "oceanoftears" },
             route.Select(s => s.GetProperty("shortName").GetString()).ToArray());
 
         Assert.Equal("The Ocean of Tears", route[2].GetProperty("displayName").GetString());
@@ -354,8 +378,8 @@ public sealed class MapEndpointTests : IAsyncLifetime
 
     /// <summary>
     /// The table maps one display name onto every map that claims it, so
-    /// "The Ocean of Tears" is both oot and oceanoftears. Only the map this
-    /// machine actually has may become an edge.
+    /// "West Freeport" is both freportw and freeportwest. Neither is on this
+    /// machine, so a label to it is not an edge and it is not a node.
     /// </summary>
     [Fact]
     public async Task DoesNotLinkToZonesThisMachineCannotDraw()
@@ -366,6 +390,7 @@ public sealed class MapEndpointTests : IAsyncLifetime
             .Select(z => z.GetProperty("shortName").GetString())
             .ToArray();
 
-        Assert.DoesNotContain("oceanoftears", zones);
+        Assert.DoesNotContain("freportw", zones);
+        Assert.DoesNotContain("freeportwest", zones);
     }
 }

@@ -380,8 +380,11 @@ export interface ZoneMap {
 }
 
 export interface ZoneGraphNode {
+  /** The place's representative map — the first of `maps`. */
   shortName: string;
   displayName?: string;
+  /** Every map that draws this place; two when a revamp sits beside its original. */
+  maps: string[];
   degree: number;
   /** Earliest expansion the zone exists in; absent when unknown (and so always shown). */
   era?: string;

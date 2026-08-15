@@ -444,7 +444,17 @@ export function MapView({ currentZone, hasLog = false }: Props) {
 
       {mode === "world" ? (
         <ZoneGraphView
-          onOpenZone={(shortName) => { setMode("zone"); setSelected(shortName); }}
+          // A graph node is a place, and a place opens on whichever of its
+          // drawings the user last chose — the same rule as the zone list.
+          onOpenZone={(shortName) => {
+            setMode("zone");
+            const p = places.find((x) => x.maps.some((m) => m.shortName === shortName));
+            if (p) {
+              openPlace(p);
+            } else {
+              setSelected(shortName);
+            }
+          }}
           era={settings.era}
           onEraChange={(era) => {
             rememberEra(era)

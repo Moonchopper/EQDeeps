@@ -419,9 +419,12 @@ public sealed class MapLibrary
             })
             // Named zones first, then alphabetically: a player looking for a
             // zone knows its display name, and the unnamed tail is short names
-            // the table has not resolved.
+            // the table has not resolved. Maps sharing a name are ordered by
+            // short name so the tie is the same every run — the first one
+            // stands for the place in the world graph and in the zone list.
             .OrderBy(z => z.DisplayName is null)
             .ThenBy(z => z.DisplayName ?? z.ShortName, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(z => z.ShortName, StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
         return new MapCatalog(

@@ -257,6 +257,7 @@ public static class ServerApp
                     return new ZoneGraphNode(
                         z,
                         entry?.DisplayName,
+                        graph.MapsOf(z),
                         graph.Neighbours(z).Count,
                         entry?.Era,
                         entry?.EraSource?.ToString().ToLowerInvariant());

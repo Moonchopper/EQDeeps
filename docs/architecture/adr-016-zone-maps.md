@@ -114,6 +114,17 @@ Routing is breadth-first and unweighted. The graph carries no travel times, so
 "fewest zones" is the only ordering the data supports, and neighbours are walked
 in name order so the same question gives the same answer twice.
 
+**A node is a place, not a file.** Twelve display names have two maps each
+(map format doc §5.1), and a label naming one of them resolves to both. Drawn
+one node per file, every such place appeared twice, each copy wired to the same
+neighbours — the Oasis of Marr's one label to the Plane of Hate made two Planes
+of Hate. So maps sharing a display name are one node: it takes the first
+drawing's short name in catalogue order (which agrees with what the zone list
+opens), lists all of them, answers routing questions asked by any of them, and
+its exits are the union of its drawings' labels — for the same reason both map
+*sets* are read. This is Decision 3's "place first, file second" applied to the
+graph.
+
 ## Decision 5: the era is chosen, and a zone's era is a lower bound
 
 A stock install ships every expansion's maps regardless of what the server has

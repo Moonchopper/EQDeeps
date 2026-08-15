@@ -225,7 +225,10 @@ Offer both — only the player knows which they mean. But offer them as one
 *place* with a choice of drawing, not as two identical rows in a zone list:
 the two cases behind a shared name (one zone drawn twice; two zones that share
 a name across a revamp) are indistinguishable from the data, and in both the
-player wants the place first and the file second.
+player wants the place first and the file second. The world graph follows the
+same rule — one node per place, its exits pooled across the drawings — because
+a label to "The Plane of Hate" resolves to both files, and drawn per file that
+made two Planes of Hate off the Oasis of Marr.
 
 Note this is **not** the same axis as the map *sets*. A zone present in both
 `maps/` and `maps/brewalls/` is one entry with two sets; `tox` and `toxxulia`

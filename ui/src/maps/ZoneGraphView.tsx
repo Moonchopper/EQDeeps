@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api, type ZoneGraph, type ZoneGraphNode, type ZoneRouteStep } from "../api";
+import { fuzzyMatch, type FuzzyHit } from "../fuzzy";
 
 interface Point {
   x: number;
@@ -214,6 +215,50 @@ interface Box {
 }
 
 /**
+ * A zone name as SVG text runs, the matched letters marked so a fuzzy hit
+ * shows its reasoning — the same idea as the tables' Highlight, but tspans,
+ * because a <mark> cannot live inside <text>. Runs rather than one tspan per
+ * letter: SVG lays tspans out inline, but hundreds of single-letter spans
+ * across every visible label add up on a graph that redraws as you pan.
+ */
+function nameRuns(text: string, hit: FuzzyHit | undefined): JSX.Element[] | string {
+  if (!hit || hit.positions.length === 0) {
+    return text;
+  }
+
+  const matched = new Set(hit.positions);
+  const out: JSX.Element[] = [];
+  let run = "";
+  let runIsMatch = matched.has(0);
+
+  const flush = () => {
+    if (run.length > 0) {
+      out.push(
+        runIsMatch ? (
+          <tspan key={out.length} className="hit">
+            {run}
+          </tspan>
+        ) : (
+          <tspan key={out.length}>{run}</tspan>
+        ),
+      );
+    }
+    run = "";
+  };
+
+  for (let i = 0; i < text.length; i++) {
+    const isMatch = matched.has(i);
+    if (isMatch !== runIsMatch) {
+      flush();
+      runIsMatch = isMatch;
+    }
+    run += text[i];
+  }
+  flush();
+  return out;
+}
+
+/**
  * Deep enough to read a crowded corner, not so deep you end up in the gap
  * between two zones with nothing on screen. The world is ~5000 units across
  * and 40× put the viewport inside a single edge.
@@ -240,6 +285,7 @@ export function ZoneGraphView({ onOpenZone, era, onEraChange }: Props) {
   const [route, setRoute] = useState<ZoneRouteStep[] | null>(null);
   const [noRoute, setNoRoute] = useState(false);
   const [hover, setHover] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
 
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<{ x: number; y: number } | null>(null);
@@ -392,6 +438,37 @@ export function ZoneGraphView({ onOpenZone, era, onEraChange }: Props) {
     return m;
   }, [graph]);
 
+  /**
+   * Which drawn zones the search box finds, and where in the name it found
+   * them. Fuzzy, like every other search box here — "gfay" and "cauld" are how
+   * players actually say these — and matched against the short name as well
+   * as the display name, since the file name is what a lot of people know.
+   * A hit only carries letter positions when the *display* name matched;
+   * a short-name hit lights the zone and marks nothing, rather than marking
+   * letters in a name that is not the one on screen.
+   *
+   * <p>Null when nothing is being searched, which is a different state from
+   * "everything matched": with no query, nothing is dimmed and the labels
+   * follow the rank rule; with a query, only hits are named and everything
+   * else steps back.</p>
+   */
+  const found = useMemo(() => {
+    if (!drawn || search.trim().length === 0) {
+      return null;
+    }
+
+    const hits = new Map<string, FuzzyHit>();
+    for (const z of drawn.graph.zones) {
+      const byDisplay = fuzzyMatch(z.displayName ?? z.shortName, search);
+      if (byDisplay) {
+        hits.set(z.shortName, byDisplay);
+      } else if (fuzzyMatch(z.shortName, search)) {
+        hits.set(z.shortName, { score: 0, positions: [] });
+      }
+    }
+    return hits;
+  }, [drawn, search]);
+
   const onRoute = () => {
     if (!from || !to) {
       return;
@@ -485,11 +562,24 @@ export function ZoneGraphView({ onOpenZone, era, onEraChange }: Props) {
             {drawn.unknown > 0 && ` · ${drawn.unknown} of unknown era kept`}
             {drawn.omitted > 0 &&
               ` · ${drawn.omitted} with no labelled exit${eraLimit === undefined ? "" : " in this era"} not drawn`}
+            {found && ` · ${found.size === 0 ? "nothing matches" : `${found.size} match`} “${search.trim()}”`}
             {" · scroll to zoom, drag to pan"}
           </span>
         </div>
 
         <div className="map-controls">
+          {/* Finds zones by name without moving anything: hits light up where
+              they are and the rest steps back, so the search reads as "where
+              is X" rather than a list to pick from. Escape clears it. */}
+          <input
+            className="map-filter map-search"
+            placeholder="Find a zone…"
+            value={search}
+            spellCheck={false}
+            onChange={(e) => setSearch(e.target.value)}
+            onKeyDown={(e) => e.key === "Escape" && setSearch("")}
+            title="Fuzzy: “gfay” finds The Greater Faydark. Matching zones light up and the rest dim."
+          />
           {/* Which expansion the server has reached. The player's call: the
               log names only zones already visited, and the map files carry no
               content gating, so nothing here can guess it (issue #57). */}
@@ -590,6 +680,9 @@ export function ZoneGraphView({ onOpenZone, era, onEraChange }: Props) {
 
             const key = e.from < e.to ? `${e.from} ${e.to}` : `${e.to} ${e.from}`;
             const lit = onPath.has(key);
+            // An edge that touches no hit steps back with the zones it joins.
+            // A route stays lit regardless: it was asked for too.
+            const dim = found !== null && !lit && !found.has(e.from) && !found.has(e.to);
 
             return (
               <line
@@ -598,7 +691,7 @@ export function ZoneGraphView({ onOpenZone, era, onEraChange }: Props) {
                 y1={a.y}
                 x2={b.x}
                 y2={b.y}
-                className={"zone-edge" + (lit ? " on" : "")}
+                className={"zone-edge" + (lit ? " on" : "") + (dim ? " dim" : "")}
                 // Inline, not the strokeWidth attribute: a CSS rule beats a
                 // presentation attribute, so the stylesheet's width would win
                 // and every line would thicken into a ribbon as you zoom in.
@@ -615,6 +708,8 @@ export function ZoneGraphView({ onOpenZone, era, onEraChange }: Props) {
 
             const lit = onRouteNode.has(z.shortName);
             const near = hover === z.shortName;
+            const hit = found?.get(z.shortName);
+            const dim = found !== null && hit === undefined && !lit;
 
             // With an era chosen, a zone the table could not place is kept
             // but marked: it may or may not exist on this server.
@@ -629,7 +724,13 @@ export function ZoneGraphView({ onOpenZone, era, onEraChange }: Props) {
               <g
                 key={z.shortName}
                 transform={`translate(${p.x} ${p.y})`}
-                className={"zone-node" + (lit ? " on" : "") + (unsure ? " unsure" : "")}
+                className={
+                  "zone-node" +
+                  (lit ? " on" : "") +
+                  (unsure ? " unsure" : "") +
+                  (hit ? " hit" : "") +
+                  (dim ? " dim" : "")
+                }
                 onMouseEnter={() => setHover(z.shortName)}
                 onMouseLeave={() => setHover(null)}
                 onClick={() => onOpenZone(z.shortName)}
@@ -643,13 +744,16 @@ export function ZoneGraphView({ onOpenZone, era, onEraChange }: Props) {
                   {z.degree === 1 ? "connection" : "connections"}
                   {eraNote}
                 </title>
-                {(z.degree >= labelAbove || near || lit) && (
+                {/* While searching, only hits are named — a dimmed label is
+                    clutter over what you are looking for — and every hit is,
+                    however small, because it is what you asked for. */}
+                {(found ? hit !== undefined || near || lit : z.degree >= labelAbove || near || lit) && (
                   <text
                     x={0}
                     y={-nameSize * 0.7}
                     style={{ fontSize: nameSize, strokeWidth: nameSize / 4 }}
                   >
-                    {names.get(z.shortName)}
+                    {nameRuns(names.get(z.shortName) ?? z.shortName, hit)}
                   </text>
                 )}
               </g>

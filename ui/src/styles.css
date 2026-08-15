@@ -2451,6 +2451,37 @@ textarea:focus-visible,
   stroke: var(--ink);
 }
 
+/* Searching the world: hits come forward, everything else steps back. Gold
+   rather than the accent, so a search hit is not mistaken for a route step —
+   the two can be on screen together. */
+.zone-node.hit circle {
+  fill: var(--gold);
+}
+
+.zone-node.hit text {
+  fill: var(--ink);
+}
+
+/* The letters the fuzzy match landed on, so the hit shows its reasoning. */
+.zone-node text .hit {
+  fill: var(--gold);
+  font-weight: var(--w-bold);
+}
+
+.zone-node.dim {
+  opacity: 0.22;
+}
+
+.zone-edge.dim {
+  opacity: 0.25;
+}
+
+.map-search {
+  width: 150px;
+  padding: 3px 8px;
+  font-size: var(--fs-tiny);
+}
+
 /* Size and halo width are set inline, in viewBox units: SVG scales text with
    the drawing, so a fixed pixel size renders differently for every world. */
 .zone-node text {

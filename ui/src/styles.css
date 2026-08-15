@@ -2414,14 +2414,15 @@ textarea:focus-visible,
   height: 100%;
 }
 
+/* Widths are set inline, in view units, so a line stays the same thickness on
+   screen at any zoom. A stroke-width here would beat that: CSS outranks a
+   presentation attribute, and every edge thickened into a ribbon when zoomed. */
 .zone-edge {
   stroke: var(--border);
-  stroke-width: 1;
 }
 
 .zone-edge.on {
   stroke: var(--accent);
-  stroke-width: 3;
 }
 
 .zone-node circle {

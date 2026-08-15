@@ -2177,3 +2177,276 @@ textarea:focus-visible,
   padding: 2px 4px;
   margin: 0 -4px;
 }
+
+/* ---- zone maps (F27) ----------------------------------------------------
+   A destination rather than a panel: the map has no time frame and no metric,
+   so it owns the whole area and brings its own controls. See ADR-016. */
+
+.map-main {
+  display: flex;
+  gap: 10px;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+}
+
+.map-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 220px;
+  flex: 0 0 220px;
+  min-height: 0;
+}
+
+.map-mode {
+  display: flex;
+  gap: 4px;
+}
+
+.mini-btn.on {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.mini-select {
+  color: var(--ink-2);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-control);
+  padding: 1px 6px;
+  font-size: var(--fs-tiny);
+  max-width: 190px;
+}
+
+.map-filter {
+  background: var(--surface-2);
+  color: var(--ink);
+  border: 1px solid var(--border);
+  border-radius: var(--r-control);
+  padding: 4px 8px;
+  font-size: var(--fs-small);
+}
+
+/* The zone list is the one long scroller in this view; the map itself never
+   scrolls, it pans. */
+.map-zone-list {
+  overflow-y: auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: var(--r-inner);
+  background: var(--surface);
+}
+
+.map-zone {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 6px;
+  text-align: left;
+  padding: 4px 8px;
+  color: var(--ink-2);
+  font-size: var(--fs-small);
+  border-bottom: 1px solid var(--border);
+}
+
+.map-zone:last-child {
+  border-bottom: none;
+}
+
+.map-zone:hover {
+  background: var(--hover);
+  color: var(--ink);
+}
+
+.map-zone.on {
+  background: var(--selected);
+  color: var(--accent);
+}
+
+.map-zone-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A map we can draw but cannot name. Saying so beats showing a file name as
+   though it were a place. */
+.map-zone-unnamed {
+  color: var(--muted);
+  font-size: var(--fs-micro);
+  font-style: italic;
+  flex: none;
+}
+
+.map-stage {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.map-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.map-header h2 {
+  font-size: var(--fs-lg);
+  color: var(--ink);
+  margin: 0;
+}
+
+.map-sub {
+  color: var(--muted);
+  font-size: var(--fs-tiny);
+  font-family: var(--font-mono);
+}
+
+.map-prov {
+  font-style: normal;
+  color: var(--muted);
+}
+
+.map-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.map-layers {
+  display: flex;
+  gap: 3px;
+}
+
+.map-body {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  position: relative;
+  border: 1px solid var(--border);
+  border-radius: var(--r-card);
+  background: var(--page);
+  overflow: hidden;
+}
+
+.map-canvas-wrap {
+  position: absolute;
+  inset: 0;
+}
+
+.map-canvas {
+  display: block;
+  touch-action: none;
+}
+
+.map-loading,
+.map-empty-small {
+  padding: 12px;
+  color: var(--muted);
+  font-size: var(--fs-small);
+}
+
+.map-empty {
+  padding: 24px;
+  color: var(--ink-2);
+  max-width: 62ch;
+}
+
+.map-empty h3 {
+  color: var(--ink);
+  margin: 0 0 8px;
+}
+
+.map-roots {
+  font-family: var(--font-mono);
+  font-size: var(--fs-tiny);
+  color: var(--muted);
+  padding-left: 18px;
+}
+
+/* Exits get their own strip rather than living in the drawing, so they are
+   readable at any zoom — they are the reason to open a zone you don't know. */
+.map-exits {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding-top: 2px;
+}
+
+.map-exits-label {
+  color: var(--muted);
+  font-size: var(--fs-micro);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.map-exit {
+  color: var(--accent);
+  border: 1px solid var(--border);
+  border-radius: var(--r-chip);
+  padding: 1px 8px;
+  font-size: var(--fs-tiny);
+}
+
+.map-exit:hover {
+  border-color: var(--accent);
+  background: var(--hover);
+}
+
+.map-arrow {
+  color: var(--muted);
+}
+
+/* ---- the world graph ---- */
+
+.zone-graph {
+  width: 100%;
+  height: 100%;
+}
+
+.zone-edge {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+.zone-edge.on {
+  stroke: var(--accent);
+  stroke-width: 3;
+}
+
+.zone-node circle {
+  fill: var(--muted);
+  cursor: pointer;
+}
+
+.zone-node:hover circle {
+  fill: var(--ink);
+}
+
+.zone-node.on circle {
+  fill: var(--accent);
+}
+
+.zone-node text {
+  fill: var(--ink-2);
+  font-size: 9px;
+  text-anchor: middle;
+  pointer-events: none;
+  paint-order: stroke;
+  stroke: var(--page);
+  stroke-width: 3px;
+}
+
+.zone-node.on text {
+  fill: var(--accent);
+}

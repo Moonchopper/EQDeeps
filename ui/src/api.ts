@@ -281,6 +281,109 @@ async function json<T>(response: Response): Promise<T> {
   return (await response.json()) as T;
 }
 
+// ---- zone maps (F27) -------------------------------------------------------
+
+/** How a zone's display name was arrived at. Only the first two are verifiable. */
+export type ZoneNameSource = "name" | "graph" | "curated";
+
+export interface MapCatalogEntry {
+  shortName: string;
+  /** Absent when the zone table does not know this map's name. */
+  displayName?: string;
+  nameSource?: ZoneNameSource;
+  /** Map sets holding this zone, best first — usually "default", "brewalls". */
+  sets: string[];
+}
+
+export interface MapCatalog {
+  found: boolean;
+  /** Where the app looked, reported even when it found nothing. */
+  roots: string[];
+  zones: MapCatalogEntry[];
+}
+
+/**
+ * Every segment of one colour, packed as [x1,y1,z1, x2,y2,z2, …].
+ *
+ * Flat and pre-grouped because that is what the canvas wants: one path per
+ * colour rather than a style change per segment. See ADR-016.
+ */
+export interface MapStrokes {
+  r: number;
+  g: number;
+  b: number;
+  segments: number[];
+}
+
+export interface MapLabel {
+  x: number;
+  y: number;
+  z: number;
+  r: number;
+  g: number;
+  b: number;
+  size: number;
+  text: string;
+}
+
+export interface MapLayer {
+  index: number;
+  strokes: MapStrokes[];
+  labels: MapLabel[];
+  segments: number;
+}
+
+export interface MapBounds {
+  minX: number;
+  minY: number;
+  minZ: number;
+  maxX: number;
+  maxY: number;
+  maxZ: number;
+}
+
+export interface ZoneMap {
+  shortName: string;
+  displayName?: string;
+  nameSource?: ZoneNameSource;
+  set: string;
+  sets: string[];
+  bounds: MapBounds;
+  layers: MapLayer[];
+}
+
+export interface ZoneGraphNode {
+  shortName: string;
+  displayName?: string;
+  degree: number;
+}
+
+export interface ZoneGraphEdge {
+  from: string;
+  to: string;
+}
+
+export interface ZoneGraph {
+  zones: ZoneGraphNode[];
+  edges: ZoneGraphEdge[];
+}
+
+export interface ZoneRouteStep {
+  shortName: string;
+  displayName?: string;
+  /** The label the previous zone used for this exit — "(Boat)" and the like. */
+  via?: string;
+}
+
+/**
+ * `found` is a flag rather than a null route because the server drops nulls
+ * when serializing, and an empty route would read as "you are already there".
+ */
+export interface ZoneRoute {
+  found: boolean;
+  route: ZoneRouteStep[];
+}
+
 export interface DiscoveredLog {
   path: string;
   character: string;
@@ -481,4 +584,29 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(document),
     }).then(() => undefined),
+
+  // ---- zone maps (F27) ----------------------------------------------------
+
+  mapCatalog: (): Promise<MapCatalog> => fetch("/api/maps").then((r) => json(r)),
+
+  /**
+   * Which maps could be the zone a log line named. Plural on purpose: a
+   * revamped zone shares its display name with the classic one.
+   */
+  resolveZone: (zone: string): Promise<{ zone: string; shortNames: string[] }> =>
+    fetch(`/api/maps/resolve?zone=${encodeURIComponent(zone)}`).then((r) => json(r)),
+
+  zoneMap: (shortName: string, set?: string): Promise<ZoneMap> =>
+    fetch(
+      `/api/maps/${encodeURIComponent(shortName)}` +
+        (set ? `?set=${encodeURIComponent(set)}` : ""),
+    ).then((r) => json(r)),
+
+  /** The whole world. First call reads every map's labels and takes seconds. */
+  zoneGraph: (): Promise<ZoneGraph> => fetch("/api/maps/graph").then((r) => json(r)),
+
+  zoneRoute: (from: string, to: string): Promise<ZoneRoute> =>
+    fetch(
+      `/api/maps/route?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
+    ).then((r) => json(r)),
 };

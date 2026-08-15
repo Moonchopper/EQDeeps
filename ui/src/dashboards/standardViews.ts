@@ -58,6 +58,14 @@ export const MOBS_VIEW = "mobs";
  */
 export const HITS_VIEW = "incoming";
 
+/**
+ * Zone maps (F27). A rail entry rather than a dashboard for a blunter reason
+ * than the two above: a map has no records behind it at all — no time frame, no
+ * metric, no grouping — so the QuerySpec it would have to carry could never be
+ * run. See ADR-016.
+ */
+export const MAPS_VIEW = "maps";
+
 export interface MigrationResult {
   dashboards: DashboardDef[];
   changed: boolean;

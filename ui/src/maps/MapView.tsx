@@ -98,18 +98,54 @@ export function MapView({ currentZone }: Props) {
     };
   }, [selected, set]);
 
-  const zones = useMemo(() => {
+  /**
+   * One row per *place*, not per file. Several maps can carry the same display
+   * name and the list showed them as identical rows — two "Toxxulia Forest"
+   * entries with nothing to choose between them.
+   *
+   * <p>Merging them rather than labelling them apart is deliberate, because the
+   * two cases behind a shared name are indistinguishable from here. `tox` and
+   * `toxxulia` are one zone drawn twice, at 699 and 7738 segments; `freportw`
+   * and `freeportwest` are genuinely different zones that share a name across a
+   * revamp. Either way the player wants the place first and the drawing second,
+   * so the name picks the place and a control picks the map.</p>
+   *
+   * <p>Unnamed maps cannot be grouped: there is no name to group them under,
+   * and two files we cannot name are not evidence of being the same place.</p>
+   */
+  const places = useMemo(() => {
     if (!catalog) {
       return [];
     }
 
-    return catalog.zones
-      .map((z) => ({ zone: z, hit: fuzzyMatch(z.displayName ?? z.shortName, filter) }))
-      .filter((x) => x.hit !== null)
-      .sort((a, b) => b.hit!.score - a.hit!.score)
-      .slice(0, 300)
-      .map((x) => x.zone);
-  }, [catalog, filter]);
+    const byKey = new Map<string, { key: string; name: string; maps: MapCatalogEntry[] }>();
+
+    for (const zone of catalog.zones) {
+      const key = zone.displayName ? `n:${zone.displayName}` : `s:${zone.shortName}`;
+      let place = byKey.get(key);
+
+      if (!place) {
+        byKey.set(key, (place = { key, name: zone.displayName ?? zone.shortName, maps: [] }));
+      }
+
+      place.maps.push(zone);
+    }
+
+    return [...byKey.values()];
+  }, [catalog]);
+
+  const shown = useMemo(
+    () =>
+      places
+        .map((place) => ({ place, hit: fuzzyMatch(place.name, filter) }))
+        .filter((x) => x.hit !== null)
+        .sort((a, b) => b.hit!.score - a.hit!.score)
+        .slice(0, 300)
+        .map((x) => x.place),
+    [places, filter],
+  );
+
+  const place = places.find((p) => p.maps.some((m) => m.shortName === selected));
 
   const entry: MapCatalogEntry | undefined = catalog?.zones.find(
     (z) => z.shortName === selected,
@@ -218,23 +254,29 @@ export function MapView({ currentZone }: Props) {
               onChange={(e) => setFilter(e.target.value)}
             />
             <div className="map-zone-list">
-              {zones.map((z) => (
+              {shown.map((p) => (
                 <button
-                  key={z.shortName}
-                  className={"map-zone" + (z.shortName === selected ? " on" : "")}
+                  key={p.key}
+                  className={"map-zone" + (place?.key === p.key ? " on" : "")}
                   onClick={() => {
-                    setSelected(z.shortName);
+                    setSelected(p.maps[0].shortName);
                     setSet(undefined);
                   }}
-                  title={z.shortName}
+                  title={p.maps.map((m) => m.shortName).join(", ")}
                 >
-                  <span className="map-zone-name">{z.displayName ?? z.shortName}</span>
+                  <span className="map-zone-name">{p.name}</span>
+                  {/* More than one map claims this name; the header lets you
+                      pick which. Said here so the choice is discoverable
+                      before you land on the zone. */}
+                  {p.maps.length > 1 && (
+                    <span className="map-zone-variants">{p.maps.length} maps</span>
+                  )}
                   {/* An unnamed map is a file we can draw but cannot name. Say
                       so rather than showing a short name as if it were a place. */}
-                  {!z.displayName && <span className="map-zone-unnamed">unnamed</span>}
+                  {!p.maps[0].displayName && <span className="map-zone-unnamed">unnamed</span>}
                 </button>
               ))}
-              {zones.length === 0 && <div className="map-empty-small">No zone matches that.</div>}
+              {shown.length === 0 && <div className="map-empty-small">No zone matches that.</div>}
             </div>
           </>
         )}
@@ -254,6 +296,26 @@ export function MapView({ currentZone }: Props) {
             </div>
 
             <div className="map-controls">
+              {/* Which map file to draw this place from. Only appears when
+                  something is actually being chosen between. */}
+              {place && place.maps.length > 1 && (
+                <select
+                  className="mini-select"
+                  value={selected ?? ""}
+                  onChange={(e) => {
+                    setSelected(e.target.value);
+                    setSet(undefined);
+                  }}
+                  title="More than one map file claims this zone name"
+                >
+                  {place.maps.map((m) => (
+                    <option key={m.shortName} value={m.shortName}>
+                      {m.shortName}
+                    </option>
+                  ))}
+                </select>
+              )}
+
               {entry && entry.sets.length > 1 && (
                 <select
                   className="mini-select"

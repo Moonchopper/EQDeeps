@@ -2464,3 +2464,21 @@ textarea:focus-visible,
   position: absolute;
   inset: 0;
 }
+
+/* Several map files can claim one zone name. The count is shown on the row so
+   the choice is discoverable before you land on the zone; the header picks. */
+.map-zone-variants {
+  color: var(--muted);
+  font-size: var(--fs-micro);
+  font-family: var(--font-mono);
+  flex: none;
+}
+
+/* Several map files can claim one zone name. The count is shown on the row so
+   the choice is discoverable before you land on the zone; the header picks. */
+.map-zone-variants {
+  color: var(--muted);
+  font-size: var(--fs-micro);
+  font-family: var(--font-mono);
+  flex: none;
+}

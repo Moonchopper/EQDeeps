@@ -98,8 +98,8 @@ Useful server flags: `--browser` (default browser instead of the app window),
 
 Test-only redirect flags — these keep tests out of the real `%AppData%`, and any
 new store you add should get one to match: `--recentLogsRoot`, `--sampleLogRoot`,
-`--updateRoot`, `--mobRoot`, `--attackRoot`, `--itemRoot`, `--storeRoot`,
-`--mapRoot`, `--cacheRoot`.
+`--updateRoot`, `--mobRoot`, `--attackRoot`, `--itemRoot`, `--referenceRoot`,
+`--storeRoot`, `--mapRoot`, `--cacheRoot`.
 
 **Pass all of them, always** — including for a test that only touches one. A
 harness that redirects most of the stores reads as isolated, and the gap is
@@ -186,6 +186,7 @@ Invariants worth not breaking:
 | `recent-logs.json` | MRU log list | `--recentLogsRoot` | No |
 | `mobs\` | F25 learned mob health per *server* | `--mobRoot` | Yes — a cache. Corrupt file just relearns |
 | `attacks\` | F26 learned mob attacks per *server*, keyed by defender level too | `--attackRoot` | Yes — a cache, same deal |
+| `reference\` | F30 mob details fetched from EQLBase on demand — the name index and the id-sharded stat blocks, with their ETags (ADR-020). Never bundled, never fetched until asked | `--referenceRoot` | Yes — a cache; `--no-reference` switches the whole feature off |
 | `items\` | F29 item registry per *server*: every item the logs and the player's client files have named, with the game's id where a file gave one (ADR-019) | `--itemRoot` | Yes — a cache; the logs and the client's `userdata\LF_*.ini` still exist |
 | `cache\` | F28 parsed records per *log file* per *parser build* (`<hash of path>-<build>.eqdc`), so the next open resumes instead of re-parsing (ADR-018). Dev and installed builds keep separate files and never read each other's. Also `map-labels-<build>.json`: every map file's labels, so the World view's graph does not re-read 200 MB of maps per launch | `--cacheRoot` | Yes — a cache; validated against the log's own bytes and the parser build, rebuilt when either differs. Sweeps itself: gone logs, 60 days idle, all but the newest foreign build per log. Map labels validated per file by size + mtime |
 | update preferences, staged installer | ADR-010 | `--updateRoot` | Yes |
@@ -271,8 +272,8 @@ copied outright with attribution in `NOTICE`.
 - The domain docs are the **spec of record**. When reality disagrees with them,
   fix the doc in the same change.
 - Significant design choices get a short ADR in `docs/architecture/`
-  (`adr-0NN-topic.md`, numbered sequentially — 019 is the newest).
-- Features carry stable ids (F1…F30) in `docs/product/features.md`; update the
+  (`adr-0NN-topic.md`, numbered sequentially — 020 is the newest).
+- Features carry stable ids (F1…F30, F30 being the Bestiary) in `docs/product/features.md`; update the
   status line there when one ships, and reference the id in commits and comments.
 - `docs/HANDOFF.md` carries the rolling status paragraph. Keep it current.
 
@@ -292,7 +293,8 @@ copied outright with attribution in `NOTICE`.
 | What is a fight? How is DPS/sDPS/crit rate computed? What is the denominator? | `docs/domain/metrics-and-aggregation.md` |
 | Stack, component boundaries, QuerySpec model, persistence layout | `docs/architecture/system-overview.md` |
 | Why is ingestion built that way? | `docs/architecture/log-ingestion-brief.md` + `adr-002` |
-| Why was decision D made? | `docs/architecture/adr-001…019` (parser, ingestion, session state, query engine, API/live, SPA, dashboards, packaging, windowed shell, auto-update, gear snapshots (withdrawn), mob health, incoming damage, navigation rail, visual language, zone maps, grouped rail, log cache, reference lookup) |
+| Where does mob reference data come from, and what may we do with it? | `docs/architecture/adr-020-npc-reference.md` — measured coverage, licensing, and the fetch-not-bundle rule |
+| Why was decision D made? | `docs/architecture/adr-001…020` (parser, ingestion, session state, query engine, API/live, SPA, dashboards, packaging, windowed shell, auto-update, gear snapshots (withdrawn), mob health, incoming damage, navigation rail, visual language, zone maps, grouped rail, log cache, reference lookup, NPC reference) |
 | Build order, status, verification strategy | `docs/HANDOFF.md` |
 | Signing, release keys, what to do before tagging | `docs/release-signing.md` |
 | How do I run it / what do the flags do? | `README.md` |

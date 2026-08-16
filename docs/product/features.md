@@ -553,16 +553,41 @@ Acceptance:
 - Room for other servers: a new world is one entry in `providers.ts`; the
   era is not duplicated here (it lives with the maps).
 
-### F30. Bestiary — the NPCs the app knows, searchable (issue #51) — **open**
+### F30. Bestiary — every mob in the game, searchable (issue #51) — **shipped (2026-08-16)**
 
-One row per NPC name, per server: zones seen, levels seen (from /con), health
-estimate (F25), kills, first/last seen, with a lookup door on every row and
-the same fuzzy search box every table has. Built from what F25/F26, the
-identity registry, considers and deaths already know, persisted per server;
-enriched from the install by the Hunter achievements (named mob → zone for
-mobs never met) and on the map by the Brewall labels. See ADR-019 decision 4.
-The Mobs table already carries the lookup door as a down payment. *(shipped:
-lookup on Mobs rows; open: the registry, the view, the enrichment)*
+A rail view under World: search all ~5,300 mob names EverQuest Legends has,
+and for any of them see level, health, AC, damage, race, class, faction,
+respawn, where it spawns and what it drops — **beside what your own logs
+measured**. See [ADR-020](../architecture/adr-020-npc-reference.md).
+
+The original plan was a registry built from the log. It was measured first
+and abandoned on the numbers: the owner's 118 MB log yields 580 mobs killed
+(1,061 names mentioned at all), 75% of them with a /consider level, against
+5,349 names a reference site lists — ~24% coverage, with most rows carrying
+little but a name. What a log *can* say that no site can is what a mob took
+to kill, on this server, at this difficulty, and that is F25 already.
+
+So: reference data for breadth, our measurements for truth, both labelled.
+
+Acceptance:
+- Search every listed mob by name; results show each level variant. *(shipped)*
+- A mob's page shows the listed stat block, spawn zones and loot table with
+  drop rates, each item carrying its lookup door (F29). *(shipped)*
+- Beside it, what this server's logs measured for that name — damage to kill
+  per zone and difficulty tier, kill count, the levels you consed, and the
+  ratio to the listed health. *(shipped — the owner's data shows ×0.93 open
+  world and ×2.09 at the Fused tier for the same mob, which is F25's thesis
+  in one row)*
+- Matching a log name to a listing uses the session's /consider levels, since
+  one name is listed at several levels, and says whether a level corroborated
+  it rather than implying certainty. *(shipped)*
+- **Nothing is fetched until the view is opened and something is typed**; the
+  index revalidates at most once a day by ETag; Settings → "Look mobs up
+  online" and `--no-reference` switch it off entirely. *(shipped)*
+- Data is never bundled — EQLBase states no licence — and every screen showing
+  it names and links the source. *(shipped)*
+- Open: item icons (the icon id is already in the data), and using the same
+  index to seed F21's level-normalized DPS.
 
 ## P2 — Later
 

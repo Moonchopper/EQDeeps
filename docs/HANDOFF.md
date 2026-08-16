@@ -48,10 +48,14 @@
 > feed at the top of the Loot view listing every item looted, sold, bought or
 > named in chat, newest first, with a door on each (F29; also fixed the loot
 > grammar dropping `an` and stack counts, and parsed merchant sales).
-> and the spell emotes a buff prints when it lands or fades are resolved
-> against the player's own `spells_us*.txt`, read from their install — 94k
-> lines of the owner's log that used to go past unrecognized, now events, with
-> a spell named only when the text belongs to one (F10a).
+> and a Bestiary: every mob the game has, searchable, with its listed level,
+> health, loot and spawns fetched from EQLBase on demand and cached here —
+> never bundled, never fetched until asked, switchable off — shown beside what
+> your own logs measured for the same mob (ADR-020, feature F30, issue #51),
+> and the spell emotes a buff prints when it lands or fades resolved against
+> the player's own `spells_us*.txt`, read from their install — 94k lines of the
+> owner's log that used to go past unrecognized, now events, with a spell
+> named only when the text belongs to one (F10a).
 > Currently at **v0.13.2**. See `docs/product/features.md` for per-feature
 > status. The main open items: real-log validation against EQLogParser (the
 > release gate), the spell-DB work (class detection, bane, lands-on

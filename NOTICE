@@ -58,5 +58,16 @@ portions Copyright Martijn Laan, under the Inno Setup License. Inno Setup's
 setup engine is therefore present in the distributed EQDeeps-Setup executable;
 it is not part of the EQDeeps application itself.
 
+== Reference data ==
+
+The Bestiary (feature F30) fetches mob details — levels, health, spawns and
+loot tables — from EQLBase (https://eqlbase.com), a community database for
+EverQuest Legends, at the user's request and onto the user's own machine. No
+part of that data is bundled with EQDeeps or redistributed by it: each user's
+copy is fetched by them, cached locally, and attributed on screen with a link
+back to the page it came from. The feature can be switched off entirely
+(Settings, or --no-reference), and nothing is fetched until it is used. See
+docs/architecture/adr-020-npc-reference.md.
+
 EverQuest is a registered trademark of Daybreak Game Company LLC. EQDeeps is
 an unaffiliated fan-made tool and includes no game assets.

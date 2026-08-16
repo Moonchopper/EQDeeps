@@ -162,7 +162,7 @@ const FIXTURES = [
           <button class="btn">Cancel</button>
           <button class="mini-btn">edit</button>
           <button class="mini-btn on">live</button>
-          <button class="detect-refresh">↻</button>
+          <button class="session-add">+</button>
           <button class="range-chip">-6h</button>
           <button class="range-chip on">-1h</button>
           <button class="link-btn">not now</button>
@@ -171,7 +171,8 @@ const FIXTURES = [
           <input class="search-input" placeholder="Filter" />
           <input class="num-input" value="30" />
           <select class="panel-select"><option>everyone</option></select>
-          <select class="detected-select"><option>Detected logs (2)…</option></select>
+          <span class="time-controls"><select><option>10s</option></select></span>
+          <form class="log-open-form" style="margin:0"><input placeholder="C:\EverQuest\Logs\eqlog_Name_server.txt" /></form>
         </div>
       </div>`,
     checks: ["noOverflow", "controlsConsistent"],

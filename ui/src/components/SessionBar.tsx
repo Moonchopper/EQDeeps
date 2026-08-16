@@ -1,4 +1,4 @@
-import { useState, type CSSProperties } from "react";
+import type { CSSProperties } from "react";
 import type { DiscoveredLog, FightInfo, SessionInfo, UpdateState } from "../api";
 import type { BackfillEvent } from "../live";
 import { TimeControls, type ChartSettings } from "../timeControls";
@@ -29,8 +29,8 @@ interface Props {
   framed: boolean;
   /** Absolute window straight from the picker. */
   onAbsoluteRange: (beginMs: number, endMs: number) => void;
-  onOpen: (path: string) => void;
-  onRefreshDiscovered: () => void;
+  /** Opens the Logs dialog — the `+` after the session tabs. */
+  onOpenLogs: () => void;
   onActivate: (id: string) => void;
   onClose: (id: string) => void;
   error: string | null;
@@ -62,24 +62,15 @@ export function SessionBar({
   onResetDefaults,
   framed,
   onAbsoluteRange,
-  onOpen,
-  onRefreshDiscovered,
+  onOpenLogs,
   onActivate,
   onClose,
   error,
 }: Props) {
-  const [path, setPath] = useState("");
-  const openPaths = new Set(sessions.map((s) => s.path.toLowerCase()));
   // The demo log (source "sample") is kept apart from the player's real logs:
-  // its own labeled dropdown entry, and a badge on its session tab.
+  // a badge on its session tab, and its own row in the Logs dialog.
   const samplePaths = new Set(
     discovered.filter((d) => d.source === "sample").map((d) => d.path.toLowerCase()),
-  );
-  const available = discovered.filter(
-    (d) => !openPaths.has(d.path.toLowerCase()) && d.source !== "sample",
-  );
-  const sample = discovered.find(
-    (d) => d.source === "sample" && !openPaths.has(d.path.toLowerCase()),
   );
 
   return (
@@ -100,51 +91,13 @@ export function SessionBar({
           </span>
         ))}
       </div>
-      {(available.length > 0 || sample) && (
-        <select
-          className="detected-select"
-          value=""
-          onChange={(e) => {
-            if (e.target.value) {
-              onOpen(e.target.value);
-            }
-          }}
-          title="Log files found from the running game and standard install locations"
-        >
-          <option value="">Detected logs ({available.length})…</option>
-          {available.map((d) => (
-            <option key={d.path} value={d.path}>
-              {d.character} @{d.server} — {describeAge(d.lastWriteTime)} ({d.source})
-            </option>
-          ))}
-          {sample && (
-            <option value={sample.path}>
-              {sample.character} — bundled demo data, not yours
-            </option>
-          )}
-        </select>
-      )}
-      <button className="detect-refresh" title="Re-scan for log files" onClick={onRefreshDiscovered}>
-        ↻
+      {/* Opening a log is a start-of-session act, so it gets a `+` where a
+          browser puts a new tab and the rest lives in the Logs dialog —
+          not a dropdown, a rescan button and a path box in permanent
+          residence across the header. */}
+      <button className="session-add" onClick={onOpenLogs} title="Open a log" aria-label="Open a log">
+        +
       </button>
-      <form
-        className="open-form"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (path.trim()) {
-            onOpen(path.trim());
-            setPath("");
-          }
-        }}
-      >
-        <input
-          value={path}
-          onChange={(e) => setPath(e.target.value)}
-          placeholder="C:\EverQuest\Logs\eqlog_Name_server.txt"
-          spellCheck={false}
-        />
-        <button type="submit">Open log</button>
-      </form>
       {backfill && !backfill.complete && backfill.totalBytes > 0 && (
         <span className="backfill">
           loading {Math.round((backfill.bytesProcessed / backfill.totalBytes) * 100)}%

@@ -13,9 +13,10 @@ import {
 import { createLiveConnection, type BackfillEvent, type TickEvent } from "./live";
 import { IncomingPanel } from "./components/IncomingPanel";
 import { MobHealthPanel } from "./components/MobHealthPanel";
-import { describeAge, SessionBar } from "./components/SessionBar";
+import { SessionBar } from "./components/SessionBar";
 import { UpdateNotice, type UpdateChoice } from "./components/UpdateNotice";
 import { SettingsDialog } from "./components/SettingsDialog";
+import { LogPicker, LogsDialog } from "./components/LogPicker";
 import { FightList } from "./components/FightList";
 import { SummaryTable } from "./components/SummaryTable";
 import { DpsChart } from "./components/DpsChart";
@@ -185,6 +186,7 @@ export default function App() {
   const [update, setUpdate] = useState<UpdateState | null>(null);
   const [showUpdateNotice, setShowUpdateNotice] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showLogs, setShowLogs] = useState(false);
   const [checkNote, setCheckNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [dashboards, setDashboards] = useState<DashboardDef[]>([]);
@@ -640,11 +642,6 @@ export default function App() {
       .catch(() => setDiscovered([]));
   }
 
-  // The bundled demo log is listed by the server with source "sample"; it gets
-  // its own affordances everywhere so it never reads as one of the player's logs.
-  const sampleLog = discovered.find((d) => d.source === "sample");
-  const realLogs = discovered.filter((d) => d.source !== "sample");
-
   async function refreshFights(id: string) {
     try {
       const list = await api.getFights(id);
@@ -805,6 +802,23 @@ export default function App() {
           checkNote={checkNote}
         />
       )}
+      {showLogs && (
+        <LogsDialog
+          onClose={() => setShowLogs(false)}
+          onRescan={refreshDiscovered}
+          discovered={discovered}
+          sessions={sessions}
+          onOpen={(path) => {
+            setShowLogs(false);
+            openLog(path);
+          }}
+          onActivate={(id) => {
+            setShowLogs(false);
+            activate(id);
+          }}
+          onForget={forgetLog}
+        />
+      )}
       <SessionBar
         sessions={sessions}
         activeId={activeId}
@@ -818,10 +832,9 @@ export default function App() {
         frame={frame}
         fights={fights}
         onResetDefaults={resetToDefaults}
-        framed={!activeId || view !== "overview" || isFramedView(effectiveStdView)}
+        framed={Boolean(activeId) && (view !== "overview" || isFramedView(effectiveStdView))}
         onAbsoluteRange={adoptRange}
-        onOpen={openLog}
-        onRefreshDiscovered={refreshDiscovered}
+        onOpenLogs={() => setShowLogs(true)}
         onActivate={activate}
         onClose={closeSession}
         error={error}
@@ -944,6 +957,13 @@ export default function App() {
                   the app is and how it is set, apart from where you are in
                   it. Settings first; the log picker joins it next (ADR-017). */}
               <div className="rail-foot">
+                <button
+                  className="rail-tab"
+                  onClick={() => setShowLogs(true)}
+                  title="Every log EQDeeps can see, and a box for one it can't"
+                >
+                  Logs
+                </button>
                 <button
                   className="rail-tab"
                   onClick={() => setShowSettings(true)}
@@ -1106,71 +1126,22 @@ export default function App() {
       ) : (
         <main className="welcome">
           <h1>No log open</h1>
-          {realLogs.length > 0 ? (
-            <>
-              <p>Recent and detected EverQuest logs — click one to start:</p>
-              <div className="discovered-list">
-                {realLogs.map((d) => (
-                  <div key={d.path} className="discovered-item">
-                    <button className="discovered-row" onClick={() => openLog(d.path)}>
-                      <span className="discovered-name">
-                        {d.character} <span className="subtle">@{d.server}</span>
-                      </span>
-                      <span className="discovered-meta">
-                        last written {describeAge(d.lastWriteTime)} · {(d.sizeBytes / 1048576).toFixed(1)} MB ·{" "}
-                        {d.source}
-                      </span>
-                      <span className="discovered-path">{d.path}</span>
-                    </button>
-                    {/* Only "recent" rows can be forgotten: the others come from
-                        scanning the install, so they would reappear immediately. */}
-                    {d.source === "recent" && (
-                      <button
-                        className="discovered-forget"
-                        title="Remove from this list (the log file is not deleted)"
-                        aria-label={`Remove ${d.character} from recent logs`}
-                        onClick={() => forgetLog(d.path)}
-                      >
-                        ✕
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-              <p className="subtle">
-                Logging must be on in game (<code>/log</code>). You can also paste any log path above.
-                Logs marked <em>recent</em> can be removed from this list with ✕.
-              </p>
-            </>
-          ) : (
-            <p>
-              Open your EverQuest log file above (for example{" "}
-              <code>C:\EverQuest\Logs\eqlog_Yourname_server.txt</code>). Historical fights load
-              immediately; while the game runs, everything updates live. If EverQuest is running,
-              press ↻ to re-scan for its log files.
-            </p>
-          )}
-          {sampleLog && (
-            <div className="sample-callout">
-              <p className="subtle">
-                {realLogs.length > 0
-                  ? "Or just look around first:"
-                  : "No log handy? Look around with demo data:"}
-              </p>
-              <button
-                className="discovered-row sample-row"
-                onClick={() => openLog(sampleLog.path)}
-              >
-                <span className="discovered-name">
-                  <span className="sample-badge">sample</span> {sampleLog.character}{" "}
-                  <span className="subtle">@{sampleLog.server}</span> — not your data
-                </span>
-                <span className="discovered-meta">
-                  two days of real gameplay bundled with EQDeeps · {(sampleLog.sizeBytes / 1048576).toFixed(1)} MB
-                </span>
-              </button>
-            </div>
-          )}
+          <p className="subtle">
+            Click a log to start. Historical fights load at once; while the game runs, everything
+            updates live. Logging must be on in game (<code>/log</code>).
+          </p>
+          <div className="welcome-actions">
+            <button className="mini-btn" onClick={refreshDiscovered} title="Re-scan for log files">
+              ↻ rescan
+            </button>
+          </div>
+          <LogPicker
+            discovered={discovered}
+            sessions={sessions}
+            onOpen={openLog}
+            onActivate={activate}
+            onForget={forgetLog}
+          />
         </main>
       )}
     </div>

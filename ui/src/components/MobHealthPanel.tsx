@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import type { MobHealthEstimate, MobHealthReport } from "../api";
 import { SERIES_COLORS, fmtNum, fmtWhen } from "../format";
 import { TableSearch, meterStyle } from "../dashboards/tableTools";
+import { LookupLink } from "../lookup/LookupLink";
 
 interface Props {
   /** Null until the first fetch lands. */
@@ -137,7 +138,10 @@ export function MobHealthPanel({ mobs, server }: Props) {
             <tbody>
               {rows.map((m) => (
                 <tr key={keyOf(m)}>
-                  <td className="mob-name">{m.mob}</td>
+                  <td className="mob-name">
+                    {m.mob}
+                    <LookupLink kind="npc" name={m.mob} />
+                  </td>
                   <td className="subtle">{m.zone}</td>
                   {mobs.instanced && <td>{tierLabel(m)}</td>}
                   <td className="num strong">{fmtNum(m.health)}</td>

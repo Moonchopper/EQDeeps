@@ -893,11 +893,58 @@ button.update-pill {
   box-shadow: 0 0 0 1.5px var(--page);
 }
 
+.rail-foot-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  padding: 3px 4px 0 12px;
+}
+
 .rail-version {
-  padding: 3px 10px 0 12px;
   color: var(--muted);
   font-size: var(--fs-micro);
   font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rail-check {
+  display: inline-flex;
+  padding: 2px;
+  border-radius: var(--r-chip);
+  color: var(--muted);
+}
+
+.rail-check:hover:enabled {
+  color: var(--ink);
+  background: var(--surface);
+}
+
+.rail-check:disabled {
+  cursor: default;
+}
+
+.spinning {
+  animation: spin 900ms linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinning {
+    animation: none;
+  }
+}
+
+.nav-rail.collapsed .rail-foot-row {
+  justify-content: center;
+  padding: 3px 0 0;
 }
 
 /* ---- dashboard grid ----
@@ -1355,22 +1402,139 @@ tbody tr:hover td {
    stacks over the entity tint rather than replacing it. Deliberately stronger
    than the plain :hover wash above — that says "your pointer is here", this
    says "here it is again". */
-tbody tr.linked td {
+tbody tr.linked td,
+tbody tr.selected td {
   background: var(--wash-linked);
 }
 
-tbody tr.linked td:first-child {
+tbody tr.linked td:first-child,
+tbody tr.selected td:first-child {
   box-shadow: inset 2px 0 0 var(--accent);
 }
 
-.meter-row.linked {
+.meter-row.linked,
+.meter-row.selected {
   box-shadow: inset 0 0 0 1px var(--accent);
 }
 
 /* The bar under the name is the identity; brightening it is what the row has
    to give, and it costs no layout. */
-.meter-row.linked .meter-bar {
+.meter-row.linked .meter-bar,
+.meter-row.selected .meter-bar {
   opacity: 0.5;
+}
+
+/* A selection is a hover that stays (highlight.tsx), and it looks the same:
+   the row you clicked keeps the linked treatment while the pointer is off
+   somewhere else, so at most two rows are lit — the one you chose and the one
+   you are pointing at. A row that can be selected says so with the cursor. */
+.linkable {
+  cursor: pointer;
+}
+
+/* ---- selection chip: the standing selection, in the header ---- */
+.selection-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 4px 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-control);
+  color: var(--ink-2);
+  font-size: var(--fs-small);
+  font-weight: var(--w-bold);
+  white-space: nowrap;
+}
+
+.selection-chip.pinned {
+  border-color: var(--accent);
+}
+
+.selection-chip .color-chip {
+  margin: 0;
+}
+
+.selection-name {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.selection-btn {
+  display: inline-flex;
+  padding: 2px;
+  border-radius: var(--r-chip);
+  color: var(--muted);
+}
+
+.selection-btn:hover {
+  color: var(--ink);
+  background: var(--surface);
+}
+
+.selection-chip.pinned .selection-btn[aria-pressed="true"] {
+  color: var(--accent);
+}
+
+/* In a panel's title bar: same chip, one size down, so the pin and the way
+   out sit beside the line that was clicked. It yields width before the
+   title does — the name truncates, the panel's name never wraps — because
+   the chip is a repeat of something the header already says in full. */
+.selection-chip.compact {
+  gap: 4px;
+  padding: 0 2px 0 6px;
+  font-size: var(--fs-tiny);
+  font-weight: var(--w-normal);
+  color: var(--ink-2);
+  min-width: 0;
+  overflow: hidden;
+  /* Shrinks ten times as readily as the panel's name, and its own name goes
+     first: swatch, pin and clear are what has to survive a tight title bar. */
+  flex-shrink: 10;
+}
+
+.selection-chip.compact .color-chip,
+.selection-chip.compact .selection-btn {
+  flex-shrink: 0;
+}
+
+/* When a chip is in the bar, the panel's own name gives way last: it holds
+   its width until it would take more than its share, and only then
+   truncates. Scoped to bars with a chip so a title strip that was already
+   flexible (the summary table's tabs) is left alone. */
+.panel-title:has(.selection-chip) > :first-child {
+  white-space: nowrap;
+  flex-shrink: 0;
+  max-width: 60%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.panel-title .title-controls,
+.panel-title .panel-controls {
+  min-width: 0;
+  flex-shrink: 1;
+}
+
+.panel-title .title-controls > :not(.selection-chip),
+.panel-title .panel-controls > :not(.selection-chip) {
+  flex-shrink: 0;
+}
+
+.selection-chip.compact .color-chip {
+  width: 7px;
+  height: 7px;
+  margin-right: 2px;
+}
+
+.selection-chip.compact .selection-name {
+  max-width: 120px;
+  min-width: 0;
+  font-weight: var(--w-bold);
+}
+
+.selection-chip.compact .selection-btn {
+  padding: 1px;
 }
 
 .color-chip {
@@ -2768,4 +2932,137 @@ textarea:focus-visible,
 .map-notice em {
   color: var(--accent);
   font-style: normal;
+}
+
+/* ---- reference lookup (issues #51, #62) ----
+   The arrow beside a name is a door, not a decoration: hidden until the row is
+   pointed at (or the button focused), so a table of two hundred mobs does not
+   read as two hundred links. The menu floats over the page like .range-menu,
+   but positioned fixed from the arrow's rect, because a panel's own scroll
+   box would clip an absolutely positioned one. */
+.lookup-btn {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: -1px;
+  margin-left: 5px;
+  padding: 1px;
+  border: 0;
+  border-radius: var(--r-tiny);
+  background: transparent;
+  color: var(--muted);
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity 80ms ease-out;
+}
+
+tr:hover .lookup-btn,
+.fight-row:hover .lookup-btn,
+.lookup-btn:focus-visible,
+.lookup-btn.on {
+  opacity: 1;
+}
+
+/* Inside a fight row the door is a span (the row is already a button); keep
+   it from stretching the name line and from inheriting the row's colour when
+   selected, where the muted arrow would vanish into the fill. */
+.fight-row .lookup-btn {
+  line-height: 1;
+}
+
+.fight-row.selected .lookup-btn {
+  color: var(--muted-raised);
+}
+
+.fight-row.selected .lookup-btn:hover,
+.fight-row.selected .lookup-btn.on {
+  color: var(--accent);
+}
+
+.lookup-btn:hover,
+.lookup-btn.on {
+  color: var(--accent);
+}
+
+.lookup-menu {
+  position: fixed;
+  z-index: var(--z-popover);
+  width: 240px;
+  padding: 6px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-inner);
+  box-shadow: var(--shadow-overlay);
+  font-size: var(--fs-small);
+}
+
+.lookup-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 8px 6px;
+  border-bottom: 1px solid var(--grid);
+  margin-bottom: 4px;
+}
+
+.lookup-name {
+  color: var(--ink);
+  font-weight: var(--w-medium);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lookup-kind {
+  color: var(--muted);
+  font-size: var(--fs-micro);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  flex: none;
+}
+
+.lookup-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: var(--r-chip);
+  color: var(--ink-2);
+  text-decoration: none;
+}
+
+.lookup-item svg {
+  color: var(--muted);
+}
+
+.lookup-item:hover,
+.lookup-item:focus-visible {
+  background: var(--hover);
+  color: var(--ink);
+  outline: none;
+}
+
+.lookup-item.default {
+  color: var(--ink);
+}
+
+.lookup-item.default::after {
+  content: "default";
+  order: 1;
+  margin-left: auto;
+  color: var(--muted);
+  font-size: var(--fs-micro);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+
+.lookup-item.default svg {
+  order: 2;
+}
+
+.lookup-foot {
+  padding: 6px 8px 2px;
+  color: var(--muted);
+  font-size: var(--fs-micro);
 }

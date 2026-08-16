@@ -344,6 +344,7 @@ const SWITCH_MARGIN_PX = 8;
 export function attachNearestLineHover(
   chart: echarts.ECharts,
   getLines: () => HoverLine[],
+  onClick?: (name: string) => void,
 ): { detach: () => void; reapply: () => void } {
   const zr = chart.getZr();
   let pending: { x: number; y: number } | null = null;
@@ -464,12 +465,26 @@ export function attachNearestLineHover(
     apply(null);
   };
 
+  // A click on a line selects it. zrender only fires click when the pointer
+  // did not move between press and release, so a drag-to-zoom on the same
+  // plot never lands here. The nearest line is worked out from the click
+  // itself rather than read off the hover, which is a frame behind: a click
+  // that lands as the pointer arrives is still a click on that line.
+  const onZrClick = (e: { offsetX: number; offsetY: number }) => {
+    const name = choose(e.offsetX, e.offsetY);
+    if (name !== null) {
+      onClick?.(name);
+    }
+  };
+
   zr.on("mousemove", onMove);
   zr.on("globalout", onOut);
+  zr.on("click", onZrClick);
   return {
     detach: () => {
       zr.off("mousemove", onMove);
       zr.off("globalout", onOut);
+      zr.off("click", onZrClick);
       if (frame) {
         cancelAnimationFrame(frame);
       }

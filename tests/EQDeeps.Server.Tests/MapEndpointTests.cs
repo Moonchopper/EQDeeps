@@ -245,6 +245,25 @@ public sealed class MapEndpointTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
+    /// <summary>
+    /// Building the graph leaves every map's labels in the cache under
+    /// <c>--cacheRoot</c>, so the next launch does not read the maps again
+    /// (issue #59). Asserted here, against the real wiring, because a
+    /// MapLibrary built without the cache would still pass every other test.
+    /// </summary>
+    [Fact]
+    public async Task GraphWritesTheLabelCacheUnderTheRedirect()
+    {
+        await Get("/api/maps/graph");
+
+        var path = Path.Combine(_dir, "cache", "map-labels.json");
+        Assert.True(File.Exists(path), $"Nothing was written to {path} — is the label cache wired?");
+        var files = JsonDocument.Parse(await File.ReadAllTextAsync(path)).RootElement.GetProperty("files");
+        // Every map file the fixture wrote, in both sets, layer files included.
+        Assert.Equal(9, files.EnumerateObject().Count());
+        Assert.Contains(files.EnumerateObject(), f => f.Name.EndsWith("gfaydark_1.txt", StringComparison.OrdinalIgnoreCase));
+    }
+
     [Fact]
     public async Task GraphJoinsTheZonesAndWritesEachEdgeOnce()
     {

@@ -75,7 +75,11 @@ public static class ServerApp
         // this reads a folder the app never writes to (F27).
         builder.Services.AddSingleton(sp => new MapLibrary(
             builder.Configuration["mapRoot"],
-            sp.GetRequiredService<DocumentStore>()));
+            sp.GetRequiredService<DocumentStore>(),
+            // The world graph's label cache lives with the log caches under
+            // --cacheRoot: same nature (recomputable, validated against its
+            // source), same reason to keep tests out of the real one.
+            new MapLabelCache(builder.Configuration["cacheRoot"])));
 
         var app = builder.Build();
 

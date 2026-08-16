@@ -467,6 +467,11 @@ hashing the 64 KB before the resume offset, never by name or size.
   so a dev build and the release coexist warm) are deleted on start-up.
 - AC: `--cacheRoot` redirects it like every other store, and every test
   harness passes it.
+- AC: The World view's graph is not rebuilt from the map files on every
+  launch: each map's labels are cached and validated per file, so the first
+  click costs a stat per file rather than a read (measured 2.4 s → 0.35 s
+  on the owner's install), an edited map re-parses only itself, and the
+  graph is identical to one built from the files.
 
 ---
 

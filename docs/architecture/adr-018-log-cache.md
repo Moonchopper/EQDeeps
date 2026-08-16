@@ -142,6 +142,29 @@ build's cache but the newest for that log, is deleted. That last rule is what
 bounds a developer rebuilding twenty times a day to two files per log while
 keeping the release's warm.
 
+### 6. The world graph, the same way, one level down
+
+The Map tab's World view had the same shape of problem in miniature: the
+graph needs one thing from each of ~1900 map files — the `P` records whose
+`to_Zone` text names an exit — and getting them meant reading all 209 MB of
+geometry, because a map is one text stream with the labels scattered through
+3.2 million segments. Measured on the owner's install: **2.4 s on the first
+click after every launch**, 4 ms after that, and gone with the process.
+
+`MapLabelCache` (Server) keeps each map file's labels in
+`cache\map-labels.json` — ~36,000 records, 3.5 MB — keyed by full path and
+validated per entry against the file's size and last-write time, and the
+whole file stamped with the Core build (the label grammar is Core's). The
+same principle as the records: cache the expensive *input*, never the derived
+answer. `ZoneGraph.Build` runs from the labels every time, so a change to the
+graph or the zone table invalidates nothing, a player who edits one map
+re-parses one map, and pointing the library at another folder misses cleanly
+and switching back is still warm (entries whose files are gone are dropped at
+the next write). Measured: **2.4 s → 0.35 s** on the first click, and the
+graph the endpoint returns is byte-identical across launches. Not the graph
+itself, on purpose — it is small and cheap to build; what was expensive was
+reading the files.
+
 ## Measured (Release, this dev machine, synthetic raid logs)
 
 | Log | Cold, before | Cold, now (pool + write) | Warm (restore) | Cache | Resident before → now |
@@ -207,6 +230,13 @@ a truncation mid-session restarts the cache from the new content and the next
 open matches a cold read of the new file; resume offsets are line starts and
 resuming at each of them yields exactly the remaining entries; the pool shares
 instances and leaves chat text alone.
+
+`MapLabelCacheTests` (Server): a map is served from the cache until its file
+changes (proven by rewriting content under a pinned timestamp), the cache
+survives a restart and prunes files that are gone, a foreign build's cache
+and a corrupt one are ignored and healed, a missing map is null not an error;
+and `MapEndpointTests` asserts the graph endpoint writes the label cache under
+`--cacheRoot` against the real wiring.
 
 `LogCacheStoreTests` (Server): the path is stable and case-insensitive under
 the redirect; archives and held files get no cache; the sweep drops orphans,

@@ -71,6 +71,7 @@ public sealed class MapLibrary
 
     private readonly string? _rootOverride;
     private readonly DocumentStore? _settings;
+    private readonly MapLabelCache _labels;
     private readonly ConcurrentDictionary<string, ZoneMap> _cache = new(StringComparer.OrdinalIgnoreCase);
     private readonly object _gate = new();
 
@@ -89,10 +90,18 @@ public sealed class MapLibrary
     /// than a private file because it is a correction the user made, and those
     /// live with their dashboards.
     /// </param>
-    public MapLibrary(string? rootOverride = null, DocumentStore? settings = null)
+    /// <param name="labels">
+    /// The on-disk cache of every map's labels, so the world graph does not
+    /// re-read two hundred megabytes of geometry on every launch. Required
+    /// rather than defaulted, because the only sensible default would write
+    /// into the real %AppData%, and a caller that forgot to redirect it
+    /// should not get that silently.
+    /// </param>
+    public MapLibrary(string? rootOverride, DocumentStore? settings, MapLabelCache labels)
     {
         _rootOverride = rootOverride;
         _settings = settings;
+        _labels = labels;
     }
 
     /// <summary>
@@ -302,12 +311,14 @@ public sealed class MapLibrary
 
     /// <summary>
     /// The world graph. Built once and held: it needs every map's labels, which
-    /// means reading ~1900 files, and the answer does not change while the app
-    /// is open.
+    /// means consulting ~1900 files, and the answer does not change while the
+    /// app is open.
     ///
     /// <para>Only the labels are kept — the geometry is discarded as it goes,
     /// so this costs a pass over the files rather than 3.2 million segments of
-    /// resident memory.</para>
+    /// resident memory. And the labels come from <see cref="MapLabelCache"/>
+    /// when the file has not changed since they were last read, so on every
+    /// launch but the first the pass is a stat per file, not a read.</para>
     /// </summary>
     public ZoneGraph Graph()
     {
@@ -343,7 +354,7 @@ public sealed class MapLibrary
                         // Labels only: the graph never draws anything, and the
                         // geometry it would otherwise parse and discard is 99%
                         // of the bytes.
-                        var layer = SafeParse(path, index, labelsOnly: true);
+                        var layer = _labels.LabelsFor(path, index);
                         if (layer is not null)
                         {
                             layers.Add(layer);
@@ -357,6 +368,8 @@ public sealed class MapLibrary
                 }
             }
 
+            // Whatever had to be parsed this time is on disk for next time.
+            _labels.Save();
             return _graph = ZoneGraph.Build(maps, ZoneTable.Default);
         }
     }
@@ -529,11 +542,11 @@ public sealed class MapLibrary
     /// A map that vanished or locked mid-read costs its layer, not the zone.
     /// These files live in a folder the player edits while the app is running.
     /// </summary>
-    private static MapLayer? SafeParse(string path, int index, bool labelsOnly = false)
+    private static MapLayer? SafeParse(string path, int index)
     {
         try
         {
-            return MapFileParser.Parse(File.ReadAllText(path), index, labelsOnly);
+            return MapFileParser.Parse(File.ReadAllText(path), index);
         }
         catch (IOException)
         {

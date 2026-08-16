@@ -33,11 +33,13 @@ import {
 import { colorPoolFor, ENTITY_POOL, type EntityColors } from "../colors";
 import { ITEM_EMPHASIS, SERIES_EMPHASIS, useChartLink, useRowLink } from "../highlight";
 import {
+  attachNearestLineHover,
   attachWheelZoom,
   bucketAlignedWindow,
   offsetTooltip,
   heldAxisMax,
   fightBandsKey,
+  type HoverLine,
 } from "../chartInteractions";
 import type { ChartSettings } from "../timeControls";
 import type { TimeFrame } from "../timeFrame";
@@ -426,6 +428,8 @@ function LinePanel({
   const suppressZoomEventRef = useRef(false);
   const extentRef = useRef<[number, number] | null>(null);
   const zoomRangeRef = useRef<[number, number] | null>(null);
+  // What is plotted, for the nearest-line hover; refilled with the series.
+  const hoverLines = useRef<HoverLine[]>([]);
   // Identity + scope, so the ceiling survives a remount but not a real change
   // of what is being plotted.
   const axisKey = `${panel.id}|${JSON.stringify(ctx.frame)}|${spanSec}|${windowBuckets}`;
@@ -459,10 +463,12 @@ function LinePanel({
     });
     chart.getZr().on("dblclick", resetZoom);
     const detachWheelZoom = attachWheelZoom(chart, { left: 48, right: 10 }, () => extentRef.current);
+    const detachHover = attachNearestLineHover(chart, () => hoverLines.current);
     const observer = new ResizeObserver(() => chart.resize());
     observer.observe(divRef.current);
     return () => {
       observer.disconnect();
+      detachHover();
       detachWheelZoom();
       chart.dispose();
       chartRef.current = null;
@@ -570,8 +576,8 @@ function LinePanel({
       color: ctx.colors.claim(row.key, pool),
       data: smoothed([row]),
       connectNulls: false,
-      // The line itself is the hover target, not just its (hidden) points.
-      triggerLineEvent: true,
+      // No triggerLineEvent: hover is the nearest line to the pointer, not
+      // the stroke under it — see attachNearestLineHover.
       ...SERIES_EMPHASIS,
     }));
     if (rest.length > 0) {
@@ -583,10 +589,13 @@ function LinePanel({
         color: OTHER_COLOR,
         data: smoothed(rest),
         connectNulls: false,
-        triggerLineEvent: true,
         ...SERIES_EMPHASIS,
       });
     }
+    hoverLines.current = series.map((s) => ({
+      name: s.name as string,
+      data: s.data as [number, number | null][],
+    }));
 
 
     // Axis top from what is actually plotted, held steady by stableAxisMax.
@@ -700,6 +709,8 @@ function LinePanel({
         tooltip: {
           trigger: "axis",
           position: offsetTooltip,
+          // On the canvas, not in the DOM — see DpsChart for the measurement.
+          renderMode: "richText",
           // The crosshair is the theme's; this panel used to leave it at
           // ECharts' default while DpsChart styled its own.
           valueFormatter: (v: unknown) => (typeof v === "number" ? fmtLineValue(v) : "—"),

@@ -295,3 +295,146 @@ export function fightBandsKey(
   const newest = new Date(fights[fights.length - 1].lastDamageTime).getTime();
   return `${fights.length}|${Math.floor(newest / step)}`;
 }
+
+/** One plotted line, in the shape both time charts already build. */
+export interface HoverLine {
+  name: string;
+  /** Sorted by time; a null value is a gap. */
+  data: [number, number | null][];
+}
+
+/** How far, in pixels, the pointer can be from a line and still be "on" it. */
+const LINE_HOVER_PX = 14;
+
+/**
+ * Nearest-line hover: whichever line is closest to the pointer, within
+ * LINE_HOVER_PX, is the hovered one — the whole plot is the hover surface,
+ * not the stroke.
+ *
+ * ECharts hit-tests a line against its own stroke plus a 5px tolerance, so a
+ * 2px line has to be hit within about 7px, in a chart whose whole point is
+ * eight of them crossing. Pointing at one was a precision task. This walks the
+ * plotted data instead: the time under the cursor, the value each line has
+ * there, and the pixel distance to each — one binary search per line per
+ * frame, which is nothing next to what a tooltip costs.
+ *
+ * It speaks ECharts' own actions — `highlight` and `downplay` by series name —
+ * so the emphasis, the fade of the others and the linked highlight
+ * (useChartLink listens for exactly these) all follow without knowing this
+ * exists. Coalesced to one animation frame so a fast mouse costs one search
+ * per frame, not one per event.
+ *
+ * `getLines` is read on every frame rather than captured, because the chart
+ * rebuilds its series without remounting. Returns a detach function.
+ */
+export function attachNearestLineHover(
+  chart: echarts.ECharts,
+  getLines: () => HoverLine[],
+): () => void {
+  const zr = chart.getZr();
+  let pending: { x: number; y: number } | null = null;
+  let frame = 0;
+  let current: string | null = null;
+
+  const apply = (name: string | null) => {
+    if (name === current) {
+      return;
+    }
+    if (current !== null) {
+      chart.dispatchAction({ type: "downplay", seriesName: current });
+    }
+    current = name;
+    if (name !== null) {
+      chart.dispatchAction({ type: "highlight", seriesName: name });
+    }
+  };
+
+  const nearest = (x: number, y: number): string | null => {
+    if (!chart.containPixel({ gridIndex: 0 }, [x, y])) {
+      return null;
+    }
+    const t = chart.convertFromPixel({ xAxisIndex: 0 }, x);
+    if (!Number.isFinite(t)) {
+      return null;
+    }
+    // Both axes are linear (time and value), so two conversions per frame
+    // give the whole pixel mapping; asking ECharts per point costs more than
+    // the search does.
+    const origin = chart.convertToPixel({ gridIndex: 0 }, [t, 0]) as [number, number] | undefined;
+    const unit = chart.convertToPixel({ gridIndex: 0 }, [t + 1000, 1]) as
+      | [number, number]
+      | undefined;
+    if (!origin || !unit) {
+      return null;
+    }
+    const xPerMs = (unit[0] - origin[0]) / 1000;
+    const yPerValue = unit[1] - origin[1];
+    const toPixel = (time: number, value: number): [number, number] => [
+      origin[0] + (time - t) * xPerMs,
+      origin[1] + value * yPerValue,
+    ];
+    let best: string | null = null;
+    let bestDist = LINE_HOVER_PX;
+    for (const line of getLines()) {
+      const data = line.data;
+      if (data.length === 0) {
+        continue;
+      }
+      // Binary search for the first point at or after the cursor's time.
+      let lo = 0;
+      let hi = data.length - 1;
+      while (lo < hi) {
+        const mid = (lo + hi) >> 1;
+        if (data[mid][0] < t) {
+          lo = mid + 1;
+        } else {
+          hi = mid;
+        }
+      }
+      // The point found and the one before it bracket the cursor; a gap on
+      // either side simply contributes nothing.
+      for (const i of [lo - 1, lo]) {
+        const point = data[i];
+        if (!point || point[1] === null) {
+          continue;
+        }
+        const px = toPixel(point[0], point[1]);
+        const dist = Math.hypot(px[0] - x, px[1] - y);
+        if (dist < bestDist) {
+          bestDist = dist;
+          best = line.name;
+        }
+      }
+    }
+    return best;
+  };
+
+  const flush = () => {
+    frame = 0;
+    if (pending) {
+      apply(nearest(pending.x, pending.y));
+      pending = null;
+    }
+  };
+
+  const onMove = (e: { offsetX: number; offsetY: number }) => {
+    pending = { x: e.offsetX, y: e.offsetY };
+    if (!frame) {
+      frame = requestAnimationFrame(flush);
+    }
+  };
+  const onOut = () => {
+    pending = null;
+    apply(null);
+  };
+
+  zr.on("mousemove", onMove);
+  zr.on("globalout", onOut);
+  return () => {
+    zr.off("mousemove", onMove);
+    zr.off("globalout", onOut);
+    if (frame) {
+      cancelAnimationFrame(frame);
+    }
+  };
+}

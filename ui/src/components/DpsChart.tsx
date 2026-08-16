@@ -10,6 +10,7 @@ import {
 import { CHART_SERIES_LIMIT, fmtNum, OTHER_COLOR } from "../format";
 import type { EntityColors } from "../colors";
 import { SERIES_EMPHASIS, useChartLink } from "../highlight";
+import { attachNearestLineHover, type HoverLine } from "../chartInteractions";
 import {
   attachWheelZoom,
   bucketAlignedWindow,
@@ -120,6 +121,8 @@ export function DpsChart({
   const suppressZoomEventRef = useRef(false);
   const extentRef = useRef<[number, number] | null>(null);
   const zoomRangeRef = useRef<[number, number] | null>(null);
+  // What is plotted, for the nearest-line hover; refilled with the series.
+  const hoverLines = useRef<HoverLine[]>([]);
 
   // "fit" means show everything there is, which cannot also mean "and keep
   // sliding past it", so scrolling only applies to a fixed span. Zooming
@@ -172,10 +175,12 @@ export function DpsChart({
     });
     chart.getZr().on("dblclick", resetZoom);
     const detachWheelZoom = attachWheelZoom(chart, { left: 52, right: 12 }, () => extentRef.current);
+    const detachHover = attachNearestLineHover(chart, () => hoverLines.current);
     const onResize = () => chart.resize();
     window.addEventListener("resize", onResize);
     return () => {
       window.removeEventListener("resize", onResize);
+      detachHover();
       detachWheelZoom();
       chart.dispose();
       chartRef.current = null;
@@ -317,8 +322,8 @@ export function DpsChart({
       color: colors.claim(row.key),
       data: smoothed(secondsOf([row])),
       connectNulls: false,
-      // The line itself is the hover target, not just its (hidden) points.
-      triggerLineEvent: true,
+      // No triggerLineEvent: hover is the nearest line to the pointer, not
+      // the stroke under it — see attachNearestLineHover.
       ...SERIES_EMPHASIS,
     }));
     if (rest.length > 0) {
@@ -330,10 +335,13 @@ export function DpsChart({
         color: OTHER_COLOR,
         data: smoothed(secondsOf(rest)),
         connectNulls: false,
-        triggerLineEvent: true,
         ...SERIES_EMPHASIS,
       });
     }
+    hoverLines.current = series.map((s) => ({
+      name: s.name as string,
+      data: s.data as [number, number | null][],
+    }));
 
 
     // Axis top from what is actually plotted, held steady by stableAxisMax.
@@ -446,6 +454,11 @@ export function DpsChart({
         tooltip: {
           trigger: "axis",
           position: offsetTooltip,
+          // Drawn on the canvas, not in the DOM. The HTML tooltip costs a
+          // style-and-layout pass of the page on every pointer move —
+          // measured at roughly a third of what hovering a line chart cost —
+          // for a box that only ever sits over the plot.
+          renderMode: "richText",
           valueFormatter: (v: unknown) => (typeof v === "number" ? fmtNum(v) : "—"),
         },
         xAxis: {

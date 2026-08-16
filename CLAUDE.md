@@ -79,6 +79,8 @@ cd ui; npm run dev
 # Benchmarks / synthetic logs
 dotnet run -c Release --project tools/EQDeeps.Bench -- all
 dotnet run -c Release --project tools/EQDeeps.Bench -- gen $env:TEMP\eqlog_Test_server.txt 5
+# A log that behaves like a raid in progress: 2 h of history, then appended live until Ctrl+C
+dotnet run -c Release --project tools/EQDeeps.Bench -- live $env:TEMP\eqlog_Live_server.txt 2
 
 # Package: self-contained folder in artifacts/win-x64 (+ installer with -Installer)
 powershell -File scripts/publish.ps1 -Installer

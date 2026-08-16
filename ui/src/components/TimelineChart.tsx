@@ -5,6 +5,8 @@ import { attachWheelZoom, offsetTooltip } from "../chartInteractions";
 import { OTHER_COLOR, fmtNum } from "../format";
 import { frameScope, type TimeFrame } from "../timeFrame";
 import { GRID, chartInk, chartTheme } from "../chartTheme";
+import { useChartLookup } from "../lookup/lookupMenu";
+import { looksLikeNpc } from "../lookup/providers";
 
 interface Props {
   sessionId: string;
@@ -294,6 +296,16 @@ export function TimelineChart({
     resetZoom();
   }, [scopeKey, resetZoom]);
 
+  // The actor names down the side are lookup doors: the axis is indexed and
+  // a formatter draws the label, so the index is turned back into the name.
+  // Players get nothing; a mob's row (an article, a second word) does.
+  const labelsRef = useRef<string[]>([]);
+  useChartLookup(
+    chartRef,
+    (name) => (looksLikeNpc(name) ? "npc" : null),
+    (value) => labelsRef.current[Number(value)] ?? "",
+  );
+
   // A new window is answered at once; a live tick is not. refreshKey bumps
   // about once a second, and at a long range this query is ~1 MB and ~800 ms,
   // so following it 1:1 means never finishing one before starting the next
@@ -360,6 +372,7 @@ export function TimelineChart({
     extentRef.current = rangeBegin !== null && rangeEnd !== null ? [rangeBegin, rangeEnd] : null;
 
     const labels = rows.map((r) => r.label);
+    labelsRef.current = labels;
 
     const spanData: { value: [number, number, number]; item: TimelineItem }[] = [];
     const stanceData: { value: [number, number, number]; item: TimelineItem }[] = [];
@@ -556,6 +569,7 @@ export function TimelineChart({
             overflow: "truncate" as const,
             formatter: (value: string) => labels[Number(value)] ?? "",
           },
+          triggerEvent: true, // so a click on a name reaches useChartLookup
           // Banding, not lines: a mark far from the axis needs its row carried
           // across to the name, and alternating washes do that without adding
           // rules that compete with the vertical time grid. Both steps are

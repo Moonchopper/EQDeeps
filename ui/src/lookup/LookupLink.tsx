@@ -1,23 +1,13 @@
-import {
-  useEffect,
-  useRef,
-  useState,
-  type KeyboardEvent as ReactKeyboardEvent,
-  type MouseEvent,
-  type RefObject,
-} from "react";
-import { createPortal } from "react-dom";
+import { useState, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent } from "react";
 import { IconExternalLink } from "@tabler/icons-react";
-import { linksFor, lookupName, type LookupKind } from "./providers";
-import { useLookupWorld } from "./lookupSettings";
+import { looksLikeNpc, lookupName, type LookupKind, type LookupRef } from "./providers";
+import { useLookupActions, useLookupMenuOpenFor } from "./lookupMenu";
 
 interface Props {
   kind: LookupKind;
   name: string;
   /** The game's id for the thing, when known — unlocks the id-addressed sites. */
   id?: number;
-  /** The install the log is from, when the caller knows better than the enclosing LookupScope. */
-  install?: string;
   /**
    * Render as a span rather than a button: for a door inside something that
    * is already a button (a fight row), where a nested button is invalid HTML
@@ -28,145 +18,115 @@ interface Props {
 
 /**
  * The little "look this up" door beside a name (issues #51, #62): an arrow
- * that shows when the row is pointed at, and on click a menu of the reference
- * sites that can say more — the world's first choice on top, the rest under
- * it. Every entry is a real link opening a new tab, which the shell hands to
- * the default browser (ADR-009); the app itself never navigates.
+ * that shows when the row is pointed at. A plain click opens the site you
+ * usually want, straight away, in a real browser tab (the shell hands new
+ * windows to the default browser, ADR-009; the app itself never navigates).
+ * A right-click opens the menu of every site for this log's world — see
+ * `lookupMenu.tsx`, which owns the menu, the stars, and the item-id cache;
+ * this is only a trigger for it, the same one a chart label is.
  *
- * <p>A menu rather than a straight jump: the sites disagree about coverage
- * (one has the quest, another the drop rate, and on Legends the id-addressed
- * one is right only once an id is known), and the person clicking knows which
- * they were after. One extra click; no guessing on their behalf.</p>
+ * <p>Two gestures rather than one, at the owner's ask once the menu was in
+ * hand: the site you use is the same one nearly every time, and a click on
+ * the door followed by a click on the wiki is the alt-tab this was meant to
+ * remove. The menu is still there for the exception (one site has the
+ * quest, another the drop rate) and for saying which is which.</p>
+ *
+ * <p>An item's id is not known to the caller — the log never numbers items
+ * — so the door asks the session's registry (F29) for the name on hover,
+ * ahead of the click, through the shared cache. Nothing is asked for a row
+ * that is never pointed at.</p>
  *
  * <p>Renders nothing when no site can address the reference, so a column
  * never carries a dead arrow.</p>
  */
-export function LookupLink({ kind, name, id, install, inline = false }: Props) {
-  const { world } = useLookupWorld(install);
-  const [open, setOpen] = useState<{ x: number; y: number } | null>(null);
-  const button = useRef<HTMLElement>(null);
-  const menu = useRef<HTMLDivElement>(null);
+export function LookupLink({ kind, name, id, inline = false }: Props) {
+  const { go, menu, prefetch, canLookup } = useLookupActions();
+  const ref: LookupRef = { kind, name, id };
+  const open = useLookupMenuOpenFor(ref);
+  // Re-render once an id lands, so a click that follows can use it.
+  const [, gotId] = useState(0);
 
-  const links = linksFor(world, { kind, name, id });
+  if (!canLookup(ref)) return null;
 
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: Event) => {
-      const t = e.target as Node;
-      if (menu.current?.contains(t) || button.current?.contains(t)) return;
-      setOpen(null);
-    };
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(null);
-    // Any scroll moves the anchor out from under a fixed menu; close rather than drift.
-    const onScroll = () => setOpen(null);
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
-    document.addEventListener("scroll", onScroll, true);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
-      document.removeEventListener("scroll", onScroll, true);
-    };
-  }, [open]);
-
-  if (links.length === 0) return null;
-
-  const toggle = (e: MouseEvent) => {
+  const stop = (e: MouseEvent | ReactKeyboardEvent) => {
     // The row underneath has its own click and hover behaviour; this is not that.
     e.stopPropagation();
     e.preventDefault();
-    if (open) {
-      setOpen(null);
-      return;
-    }
-    const r = button.current!.getBoundingClientRect();
-    // Below and left-aligned to the arrow; nudged back inside the viewport when
-    // the row sits near the right edge, where a menu would otherwise clip.
-    const width = 240;
-    const x = Math.min(r.left, window.innerWidth - width - 8);
-    setOpen({ x: Math.max(8, x), y: r.bottom + 4 });
   };
+  const at = (e: MouseEvent | ReactKeyboardEvent) => {
+    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    return { x: r.left, y: r.bottom + 4 };
+  };
+  const onGo = (e: MouseEvent | ReactKeyboardEvent) => {
+    stop(e);
+    go(ref, at(e));
+  };
+  const onMore = (e: MouseEvent | ReactKeyboardEvent) => {
+    stop(e);
+    menu(ref, at(e));
+  };
+  const onKey = (e: ReactKeyboardEvent) => {
+    // Enter goes; Shift+Enter, Space and the context-menu key open the menu.
+    if (e.key === "Enter" && !e.shiftKey) onGo(e);
+    else if (e.key === "Enter" || e.key === " " || e.key === "ContextMenu") onMore(e);
+  };
+  const warm = () => prefetch(ref, () => gotId((n) => n + 1));
 
   const shown = lookupName(name, kind);
   const kindLabel = kind === "npc" ? "mob" : kind;
-
   const doorProps = {
     className: "lookup-btn" + (open ? " on" : ""),
-    title: `Look up this ${kindLabel}`,
+    title: `Look up this ${kindLabel} · right-click for other sites`,
     "aria-label": `Look up ${shown}`,
     "aria-haspopup": "menu" as const,
-    "aria-expanded": open !== null,
-    onClick: toggle,
+    "aria-expanded": open,
+    onClick: onGo,
+    onContextMenu: onMore,
+    onMouseEnter: warm,
+    onFocus: warm,
+    onKeyDown: onKey,
   };
   const glyph = <IconExternalLink size={12} stroke={2} aria-hidden />;
-  const onKey = (e: ReactKeyboardEvent) => {
-    if (e.key === "Enter" || e.key === " ") toggle(e as unknown as MouseEvent);
-  };
 
-  return (
-    <>
-      {inline ? (
-        <span
-          ref={button as RefObject<HTMLSpanElement>}
-          role="button"
-          tabIndex={0}
-          onKeyDown={onKey}
-          {...doorProps}
-        >
-          {glyph}
-        </span>
-      ) : (
-        <button ref={button as RefObject<HTMLButtonElement>} type="button" {...doorProps}>
-          {glyph}
-        </button>
-      )}
-      {open &&
-        createPortal(
-          <div
-            ref={menu}
-            className="lookup-menu"
-            role="menu"
-            style={{ left: open.x, top: open.y }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="lookup-head">
-              <span className="lookup-name">{shown}</span>
-              <span className="lookup-kind">{kindLabel}</span>
-            </div>
-            {links.map(({ provider, url }, i) => (
-              <a
-                key={provider.id}
-                className={"lookup-item" + (i === 0 ? " default" : "")}
-                role="menuitem"
-                href={url}
-                target="_blank"
-                rel="noreferrer"
-                onClick={() => setOpen(null)}
-              >
-                <span>{provider.name}</span>
-                <IconExternalLink size={12} stroke={2} aria-hidden />
-              </a>
-            ))}
-            <div className="lookup-foot">Sites for {world.name} — change in Settings</div>
-          </div>,
-          document.body,
-        )}
-    </>
+  return inline ? (
+    <span role="button" tabIndex={0} {...doorProps}>
+      {glyph}
+    </span>
+  ) : (
+    <button type="button" {...doorProps}>
+      {glyph}
+    </button>
   );
 }
 
 /**
- * The lookup kind a table dimension names, or null when the rows are players
- * (their own characters, whom no wiki lists). Loot's `spell` column is the
- * item looted — the query engine puns the two (see `QueryEngine`'s loot
- * dimension resolution) — and `target` is the far side of whatever the source
- * is: the mob hit, healed through, or looted from.
+ * The lookup kind a table row names, from its dimension and its value, or
+ * null when it names a player (their own characters, whom no wiki lists).
+ * The dimension says what the column is *for*; the value settles what a
+ * particular row is, because several sources put mobs and players in one
+ * column: the death source's `player` is the victim, which is as often a
+ * mob as a character; healing's `target` is an ally. Loot's `spell` column
+ * is the item looted — the query engine puns the two.
  */
-export function lookupKindFor(source: string, dimension: string | undefined): LookupKind | null {
-  if (dimension === "target") return "npc";
-  // Spells are a kind the providers know, but a damage table's `spell` column
-  // is as often "Kick" or "Bash" as a spell, and an arrow beside every melee
-  // row is noise; spell lookup waits for a surface that lists real spells.
-  if (dimension === "spell" && source === "loot") return "item";
-  return null;
+export function lookupKindFor(source: string, dimension: string | undefined, label: string): LookupKind | null {
+  switch (dimension) {
+    case "spell":
+      // Spells are a kind the providers know, but a damage table's `spell`
+      // column is as often "Kick" or "Bash" as a spell, and an arrow beside
+      // every melee row is noise; spell lookup waits for a surface that
+      // lists real spells.
+      return source === "loot" ? "item" : null;
+    case "target":
+      // The far side of the source: the mob hit or looted from — or, for
+      // healing, the ally healed, and for deaths, the killer, who is a mob
+      // only when the name says so (a mob's killer is the raid).
+      return source === "healing" || source === "deaths" ? (looksLikeNpc(label) ? "npc" : null) : "npc";
+    case "player":
+    case "character":
+      // A player's name is one word; a value with an article or a second
+      // word is a mob in a player-shaped column (a death's victim, say).
+      return looksLikeNpc(label) ? "npc" : null;
+    default:
+      return null;
+  }
 }

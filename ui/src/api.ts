@@ -176,6 +176,52 @@ export type HitOutcome =
   "melee" | "directDamage" | "damageOverTime" | "damageShield" | "other" |
   "miss" | "dodge" | "parry" | "block" | "invulnerable" | "absorb";
 
+/** One item as the server's registry knows it (F29). Nulls are omitted on the wire. */
+export interface ItemRecord {
+  name: string;
+  /** The game's own id, when a client file (loot filters, inventory dump) has supplied it. */
+  id?: number;
+  iconId?: number;
+  firstSeen?: string;
+  lastSeen?: string;
+  /** Flags as the server prints them, e.g. "LootFilter, Looted". */
+  sources: string;
+  looted: number;
+  sold: number;
+  bought: number;
+}
+
+export interface ItemReport {
+  server: string;
+  items: ItemRecord[];
+  /** How many rows carry a game id. */
+  numbered: number;
+}
+
+export type ItemMentionKind = "chat" | "looted" | "sold" | "bought";
+
+export interface ItemMention {
+  at: string;
+  kind: ItemMentionKind;
+  item: string;
+  id?: number;
+  /** Looter, seller ("You"), buyer ("You") or chat sender. */
+  who: string;
+  /** The corpse, the merchant, or the chat channel. */
+  where?: string;
+  /** The chat line, for chat mentions. */
+  text?: string;
+  quantity: number;
+}
+
+export interface ItemMentionsResult {
+  mentions: ItemMention[];
+  /** How many fell in the scope before the limit. */
+  total: number;
+  /** How many names the chat scanner knew — zero explains an empty chat column. */
+  knownNames: number;
+}
+
 export interface IncomingHit {
   at: string;
   attacker: string;
@@ -590,6 +636,31 @@ export const api = {
    */
   getAttacks: (id: string): Promise<MobAttackReport> =>
     fetch(`/api/sessions/${id}/attacks`).then((r) => json(r)),
+
+  // ---- item registry (F29) --------------------------------------------------
+
+  /** Everything the server's registry has named, with ids where a client file supplied one. */
+  getItems: (id: string): Promise<ItemReport> =>
+    fetch(`/api/sessions/${id}/items`).then((r) => json(r)),
+
+  /** One name, resolved to what the registry knows — null when nothing is. */
+  resolveItem: async (id: string, name: string): Promise<ItemRecord | null> => {
+    const response = await fetch(`/api/sessions/${id}/items/resolve?name=${encodeURIComponent(name)}`);
+    if (response.status === 204 || !response.ok) return null;
+    return (await response.json()) as ItemRecord;
+  },
+
+  /** The item feed over a scope: looted, sold, bought, named in chat — newest first. */
+  itemMentions: (
+    id: string,
+    scope: QuerySpec["scope"],
+    options: { limit?: number } = {},
+  ): Promise<ItemMentionsResult> =>
+    fetch(`/api/sessions/${id}/items/mentions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ scope, ...options }),
+    }).then((r) => json(r)),
 
   /** The raw incoming stream over a scope, newest last. */
   hits: (

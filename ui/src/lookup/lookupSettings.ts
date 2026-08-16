@@ -1,7 +1,7 @@
 import { useContext, useEffect, useState } from "react";
 import { api } from "../api";
 import { guessWorldId, worldById, type LookupWorld } from "./providers";
-import { LookupInstallContext } from "./LookupScope";
+import { LookupScopeContext } from "./LookupScope";
 
 /**
  * Which world's reference sites a log should open (see `providers.ts`),
@@ -23,6 +23,13 @@ export interface LookupSettings {
   world?: string;
   /** Per-install choices, keyed by the install's folder name. */
   installs?: Record<string, { world?: string }>;
+  /**
+   * The site a plain click opens, per world (provider id by world id). Kept
+   * per world rather than per install because it is a preference about the
+   * sites, not about the game: someone who likes Gnoll Guard likes it for
+   * every Legends install they have.
+   */
+  defaults?: Record<string, string>;
 }
 
 export interface UiSettingsDocument {
@@ -88,20 +95,44 @@ export async function rememberWorld(worldId: string | null, install?: string): P
   await api.putStore(KEY, next);
 }
 
+/** The site a plain click opens in a world, if the user has said; else undefined and the world's first is used. */
+export function preferredProviderId(settings: LookupSettings | undefined, worldId: string): string | undefined {
+  return settings?.defaults?.[worldId];
+}
+
+/** Remembers which site a plain click opens in a world (or forgets it with null). Read-modify-write, as above. */
+export async function rememberDefaultProvider(worldId: string, providerId: string | null): Promise<void> {
+  const current = await api.getStore<UiSettingsDocument>(KEY).catch(() => null);
+  const next: UiSettingsDocument = { ...(current ?? {}) };
+  const lookup: LookupSettings = { ...(next.lookup ?? {}), defaults: { ...(next.lookup?.defaults ?? {}) } };
+  if (providerId) {
+    lookup.defaults![worldId] = providerId;
+  } else {
+    delete lookup.defaults![worldId];
+  }
+  next.lookup = lookup;
+  cached = next;
+  notify();
+  await api.putStore(KEY, next);
+}
+
 /**
  * The world an install's links should use, and whether that came from the
  * user or a guess — the settings row says which, so "why is this opening the
- * P99 wiki" has an answer on the screen.
+ * P99 wiki" has an answer on the screen. Also the site a plain click opens
+ * in that world, when the user has picked one.
  */
 export function useLookupWorld(installOverride?: string): {
   world: LookupWorld;
   chosen: boolean;
   ready: boolean;
   install?: string;
+  /** The user's preferred site for this world, if any. */
+  preferredId?: string;
 } {
   // The install comes from the nearest LookupScope unless a caller knows better.
-  const scoped = useContext(LookupInstallContext);
-  const install = installOverride ?? scoped;
+  const scoped = useContext(LookupScopeContext);
+  const install = installOverride ?? scoped.install;
   const [, bump] = useState(0);
   useEffect(() => {
     const l = () => bump((n) => n + 1);
@@ -112,10 +143,12 @@ export function useLookupWorld(installOverride?: string): {
     };
   }, []);
   const chosen = chosenWorldId(cached?.lookup, install);
+  const world = worldById(chosen ?? guessWorldId(install));
   return {
-    world: worldById(chosen ?? guessWorldId(install)),
+    world,
     chosen: chosen !== undefined,
     ready: cached !== null,
     install,
+    preferredId: preferredProviderId(cached?.lookup, world.id),
   };
 }

@@ -66,6 +66,8 @@ public static class ServerApp
         builder.Services.AddSingleton(_ => new MobHealthStore(builder.Configuration["mobRoot"]));
         // --attackRoot likewise redirects the learned mob-attack profiles (tests).
         builder.Services.AddSingleton(_ => new MobAttackStore(builder.Configuration["attackRoot"]));
+        // --itemRoot likewise redirects the learned item registry (F29, tests).
+        builder.Services.AddSingleton(_ => new ItemStore(builder.Configuration["itemRoot"]));
         // --cacheRoot likewise redirects the parsed-record caches (tests) —
         // recomputable, but a few hundred megabytes per log, and a test that
         // wrote one into the real folder would leave it there.
@@ -413,6 +415,25 @@ public static class ServerApp
         // aggregation preserves.
         app.MapPost("/api/sessions/{id}/hits", (string id, IncomingHitsRequest request, SessionManager manager) =>
             manager.Get(id) is { } host ? Results.Ok(host.IncomingHits(request)) : Results.NotFound());
+
+        // What this server has named (F29): every item its logs and the
+        // player's own client files have mentioned, with the game's id where
+        // a file supplied one. Server-wide like the mob indexes.
+        app.MapGet("/api/sessions/{id}/items", (string id, SessionManager manager) =>
+            manager.Get(id) is { } host ? Results.Ok(host.Items()) : Results.NotFound());
+
+        // One name, resolved — the lookup menu asks this on open so the
+        // id-addressed reference sites can light up. 204 when nothing is known.
+        app.MapGet("/api/sessions/{id}/items/resolve", (string id, string name, SessionManager manager) =>
+            manager.Get(id) is { } host
+                ? host.ResolveItem(name) is { } record ? Results.Ok(record) : Results.NoContent()
+                : Results.NotFound());
+
+        // The item feed: looted, sold, bought, named in chat — inside a scope,
+        // newest first. A POST for the same reason as /hits: it carries a scope
+        // and it is a list, not an aggregation.
+        app.MapPost("/api/sessions/{id}/items/mentions", (string id, ItemMentionsRequest request, SessionManager manager) =>
+            manager.Get(id) is { } host ? Results.Ok(host.ItemMentions(request)) : Results.NotFound());
 
         app.MapHub<LiveHub>("/hubs/live");
 

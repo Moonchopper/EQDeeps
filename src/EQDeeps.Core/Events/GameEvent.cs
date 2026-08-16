@@ -204,6 +204,20 @@ public sealed record LootEvent(
     string Looter, string? Item, string? Source, long? Copper = null, int Quantity = 1) : GameEvent;
 
 /// <summary>
+/// A sale to or purchase from a merchant, which is the other place the log
+/// names an item the character had in hand: "You receive 2 gold 5 silver 9
+/// copper from Didek Stormhammer for the Rusty Two Handed Sword +2(s)." /
+/// "You purchased 1 Spell: Holy Armor from Storn Trueblade for 5 silver."
+/// <see cref="Copper"/> is the whole transaction's value in copper (1 plat =
+/// 1000); <see cref="Sold"/> says which way the item went. Kept apart from
+/// <see cref="LootEvent"/> because nothing died: a merchant sale is not a
+/// drop, and folding it into the loot counters would inflate every "items
+/// looted" number by every stack vendored (F29).
+/// </summary>
+public sealed record MerchantEvent(
+    string Merchant, string Item, int Quantity, long Copper, bool Sold) : GameEvent;
+
+/// <summary>
 /// A /consider result: the target's attitude bucket and — on modern servers —
 /// its level from the "(Lvl: N)" suffix. Considers are the accessible source
 /// of NPC levels (mob-stats groundwork); the threat clause is dropped.

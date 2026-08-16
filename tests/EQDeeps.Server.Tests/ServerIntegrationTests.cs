@@ -27,9 +27,10 @@ public sealed class ServerIntegrationTests : IAsyncLifetime
     public async Task InitializeAsync()
     {
         Directory.CreateDirectory(_dir);
-        // recentLogsRoot/sampleLogRoot/updateRoot/mobRoot/attackRoot/storeRoot/
-        // cacheRoot: keep the MRU file, the extracted demo log, the update
-        // preferences, both learned mob indexes, the parsed-record caches and
+        // recentLogsRoot/sampleLogRoot/updateRoot/mobRoot/attackRoot/itemRoot/
+        // storeRoot/cacheRoot: keep the MRU file, the extracted demo log, the
+        // update preferences, both learned mob indexes, the item registry, the
+        // parsed-record caches and
         // the user's own dashboards and saved queries inside the test sandbox,
         // not %AppData%. Pass all of them,
         // even for a test that touches only some — a harness that redirects
@@ -42,6 +43,7 @@ public sealed class ServerIntegrationTests : IAsyncLifetime
             "--updateRoot", _dir,
             "--mobRoot", _dir,
             "--attackRoot", _dir,
+            "--itemRoot", _dir,
             "--storeRoot", _dir,
             "--cacheRoot", _dir,
         ]);

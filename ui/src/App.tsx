@@ -18,6 +18,7 @@ import { UpdateNotice, type UpdateChoice } from "./components/UpdateNotice";
 import { SettingsDialog } from "./components/SettingsDialog";
 import { LogPicker, LogsDialog } from "./components/LogPicker";
 import { LookupScope } from "./lookup/LookupScope";
+import { LookupMenuHost } from "./lookup/lookupMenu";
 import { NavRail } from "./components/NavRail";
 import { SelectionChip } from "./components/SelectionChip";
 import { useSelectionActions } from "./highlight";
@@ -1098,5 +1099,10 @@ export default function App() {
       )}
     </div>
   );
-  return <LookupScope install={activeSession?.install}>{tree}</LookupScope>;
+  return (
+    <LookupScope install={activeSession?.install} sessionId={activeId || undefined}>
+      {tree}
+      <LookupMenuHost />
+    </LookupScope>
+  );
 }

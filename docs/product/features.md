@@ -475,7 +475,7 @@ hashing the 64 KB before the resume offset, never by name or size.
 
 ---
 
-### F29. Item lookup — from a name in the log to the page that explains it (issue #62) — **first slice shipped (2026-08-16)**
+### F29. Item lookup — from a name in the log to the page that explains it (issue #62) — **shipped (2026-08-16; icons open)**
 
 When an item is looted or named in chat, get to "where does it drop, which
 quest wants it" without alt-tabbing to a search box. See
@@ -492,19 +492,44 @@ Acceptance:
   each opening a browser tab. *(shipped)*
 - The same door beside a mob's name **wherever one is shown** — the fight
   list, the Summary's by-target rows, Incoming's feed and profiles, the death
-  log, the Mobs table — so a lookup starts from whatever view is open.
-  *(shipped)*
+  log, the Mobs table, and mobs in player-shaped columns (a death's victim)
+  — so a lookup starts from whatever view is open. **Chart names too**: a
+  click on a category-axis label (Hardest hitters, Timeline actors) goes to
+  the usual site; right-click on an axis label, legend entry or bar opens the
+  menu. *(shipped)*
 - Which sites: guessed from the install ("EverQuest Legends" → EQL Wiki, Gnoll
   Guard, EQLBase, Allakhazam; otherwise the live set) and overridable per
   install in Settings, persisted in the `ui-settings` document. *(shipped)*
 - Legends' ` +N` and ` (Exaltation)` decorations are stripped before asking a
   site. *(shipped)*
-- Item ids learned from `userdata\LF_<Char>_<server>.ini` and the inventory
-  dump light up the id-addressed sites (EQLBase, EQResource, Lucy) and an
-  icon. *(open — slice 2)*
-- Item mentions in chat (who, when, which item) surfaced somewhere clickable,
-  matched by name against items the app knows. *(open — slice 2; F15's chat
-  archive is not a prerequisite)*
+- **Item registry**, per server (`%AppData%\EQDeeps\items\<server>.json`,
+  `--itemRoot`): every item the logs have looted, sold or bought, meeting the
+  ids from the player's own client files — `userdata\LF_<Char>_<server>.ini`
+  and the `/outputfile inventory` dump, read from the install the log lives
+  in, re-read when they change, never copied. `GET /api/sessions/{id}/items`,
+  `…/items/resolve?name=`. *(shipped — 1,150 items / 528 numbered on the
+  reference log)*
+- Ids light up the id-addressed sites (EQLBase, EQResource, Lucy) on the
+  lookup menu: the door asks the registry on hover and on open, name links
+  show at once, id links join when the answer lands. *(shipped)*
+- **One click to the usual site**: a plain click on the arrow opens the
+  world's default site; right-click opens the menu, where a star on any site
+  makes it the default (per world; also a select in Settings). A default that
+  needs an id falls through to the first name-addressed site until the id is
+  known. *(shipped)*
+- **Item feed** at the top of the Loot view (viz `items`, also available to
+  custom dashboards): every item looted, sold, bought or **named in chat** in
+  the time frame, newest first — who, where (corpse, merchant, channel), the
+  chat line — each with its door. Chat mentions are a dictionary match
+  against the registry (Legends writes no link markup): whole words, longest
+  name first, one-word names only in their own case and not inside a
+  capitalised phrase. `POST …/items/mentions`. *(shipped; F15's chat archive
+  was not needed)*
+- Merchant sales and purchases are parsed (`MerchantEvent`), and the loot
+  grammar now takes `an` and stack counts on the `--…--` form — both had been
+  dropped. *(shipped)*
+- Item icons from the client's `dragitem*.dds` sheets (the registry already
+  carries the icon id). *(open — needs a DDS decoder on the server)*
 - Room for other servers: a new world is one entry in `providers.ts`; the
   era is not duplicated here (it lives with the maps).
 

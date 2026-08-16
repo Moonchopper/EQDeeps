@@ -17,6 +17,7 @@ public sealed class SessionManager : IAsyncDisposable
     private readonly MobHealthStore _mobs;
     private readonly MobAttackStore _attacks;
     private readonly LogCacheStore _caches;
+    private readonly ItemStore _items;
     private readonly ConcurrentDictionary<string, SessionHost> _sessions = new();
     private readonly ConcurrentDictionary<string, IdentityRegistry> _registries =
         new(StringComparer.OrdinalIgnoreCase);
@@ -28,7 +29,8 @@ public sealed class SessionManager : IAsyncDisposable
         SampleLog sample,
         MobHealthStore mobs,
         MobAttackStore attacks,
-        LogCacheStore caches)
+        LogCacheStore caches,
+        ItemStore items)
     {
         _hub = hub;
         _recents = recents;
@@ -36,6 +38,7 @@ public sealed class SessionManager : IAsyncDisposable
         _mobs = mobs;
         _attacks = attacks;
         _caches = caches;
+        _items = items;
 
         // Caches for logs that are gone, or that nobody has opened in months,
         // are reclaimed here rather than never. Off the request path: it
@@ -72,7 +75,7 @@ public sealed class SessionManager : IAsyncDisposable
         // a real server's mobs would poison an estimate that is supposed to be
         // evidence.
         var host = new SessionHost(
-            id, session, _hub, isSample ? null : _mobs, isSample ? null : _attacks);
+            id, session, _hub, isSample ? null : _mobs, isSample ? null : _attacks, isSample ? null : _items);
         _sessions[id] = host;
         if (!isSample)
         {

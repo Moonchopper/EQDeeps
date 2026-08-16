@@ -204,7 +204,22 @@ export function isLookupable(ref: LookupRef): boolean {
   return true;
 }
 
-/** Every link a world can offer for a reference, default first; empty when no site can address it. */
+/**
+ * The one link a plain click opens: the world's preferred site when it can
+ * address the reference, else the first that can. A preference for the
+ * id-addressed site falls through for a mob (no ids) or an item whose id is
+ * not known yet, rather than opening nothing.
+ */
+export function defaultLinkFor(
+  world: LookupWorld,
+  ref: LookupRef,
+  preferredId: string | undefined,
+): { provider: LookupProvider; url: string } | undefined {
+  const links = linksFor(world, ref);
+  return links.find((l) => l.provider.id === preferredId) ?? links[0];
+}
+
+/** Every link a world can offer for a reference, in the world's order; empty when no site can address it. */
 export function linksFor(world: LookupWorld, ref: LookupRef): { provider: LookupProvider; url: string }[] {
   const out: { provider: LookupProvider; url: string }[] = [];
   if (!isLookupable(ref)) return out;

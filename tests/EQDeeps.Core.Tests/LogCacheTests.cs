@@ -78,6 +78,8 @@ public sealed class LogCacheTests : IDisposable
             new(t, new FactionEvent("Wolves of the North", null, Better: true, Capped: true)),
             new(t, new LootEvent("Kizant", "Cold-Forged Cudgel", "a froglok ton knight", null, 2)),
             new(t, new LootEvent("Kizant", null, "split", 12_345_678_901L)),
+            new(t, new MerchantEvent("Didek Stormhammer", "Rusty Two Handed Sword +2", 1, 259, Sold: true)),
+            new(t, new MerchantEvent("Storn Trueblade", "Spell: Holy Armor", 20, 50, Sold: false)),
             new(t, new ConsiderEvent("An ice giant", "scowls at you, ready to attack", 55)),
             new(t, new ConsiderEvent("A rat", "regards you indifferently", null)),
             new(t = t.AddSeconds(-30), new LevelEvent(42)), // a DST-style step backwards

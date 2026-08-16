@@ -32,6 +32,7 @@ public sealed class MobAttackEndpointTests : IAsyncLifetime
             "--updateRoot", _dir,
             "--mobRoot", _dir,
             "--attackRoot", _dir,
+            "--itemRoot", _dir,
             "--storeRoot", _dir,
             "--cacheRoot", _dir,
         ]);

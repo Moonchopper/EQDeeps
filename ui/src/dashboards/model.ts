@@ -19,7 +19,13 @@ import { queryBucketSeconds } from "../chartInteractions";
  * one, but nothing runs it — see ADR-016 for why the map is a rail destination
  * first and a panel second.
  */
-export type PanelViz = "table" | "line" | "bar" | "tile" | "droprate" | "map";
+/**
+ * "items" is the item feed (F29): looted, sold, bought and named in chat over
+ * the time frame, newest first — a list, not an aggregation, so like "map" it
+ * runs no QuerySpec of its own; it reads the record stream through its own
+ * endpoint and takes only the panel's scope from the frame.
+ */
+export type PanelViz = "table" | "line" | "bar" | "tile" | "droprate" | "map" | "items";
 export type PanelScopeMode = "selection" | "all" | "recent";
 
 export interface PanelDef {

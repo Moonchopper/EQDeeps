@@ -46,11 +46,17 @@ other servers with other eras unlocked**, and don't over-invest in that room.
 ## Decision 1: lookup is a link out, by name, to a world's sites
 
 The app never scrapes, caches or re-hosts a reference site. Beside a name it
-puts a door: an arrow that opens a small menu of the sites that can address
-that kind of thing, default on top, each a real `target="_blank"` link the
-shell hands to the default browser (ADR-009). One extra click over a straight
-jump, deliberately: the sites disagree about coverage — one has the quest,
-another the drop rate — and the person clicking knows which they wanted.
+puts a door: an arrow. **A plain click opens the site you usually want,
+straight away**, in a real browser tab (`window.open`, which the shell hands
+to the default browser, ADR-009); **a right-click opens the menu** of every
+site for the world, each a link, each with a star that makes it the one a
+plain click opens from then on — per world, stored beside the world choice
+(`ui-settings.lookup.defaults`), and also a select in Settings. The first
+cut was menu-only, one extra click deliberately, because the sites disagree
+about coverage; the owner asked for the straight jump the same day, and the
+menu kept its job for the exception and for saying which site is which. A
+default that needs an id (EQLBase) falls through to the first name-addressed
+site for a mob, or for an item whose id is not known yet.
 
 The door goes **wherever a name is, not where the data happened to be a
 table** — the owner's rule, stated the moment the first slice stopped at Loot
@@ -58,9 +64,18 @@ and Mobs: fighting a spiroc caller, you start from the fight list or the
 Summary, not from a view you have to remember exists. So the fight list rows,
 the Summary's by-target rows, the Incoming feed and profiles, and the death
 log carry it too, and any new surface that names a mob or an item is expected
-to. The install that decides the world is a React context (`LookupScope`) set
-once by App for the active session, so a door in a memoised fight row deep in
-a list needs no prop about game installs.
+to. **Charts included**: a canvas label has no DOM to hang an arrow on, so
+the label is the door — a click on a category-axis name (Hardest hitters,
+the Timeline's actors) goes, a right-click on an axis name, a legend entry
+or a bar opens the menu, through ECharts events (`useChartLookup`, with
+`triggerEvent: true` on the axis). One menu (`LookupMenuHost`) serves every
+trigger. What a table row *is* comes from its dimension and its value both
+(`lookupKindFor`): a death's victim sits in the `player` column and is a mob
+when its name has an article or a second word; healing's `target` and a
+death's killer are allies unless the name says otherwise. The install that
+decides the world is a React context (`LookupScope`) set once by App for the
+active session, so a door in a memoised fight row deep in a list needs no
+prop about game installs.
 
 `ui/src/lookup/providers.ts` is the whole of the knowledge: a **provider** is
 a URL template over a `LookupRef { kind, name, id? }`; a **world** is a named,
@@ -87,17 +102,36 @@ is one more `LookupWorld` entry; a server that changes era changes nothing
 here (the sites cover every era of their world) — the era already lives in
 `map-settings` and the map view, and is not duplicated.
 
-## Decision 3: ids come from the player's own files, later, and only enrich
+## Decision 3: ids come from the player's own files, and only enrich
 
-The second slice for #62 reads `userdata\LF_<Char>_<server>.ini` (and the
-inventory dump when present) from the install the log lives in — read from the
-install, never copied, as F27 does with maps — into a per-server **item
-registry**: name → id, icon id, first seen. It exists to turn a name into an
-id so the id-addressed sites light up and an icon can be drawn; it never
-gates a lookup. Loot events and item names spotted in chat (matched against
-the registry's names, since Legends gives no link markup) feed the same
-registry. If a live log ever does carry `\x12` payloads, decoding them is a
-third feeder into the same table, not a new design.
+Shipped in the second slice (2026-08-16). The server keeps a per-server
+**item registry** (`ItemRegistry`, `ItemStore`, `%AppData%\EQDeeps\items\`,
+`--itemRoot`) fed from two directions: the log — every loot, sale and
+purchase, swept past a watermark on the session's tick so counts do not
+tick again on replay — and the player's own client files,
+`userdata\LF_<Char>_<server>.ini` and the `/outputfile inventory` dump, read
+from the install the log lives in (never copied, as F27 does with maps) and
+re-read when their size or write time changes. Names meet on
+`ItemNames.Key` — base name (Legends' ` +N` and ` (Exaltation)` off),
+case-folded — so the loot line, the filter file and a chat mention are one
+row; a file's casing outranks the log's. The registry never gates a lookup:
+the door asks `…/items/resolve?name=` on open, name-addressed sites are on
+the menu at once, and the id-addressed ones join when the answer lands. On
+the reference log that is 1,150 items, 528 of them numbered.
+
+Chat mentions are found by `ItemMentionScanner`, a dictionary match against
+the registry's names: whole words, longest name first at a position, any
+case for multi-word names, own case only for one-word names and not beside
+another capitalised word ("Horn" inside "Efreeti War Horn" is another item).
+An item nobody on the server has looted, sold, bought or filtered is
+invisible to it, and the feed's empty state says so. If a live log ever does
+carry `\x12` payloads, decoding them is a third feeder into the same table,
+not a new design.
+
+Two grammar facts fell out of building it: the `--…--` loot form takes `an`
+and a stack count, which the parser had dropped for the whole life of the
+project, and merchant sales and purchases name items too (`MerchantEvent`,
+kept apart from loot so vendored stacks do not count as drops).
 
 ## Decision 4: the app keeps a bestiary, and search is over that
 
@@ -136,8 +170,10 @@ box is not proposed until there is a second thing to search.
   the Mobs table, the fight list, the Summary's by-target rows, the Incoming
   feed and profiles, and the death log (a mob-shaped name, or the killer of a
   player); the Settings row. No server change.
-- Slice 2 (#62): item registry from `LF_`/inventory files + loot + chat
-  mentions; ids reach the menu; a "Recent items" surface.
+- Slice 2 (#62), shipped: the item registry, ids on the menu, and the
+  **Item feed** at the top of the Loot view (viz `items`) — looted, sold,
+  bought, named in chat, newest first, each with a door. Icons wait on a DDS
+  decoder.
 - Slice 3 (#51): NPC registry (persisted per server, F13-style snapshot of
   the identity registry alongside it) and the Bestiary view; achievements and
   Brewall enrichment behind it.

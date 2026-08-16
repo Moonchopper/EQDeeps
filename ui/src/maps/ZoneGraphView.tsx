@@ -276,6 +276,15 @@ interface Props {
    */
   era?: string;
   onEraChange: (era: string | null) => void;
+  /**
+   * A zone to frame on arrival — the one the Zone view was showing when the
+   * user asked for the world. `focusSeq` changes on every ask, so asking for
+   * the same zone twice frames it twice.
+   */
+  focus?: string;
+  focusSeq?: number;
+  /** Right-click on the world: back to the Zone view. */
+  onBack?: () => void;
   /** The zone the log last said the character entered, if a log is open. */
   currentZone?: string;
   /**
@@ -289,6 +298,9 @@ export function ZoneGraphView({
   onOpenZone,
   era,
   onEraChange,
+  focus,
+  focusSeq = 0,
+  onBack,
   currentZone,
   currentMap,
 }: Props) {
@@ -451,6 +463,31 @@ export function ZoneGraphView({
 
   // A different world, or a resized frame, invalidates wherever we were.
   useEffect(() => setView(null), [positions, size.w, size.h]);
+
+  /**
+   * Coming from the Zone view, land on the zone that was open there: framed
+   * at a readable zoom and named, so the answer to "where is this in the
+   * world" is on screen before anything is clicked. Runs once per ask, once
+   * the layout exists to frame against — declared after the reset above so
+   * that on a fresh load the frame wins over the fit.
+   */
+  const framedSeq = useRef(0);
+  useEffect(() => {
+    if (framedSeq.current === focusSeq || !focus) {
+      return;
+    }
+
+    const p = positions.get(focus);
+    if (!p || size.w === 0) {
+      return;
+    }
+
+    framedSeq.current = focusSeq;
+    const w = fitted.w / 3;
+    const h = fitted.h / 3;
+    setView({ x: p.x - w / 2, y: p.y - h / 2, w, h });
+    setHover(focus);
+  }, [focus, focusSeq, positions, fitted, size.w]);
 
   const names = useMemo(() => {
     const m = new Map<string, string>();
@@ -841,7 +878,18 @@ export function ZoneGraphView({
         </div>
       </header>
 
-      <div className="map-body" ref={wrapRef}>
+      {/* Right-click on the world goes back to the zone, as right-click on
+          the zone came here — the same gesture in both directions. */}
+      <div
+        className="map-body"
+        ref={wrapRef}
+        onContextMenu={(e) => {
+          if (onBack) {
+            e.preventDefault();
+            onBack();
+          }
+        }}
+      >
         <svg
           className="zone-graph"
           viewBox={`${box.x} ${box.y} ${box.w} ${box.h}`}

@@ -75,6 +75,18 @@ export function MapView({ currentZone, install, hasLog = false }: Props) {
    */
   const [correcting, setCorrecting] = useState(false);
 
+  /**
+   * The zone the World view should land on when it opens from here, and a
+   * counter so asking again for the same zone frames it again.
+   */
+  const [worldFocus, setWorldFocus] = useState<{ zone: string; seq: number } | null>(null);
+
+  /** To the world, landing on the zone on screen. Right-click and the header button both come here. */
+  const showInWorld = () => {
+    setWorldFocus((f) => (selected ? { zone: selected, seq: (f?.seq ?? 0) + 1 } : f));
+    setMode("world");
+  };
+
   // The zone the log is in wins once, on arrival. After that the user is
   // steering: auto-following every zone line would yank the map out from under
   // someone reading it.
@@ -479,6 +491,9 @@ export function MapView({ currentZone, install, hasLog = false }: Props) {
 
       {mode === "world" ? (
         <ZoneGraphView
+          focus={worldFocus?.zone}
+          focusSeq={worldFocus?.seq}
+          onBack={() => setMode("zone")}
           // A graph node is a place, and a place opens on whichever of its
           // drawings the user last chose — the same rule as the zone list.
           onOpenZone={(shortName) => {
@@ -523,6 +538,18 @@ export function MapView({ currentZone, install, hasLog = false }: Props) {
             </div>
 
             <div className="map-controls">
+              {/* Out to the world, landing on this zone. Right-click on the
+                  map does the same; the button is there so it can be found. */}
+              {selected && (
+                <button
+                  className="mini-btn"
+                  onClick={showInWorld}
+                  title="Show this zone in the world map. Right-click on the map does the same; right-click there comes back."
+                >
+                  world
+                </button>
+              )}
+
               {/* Which map file to draw this place from. Only appears when
                   something is actually being chosen between. Switching here
                   is just looking; the button beside it is what makes the
@@ -672,7 +699,13 @@ export function MapView({ currentZone, install, hasLog = false }: Props) {
             </div>
           )}
 
-          <div className="map-body">
+          <div
+            className="map-body"
+            onContextMenu={(e) => {
+              e.preventDefault();
+              showInWorld();
+            }}
+          >
             {loading && <div className="map-loading">Reading the map…</div>}
             {map && !loading && (
               <MapCanvas

@@ -304,7 +304,13 @@ export function ZoneGraphView({
   const [withLinks, setWithLinks] = useState(true);
 
   const wrapRef = useRef<HTMLDivElement | null>(null);
-  const dragRef = useRef<{ x: number; y: number } | null>(null);
+  /**
+   * The pan in progress: where the pointer went down, where it was last seen,
+   * and whether it has moved far enough to be a drag rather than a click.
+   */
+  const dragRef = useRef<{ x: number; y: number; sx: number; sy: number; moved: boolean } | null>(null);
+  /** Set once a drag has happened, so the click that ends it opens nothing. */
+  const draggedRef = useRef(false);
   const [size, setSize] = useState({ w: 0, h: 0 });
 
   /** The viewBox, or null to sit at whatever currently fits. */
@@ -775,9 +781,16 @@ export function ZoneGraphView({
 
             setView({ x: wx - fx * w, y: wy - fy * h, w, h });
           }}
+          // The pointer is captured only once a drag has actually begun — a
+          // few pixels of travel — not on the way down. Capturing on the way
+          // down retargets the pointer-up at the svg, and a click is delivered
+          // to the common ancestor of down and up, so it never reached the
+          // zone under the pointer: clicking a zone did nothing. Once a drag
+          // is under way capture is what keeps it alive past the edge of the
+          // frame, and the click that ends a drag is ignored by the zones.
           onPointerDown={(e) => {
-            e.currentTarget.setPointerCapture(e.pointerId);
-            dragRef.current = { x: e.clientX, y: e.clientY };
+            dragRef.current = { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, moved: false };
+            draggedRef.current = false;
           }}
           onPointerMove={(e) => {
             const drag = dragRef.current;
@@ -785,12 +798,22 @@ export function ZoneGraphView({
               return;
             }
 
+            if (!drag.moved) {
+              if (Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 4) {
+                return;
+              }
+              drag.moved = true;
+              draggedRef.current = true;
+              e.currentTarget.setPointerCapture(e.pointerId);
+            }
+
             setView({
               ...box,
               x: box.x - (e.clientX - drag.x) * unit,
               y: box.y - (e.clientY - drag.y) * unit,
             });
-            dragRef.current = { x: e.clientX, y: e.clientY };
+            drag.x = e.clientX;
+            drag.y = e.clientY;
           }}
           onPointerUp={() => (dragRef.current = null)}
           onPointerLeave={() => {
@@ -877,7 +900,11 @@ export function ZoneGraphView({
                 }
                 onMouseEnter={() => setHover(z.shortName)}
                 onMouseLeave={() => setHover(null)}
-                onClick={() => onOpenZone(z.shortName)}
+                onClick={() => {
+                  if (!draggedRef.current) {
+                    onOpenZone(z.shortName);
+                  }
+                }}
               >
                 {/* Sizes are in view units scaled by `unit`, so a dot stays the
                     same size on screen however far in you are — zooming shows

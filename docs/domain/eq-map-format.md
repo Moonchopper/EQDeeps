@@ -110,6 +110,24 @@ to read a zone like Old Guk without every level drawn on top of the others.
 
 Labels beginning `to ` or `from ` name a way out of the zone. This is the only
 place in an EverQuest install where the world's connectivity is written down.
+(There is no zone-guide data on disk: `Resources/` holds `ZoneNames.txt` and a
+load-screen table, and the in-game atlas's pathing is not a file.)
+
+The connection word is not always first. Exits that are an *object* rather
+than a zone line — a portal, a teleporter, a clickable — tend to be labelled
+by the object: the client's own East Freeport map writes
+`portal_to_The_Plane_of_Sky_(click)`; the Fear portal is
+`portal_to_The_Plane_of_Fear` on the Feerrott side and `Zone_In_from_Feerrott`
+on the Fear side; West Freeport has `Teleport_to_Academy_of_Arcane_Sciences`.
+A survey of both map sets (2026-08-16) found 280 labels with `to`/`from`
+somewhere other than the start; run through the zone table, 9 resolve, of
+which 7 are real connections and 2 are a Riwwi mob's patrol notes —
+`Reluctant_Gladiator_(Hunter,Paths_To_Arena)` — whose `to` sits inside the
+parenthetical. So: drop the parenthetical *before* looking for the word, then
+accept it anywhere, and when it is not first require what follows to be
+capitalised (prose like `back_to_entrance` and `Note:_complete_the_event_to_
+open_the_floor` is not a name). The zone table remains the last word: `Teleport
+to Hub`, `Elevator to Top` and `Portal to Island 3` are candidates it rejects.
 
 They are **community annotation, not game data**, and read like it:
 

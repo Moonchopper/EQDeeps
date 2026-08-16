@@ -6,6 +6,8 @@ using EQDeeps.TestSupport;
 // Ingestion benchmark harness (see docs/architecture/log-ingestion-brief.md):
 //   gen <path> <MB>       generate a synthetic raid log
 //   backfill <path>       measure backfill throughput + allocations
+//   session <path>        measure the full pipeline: scan + parse + records + fights,
+//                         cold (parsing, writing the log cache) and then warm (restoring from it)
 //   latency [samples]     measure file-append -> entry-emitted latency
 //   all [MB]              gen (temp) + backfill + latency in one run
 
@@ -17,6 +19,9 @@ switch (command)
         break;
     case "backfill":
         await BackfillAsync(args[1]);
+        break;
+    case "session":
+        await SessionAsync(args[1]);
         break;
     case "latency":
         await LatencyAsync(args.Length > 1 ? int.Parse(args[1]) : 200);
@@ -105,6 +110,51 @@ static async Task BackfillAsync(string path)
         $"backfill: {bytes / 1048576.0:F0} MB, {entries:N0} entries in {sw.Elapsed.TotalSeconds:F2}s " +
         $"({bytes / 1048576.0 / sw.Elapsed.TotalSeconds:F0} MB/s, {entries / sw.Elapsed.TotalSeconds / 1e6:F1}M entries/s, " +
         $"{(double)allocated / entries:F0} B alloc/entry, malformed={ingestion.MalformedLines})");
+}
+
+static async Task SessionAsync(string path)
+{
+    // The number that decides how long a user waits for a log they opened
+    // yesterday: ingestion alone is disk-bound, but the parser and the fight
+    // tracker are not, and this is the sum — once parsing from scratch (and
+    // writing the cache as the app would after backfill), then once again
+    // restoring from that cache, which is what the second open of a log costs.
+    var cachePath = Path.Combine(Path.GetTempPath(), "eqdeeps-bench.eqdc");
+    File.Delete(cachePath);
+    try
+    {
+        await RunSessionAsync(path, cachePath, "cold");
+        await RunSessionAsync(path, cachePath, "warm");
+    }
+    finally
+    {
+        File.Delete(cachePath);
+    }
+}
+
+static async Task RunSessionAsync(string path, string cachePath, string label)
+{
+    long bytes = new FileInfo(path).Length;
+    using var cache = EQDeeps.Core.Cache.LogCache.Open(cachePath, Path.GetFullPath(path), emuMode: false);
+    using var session = new EQDeeps.Core.Sessions.Session(
+        Path.GetFullPath(path), ingestOptions: new IngestOptions { Follow = false }, cache: cache);
+    var allocatedBefore = GC.GetTotalAllocatedBytes(precise: true);
+    var sw = Stopwatch.StartNew();
+    await session.RunAsync(CancellationToken.None);
+    var ingested = sw.Elapsed;
+    session.Checkpoint();
+    sw.Stop();
+    var allocated = GC.GetTotalAllocatedBytes(precise: true) - allocatedBefore;
+    var resident = GC.GetTotalMemory(forceFullCollection: true);
+    var entries = session.Records.Count;
+
+    Console.WriteLine(
+        $"session ({label}): {bytes / 1048576.0:F0} MB, {entries:N0} records ({session.RestoredRecords:N0} restored), " +
+        $"{session.Fights.Fights.Count:N0} fights in {ingested.TotalSeconds:F2}s " +
+        $"({bytes / 1048576.0 / ingested.TotalSeconds:F0} MB/s, {entries / ingested.TotalSeconds / 1e6:F2}M records/s), " +
+        $"checkpoint +{(sw.Elapsed - ingested).TotalSeconds:F2}s -> {new FileInfo(cachePath).Length / 1048576.0:F0} MB cache, " +
+        $"{(double)allocated / entries:F0} B alloc/record, {resident / 1048576.0:F0} MB resident after GC, " +
+        $"unrecognized={session.UnrecognizedLines}, failures={session.ParserFailures})");
 }
 
 static async Task LatencyAsync(int samples)

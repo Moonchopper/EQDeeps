@@ -652,8 +652,8 @@ export function ZoneGraphView({
   if (!graph || !drawn) {
     return (
       <div className="map-empty">
-        Reading every map's exits… this takes a few seconds the first time, then
-        it is remembered for the session.
+        Reading every map's exits… this takes a few seconds the first time; after
+        that it is remembered, and only a map you have edited is read again.
       </div>
     );
   }

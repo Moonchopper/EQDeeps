@@ -17,6 +17,8 @@ export interface SessionInfo {
   fightCount: number;
   unrecognizedLines: number;
   malformedLines: number;
+  /** Records this open restored from the log cache rather than re-parsing. */
+  restoredRecords: number;
   /** Stance switches by this character; 0 hides the Stances view. */
   stanceSwitches: number;
 }
@@ -407,6 +409,13 @@ export interface ZoneGraph {
   edges: ZoneGraphEdge[];
   /** Every expansion in release order, so era codes can be compared. */
   eras: ZoneEra[];
+  /**
+   * Map files read from disk to build this graph, and those whose labels came
+   * from the label cache; the first is zero once the cache is warm. Optional
+   * because the view derives sub-graphs that carry neither.
+   */
+  mapsRead?: number;
+  mapsRemembered?: number;
 }
 
 export interface ZoneRouteStep {

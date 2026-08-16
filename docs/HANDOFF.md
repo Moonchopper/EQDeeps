@@ -36,7 +36,12 @@
 > (Legends: EQL Wiki, Gnoll Guard, EQLBase; guessed from the install,
 > overridable in Settings), the design and the discovery behind it in ADR-019
 > and `docs/domain/eq-client-files.md` (the client ships no item or NPC
-> database; Legends logs carry no item-link ids; names are the join key).
+> database; Legends logs carry no item-link ids; names are the join key);
+> and a log cache so a log is parsed once — its records are written to disk
+> after backfill and the next open restores them and resumes at the byte
+> where the last one stopped, ~3× faster, with every repeating string pooled
+> so the session holds half the memory it did, and the World view's map
+> labels kept the same way (ADR-018, feature F28, issue #59).
 > Currently at **v0.12.1**. See `docs/product/features.md` for per-feature
 > status. The main open items: real-log validation against EQLogParser (the
 > release gate), the spell-DB work (class detection, bane, lands-on

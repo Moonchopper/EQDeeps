@@ -27,6 +27,11 @@ it.
 carrying the raw feed of swings taken and a per-server attack index keyed on the
 defender's level as well as the mob, zone and difficulty.
 
+**Update (2026-08-16):** F28 (log cache) shipped — a log is parsed once; its
+records are cached on disk and the next open restores them and resumes at the
+byte where the last one stopped, ~3× faster, and the session holds half the
+memory it did (issue #59, ADR-018).
+
 ---
 
 ## P0 — First working pass
@@ -418,6 +423,55 @@ the table cannot place is shown rather than hidden.
 - AC: Maps are drawn legibly on the app's dark surfaces despite the files'
   colours having been chosen for the client's light background, and the file's
   own colours are never rewritten.
+
+### F28. Log cache — **shipped (2026-08-16)**
+
+A log is parsed once. Issue #59; see [ADR-018](../architecture/adr-018-log-cache.md).
+
+Every open used to read the whole file through the parser and rebuild every
+record in memory, and the file only grows: for a 2 GB log — an ordinary
+raider's — that was ~19 s and ~5 GB of memory, every launch. Now the parsed
+records are written to a per-log cache under `%AppData%\EQDeeps\cache\` as
+soon as backfill completes (and once a minute for the live tail, and on
+close), and the next open restores them from disk and starts the parser at
+the byte offset where the cache ends. Alongside, every repeating string in
+the records — names, spells, zones — is pooled to one instance per session,
+which is where half the memory was going.
+
+The cache holds records only. Fights, identity, and everything above the
+parser are rebuilt by replaying the records through the same path a parsed
+one takes, so a resumed session and a cold one are the same session — and a
+change to fight logic never invalidates a cache, while a change to the parser
+invalidates all of them (the file is stamped with the parser build that wrote
+it). Whether the log is still the log the cache describes is decided by
+hashing the 64 KB before the resume offset, never by name or size.
+
+- AC: A second open of an unchanged log restores every record from the cache
+  and re-parses nothing; a grown log re-parses only the growth. Measured: 512
+  MB, 3.6 s → 1.6 s; 2 GB, ~18 s → 5.9 s; resident memory halved.
+- AC: The restored session is indistinguishable from a cold parse of the same
+  file — records, fights, counters — and this is asserted by test, not
+  assumed.
+- AC: A log that has been trimmed, replaced, or truncated and regrown is
+  never resumed from a stale cache; the cache is dropped and rebuilt.
+- AC: A truncation or rotation while the session is open restarts the cache
+  from the new content; the next open matches a cold read of the new file.
+- AC: An upgrade that changes the parser invalidates every cache, with no
+  one having to remember to bump anything.
+- AC: Nothing about the cache can fail an open, a session, or the app: a
+  corrupt file, a full disk, a second session on the same log, an archive,
+  all degrade to parsing as before.
+- AC: The cache is recomputable — deleting the folder loses nothing — and it
+  sweeps itself: caches for logs that are gone, untouched for 60 days, or
+  written by an older parser build (all but the newest other build per log,
+  so a dev build and the release coexist warm) are deleted on start-up.
+- AC: `--cacheRoot` redirects it like every other store, and every test
+  harness passes it.
+- AC: The World view's graph is not rebuilt from the map files on every
+  launch: each map's labels are cached and validated per file, so the first
+  click costs a stat per file rather than a read (measured 2.4 s → 0.35 s
+  on the owner's install), an edited map re-parses only itself, and the
+  graph is identical to one built from the files.
 
 ---
 

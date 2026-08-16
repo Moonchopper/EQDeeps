@@ -32,6 +32,14 @@ public class ZoneGraphTests
     [InlineData("from The Ocean of Tears", "The Ocean of Tears")]
     [InlineData("to Clan Crushbone (click the door)", "Clan Crushbone")]
     [InlineData("To Northern Felwithe", "Northern Felwithe")]
+    [InlineData("to innothule swamp", "innothule swamp")]
+    // The connection word further in: an object, not a zone line. All from
+    // the real corpus; the first is the client's own East Freeport map.
+    [InlineData("portal to The Plane of Sky (click)", "The Plane of Sky")]
+    [InlineData("portal to The Plane of Fear", "The Plane of Fear")]
+    [InlineData("Zone In from Feerrott", "Feerrott")]
+    [InlineData("Teleport to Academy of Arcane Sciences", "Academy of Arcane Sciences")]
+    [InlineData("Teleport from Academy of Arcane Sciences", "Academy of Arcane Sciences")]
     public void ReadsADestinationOutOfALabel(string label, string expected)
     {
         Assert.Equal(new[] { expected }, ZoneGraph.Destinations(label));
@@ -59,6 +67,43 @@ public class ZoneGraphTests
         // "to Ak" is a truncated label in the real corpus; two characters
         // cannot name a zone and guessing which one is worse than dropping it.
         Assert.Empty(ZoneGraph.Destinations("to Ak"));
+
+        // A "to" inside the parenthetical is about how the point is used —
+        // this one is a Riwwi mob's patrol, and it would otherwise resolve to
+        // the Arena.
+        Assert.Empty(ZoneGraph.Destinations("Reluctant Gladiator (Hunter,Paths To Arena)"));
+        Assert.Empty(ZoneGraph.Destinations("Statue (click to go to West Side)"));
+        Assert.Empty(ZoneGraph.Destinations("One-Way Wall (to North)"));
+
+        // Prose around a lower-case "to" is not a connection.
+        Assert.Empty(ZoneGraph.Destinations("back to entrance"));
+        Assert.Empty(ZoneGraph.Destinations("ladder to mine"));
+        Assert.Empty(ZoneGraph.Destinations("Note: to get into castle, take the teleporter to the South"));
+        Assert.Empty(ZoneGraph.Destinations("Locked Door - Kill all mobs to unlock"));
+    }
+
+    /// <summary>
+    /// The inner form yields candidates the zone table then judges — "Hub"
+    /// and "Top" are words, not zones, and the graph never sees them.
+    /// </summary>
+    [Fact]
+    public void InnerFormCandidatesStillHaveToBeZones()
+    {
+        Assert.Equal(new[] { "Hub" }, ZoneGraph.Destinations("Teleport to Hub"));
+        Assert.Equal(new[] { "Top" }, ZoneGraph.Destinations("Elevator to Top"));
+
+        var graph = ZoneGraph.Build(
+            new[]
+            {
+                Map("freporte", "portal to The Plane of Sky (click)", "Teleport to Hub", "Elevator to Top"),
+                Map("airplane"),
+            },
+            ZoneTable.Default);
+
+        Assert.Equal(new[] { "airplane" }, graph.Neighbours("freporte").Order());
+        Assert.Equal(new[] { "freporte" }, graph.Neighbours("airplane").Order());
+        var edge = Assert.Single(graph.From("freporte"));
+        Assert.Equal("portal to The Plane of Sky (click)", edge.Label);
     }
 
     [Fact]

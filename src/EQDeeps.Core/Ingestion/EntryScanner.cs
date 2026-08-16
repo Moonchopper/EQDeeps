@@ -26,6 +26,15 @@ public sealed class EntryScanner
     /// <summary>Lines dropped for exceeding the length bound.</summary>
     public long OverlongLinesDropped { get; private set; }
 
+    /// <summary>
+    /// Bytes appended since the last newline — the unfinished line being held
+    /// back, whether carried or (past the length bound) being discarded. What
+    /// the caller subtracts from its read position to name the offset just
+    /// past the last complete line: the one place a reader could reopen the
+    /// file and continue without duplicating or losing an entry.
+    /// </summary>
+    public long PendingBytes { get; private set; }
+
     public EntryScanner(int maxLineLength = 64 * 1024)
     {
         _maxLineLength = maxLineLength;
@@ -38,6 +47,7 @@ public sealed class EntryScanner
         _carryLength = 0;
         _discardingOverlongLine = false;
         _previousPrefix = null;
+        PendingBytes = 0;
     }
 
     public void Append(ReadOnlySpan<byte> data, List<LogEntry> output)
@@ -47,12 +57,19 @@ public sealed class EntryScanner
             var newline = data.IndexOf((byte)'\n');
             if (newline < 0)
             {
+                // Counted here and only here: Carry is also how a held line
+                // is completed, and that completion is not pending — it is
+                // about to be processed. Counting inside Carry once left the
+                // completion's length behind in a chunk that ended right after
+                // it, and a resume offset that far short of the line start.
+                PendingBytes += data.Length;
                 Carry(data);
                 return;
             }
 
             var line = data[..newline];
             data = data[(newline + 1)..];
+            PendingBytes = 0;
 
             if (_discardingOverlongLine)
             {

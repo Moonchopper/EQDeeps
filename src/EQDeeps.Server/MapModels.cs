@@ -127,7 +127,20 @@ public sealed record ZoneGraphEdge(string From, string To);
 /// codes without carrying its own copy of the list. Sent with the graph
 /// because the graph is what it is for.
 /// </param>
-public sealed record ZoneGraphDto(ZoneGraphNode[] Zones, ZoneGraphEdge[] Edges, IReadOnlyList<ZoneEra> Eras);
+/// <param name="MapsRead">
+/// Map files that had to be read from disk to build this graph, against
+/// <paramref name="MapsRemembered"/>, the ones whose labels came from the
+/// label cache (issue #59). On every launch but the first, and after any
+/// launch that read them, the first number is zero — which is how anyone can
+/// check the cache is doing its job rather than take it on faith, the same
+/// way a session reports its restored records.
+/// </param>
+public sealed record ZoneGraphDto(
+    ZoneGraphNode[] Zones,
+    ZoneGraphEdge[] Edges,
+    IReadOnlyList<ZoneEra> Eras,
+    int MapsRead = 0,
+    int MapsRemembered = 0);
 
 /// <param name="Found">
 /// Whether the labels join the two zones at all.

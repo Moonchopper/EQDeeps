@@ -78,6 +78,8 @@ cd ui; npm run dev
 
 # Benchmarks / synthetic logs
 dotnet run -c Release --project tools/EQDeeps.Bench -- all
+# The full pipeline on a real log, cold (parse + write the cache) then warm (restore)
+dotnet run -c Release --project tools/EQDeeps.Bench -- session $env:TEMP\eqlog_Test_server.txt
 dotnet run -c Release --project tools/EQDeeps.Bench -- gen $env:TEMP\eqlog_Test_server.txt 5
 # A log that behaves like a raid in progress: 2 h of history, then appended live until Ctrl+C
 dotnet run -c Release --project tools/EQDeeps.Bench -- live $env:TEMP\eqlog_Live_server.txt 2
@@ -92,7 +94,8 @@ Useful server flags: `--browser` (default browser instead of the app window),
 
 Test-only redirect flags — these keep tests out of the real `%AppData%`, and any
 new store you add should get one to match: `--recentLogsRoot`, `--sampleLogRoot`,
-`--updateRoot`, `--mobRoot`, `--attackRoot`, `--storeRoot`, `--mapRoot`.
+`--updateRoot`, `--mobRoot`, `--attackRoot`, `--storeRoot`, `--mapRoot`,
+`--cacheRoot`.
 
 **Pass all of them, always** — including for a test that only touches one. A
 harness that redirects most of the stores reads as isolated, and the gap is
@@ -105,7 +108,9 @@ anything, and a PUT replaces the whole document.
 
 `--mapRoot` is the odd one out: it points at a maps folder the app only ever
 *reads*, so it is about not depending on a game install rather than about
-protecting anything.
+protecting anything. `--cacheRoot` is recomputable but big — a few hundred
+megabytes per log — and a test that wrote one into the real folder would leave
+it there.
 
 ### Environment traps
 
@@ -131,6 +136,7 @@ eqlog_X_server.txt
   → LogFileIngestion       tail + batch, backfill phase marked separately from live
   → LogEventParser         pure: one message string → one GameEvent? (or null)
   → Session.ProcessEntry   identity signals, RecordStore.Append, FightTracker.Process
+                           (a restored record from the log cache skips the parser and joins here)
   → QueryEngine            executes a QuerySpec over the record store
   → REST (/api/...) + SignalR (/hubs/live)
   → React SPA              panels, each of which is a QuerySpec + a visualization
@@ -153,6 +159,13 @@ Invariants worth not breaking:
 - **`Session.Gate` serializes state mutation against readers.** Batch processing
   takes it; anything reading session state off another thread (query execution,
   DTO building) must too.
+- **The log cache holds records only** (`Core/Cache/LogCache.cs`, ADR-018).
+  Fights, identity and everything above the parser are replayed from the
+  records on restore, so a resumed session equals a cold one and no layer
+  above the parser can invalidate a cache. The file is stamped with the Core
+  assembly's MVID: change anything in Core and every cache re-parses once —
+  by design, so a grammar fix can never leave a user on a stale parse. Add an
+  event type and the codec throws until you add its case.
 - **Metric formulas live in one place** (`MetricCatalog`, per
   `docs/domain/metrics-and-aggregation.md` §5) and are shared by tables, charts
   and the live meter. Denominators are the most disputed numbers in parsing —
@@ -169,6 +182,7 @@ Invariants worth not breaking:
 | `recent-logs.json` | MRU log list | `--recentLogsRoot` | No |
 | `mobs\` | F25 learned mob health per *server* | `--mobRoot` | Yes — a cache. Corrupt file just relearns |
 | `attacks\` | F26 learned mob attacks per *server*, keyed by defender level too | `--attackRoot` | Yes — a cache, same deal |
+| `cache\` | F28 parsed records per *log file* per *parser build* (`<hash of path>-<build>.eqdc`), so the next open resumes instead of re-parsing (ADR-018). Dev and installed builds keep separate files and never read each other's. Also `map-labels-<build>.json`: every map file's labels, so the World view's graph does not re-read 200 MB of maps per launch | `--cacheRoot` | Yes — a cache; validated against the log's own bytes and the parser build, rebuilt when either differs. Sweeps itself: gone logs, 60 days idle, all but the newest foreign build per log. Map labels validated per file by size + mtime |
 | update preferences, staged installer | ADR-010 | `--updateRoot` | Yes |
 | extracted demo log | bundled sample | `--sampleLogRoot` | Yes |
 
@@ -273,7 +287,7 @@ copied outright with attribution in `NOTICE`.
 | What is a fight? How is DPS/sDPS/crit rate computed? What is the denominator? | `docs/domain/metrics-and-aggregation.md` |
 | Stack, component boundaries, QuerySpec model, persistence layout | `docs/architecture/system-overview.md` |
 | Why is ingestion built that way? | `docs/architecture/log-ingestion-brief.md` + `adr-002` |
-| Why was decision D made? | `docs/architecture/adr-001…019` (parser, ingestion, session state, query engine, API/live, SPA, dashboards, packaging, windowed shell, auto-update, gear snapshots (withdrawn), mob health, incoming damage, navigation rail, visual language, zone maps, grouped rail, reference lookup) |
+| Why was decision D made? | `docs/architecture/adr-001…019` (parser, ingestion, session state, query engine, API/live, SPA, dashboards, packaging, windowed shell, auto-update, gear snapshots (withdrawn), mob health, incoming damage, navigation rail, visual language, zone maps, grouped rail, log cache, reference lookup) |
 | Build order, status, verification strategy | `docs/HANDOFF.md` |
 | Signing, release keys, what to do before tagging | `docs/release-signing.md` |
 | How do I run it / what do the flags do? | `README.md` |
@@ -352,8 +366,9 @@ the Ed25519 check and Authenticode.
 Shipped: all eight build-order phases (parser, ingestion, session state, query
 engine, API + live loop, SPA, dashboards, packaging), plus the WebView2 shell
 (ADR-009), auto-update (ADR-010, F22),
-estimated mob health (ADR-012, F25), and incoming damage (ADR-013, F26).
-~1 GB/s backfill, sub-250 ms live latency.
+estimated mob health (ADR-012, F25), incoming damage (ADR-013, F26), and the
+log cache (ADR-018, F28). ~1 GB/s scan, ~140 MB/s cold parse, ~3× that warm
+from the cache, sub-250 ms live latency.
 
 Open, roughly in priority order:
 

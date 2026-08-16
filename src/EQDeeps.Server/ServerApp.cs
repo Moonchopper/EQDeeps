@@ -66,12 +66,20 @@ public static class ServerApp
         builder.Services.AddSingleton(_ => new MobHealthStore(builder.Configuration["mobRoot"]));
         // --attackRoot likewise redirects the learned mob-attack profiles (tests).
         builder.Services.AddSingleton(_ => new MobAttackStore(builder.Configuration["attackRoot"]));
+        // --cacheRoot likewise redirects the parsed-record caches (tests) —
+        // recomputable, but a few hundred megabytes per log, and a test that
+        // wrote one into the real folder would leave it there.
+        builder.Services.AddSingleton(_ => new LogCacheStore(builder.Configuration["cacheRoot"]));
         // --mapRoot points at a maps folder instead of discovering one, so the
         // map tests do not need EverQuest installed. Unlike the stores above
         // this reads a folder the app never writes to (F27).
         builder.Services.AddSingleton(sp => new MapLibrary(
             builder.Configuration["mapRoot"],
-            sp.GetRequiredService<DocumentStore>()));
+            sp.GetRequiredService<DocumentStore>(),
+            // The world graph's label cache lives with the log caches under
+            // --cacheRoot: same nature (recomputable, validated against its
+            // source), same reason to keep tests out of the real one.
+            new MapLabelCache(builder.Configuration["cacheRoot"])));
 
         var app = builder.Build();
 
@@ -284,7 +292,8 @@ public static class ServerApp
                 }
             }
 
-            return Results.Ok(new ZoneGraphDto(nodes, edges.ToArray(), ZoneEras.All));
+            return Results.Ok(new ZoneGraphDto(
+                nodes, edges.ToArray(), ZoneEras.All, maps.Labels.Parsed, maps.Labels.Served));
         });
 
         // `era` is the expansion the player says their server has reached; a

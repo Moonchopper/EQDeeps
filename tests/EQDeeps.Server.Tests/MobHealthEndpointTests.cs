@@ -33,6 +33,7 @@ public sealed class MobHealthEndpointTests : IAsyncLifetime
             "--mobRoot", _dir,
             "--attackRoot", _dir,
             "--storeRoot", _dir,
+            "--cacheRoot", _dir,
         ]);
         await _app.StartAsync();
         _http = new HttpClient { BaseAddress = new Uri(_app.Urls.First()) };

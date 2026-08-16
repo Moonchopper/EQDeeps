@@ -300,26 +300,65 @@ public sealed class ZoneGraph
     /// <para>Both "to X" and "from X" count. A mapmaker standing at an arrival
     /// point writes "from", and the connection is the same either way — the
     /// graph is undirected regardless.</para>
+    ///
+    /// <para>The connection word need not come first. The client's own East
+    /// Freeport map writes the way to the Plane of Sky as
+    /// <c>portal to The Plane of Sky (click)</c>; the Fear portal is
+    /// <c>portal to The Plane of Fear</c> from one side and <c>Zone In from
+    /// Feerrott</c> from the other; West Freeport has <c>Teleport to Academy
+    /// of Arcane Sciences</c>. Anchoring on a leading "to" missed every one
+    /// of them — the exits that are an object rather than a zone line, which
+    /// are exactly the ones the in-game atlas is also weakest on. So the word
+    /// is looked for anywhere in the label, with two guards the survey of the
+    /// corpus called for. The parenthetical is dropped <i>first</i>: a "to"
+    /// inside it is about how the point is used ("Hunter, Paths To Arena" on
+    /// a Riwwi mob is a mob's patrol, not a way to the Arena). And when the
+    /// word is not first, what follows it must read as a proper name — a note
+    /// like "complete the event to open the floor" or "back to entrance" is
+    /// prose, and prose does not name zones in lower case. Of the 280 such
+    /// labels across both map sets, 7 resolve to a zone the client names,
+    /// and all 7 are real.</para>
     /// </summary>
     internal static IEnumerable<string> Destinations(string label)
     {
         var text = label.AsSpan().Trim();
 
-        var body = text.StartsWith("to ", StringComparison.OrdinalIgnoreCase) ? text[3..]
-            : text.StartsWith("from ", StringComparison.OrdinalIgnoreCase) ? text[5..]
-            : default;
+        // "(Boat)", "(click the stone block)" — how to use the exit, not part
+        // of the name, and never where the connection word is looked for.
+        // Everything from the first bracket is dropped.
+        var bracket = text.IndexOf('(');
+        if (bracket >= 0)
+        {
+            text = text[..bracket];
+        }
+
+        ReadOnlySpan<char> body;
+        var leading = true;
+        if (text.StartsWith("to ", StringComparison.OrdinalIgnoreCase))
+        {
+            body = text[3..];
+        }
+        else if (text.StartsWith("from ", StringComparison.OrdinalIgnoreCase))
+        {
+            body = text[5..];
+        }
+        else
+        {
+            var to = text.IndexOf(" to ", StringComparison.OrdinalIgnoreCase);
+            var from = text.IndexOf(" from ", StringComparison.OrdinalIgnoreCase);
+            var at = to < 0 ? from : from < 0 ? to : Math.Min(to, from);
+            if (at < 0)
+            {
+                yield break;
+            }
+
+            body = text[(at + (at == to ? 4 : 6))..];
+            leading = false;
+        }
 
         if (body.IsEmpty)
         {
             yield break;
-        }
-
-        // "(Boat)", "(click the stone block)" — how to use the exit, not part
-        // of the name. Everything from the first bracket is dropped.
-        var bracket = body.IndexOf('(');
-        if (bracket >= 0)
-        {
-            body = body[..bracket];
         }
 
         foreach (var part in body.ToString().Split(
@@ -330,10 +369,20 @@ public sealed class ZoneGraph
 
             // Two characters cannot name a zone, and short fragments are where
             // truncated labels like "to Ak" land.
-            if (name.Length > 2)
+            if (name.Length <= 2)
             {
-                yield return name;
+                continue;
             }
+
+            // A destination reached from inside a sentence has to look like a
+            // name. The leading form keeps its old tolerance: "to innothule
+            // swamp" is a connection however it is cased.
+            if (!leading && !char.IsUpper(name[0]))
+            {
+                continue;
+            }
+
+            yield return name;
         }
     }
 }

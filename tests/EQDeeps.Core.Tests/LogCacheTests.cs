@@ -60,6 +60,8 @@ public sealed class LogCacheTests : IDisposable
             new(t, new CastEvent("Raider06", "Selo's Accelerando", CastKind.Begin, Song: true)),
             new(t, new CastEvent("Raider06", null, CastKind.Fizzle)),
             new(t, new WearOffEvent("Spirit of Wolf", "Kizant")),
+            new(t, new LandedEvent("Kizant", "Spirit of Wolf", "You feel the spirit of wolf enter you.", 1)),
+            new(t, new LandedEvent("Raider02", null, "Your wounds begin to heal.", 39)),
             new(t, new AbilityEvent("Kizant", "Rest")),
             new(t, new StanceEvent("Kizant", "Defensive")),
             new(t, new TauntEvent("Raider07", "An ice giant", true, Improved: true)),

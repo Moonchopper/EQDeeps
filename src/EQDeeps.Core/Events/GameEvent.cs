@@ -102,6 +102,23 @@ public sealed record CastEvent(string Caster, string? Spell, CastKind Kind, bool
 /// </summary>
 public sealed record WearOffEvent(string Spell, string Target) : GameEvent;
 
+/// <summary>
+/// A spell landing on someone, read from the per-spell emote the client
+/// prints instead of a name ("A burst of strength surges through your body.").
+/// Resolved against the player's own spell files, so it only exists when the
+/// log sits in a game install.
+///
+/// <para><see cref="Spell"/> is named only when the emote belongs to exactly
+/// one spell. Many are shared by every rank of a family — 39 spells say "Your
+/// wounds begin to heal." — and in the owner's log 60% of these lines by
+/// volume are shared text. In that case the name is null,
+/// <see cref="Candidates"/> counts how many it could have been, and
+/// <see cref="Emote"/> keeps the words the log actually used. Knowing that
+/// something landed, on whom and when is worth having; guessing which rank
+/// is not.</para>
+/// </summary>
+public sealed record LandedEvent(string Target, string? Spell, string Emote, int Candidates) : GameEvent;
+
 /// <summary>An activated discipline/combat ability: "Soandso activates Rest." / "You activate Rest."</summary>
 public sealed record AbilityEvent(string User, string Ability) : GameEvent;
 

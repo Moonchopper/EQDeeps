@@ -18,6 +18,7 @@ public sealed class SessionManager : IAsyncDisposable
     private readonly MobAttackStore _attacks;
     private readonly LogCacheStore _caches;
     private readonly ItemStore _items;
+    private readonly SpellLibrary _spells;
     private readonly ConcurrentDictionary<string, SessionHost> _sessions = new();
     private readonly ConcurrentDictionary<string, IdentityRegistry> _registries =
         new(StringComparer.OrdinalIgnoreCase);
@@ -30,7 +31,8 @@ public sealed class SessionManager : IAsyncDisposable
         MobHealthStore mobs,
         MobAttackStore attacks,
         LogCacheStore caches,
-        ItemStore items)
+        ItemStore items,
+        SpellLibrary spells)
     {
         _hub = hub;
         _recents = recents;
@@ -39,6 +41,7 @@ public sealed class SessionManager : IAsyncDisposable
         _attacks = attacks;
         _caches = caches;
         _items = items;
+        _spells = spells;
 
         // Caches for logs that are gone, or that nobody has opened in months,
         // are reclaimed here rather than never. Off the request path: it
@@ -60,12 +63,16 @@ public sealed class SessionManager : IAsyncDisposable
         // The cache is validated against the log right here, so what the
         // session restores is what the file still holds. Null when there can
         // be no cache; the session then reads the log as it always has.
+        // The player's own spell files, when the log sits in a game install:
+        // they turn the per-spell emotes ("Your wounds begin to heal.") back
+        // into spells. Absent, the session parses exactly as it always did.
         var session = new Session(
             request.Path,
             registry,
             new IngestOptions { BackfillFrom = request.BackfillFrom },
             emuMode: request.EmuMode,
-            cache: _caches.Open(request.Path, request.EmuMode));
+            cache: _caches.Open(request.Path, request.EmuMode),
+            spells: _spells.For(LogDiscovery.InstallRootOf(request.Path)));
 
         var id = "s" + Interlocked.Increment(ref _nextId);
 

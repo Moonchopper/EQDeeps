@@ -88,6 +88,10 @@ dotnet run -c Release --project tools/EQDeeps.Bench -- live $env:TEMP\eqlog_Live
 powershell -File scripts/publish.ps1 -Installer
 ```
 
+`--no-spells` stops the parser reading the player's spell files (F10a), and
+`--no-reference` stops the Bestiary fetching anything (ADR-020); both are for
+anyone who wants the app to touch nothing but the log.
+
 Useful server flags: `--browser` (default browser instead of the app window),
 `--no-browser` (headless), `--stay-alive`, `--no-update-check`,
 `--urls http://127.0.0.1:PORT`.

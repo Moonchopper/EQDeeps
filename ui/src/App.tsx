@@ -17,6 +17,8 @@ import { SessionBar } from "./components/SessionBar";
 import { UpdateNotice, type UpdateChoice } from "./components/UpdateNotice";
 import { SettingsDialog } from "./components/SettingsDialog";
 import { LogPicker, LogsDialog } from "./components/LogPicker";
+import { BestiaryPanel } from "./components/BestiaryPanel";
+import { useReferenceEnabled } from "./lookup/lookupSettings";
 import { LookupScope } from "./lookup/LookupScope";
 import { LookupMenuHost } from "./lookup/lookupMenu";
 import { NavRail } from "./components/NavRail";
@@ -42,6 +44,7 @@ import { MapView } from "./maps/MapView";
 import {
   HITS_VIEW,
   MAPS_VIEW,
+  BESTIARY_VIEW,
   MOBS_VIEW,
   STANCES_VIEW_ID,
   SUMMARY_VIEW,
@@ -192,6 +195,8 @@ export default function App() {
   const [discovered, setDiscovered] = useState<DiscoveredLog[]>([]);
   const [update, setUpdate] = useState<UpdateState | null>(null);
   const [showUpdateNotice, setShowUpdateNotice] = useState(false);
+  // Whether the Bestiary may ask a reference site anything at all (ADR-020).
+  const { enabled: referenceEnabled } = useReferenceEnabled();
   const [showSettings, setShowSettings] = useState(false);
   const [showLogs, setShowLogs] = useState(false);
   // The rail collapses to icons. Two pieces of state because the Map is a
@@ -231,7 +236,11 @@ export default function App() {
   // a remembered view this log doesn't have falls back to Summary, and the
   // rail has to light up what is on screen rather than what was last clicked.
   const effectiveStdView =
-    activeStdView || stdView === MOBS_VIEW || stdView === HITS_VIEW || stdView === MAPS_VIEW
+    activeStdView ||
+    stdView === MOBS_VIEW ||
+    stdView === BESTIARY_VIEW ||
+    stdView === HITS_VIEW ||
+    stdView === MAPS_VIEW
       ? stdView
       : SUMMARY_VIEW;
   // A selection made on one view is that view's, unless it was pinned:
@@ -605,7 +614,8 @@ export default function App() {
   // nothing to keep current. The fetch on open covers the common case where a
   // player looks once.
   useEffect(() => {
-    if (!activeId || view !== "overview" || stdView !== MOBS_VIEW) return;
+    // The Bestiary wants the same index for its "what you measured" column.
+    if (!activeId || view !== "overview" || (stdView !== MOBS_VIEW && stdView !== BESTIARY_VIEW)) return;
     let cancelled = false;
     const load = () =>
       api
@@ -972,7 +982,9 @@ export default function App() {
                 and Incoming are checked first — they are rail entries but not
                 dashboards, so the standard-view lookup resolves them to
                 nothing. */}
-            {view === "overview" && stdView === MOBS_VIEW ? (
+            {view === "overview" && stdView === BESTIARY_VIEW ? (
+              <BestiaryPanel sessionId={activeId} mobs={mobs} enabled={referenceEnabled} />
+            ) : view === "overview" && stdView === MOBS_VIEW ? (
               <MobHealthPanel
                 mobs={mobs}
                 server={sessions.find((s) => s.id === activeId)?.server ?? ""}

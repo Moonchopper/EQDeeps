@@ -44,6 +44,7 @@ public sealed class ServerIntegrationTests : IAsyncLifetime
             "--mobRoot", _dir,
             "--attackRoot", _dir,
             "--itemRoot", _dir,
+            "--referenceRoot", _dir,
             "--storeRoot", _dir,
             "--cacheRoot", _dir,
         ]);

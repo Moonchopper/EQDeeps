@@ -1,6 +1,7 @@
 import {
   HITS_VIEW,
   MAPS_VIEW,
+  BESTIARY_VIEW,
   MOBS_VIEW,
   STANCES_VIEW_ID,
   SUMMARY_VIEW,
@@ -53,7 +54,7 @@ export const RAIL_GROUPS: RailGroup[] = [
     key: "world",
     label: "World",
     framed: false,
-    ids: [MOBS_VIEW, MAPS_VIEW],
+    ids: [MOBS_VIEW, BESTIARY_VIEW, MAPS_VIEW],
   },
 ];
 

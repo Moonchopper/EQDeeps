@@ -3156,3 +3156,134 @@ tr:hover .lookup-btn,
   padding: 4px 12px 8px;
   font-size: var(--fs-tiny);
 }
+
+/* ---- bestiary (F30) ----
+   Two panels: the search on the left, one mob on the right. The reference
+   numbers and the measured ones sit in the same column widths on purpose —
+   the comparison is the point, and a table that lines them up says more than
+   any wording would. */
+.bestiary {
+  display: grid;
+  grid-template-columns: minmax(260px, 340px) 1fr;
+  gap: 12px;
+  align-items: stretch;
+  min-height: 0;
+}
+
+.bestiary .panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.bestiary-input {
+  width: 100%;
+  margin: 0 0 8px;
+}
+
+.bestiary-results {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.bestiary-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 5px 8px;
+  border: 0;
+  border-radius: var(--r-chip);
+  background: transparent;
+  color: var(--ink-2);
+  text-align: left;
+  cursor: pointer;
+}
+
+.bestiary-row:hover {
+  background: var(--hover);
+  color: var(--ink);
+}
+
+.bestiary-row.on {
+  background: var(--selected);
+  color: var(--ink);
+}
+
+.bestiary-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bestiary-level {
+  flex: none;
+  color: var(--muted-raised);
+  font-size: var(--fs-tiny);
+}
+
+.bestiary-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(88px, 1fr));
+  gap: 8px;
+  padding: 4px 0 10px;
+}
+
+.bestiary-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 8px;
+  border: 1px solid var(--grid);
+  border-radius: var(--r-inner);
+}
+
+.bestiary-stat-value {
+  color: var(--ink);
+  font-weight: var(--w-bold);
+}
+
+.bestiary-stat-label {
+  color: var(--muted);
+  font-size: var(--fs-micro);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.bestiary-specials {
+  margin: 0 0 8px;
+  color: var(--gold);
+  font-size: var(--fs-small);
+}
+
+.bestiary-section {
+  margin: 10px 0;
+}
+
+.bestiary-section h4 {
+  margin: 0 0 6px;
+  color: var(--muted);
+  font-size: var(--fs-micro);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  font-weight: var(--w-bold);
+}
+
+.bestiary-list {
+  margin: 0;
+  padding-left: 16px;
+  color: var(--ink-2);
+  font-size: var(--fs-small);
+}
+
+/* Attribution is a promise kept, not a footnote: the data is someone else's
+   and the person reading should be able to go and check it. */
+.bestiary-credit {
+  margin: 14px 0 0;
+  padding-top: 8px;
+  border-top: 1px solid var(--grid);
+  color: var(--muted);
+  font-size: var(--fs-tiny);
+}

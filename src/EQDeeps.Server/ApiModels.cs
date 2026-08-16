@@ -1,4 +1,5 @@
 using EQDeeps.Core.Items;
+using EQDeeps.Core.Reference;
 using EQDeeps.Core.Mobs;
 using EQDeeps.Core.Parsing;
 using EQDeeps.Core.Query;
@@ -45,6 +46,27 @@ public sealed record TimelineRequest(QueryScope Scope);
 /// session instead of meaning one character everywhere — the same rule the
 /// stance panels follow.
 /// </param>
+/// <summary>One NPC as a reference site lists it, with the page a person can read.</summary>
+public sealed record NpcListing(string Name, int? Level, int Id, string Url);
+
+/// <summary>Search over the reference index; <see cref="Error"/> says why it is empty, when it is.</summary>
+public sealed record NpcSearchResult(string Source, IReadOnlyList<NpcListing> Npcs, string? Error);
+
+/// <summary>One listing's full stat block.</summary>
+public sealed record NpcDetailResult(string Source, string Url, NpcDetail Detail);
+
+/// <summary>
+/// A name from the log matched to a listing. <see cref="Exact"/> is false when
+/// no /consider level backed the choice, so the UI can say the match is a
+/// guess rather than dress it up as a measurement.
+/// </summary>
+public sealed record NpcLookupResult(
+    string Source,
+    NpcListing Listing,
+    bool Exact,
+    IReadOnlyList<int> ObservedLevels,
+    NpcDetail? Detail);
+
 /// <summary>The item feed's scope, the same shape as the incoming feed's (F29).</summary>
 public sealed record ItemMentionsRequest(QueryScope Scope, int? Limit = null);
 

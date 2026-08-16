@@ -3,7 +3,13 @@ import type { UpdateMode, UpdateState } from "../api";
 import { LABEL_SIZE_CHOICES } from "../fightOverlay";
 import { CONTEXT_MODES, type ContextMode } from "../contextOverlay";
 import { LOOKUP_WORLDS } from "../lookup/providers";
-import { rememberDefaultProvider, rememberWorld, useLookupWorld } from "../lookup/lookupSettings";
+import {
+  rememberDefaultProvider,
+  rememberReferenceEnabled,
+  rememberWorld,
+  useLookupWorld,
+  useReferenceEnabled,
+} from "../lookup/lookupSettings";
 
 interface Props {
   onClose: () => void;
@@ -73,6 +79,7 @@ export function SettingsDialog({
   // menu as it is made.
   const lookup = useLookupWorld();
   const install = lookup.install;
+  const reference = useReferenceEnabled();
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -140,6 +147,17 @@ export function SettingsDialog({
                 </option>
               ))}
             </select>
+          </Row>
+          <Row
+            label="Look mobs up online"
+            hint={`Lets the Bestiary fetch mob levels, health, spawns and loot from ${lookup.world.providers[0]?.name ?? "a reference site"} and cache them here. The request carries nothing about you or your character, and nothing is fetched until you open the Bestiary and type. Off means this app never speaks to anyone but you.`}
+          >
+            <input
+              type="checkbox"
+              checked={reference.enabled}
+              onChange={(e) => void rememberReferenceEnabled(e.target.checked)}
+              disabled={!reference.ready}
+            />
           </Row>
           <Row
             label="A click opens"

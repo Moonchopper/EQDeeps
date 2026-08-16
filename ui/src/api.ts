@@ -222,6 +222,80 @@ export interface ItemMentionsResult {
   knownNames: number;
 }
 
+/** What the reference layer can answer right now, and why not when it cannot. */
+export interface ReferenceStatus {
+  available: boolean;
+  source: string;
+  homeUrl: string;
+  names: number;
+  listings: number;
+  refreshedUtc?: string;
+  error?: string;
+}
+
+/** One NPC as the reference site lists it. */
+export interface NpcListing {
+  name: string;
+  level?: number;
+  id: number;
+  url: string;
+}
+
+export interface NpcSearchResult {
+  source: string;
+  npcs: NpcListing[];
+  error?: string;
+}
+
+export interface NpcLootLine {
+  itemId: number;
+  item: string;
+  dropPercent: number;
+  iconId: number;
+  damage?: string;
+}
+
+export interface NpcSpawnZone {
+  shortName: string;
+  longName: string;
+  spawnPoints: number;
+  locations: number[][];
+}
+
+/** Everything the site lists about one NPC; every field may be absent. */
+export interface NpcDetail {
+  id: number;
+  name: string;
+  level?: number;
+  maxLevel?: number;
+  hp?: number;
+  ac?: number;
+  race?: string;
+  class?: string;
+  faction?: string;
+  respawnSeconds?: number;
+  minDamage?: number;
+  maxDamage?: number;
+  specials: string[];
+  loot: NpcLootLine[];
+  zones: NpcSpawnZone[];
+}
+
+export interface NpcDetailResult {
+  source: string;
+  url: string;
+  detail: NpcDetail;
+}
+
+export interface NpcLookupResult {
+  source: string;
+  listing: NpcListing;
+  /** True when a /consider level picked this listing out of several. */
+  exact: boolean;
+  observedLevels: number[];
+  detail?: NpcDetail;
+}
+
 export interface IncomingHit {
   at: string;
   attacker: string;
@@ -636,6 +710,32 @@ export const api = {
    */
   getAttacks: (id: string): Promise<MobAttackReport> =>
     fetch(`/api/sessions/${id}/attacks`).then((r) => json(r)),
+
+  // ---- NPC reference (F30) --------------------------------------------------
+  // Someone else's data about the game, fetched by our server on demand and
+  // cached there (ADR-020). Every call can answer "nothing", and the app is
+  // unaffected when it does.
+
+  referenceStatus: (): Promise<ReferenceStatus> =>
+    fetch("/api/reference/status").then((r) => json(r)),
+
+  searchNpcs: (q: string, limit = 60): Promise<NpcSearchResult> =>
+    fetch(`/api/reference/npcs?q=${encodeURIComponent(q)}&limit=${limit}`).then((r) => json(r)),
+
+  npcDetail: async (id: number): Promise<NpcDetailResult | null> => {
+    const response = await fetch(`/api/reference/npcs/${id}`);
+    if (response.status === 204 || !response.ok) return null;
+    return (await response.json()) as NpcDetailResult;
+  },
+
+  /** A name the log met, matched to a listing using this session's /consider levels. */
+  lookupNpc: async (sessionId: string, name: string): Promise<NpcLookupResult | null> => {
+    const response = await fetch(
+      `/api/sessions/${sessionId}/npcs/lookup?name=${encodeURIComponent(name)}`,
+    );
+    if (response.status === 204 || !response.ok) return null;
+    return (await response.json()) as NpcLookupResult;
+  },
 
   // ---- item registry (F29) --------------------------------------------------
 

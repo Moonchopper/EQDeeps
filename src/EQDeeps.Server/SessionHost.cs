@@ -52,6 +52,17 @@ public sealed class SessionHost : IAsyncDisposable
     /// <summary>Records up to here have been offered to the item registry.</summary>
     private int _itemsHarvested;
 
+    /// <summary>
+    /// The levels /consider reported for each NPC name, which is the only
+    /// place the log states one. Small — a long night is a few hundred cons —
+    /// and the key to telling one listed variant of a name from another
+    /// (F30). Swapped whole so a reader never sees a half-built map.
+    /// </summary>
+    private volatile IReadOnlyDictionary<string, int[]> _npcLevels =
+        new Dictionary<string, int[]>(StringComparer.OrdinalIgnoreCase);
+
+    private readonly Dictionary<string, SortedSet<int>> _npcLevelsBuilder = new(StringComparer.OrdinalIgnoreCase);
+
     /// <summary>When the client's item files were last checked for changes.</summary>
     private DateTime _clientFilesChecked = DateTime.MinValue;
     private static readonly TimeSpan ClientFilesInterval = TimeSpan.FromSeconds(30);
@@ -241,6 +252,10 @@ public sealed class SessionHost : IAsyncDisposable
         return new ItemReport(Session.Server, records, records.Count(r => r.Id is not null));
     }
 
+    /// <summary>The levels a /consider reported for a name, newest run's knowledge included; empty when it was never consed.</summary>
+    public IReadOnlyCollection<int> ObservedLevels(string name) =>
+        _npcLevels.TryGetValue(name.Trim(), out var levels) ? levels : [];
+
     /// <summary>What is known about one name — the lookup menu asks this to light up the id-addressed sites.</summary>
     public ItemRecord? ResolveItem(string name) => _items?.For(Session.Server).Find(name);
 
@@ -286,6 +301,7 @@ public sealed class SessionHost : IAsyncDisposable
         }
 
         List<(string, DateTime, ItemSource, int)>? sightings = null;
+        var levelsChanged = false;
         lock (Session.Gate)
         {
             var records = Session.Records;
@@ -301,10 +317,31 @@ public sealed class SessionHost : IAsyncDisposable
                     case MerchantEvent m:
                         (sightings ??= []).Add((m.Item, at, m.Sold ? ItemSource.Sold : ItemSource.Bought, m.Quantity));
                         break;
+                    case ConsiderEvent { Level: > 0 } consider:
+                        // Rare enough to keep them all: a whole raid night is
+                        // a few hundred, and each one pins a mob's level.
+                        if (!_npcLevelsBuilder.TryGetValue(consider.Target, out var seen))
+                        {
+                            seen = [];
+                            _npcLevelsBuilder[consider.Target] = seen;
+                        }
+
+                        if (seen.Add(consider.Level.Value))
+                        {
+                            levelsChanged = true;
+                        }
+
+                        break;
                 }
             }
 
             _itemsHarvested = count;
+        }
+
+        if (levelsChanged)
+        {
+            _npcLevels = _npcLevelsBuilder.ToDictionary(
+                kv => kv.Key, kv => kv.Value.ToArray(), StringComparer.OrdinalIgnoreCase);
         }
 
         if (sightings is not null)

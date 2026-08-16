@@ -60,6 +60,15 @@ export const MOBS_VIEW = "mobs";
 export const HITS_VIEW = "incoming";
 
 /**
+ * The Bestiary (F30): every mob the game has, searchable, with what this
+ * server's logs measured beside what a reference site lists. Like Mobs and
+ * Map it reads no QuerySpec — and unlike anything else here, part of what it
+ * shows comes from off this machine (ADR-020), which is why it can be
+ * switched off entirely.
+ */
+export const BESTIARY_VIEW = "bestiary";
+
+/**
  * Zone maps (F27). A rail entry rather than a dashboard for a blunter reason
  * than the two above: a map has no records behind it at all — no time frame, no
  * metric, no grouping — so the QuerySpec it would have to carry could never be

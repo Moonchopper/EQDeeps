@@ -145,6 +145,30 @@ public class NpcReferenceTests
     }
 
     [Fact]
+    public void ANameIsOneRowHoweverManyPlacesItStandsIn()
+    {
+        // The real shape of the problem: a site lists the same mob once per
+        // zone, so one name carries several listings at the SAME level.
+        var index = new NpcIndex(
+        [
+            new NpcIndexEntry("a ghoul", 13, 20022), // Kithicor Forest
+            new NpcIndexEntry("a ghoul", 13, 21014), // West Commonlands
+            new NpcIndexEntry("a ghoul", 13, 36038), // Befallen
+            new NpcIndexEntry("a ghoul", 14, 22184),
+            new NpcIndexEntry("a ghoul", 24, 63011),
+        ]);
+
+        var row = Assert.Single(index.Browse("ghoul"));
+        Assert.Equal("a ghoul", row.Name);
+        Assert.Equal(13, row.MinLevel);
+        Assert.Equal(24, row.MaxLevel);
+        Assert.Equal(5, row.Listings);
+        // Three levels, not five addresses.
+        Assert.Equal([13, 14, 24], row.PerLevel.Select(v => v.Level).ToArray());
+        Assert.Equal(20022, row.PerLevel[0].Id);
+    }
+
+    [Fact]
     public void SearchRanksExactThenPrefixThenContains()
     {
         var index = new NpcIndex(

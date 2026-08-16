@@ -94,7 +94,21 @@ this app must not break when it moves.
 depend on somebody's website being up, and a feature that phones a third
 party is exactly the one that must be provable offline.
 
-## Decision 4: their listing, our measurement, side by side and labelled
+## Decision 4: a name is one row, however many places it stands in
+
+A site lists the same mob once per *zone*: "a ghoul" is 33 listings, seven of
+them level 13, alike but for where they are placed and a loot line or two.
+Rendered one row each, a search for "ghoul" is a wall of addresses. So a
+browse row is a **name** — 9,026 listings collapse to 5,364 — carrying the
+span of levels it is listed at ("a ghoul · L13–24"), with one representative
+listing per level reachable as a chip in the detail, because those really are
+different mobs' numbers (299 health at 13, 816 at 24). The detail says "where
+*this one* stands" rather than "where it is", and notes how many other
+listings the name has: which zone a particular corpse came from is a question
+the log answers better than the index does, and the measured table beside it
+usually names six.
+
+## Decision 5: their listing, our measurement, side by side and labelled
 
 The Bestiary shows both and never blends them. A reference site lists a
 mob's health; F25 *measured* what it took to kill one, on this server, at

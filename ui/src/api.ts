@@ -241,9 +241,24 @@ export interface NpcListing {
   url: string;
 }
 
+/**
+ * One name in a browse. A reference site lists the same mob once per zone it
+ * stands in — "a ghoul" is 33 listings, seven of them level 13, alike but for
+ * where they stand — so a name is one row here, its level span is stated, and
+ * `levels` carries one listing per distinct level (ADR-020).
+ */
+export interface NpcBrowseRow {
+  name: string;
+  minLevel?: number;
+  maxLevel?: number;
+  /** How many listings the site carries under this name, before collapsing. */
+  listings: number;
+  levels: NpcListing[];
+}
+
 export interface NpcSearchResult {
   source: string;
-  npcs: NpcListing[];
+  npcs: NpcBrowseRow[];
   error?: string;
 }
 

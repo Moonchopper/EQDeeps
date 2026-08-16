@@ -3,6 +3,7 @@ import { IconExternalLink } from "@tabler/icons-react";
 import {
   api,
   type MobHealthReport,
+  type NpcBrowseRow,
   type NpcDetail,
   type NpcListing,
   type ReferenceStatus,
@@ -40,7 +41,9 @@ export function BestiaryPanel({
 }) {
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<ReferenceStatus | null>(null);
-  const [results, setResults] = useState<NpcListing[] | null>(null);
+  const [results, setResults] = useState<NpcBrowseRow[] | null>(null);
+  /** The name whose row is open, and which of its levels is being shown. */
+  const [openName, setOpenName] = useState<NpcBrowseRow | null>(null);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [selected, setSelected] = useState<NpcListing | null>(null);
   const [detail, setDetail] = useState<NpcDetail | null>(null);
@@ -148,14 +151,22 @@ export function BestiaryPanel({
             <div className="empty">Type a couple of letters — “ghoul”, “Nagafen”.</div>
           )}
           <ul className="bestiary-results">
-            {(results ?? []).map((npc) => (
-              <li key={npc.id}>
+            {(results ?? []).map((row) => (
+              <li key={row.name}>
                 <button
-                  className={"bestiary-row" + (selected?.id === npc.id ? " on" : "")}
-                  onClick={() => setSelected(npc)}
+                  className={"bestiary-row" + (openName?.name === row.name ? " on" : "")}
+                  onClick={() => {
+                    setOpenName(row);
+                    setSelected(row.levels[0] ?? null);
+                  }}
+                  title={
+                    row.listings > row.levels.length
+                      ? `${row.listings} listings — the same mob in ${row.listings} places`
+                      : undefined
+                  }
                 >
-                  <span className="bestiary-name">{npc.name}</span>
-                  {npc.level !== undefined && <span className="bestiary-level">L{npc.level}</span>}
+                  <span className="bestiary-name">{row.name}</span>
+                  <span className="bestiary-level">{levelSpan(row)}</span>
                 </button>
               </li>
             ))}
@@ -178,6 +189,23 @@ export function BestiaryPanel({
               </a>
             </div>
             <div className="table-scroll">
+              {/* One name is listed at several levels; which one you are
+                  reading matters, so the choice is on screen rather than
+                  guessed at. */}
+              {openName && openName.levels.length > 1 && (
+                <div className="bestiary-variants">
+                  <span className="subtle">Listed at</span>
+                  {openName.levels.map((v) => (
+                    <button
+                      key={v.id}
+                      className={"bestiary-variant" + (selected?.id === v.id ? " on" : "")}
+                      onClick={() => setSelected(v)}
+                    >
+                      L{v.level}
+                    </button>
+                  ))}
+                </div>
+              )}
               <div className="bestiary-stats">
                 <Stat label="Level" value={levelRange(detail, selected)} />
                 <Stat label="Health" value={detail?.hp ? fmtNum(detail.hp) : "—"} />
@@ -232,7 +260,10 @@ export function BestiaryPanel({
 
               {detail && detail.zones.length > 0 && (
                 <section className="bestiary-section">
-                  <h4>Where it is</h4>
+                  {/* One listing stands in one place. The name may stand in
+                      thirty, and the measured table above usually proves it —
+                      so this heading says which claim is being made. */}
+                  <h4>Where this one stands</h4>
                   <ul className="bestiary-list">
                     {detail.zones.map((z) => (
                       <li key={z.shortName + z.longName}>
@@ -244,6 +275,12 @@ export function BestiaryPanel({
                       </li>
                     ))}
                   </ul>
+                  {openName && openName.listings > detail.zones.length && (
+                    <p className="subtle bestiary-elsewhere">
+                      {openName.name} is listed {openName.listings} times in all — the same mob is
+                      placed in other zones too, each with its own entry.
+                    </p>
+                  )}
                 </section>
               )}
 
@@ -295,6 +332,14 @@ function Stat({ label, value }: { label: string; value: string | number }) {
       <span className="bestiary-stat-label">{label}</span>
     </div>
   );
+}
+
+/** "L42", or "L13–24" when the name covers a span. */
+function levelSpan(row: NpcBrowseRow): string {
+  if (row.minLevel === undefined) return "";
+  return row.maxLevel !== undefined && row.maxLevel !== row.minLevel
+    ? `L${row.minLevel}–${row.maxLevel}`
+    : `L${row.minLevel}`;
 }
 
 function levelRange(detail: NpcDetail | null, listing: NpcListing): string {

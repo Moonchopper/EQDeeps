@@ -462,10 +462,13 @@ public static class ServerApp
                 return Results.Ok(new NpcSearchResult(reference.SourceName, [], reference.Status().Error));
             }
 
-            var matches = index.Search(q ?? string.Empty, Math.Clamp(limit ?? 60, 1, 200));
-            var rows = matches
-                .SelectMany(m => m.Variants.Select(v =>
-                    new NpcListing(v.Name, v.Level, v.Id, reference.NpcUrl(v.Id))))
+            var rows = index.Browse(q ?? string.Empty, Math.Clamp(limit ?? 60, 1, 200))
+                .Select(r => new NpcBrowseRow(
+                    r.Name,
+                    r.MinLevel,
+                    r.MaxLevel,
+                    r.Listings,
+                    r.PerLevel.Select(v => new NpcListing(v.Name, v.Level, v.Id, reference.NpcUrl(v.Id))).ToList()))
                 .ToList();
             return Results.Ok(new NpcSearchResult(reference.SourceName, rows, null));
         });

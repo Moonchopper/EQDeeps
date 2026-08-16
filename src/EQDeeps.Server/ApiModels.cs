@@ -49,8 +49,20 @@ public sealed record TimelineRequest(QueryScope Scope);
 /// <summary>One NPC as a reference site lists it, with the page a person can read.</summary>
 public sealed record NpcListing(string Name, int? Level, int Id, string Url);
 
+/// <summary>
+/// One name in a browse: the levels it is listed at, and a listing per level.
+/// A site lists the same mob once per zone it stands in, so a name is one row
+/// here however many addresses it has (ADR-020).
+/// </summary>
+public sealed record NpcBrowseRow(
+    string Name,
+    int? MinLevel,
+    int? MaxLevel,
+    int Listings,
+    IReadOnlyList<NpcListing> Levels);
+
 /// <summary>Search over the reference index; <see cref="Error"/> says why it is empty, when it is.</summary>
-public sealed record NpcSearchResult(string Source, IReadOnlyList<NpcListing> Npcs, string? Error);
+public sealed record NpcSearchResult(string Source, IReadOnlyList<NpcBrowseRow> Npcs, string? Error);
 
 /// <summary>One listing's full stat block.</summary>
 public sealed record NpcDetailResult(string Source, string Url, NpcDetail Detail);

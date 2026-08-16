@@ -4,6 +4,18 @@ namespace EQDeeps.Core.Reference;
 public sealed record NpcNameMatch(string Name, IReadOnlyList<NpcIndexEntry> Variants);
 
 /// <summary>
+/// One row of a browse: a name, the span of levels it is listed at, and one
+/// representative listing per level.
+/// </summary>
+public sealed record NpcNameRow(
+    string Name,
+    int? MinLevel,
+    int? MaxLevel,
+    /// <summary>How many listings the site carries under this name, before collapsing.</summary>
+    int Listings,
+    IReadOnlyList<NpcIndexEntry> PerLevel);
+
+/// <summary>
 /// The reference index in memory: every NPC name a site lists, searchable,
 /// and resolvable to the one listing that matches a mob the log actually met.
 ///
@@ -159,6 +171,58 @@ public sealed class NpcIndex
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// Collapses a name's listings to one per level.
+    ///
+    /// <para>A site lists the same mob once per <i>zone</i> it stands in:
+    /// "a ghoul" is 33 listings, 7 of them level 13, identical but for which
+    /// zone they are placed in and a loot line or two. Browsing wants the mob,
+    /// not its addresses — so a row is a name, its level span is stated, and
+    /// the levels underneath are reachable one click in. Which zone a
+    /// particular corpse came from is a question the log answers better than
+    /// the index does.</para>
+    /// </summary>
+    public static IReadOnlyList<NpcIndexEntry> PerLevel(IReadOnlyList<NpcIndexEntry> variants)
+    {
+        var seen = new HashSet<int>();
+        var kept = new List<NpcIndexEntry>();
+        foreach (var variant in variants)
+        {
+            // Level-less listings are rare and never duplicated in practice;
+            // they are kept as they come rather than folded into one another.
+            if (variant.Level is not { } level)
+            {
+                kept.Add(variant);
+                continue;
+            }
+
+            if (seen.Add(level))
+            {
+                kept.Add(variant);
+            }
+        }
+
+        return kept;
+    }
+
+    /// <summary>Names matching a query, one row each, collapsed for browsing.</summary>
+    public IReadOnlyList<NpcNameRow> Browse(string query, int limit = 100)
+    {
+        var rows = new List<NpcNameRow>();
+        foreach (var match in Search(query, limit))
+        {
+            var levels = match.Variants.Select(v => v.Level).Where(l => l is not null).Select(l => l!.Value).ToArray();
+            rows.Add(new NpcNameRow(
+                match.Name,
+                levels.Length > 0 ? levels.Min() : null,
+                levels.Length > 0 ? levels.Max() : null,
+                match.Variants.Count,
+                PerLevel(match.Variants)));
+        }
+
+        return rows;
     }
 
     /// <summary>

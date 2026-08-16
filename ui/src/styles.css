@@ -3287,3 +3287,39 @@ tr:hover .lookup-btn,
   color: var(--muted);
   font-size: var(--fs-tiny);
 }
+
+/* Which level of a name you are reading — a name can be listed at a dozen,
+   and the difference is a different mob's numbers. */
+.bestiary-variants {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 0 8px;
+}
+
+.bestiary-variant {
+  padding: 1px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--ink-2);
+  font-size: var(--fs-tiny);
+  cursor: pointer;
+}
+
+.bestiary-variant:hover {
+  border-color: var(--accent);
+  color: var(--ink);
+}
+
+.bestiary-variant.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+.bestiary-elsewhere {
+  margin: 6px 0 0;
+  font-size: var(--fs-tiny);
+}

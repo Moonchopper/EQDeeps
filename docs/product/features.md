@@ -223,7 +223,7 @@ Self-contained Windows distribution (single exe or installer) that starts the lo
 
 Installed builds keep themselves current without ever surprising the user. An Inno Setup installer (per-user by default, real directory page) plus a NetSparkle update loop; see [ADR-010](../architecture/adr-010-auto-update.md).
 
-The consent model is the feature, not the downloading. The default is to ask once per release, and every way of saying "no" states how long it lasts: *not right now* (until restart), *skip this version* (until something newer ships), *don't ask again for vX.Y.Z* (until the user is on a different build), or *always update automatically*. Preferences persist server-side, so they hold with no UI attached.
+The consent model is the feature, not the downloading. The default is to ask once per release, and every way of saying "no" states how long it lasts: *not right now* (until restart), *skip this version* (until something newer ships), *don't ask again for vX.Y.Z* (until the user is on a different build), or *always update automatically*. Preferences persist server-side, so they hold with no UI attached. **The prompt waits for a quiet moment** (2026-08-16): one found by the background check is held until the active session has no fight open and nothing has been hit for two minutes — never mid-pull; one the user asked for, by clicking *check for updates*, shows at once. *Update & restart now* is the primary button, since the prompt only appears between fights and a restart is back from the log cache in seconds; *update on exit* stays beside it.
 
 - AC: An update is never applied mid-session — downloads stage quietly and install on exit.
 - AC: Declining is always reversible; an explicit "check now" overrides every standing decline.

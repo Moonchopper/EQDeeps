@@ -79,6 +79,26 @@ const LIVE_LOG_GRACE_MS = 60 * 60 * 1000;
 const IDLE_POLL_MS = 15_000;
 const ACTIVE_POLL_MS = 700;
 
+/** How long the active session must go without a hit before an update prompt may interrupt. */
+const UPDATE_PROMPT_QUIET_MS = 2 * 60_000;
+/** How often a waiting prompt asks again whether it is quiet yet. */
+const UPDATE_PROMPT_RECHECK_MS = 15_000;
+
+/**
+ * Whether the active session is between fights: nothing open, and the last
+ * hit landed long enough ago that "between pulls" is a fair reading. An
+ * empty list is quiet — no log, or a log with no fights, is not a fight.
+ */
+function combatQuiet(fights: FightInfo[], nowMs: number): boolean {
+  let last = 0;
+  for (const f of fights) {
+    if (!f.closed) return false;
+    const t = new Date(f.lastDamageTime).getTime();
+    if (t > last) last = t;
+  }
+  return nowMs - last >= UPDATE_PROMPT_QUIET_MS;
+}
+
 /**
  * The default dashboard (feature F7): fight list + summary + DPS chart + live
  * meter + deaths, all scoped to the fight selection, live-updating via the hub.
@@ -726,12 +746,29 @@ export default function App() {
   }
 
   // The server decides whether to ask, applying the user's standing answers
-  // (F22); the SPA just renders the question when it says so.
+  // (F22); the SPA renders the question when it says so — but not in the
+  // middle of a fight. A prompt found by the background check waits for the
+  // active session to go quiet (no fight open, nothing hit for a couple of
+  // minutes); one the user asked for, by clicking "check for updates", shows
+  // at once, since that click was the request. Re-checked on every fight
+  // push and on a slow timer, so the wait ends when the fighting does.
+  const manualCheck = useRef(false);
   useEffect(() => {
-    if (update?.promptRequired) {
+    if (!update?.promptRequired || showUpdateNotice) return;
+    if (manualCheck.current) {
+      manualCheck.current = false;
       setShowUpdateNotice(true);
+      return;
     }
-  }, [update]);
+    if (combatQuiet(fights, Date.now())) {
+      setShowUpdateNotice(true);
+      return;
+    }
+    const timer = window.setInterval(() => {
+      if (combatQuiet(fights, Date.now())) setShowUpdateNotice(true);
+    }, UPDATE_PROMPT_RECHECK_MS);
+    return () => window.clearInterval(timer);
+  }, [update, fights, showUpdateNotice]);
 
   async function answerUpdate(choice: UpdateChoice) {
     setShowUpdateNotice(false);
@@ -774,15 +811,19 @@ export default function App() {
   // also the way back for someone who chose "don't ask again".
   async function checkForUpdateNow() {
     setCheckNote(null);
+    // The user asked, so the answer does not wait for a quiet moment.
+    manualCheck.current = true;
     try {
       const next = await api.checkForUpdate();
       setUpdate(next);
       // Silence would read as a broken button, so say something either way.
       // When there IS an update the consent dialog opens on its own.
       if (!next.promptRequired) {
+        manualCheck.current = false;
         setCheckNote(next.restartRequired ? "update ready" : "up to date");
       }
     } catch {
+      manualCheck.current = false;
       setCheckNote("check failed");
     }
   }

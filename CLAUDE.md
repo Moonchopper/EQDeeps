@@ -262,10 +262,16 @@ the goal.
 **Clean-room rule.** `d:\git\EQLogParser` (Apache 2.0) is the incumbent and is
 available locally. It is a **behaviour authority, not a code source**: read it to
 settle a grammar or formula question, then write the answer into the domain doc
-and implement it fresh. Do not port or transcribe its code. Two explicit
-exceptions: its parser tests' real log lines are fine to harvest as fixture data
-(game output, not creative code), and its `data/*.txt` reference files may be
-copied outright with attribution in `NOTICE`.
+and implement it fresh — that is still worth doing, and settled what "bane"
+means as recently as 2026-08-16. Do not port or transcribe its code.
+
+The fixture corpus was harvested from its parser tests (real log lines are game
+output, not creative code) and **that attribution in `NOTICE` is a licence
+obligation** for as long as those fixtures exist. Its `data/*.txt` files could
+be copied under the same terms but **have not been and should not be**: the
+game client ships its own spell database and the app reads it from the player's
+install (`docs/domain/eq-client-files.md`), which is both better data for this
+game and nobody else's to license.
 
 **Documentation discipline** — this is the part that keeps future sessions cheap:
 
@@ -322,9 +328,30 @@ writing lines to files.
   the engine's own output. Keep it that way — the point is catching a formula
   drifting, and a golden file recorded from the code under test cannot do that.
 
-The remaining release gate that tests cannot cover: **real-log validation** —
-comparing summary numbers for a real fight against EQLogParser's output for the
-same file. The owner has the logs; this is still open.
+**The release gate is internal consistency, not a second opinion.** Comparing
+our numbers against EQLogParser's was the plan for a long time and has been
+retired (2026-08-16): it parses *live* EverQuest, this app is used on
+EverQuest Legends, and the two deliberately disagree anyway — played-time
+denominators, presence-bounded whole-log scopes, stance time are all our own
+choices. A diff would mostly report intent, and where it did not, the
+incumbent might be the one that is wrong about this game.
+
+What replaces it, and what a release should be able to show:
+
+- **Fixture-corpus fidelity** — every fixture parses to its expected value.
+  Already enforced; still the first gate.
+- **Invariants that need no oracle.** Per-player damage sums to the fight
+  total. Every damage record lands in exactly one fight or none. Recognized
+  plus unrecognized equals lines read. These catch the crude attribution
+  errors — double-counted pets, a damage shield credited twice — that produce
+  plausible-looking numbers.
+- **Measured-against-listed sanity.** F25 measures damage-to-kill; the
+  Bestiary (F30) can show what a reference site lists for the same mob. On the
+  owner's sixty most-killed mobs that ratio sits at a median ×1.08, about what
+  overkill alone costs — a systematic attribution bug would show as ×1.5 or ×2.
+
+The invariant checks are **not written yet**; the fixture gate is. That is the
+honest state of it.
 
 ---
 
@@ -379,7 +406,9 @@ from the cache, sub-250 ms live latency.
 
 Open, roughly in priority order:
 
-- **Real-log validation against EQLogParser** — the v1 release gate.
+- **Release-gate invariants** — the checks described in §8 (per-player sums,
+  one-fight membership, lines-read accounting). The gate is defined; the tests
+  are not written.
 - **Spell-DB integration** — class detection, bane classification, lands-on
   resolution. The reference data files are not yet copied in; `ValidityFlag.Bane`
   matches nothing until they are.

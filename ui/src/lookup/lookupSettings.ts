@@ -1,7 +1,7 @@
 import { useContext, useEffect, useState } from "react";
 import { api } from "../api";
 import { guessWorldId, worldById, type LookupWorld } from "./providers";
-import { LookupInstallContext } from "./LookupScope";
+import { LookupScopeContext } from "./LookupScope";
 
 /**
  * Which world's reference sites a log should open (see `providers.ts`),
@@ -100,8 +100,8 @@ export function useLookupWorld(installOverride?: string): {
   install?: string;
 } {
   // The install comes from the nearest LookupScope unless a caller knows better.
-  const scoped = useContext(LookupInstallContext);
-  const install = installOverride ?? scoped;
+  const scoped = useContext(LookupScopeContext);
+  const install = installOverride ?? scoped.install;
   const [, bump] = useState(0);
   useEffect(() => {
     const l = () => bump((n) => n + 1);

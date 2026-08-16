@@ -1,4 +1,6 @@
+using EQDeeps.Core.Events;
 using EQDeeps.Core.Ingestion;
+using EQDeeps.Core.Items;
 using EQDeeps.Core.Mobs;
 using EQDeeps.Core.Query;
 using EQDeeps.Core.Sessions;
@@ -37,6 +39,22 @@ public sealed class SessionHost : IAsyncDisposable
     private readonly IHubContext<LiveHub> _hub;
     private readonly MobHealthStore? _mobs;
     private readonly MobAttackStore? _attacks;
+    private readonly ItemStore? _items;
+
+    /// <summary>
+    /// The item feed's dictionary, rebuilt when the registry has grown since
+    /// it was built. Cheap to build (a pass over the names) and read far more
+    /// often than the names change, so it is kept between requests.
+    /// </summary>
+    private ItemMentionScanner? _scanner;
+    private int _scannerVersion = -1;
+
+    /// <summary>Records up to here have been offered to the item registry.</summary>
+    private int _itemsHarvested;
+
+    /// <summary>When the client's item files were last checked for changes.</summary>
+    private DateTime _clientFilesChecked = DateTime.MinValue;
+    private static readonly TimeSpan ClientFilesInterval = TimeSpan.FromSeconds(30);
     private readonly CancellationTokenSource _cts = new();
     private readonly SemaphoreSlim _signal = new(0, 1);
     private readonly string _group;
@@ -72,7 +90,8 @@ public sealed class SessionHost : IAsyncDisposable
         Session session,
         IHubContext<LiveHub> hub,
         MobHealthStore? mobs = null,
-        MobAttackStore? attacks = null)
+        MobAttackStore? attacks = null,
+        ItemStore? items = null)
     {
         Id = id;
         Session = session;
@@ -80,6 +99,7 @@ public sealed class SessionHost : IAsyncDisposable
         _hub = hub;
         _mobs = mobs;
         _attacks = attacks;
+        _items = items;
         _group = LiveHub.GroupName(id);
 
         // Whatever past sessions learned is available from the first frame the
@@ -208,6 +228,116 @@ public sealed class SessionHost : IAsyncDisposable
     }
 
     /// <summary>The tail of the incoming-damage stream over a scope (F26).</summary>
+    /// <summary>What this server's logs and client files have named (F29). Reads the client files first if they are due.</summary>
+    public ItemReport Items()
+    {
+        if (_items is null)
+        {
+            return new ItemReport(Session.Server, [], 0);
+        }
+
+        ReadClientFilesIfDue(force: true);
+        var records = _items.For(Session.Server).Snapshot();
+        return new ItemReport(Session.Server, records, records.Count(r => r.Id is not null));
+    }
+
+    /// <summary>What is known about one name — the lookup menu asks this to light up the id-addressed sites.</summary>
+    public ItemRecord? ResolveItem(string name) => _items?.For(Session.Server).Find(name);
+
+    /// <summary>The item feed: looted, sold, bought and named in chat, inside a scope, newest first.</summary>
+    public ItemMentionsResult ItemMentions(ItemMentionsRequest request)
+    {
+        var registry = _items?.For(Session.Server) ?? new ItemRegistry();
+        var scanner = ScannerFor(registry);
+        lock (Session.Gate)
+        {
+            return ItemMentionsBuilder.Build(
+                Session.Records, Session.Fights, registry, scanner, request.Scope,
+                request.Limit ?? ItemMentionsBuilder.DefaultLimit);
+        }
+    }
+
+    private ItemMentionScanner ScannerFor(ItemRegistry registry)
+    {
+        var version = registry.Version;
+        var scanner = _scanner;
+        if (scanner is null || _scannerVersion != version)
+        {
+            scanner = new ItemMentionScanner(registry.Names());
+            _scanner = scanner;
+            _scannerVersion = version;
+        }
+
+        return scanner;
+    }
+
+    /// <summary>
+    /// Offers every loot, sale and purchase past the watermark to the item
+    /// registry — once, so counts do not tick again on a replay. Rides the
+    /// expiry tick after backfill like the mob sweeps; before that the log is
+    /// still arriving, and one pass over the finished backfill is cheaper
+    /// than a pass per batch.
+    /// </summary>
+    private void HarvestItems()
+    {
+        if (_items is null)
+        {
+            return;
+        }
+
+        List<(string, DateTime, ItemSource, int)>? sightings = null;
+        lock (Session.Gate)
+        {
+            var records = Session.Records;
+            var count = records.Count;
+            for (var i = _itemsHarvested; i < count; i++)
+            {
+                var (at, evt) = records[i];
+                switch (evt)
+                {
+                    case LootEvent { Item: { } item } loot:
+                        (sightings ??= []).Add((item, at, ItemSource.Looted, loot.Quantity));
+                        break;
+                    case MerchantEvent m:
+                        (sightings ??= []).Add((m.Item, at, m.Sold ? ItemSource.Sold : ItemSource.Bought, m.Quantity));
+                        break;
+                }
+            }
+
+            _itemsHarvested = count;
+        }
+
+        if (sightings is not null)
+        {
+            _items.Observe(Session.Server, sightings);
+        }
+
+        ReadClientFilesIfDue(force: false);
+    }
+
+    /// <summary>
+    /// Folds the client's loot-filter and inventory files in, if the log
+    /// lives in an install and the files have changed. A stat every half
+    /// minute on the tick; a request for the item list forces the check so a
+    /// filter set a moment ago is already there.
+    /// </summary>
+    private void ReadClientFilesIfDue(bool force)
+    {
+        if (_items is null)
+        {
+            return;
+        }
+
+        var now = DateTime.UtcNow;
+        if (!force && now - _clientFilesChecked < ClientFilesInterval)
+        {
+            return;
+        }
+
+        _clientFilesChecked = now;
+        _items.ReadClientFiles(Session.Server, LogDiscovery.InstallRootOf(Session.Path), Session.Character);
+    }
+
     public IncomingHitsResult IncomingHits(IncomingHitsRequest request)
     {
         lock (Session.Gate)
@@ -493,6 +623,11 @@ public sealed class SessionHost : IAsyncDisposable
                 // `changed`: the fight list does not read attack profiles, so
                 // banking one is not a reason to push the whole thing again.
                 HarvestAttacks();
+
+                // And the item registry (F29): loot, sales and purchases past
+                // the watermark, plus a look at the client's item files now
+                // and then. Nothing pushes; the item feed is fetched.
+                HarvestItems();
 
                 if (changed)
                 {

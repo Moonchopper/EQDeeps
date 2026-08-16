@@ -1098,5 +1098,9 @@ export default function App() {
       )}
     </div>
   );
-  return <LookupScope install={activeSession?.install}>{tree}</LookupScope>;
+  return (
+    <LookupScope install={activeSession?.install} sessionId={activeId || undefined}>
+      {tree}
+    </LookupScope>
+  );
 }

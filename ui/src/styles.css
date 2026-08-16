@@ -3066,3 +3066,53 @@ tr:hover .lookup-btn,
   color: var(--muted);
   font-size: var(--fs-micro);
 }
+
+/* ---- item feed (F29) ----
+   A list of things as they came up, newest first. The kind is a word in a
+   quiet pill rather than a colour alone; the chat line rides in the Where
+   column after the channel, muted, so the item stays the loudest thing on
+   the row. */
+.item-feed th,
+.item-feed td {
+  white-space: nowrap;
+}
+
+.item-feed td.item-where {
+  white-space: normal;
+  max-width: 0;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.item-kind {
+  display: inline-block;
+  padding: 0 6px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--grid);
+  font-size: var(--fs-micro);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted-raised);
+  line-height: 16px;
+}
+
+.item-kind-looted {
+  color: var(--gold);
+  border-color: color-mix(in srgb, var(--gold) 45%, transparent);
+}
+
+.item-kind-chat {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+.item-text {
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.item-feed-note {
+  padding: 4px 12px 8px;
+  font-size: var(--fs-tiny);
+}

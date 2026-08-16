@@ -94,8 +94,8 @@ Useful server flags: `--browser` (default browser instead of the app window),
 
 Test-only redirect flags — these keep tests out of the real `%AppData%`, and any
 new store you add should get one to match: `--recentLogsRoot`, `--sampleLogRoot`,
-`--updateRoot`, `--mobRoot`, `--attackRoot`, `--storeRoot`, `--mapRoot`,
-`--cacheRoot`.
+`--updateRoot`, `--mobRoot`, `--attackRoot`, `--itemRoot`, `--storeRoot`,
+`--mapRoot`, `--cacheRoot`.
 
 **Pass all of them, always** — including for a test that only touches one. A
 harness that redirects most of the stores reads as isolated, and the gap is
@@ -182,6 +182,7 @@ Invariants worth not breaking:
 | `recent-logs.json` | MRU log list | `--recentLogsRoot` | No |
 | `mobs\` | F25 learned mob health per *server* | `--mobRoot` | Yes — a cache. Corrupt file just relearns |
 | `attacks\` | F26 learned mob attacks per *server*, keyed by defender level too | `--attackRoot` | Yes — a cache, same deal |
+| `items\` | F29 item registry per *server*: every item the logs and the player's client files have named, with the game's id where a file gave one (ADR-019) | `--itemRoot` | Yes — a cache; the logs and the client's `userdata\LF_*.ini` still exist |
 | `cache\` | F28 parsed records per *log file* per *parser build* (`<hash of path>-<build>.eqdc`), so the next open resumes instead of re-parsing (ADR-018). Dev and installed builds keep separate files and never read each other's. Also `map-labels-<build>.json`: every map file's labels, so the World view's graph does not re-read 200 MB of maps per launch | `--cacheRoot` | Yes — a cache; validated against the log's own bytes and the parser build, rebuilt when either differs. Sweeps itself: gone logs, 60 days idle, all but the newest foreign build per log. Map labels validated per file by size + mtime |
 | update preferences, staged installer | ADR-010 | `--updateRoot` | Yes |
 | extracted demo log | bundled sample | `--sampleLogRoot` | Yes |

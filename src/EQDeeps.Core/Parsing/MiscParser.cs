@@ -64,31 +64,41 @@ public static class MiscParser
     {
         // "--You have looted a Cold-Forged Cudgel from Queen Dracnia's corpse.--"
         // "--Soandso has looted a Rusty Whip from a bandit's corpse.--"
+        // The item is introduced by "a", "an" or a stack count — the same
+        // three ways as the auto-sell form below — and for a while only "a"
+        // was recognized, which silently dropped every "an Ebon Dagger" and
+        // "2 Bone Chips" from the loot record (42 and 3 lines respectively
+        // in one Legends log; F29's item registry is what noticed).
         if (action.StartsWith("--", StringComparison.Ordinal) &&
             action.EndsWith(".--", StringComparison.Ordinal))
         {
             var body = action.AsSpan(2, action.Length - 5);
             string looter;
-            if (body.StartsWith("You have looted a ", StringComparison.Ordinal))
+            if (body.StartsWith("You have looted ", StringComparison.Ordinal))
             {
                 looter = options.PlayerName;
-                body = body["You have looted a ".Length..];
+                body = body["You have looted ".Length..];
             }
             else
             {
-                var i = body.IndexOf(" has looted a ", StringComparison.Ordinal);
+                var i = body.IndexOf(" has looted ", StringComparison.Ordinal);
                 if (i <= 0)
                 {
                     return null;
                 }
 
                 looter = body[..i].ToString();
-                body = body[(i + " has looted a ".Length)..];
+                body = body[(i + " has looted ".Length)..];
+            }
+
+            if (!TakeArticleOrCount(ref body, out var quantity))
+            {
+                return null;
             }
 
             var from = body.LastIndexOf(" from ", StringComparison.Ordinal);
             return from > 0
-                ? new LootEvent(looter, body[..from].ToString(), StripCorpse(body[(from + 6)..]))
+                ? new LootEvent(looter, body[..from].ToString(), StripCorpse(body[(from + 6)..]), Quantity: quantity)
                 : null;
         }
 
@@ -115,30 +125,9 @@ public static class MiscParser
             }
 
             body = body[..sold];
-            var quantity = 1;
-            if (body.StartsWith("a ", StringComparison.Ordinal))
+            if (!TakeArticleOrCount(ref body, out var quantity))
             {
-                body = body[2..];
-            }
-            else if (body.StartsWith("an ", StringComparison.Ordinal))
-            {
-                body = body[3..];
-            }
-            else
-            {
-                var digits = 0;
-                while (digits < body.Length && char.IsAsciiDigit(body[digits]))
-                {
-                    digits++;
-                }
-
-                if (digits == 0 || digits >= body.Length || body[digits] != ' ' ||
-                    !int.TryParse(body[..digits], out quantity))
-                {
-                    return null;
-                }
-
-                body = body[(digits + 1)..];
+                return null;
             }
 
             var from = body.LastIndexOf(" from ", StringComparison.Ordinal);
@@ -171,7 +160,12 @@ public static class MiscParser
             }
             else
             {
-                return null;
+                // "You receive 2 gold 5 silver 9 copper from Didek Stormhammer
+                // for the Rusty Two Handed Sword +2(s)." — a merchant sale. The
+                // "(s)" is the client's plural hedge, printed whatever the
+                // count; the count itself is not stated. Coins here come
+                // without commas or "and", which ParseCoins tolerates.
+                return ParseSale(body, options);
             }
 
             var copper = ParseCoins(body);
@@ -180,7 +174,103 @@ public static class MiscParser
                 : new LootEvent(options.PlayerName, Item: null, source, copper);
         }
 
+        // "You purchased 1 Spell: Holy Armor from Storn Trueblade for  5 silver."
+        // (two spaces before the price are the client's, not a typo here).
+        if (action.StartsWith("You purchased ", StringComparison.Ordinal))
+        {
+            var body = action.AsSpan("You purchased ".Length).TrimEnd();
+            if (body.Length > 0 && body[^1] == '.')
+            {
+                body = body[..^1];
+            }
+
+            if (!TakeArticleOrCount(ref body, out var quantity))
+            {
+                return null;
+            }
+
+            var forAt = body.LastIndexOf(" for ", StringComparison.Ordinal);
+            if (forAt <= 0)
+            {
+                return null;
+            }
+
+            var copper = ParseCoins(body[(forAt + " for ".Length)..].Trim());
+            body = body[..forAt];
+            var from = body.LastIndexOf(" from ", StringComparison.Ordinal);
+            if (copper is null || from <= 0)
+            {
+                return null;
+            }
+
+            return new MerchantEvent(
+                body[(from + " from ".Length)..].ToString(), body[..from].ToString(), quantity, copper.Value, Sold: false);
+        }
+
         return null;
+    }
+
+    private static GameEvent? ParseSale(ReadOnlySpan<char> body, ParserOptions options)
+    {
+        var forAt = body.LastIndexOf(" for the ", StringComparison.Ordinal);
+        if (forAt <= 0)
+        {
+            return null;
+        }
+
+        var item = body[(forAt + " for the ".Length)..];
+        if (item.EndsWith("(s)", StringComparison.Ordinal))
+        {
+            item = item[..^3];
+        }
+
+        var head = body[..forAt];
+        var from = head.LastIndexOf(" from ", StringComparison.Ordinal);
+        if (from <= 0 || item.IsEmpty)
+        {
+            return null;
+        }
+
+        var copper = ParseCoins(head[..from]);
+        return copper is null
+            ? null
+            : new MerchantEvent(head[(from + " from ".Length)..].ToString(), item.ToString(), 1, copper.Value, Sold: true);
+    }
+
+    /// <summary>
+    /// Consumes the "a " / "an " / "N " that introduces an item in a loot or
+    /// merchant line, leaving the item name; false when none of the three is
+    /// there, which is how a line that merely resembles one is refused.
+    /// </summary>
+    private static bool TakeArticleOrCount(ref ReadOnlySpan<char> body, out int quantity)
+    {
+        quantity = 1;
+        if (body.StartsWith("a ", StringComparison.Ordinal))
+        {
+            body = body[2..];
+            return true;
+        }
+
+        if (body.StartsWith("an ", StringComparison.Ordinal))
+        {
+            body = body[3..];
+            return true;
+        }
+
+        var digits = 0;
+        while (digits < body.Length && char.IsAsciiDigit(body[digits]))
+        {
+            digits++;
+        }
+
+        if (digits == 0 || digits >= body.Length || body[digits] != ' ' ||
+            !int.TryParse(body[..digits], out quantity))
+        {
+            return false;
+        }
+
+        body = body[(digits + 1)..];
+        return true;
     }
 
     /// <summary>"1 platinum, 2 gold, 5 silver and 3 copper" → total copper, or null on any mismatch.</summary>
@@ -243,6 +333,11 @@ public static class MiscParser
             else if (text.StartsWith(" and ", StringComparison.Ordinal))
             {
                 text = text[5..];
+            }
+            else if (text.StartsWith(" ", StringComparison.Ordinal) && text.Length > 1 && char.IsAsciiDigit(text[1]))
+            {
+                // Merchant lines list coins with bare spaces: "2 gold 5 silver 9 copper".
+                text = text[1..];
             }
             else
             {

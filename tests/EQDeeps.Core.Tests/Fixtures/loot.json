@@ -8,6 +8,26 @@
     "expect": { "type": "loot", "looter": "Soandso", "item": "Rusty Whip", "source": "a bandit", "copper": null, "quantity": 1 }
   },
   {
+    "line": "--You have looted an Ebon Dagger from a dry bone skeleton's corpse.--",
+    "expect": { "type": "loot", "looter": "TestPlayer", "item": "Ebon Dagger", "source": "a dry bone skeleton", "copper": null, "quantity": 1 }
+  },
+  {
+    "line": "--You have looted 2 Bone Chips from a skeletal monk's corpse.--",
+    "expect": { "type": "loot", "looter": "TestPlayer", "item": "Bone Chips", "source": "a skeletal monk", "copper": null, "quantity": 2 }
+  },
+  {
+    "line": "--Soandso has looted an Iron Visor +1 from a lurking mummy's corpse.--",
+    "expect": { "type": "loot", "looter": "Soandso", "item": "Iron Visor +1", "source": "a lurking mummy", "copper": null, "quantity": 1 }
+  },
+  {
+    "line": "--Soandso has looted 3 Spider Silk from a heart spider's corpse.--",
+    "expect": { "type": "loot", "looter": "Soandso", "item": "Spider Silk", "source": "a heart spider", "copper": null, "quantity": 3 }
+  },
+  {
+    "line": "--You have looted the Sword of Nothing from a nobody's corpse.--",
+    "expect": { "type": "none" }
+  },
+  {
     "line": "You looted a Froglok Meat from a froglok ton knight's corpse and sold it for 5 copper.",
     "expect": { "type": "loot", "looter": "TestPlayer", "item": "Froglok Meat", "source": "a froglok ton knight", "copper": 5, "quantity": 1 }
   },
@@ -29,6 +49,26 @@
   },
   {
     "line": "You receive a strange look from the guard.",
+    "expect": { "type": "none" }
+  },
+  {
+    "line": "You receive 2 gold 5 silver 9 copper from Didek Stormhammer for the Rusty Two Handed Sword +2(s).",
+    "expect": { "type": "merchant", "merchant": "Didek Stormhammer", "item": "Rusty Two Handed Sword +2", "copper": 259, "quantity": 1, "sold": true }
+  },
+  {
+    "line": "You receive 1 platinum 2 gold from Kadek Norkhitter for the Fine Steel Rapier(s).",
+    "expect": { "type": "merchant", "merchant": "Kadek Norkhitter", "item": "Fine Steel Rapier", "copper": 1200, "quantity": 1, "sold": true }
+  },
+  {
+    "line": "You purchased 1 Spell: Holy Armor from Storn Trueblade for  5 silver.",
+    "expect": { "type": "merchant", "merchant": "Storn Trueblade", "item": "Spell: Holy Armor", "copper": 50, "quantity": 1, "sold": false }
+  },
+  {
+    "line": "You purchased 20 Bat Wing from Merchant Rusti for  1 gold 5 copper.",
+    "expect": { "type": "merchant", "merchant": "Merchant Rusti", "item": "Bat Wing", "copper": 105, "quantity": 20, "sold": false }
+  },
+  {
+    "line": "You purchased nothing from nobody.",
     "expect": { "type": "none" }
   }
 ]

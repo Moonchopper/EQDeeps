@@ -190,8 +190,8 @@ public static class IncomingHitsBuilder
         return null;
     }
 
-    /// <summary>Same scope semantics as the timeline and the merged-range sources.</summary>
-    private static TimeSegments ResolveScope(
+    /// <summary>Same scope semantics as the timeline and the merged-range sources; shared with the item-mention feed (F29).</summary>
+    internal static TimeSegments ResolveScope(
         RecordStore records, FightTracker fights, QueryScope scope)
     {
         var union = new TimeSegments();

@@ -190,6 +190,24 @@ public class FixtureTests
                 }
 
                 break;
+            case "merchant":
+                var merchant = Assert.IsType<MerchantEvent>(evt);
+                AssertString(expect, "merchant", merchant.Merchant, context);
+                AssertString(expect, "item", merchant.Item, context);
+                AssertBool(expect, "sold", merchant.Sold, context);
+                if (expect.TryGetProperty("copper", out var merchantCopper))
+                {
+                    Assert.True(merchantCopper.GetInt64() == merchant.Copper,
+                        $"{context} — copper expected {merchantCopper.GetInt64()} got {merchant.Copper}");
+                }
+
+                if (expect.TryGetProperty("quantity", out var merchantQuantity))
+                {
+                    Assert.True(merchantQuantity.GetInt32() == merchant.Quantity,
+                        $"{context} — quantity expected {merchantQuantity.GetInt32()} got {merchant.Quantity}");
+                }
+
+                break;
             case "consider":
                 var consider = Assert.IsType<ConsiderEvent>(evt);
                 AssertString(expect, "target", consider.Target, context);

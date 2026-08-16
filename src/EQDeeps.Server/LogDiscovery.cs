@@ -72,6 +72,29 @@ public static class LogDiscovery
     /// shard in the file name (<c>qeynos</c>) is a finer cut than that: every
     /// server on one install shares its client and its era.</para>
     /// </summary>
+    /// <summary>
+    /// The install's folder itself — where the client's own item files live
+    /// (<c>userdata\LF_*.ini</c>, the inventory dump) — or null for a log
+    /// that is not under an install's <c>Logs\</c>.
+    /// </summary>
+    public static string? InstallRootOf(string logPath)
+    {
+        try
+        {
+            var logs = Path.GetDirectoryName(Path.GetFullPath(logPath));
+            if (logs is null || !string.Equals(Path.GetFileName(logs), "Logs", StringComparison.OrdinalIgnoreCase))
+            {
+                return null;
+            }
+
+            return Path.GetDirectoryName(logs);
+        }
+        catch (Exception e) when (e is ArgumentException or PathTooLongException or NotSupportedException)
+        {
+            return null;
+        }
+    }
+
     public static string? InstallOf(string logPath)
     {
         try

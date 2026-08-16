@@ -10,6 +10,7 @@ import {
 } from "../api";
 import { CHART_SERIES_LIMIT, fmtNum, fmtRate, fmtSpan, OTHER_COLOR, SERIES_COLORS } from "../format";
 import { MapPanel } from "../maps/MapPanel";
+import { ItemFeedPanel } from "./ItemFeedPanel";
 import {
   buildSpec,
   METRIC_LABELS,
@@ -156,6 +157,9 @@ export function PanelBody({
     // No query runs for this one — it reads a folder on disk, not the log.
     case "map":
       return <MapPanel context={ctx.context} install={ctx.install} pinned={panel.mapZone} />;
+    // Nor this one: the item feed is a list from its own endpoint (F29).
+    case "items":
+      return <ItemFeedPanel sessionId={ctx.sessionId} frame={ctx.frame} />;
     default:
       return <TilePanel panel={panel} ctx={ctx} settings={settings} />;
   }

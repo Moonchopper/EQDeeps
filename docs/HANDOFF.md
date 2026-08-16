@@ -41,7 +41,13 @@
 > after backfill and the next open restores them and resumes at the byte
 > where the last one stopped, ~3× faster, with every repeating string pooled
 > so the session holds half the memory it did, and the World view's map
-> labels kept the same way (ADR-018, feature F28, issue #59).
+> labels kept the same way (ADR-018, feature F28, issue #59); and the second
+> slice of reference lookup — a per-server item registry fed by the log and
+> by the player's own client files (`userdata\LF_*.ini`, the inventory dump),
+> which numbers the items so the id-addressed sites light up, and an Item
+> feed at the top of the Loot view listing every item looted, sold, bought or
+> named in chat, newest first, with a door on each (F29; also fixed the loot
+> grammar dropping `an` and stack counts, and parsed merchant sales).
 > Currently at **v0.13.0**. See `docs/product/features.md` for per-feature
 > status. The main open items: real-log validation against EQLogParser (the
 > release gate), the spell-DB work (class detection, bane, lands-on

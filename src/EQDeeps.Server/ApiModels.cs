@@ -1,3 +1,4 @@
+using EQDeeps.Core.Items;
 using EQDeeps.Core.Mobs;
 using EQDeeps.Core.Parsing;
 using EQDeeps.Core.Query;
@@ -44,6 +45,12 @@ public sealed record TimelineRequest(QueryScope Scope);
 /// session instead of meaning one character everywhere — the same rule the
 /// stance panels follow.
 /// </param>
+/// <summary>The item feed's scope, the same shape as the incoming feed's (F29).</summary>
+public sealed record ItemMentionsRequest(QueryScope Scope, int? Limit = null);
+
+/// <summary>Everything the server's registry knows; <see cref="Numbered"/> is how many rows carry a game id.</summary>
+public sealed record ItemReport(string Server, IReadOnlyList<ItemRecord> Items, int Numbered);
+
 public sealed record IncomingHitsRequest(
     QueryScope Scope,
     int? Limit = null,

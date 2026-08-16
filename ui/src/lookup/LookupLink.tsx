@@ -1,4 +1,5 @@
 import {
+  useContext,
   useEffect,
   useRef,
   useState,
@@ -8,8 +9,10 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { IconExternalLink } from "@tabler/icons-react";
+import { api } from "../api";
 import { linksFor, lookupName, type LookupKind } from "./providers";
 import { useLookupWorld } from "./lookupSettings";
+import { LookupScopeContext } from "./LookupScope";
 
 interface Props {
   kind: LookupKind;
@@ -38,16 +41,40 @@ interface Props {
  * one is right only once an id is known), and the person clicking knows which
  * they were after. One extra click; no guessing on their behalf.</p>
  *
+ * <p>An item's id is not known to the caller — the log never numbers
+ * items — so on open the door asks the session's registry (F29) for the
+ * name; the name-addressed sites are on the menu at once and the
+ * id-addressed ones join when the answer lands, which on localhost is
+ * before the menu has finished painting. Nothing is asked until a click:
+ * a table of two hundred items must not cost two hundred requests.</p>
+ *
  * <p>Renders nothing when no site can address the reference, so a column
  * never carries a dead arrow.</p>
  */
 export function LookupLink({ kind, name, id, install, inline = false }: Props) {
   const { world } = useLookupWorld(install);
+  const { sessionId } = useContext(LookupScopeContext);
   const [open, setOpen] = useState<{ x: number; y: number } | null>(null);
+  const [resolvedId, setResolvedId] = useState<number | undefined>(undefined);
   const button = useRef<HTMLElement>(null);
   const menu = useRef<HTMLDivElement>(null);
 
-  const links = linksFor(world, { kind, name, id });
+  const effectiveId = id ?? resolvedId;
+  const links = linksFor(world, { kind, name, id: effectiveId });
+
+  useEffect(() => {
+    if (!open || kind !== "item" || effectiveId !== undefined || !sessionId) return;
+    let cancelled = false;
+    api
+      .resolveItem(sessionId, name)
+      .then((record) => {
+        if (!cancelled && record?.id !== undefined) setResolvedId(record.id);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [open, kind, name, effectiveId, sessionId]);
 
   useEffect(() => {
     if (!open) return;

@@ -87,17 +87,36 @@ is one more `LookupWorld` entry; a server that changes era changes nothing
 here (the sites cover every era of their world) — the era already lives in
 `map-settings` and the map view, and is not duplicated.
 
-## Decision 3: ids come from the player's own files, later, and only enrich
+## Decision 3: ids come from the player's own files, and only enrich
 
-The second slice for #62 reads `userdata\LF_<Char>_<server>.ini` (and the
-inventory dump when present) from the install the log lives in — read from the
-install, never copied, as F27 does with maps — into a per-server **item
-registry**: name → id, icon id, first seen. It exists to turn a name into an
-id so the id-addressed sites light up and an icon can be drawn; it never
-gates a lookup. Loot events and item names spotted in chat (matched against
-the registry's names, since Legends gives no link markup) feed the same
-registry. If a live log ever does carry `\x12` payloads, decoding them is a
-third feeder into the same table, not a new design.
+Shipped in the second slice (2026-08-16). The server keeps a per-server
+**item registry** (`ItemRegistry`, `ItemStore`, `%AppData%\EQDeeps\items\`,
+`--itemRoot`) fed from two directions: the log — every loot, sale and
+purchase, swept past a watermark on the session's tick so counts do not
+tick again on replay — and the player's own client files,
+`userdata\LF_<Char>_<server>.ini` and the `/outputfile inventory` dump, read
+from the install the log lives in (never copied, as F27 does with maps) and
+re-read when their size or write time changes. Names meet on
+`ItemNames.Key` — base name (Legends' ` +N` and ` (Exaltation)` off),
+case-folded — so the loot line, the filter file and a chat mention are one
+row; a file's casing outranks the log's. The registry never gates a lookup:
+the door asks `…/items/resolve?name=` on open, name-addressed sites are on
+the menu at once, and the id-addressed ones join when the answer lands. On
+the reference log that is 1,150 items, 528 of them numbered.
+
+Chat mentions are found by `ItemMentionScanner`, a dictionary match against
+the registry's names: whole words, longest name first at a position, any
+case for multi-word names, own case only for one-word names and not beside
+another capitalised word ("Horn" inside "Efreeti War Horn" is another item).
+An item nobody on the server has looted, sold, bought or filtered is
+invisible to it, and the feed's empty state says so. If a live log ever does
+carry `\x12` payloads, decoding them is a third feeder into the same table,
+not a new design.
+
+Two grammar facts fell out of building it: the `--…--` loot form takes `an`
+and a stack count, which the parser had dropped for the whole life of the
+project, and merchant sales and purchases name items too (`MerchantEvent`,
+kept apart from loot so vendored stacks do not count as drops).
 
 ## Decision 4: the app keeps a bestiary, and search is over that
 
@@ -136,8 +155,10 @@ box is not proposed until there is a second thing to search.
   the Mobs table, the fight list, the Summary's by-target rows, the Incoming
   feed and profiles, and the death log (a mob-shaped name, or the killer of a
   player); the Settings row. No server change.
-- Slice 2 (#62): item registry from `LF_`/inventory files + loot + chat
-  mentions; ids reach the menu; a "Recent items" surface.
+- Slice 2 (#62), shipped: the item registry, ids on the menu, and the
+  **Item feed** at the top of the Loot view (viz `items`) — looted, sold,
+  bought, named in chat, newest first, each with a door. Icons wait on a DDS
+  decoder.
 - Slice 3 (#51): NPC registry (persisted per server, F13-style snapshot of
   the identity registry alongside it) and the Bestiary view; achievements and
   Brewall enrichment behind it.

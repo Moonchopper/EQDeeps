@@ -55,7 +55,7 @@ export function QueryBuilder({ panel, onSave, onCancel }: Props) {
 
           <label>Show as</label>
           <div className="radio-row">
-            {(["table", "line", "bar", "tile", "droprate", "map"] as const).map((v) => (
+            {(["table", "line", "bar", "tile", "droprate", "map", "items"] as const).map((v) => (
               <label key={v}>
                 <input
                   type="radio"

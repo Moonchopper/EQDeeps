@@ -492,6 +492,21 @@ function faction(): DashboardDef {
 // questions a loot log gets asked, and neither answers the other.
 function loot(): DashboardDef {
   return build("preset-loot", "Loot", [
+    // The feed first (F29): every item as it came up — looted, sold, bought,
+    // named in chat — newest first, each with its lookup door. Issue #62's
+    // question is asked the moment something is linked or drops, so the
+    // answer sits at the top; the aggregates below are for later.
+    [
+      {
+        title: "Item feed",
+        viz: "items",
+        source: "loot",
+        scopeMode: "all",
+        groupBy: ["spell"],
+        metrics: [],
+      },
+      { x: 0, y: 0, w: 12, h: 9 },
+    ],
     [
       {
         title: "Items looted",
@@ -501,7 +516,7 @@ function loot(): DashboardDef {
         groupBy: ["spell", "target"],
         metrics: ["loots", "platinum"],
       },
-      { x: 0, y: 0, w: 6, h: 12 },
+      { x: 0, y: 9, w: 6, h: 12 },
     ],
     [
       {
@@ -512,7 +527,7 @@ function loot(): DashboardDef {
         groupBy: ["target", "spell"],
         metrics: ["loots"],
       },
-      { x: 6, y: 0, w: 6, h: 12 },
+      { x: 6, y: 9, w: 6, h: 12 },
     ],
     [
       {
@@ -523,7 +538,7 @@ function loot(): DashboardDef {
         groupBy: ["player"],
         primaryMetric: "platinum",
       },
-      { x: 0, y: 12, w: 2, h: 4 },
+      { x: 0, y: 21, w: 2, h: 4 },
     ],
     [
       {
@@ -534,7 +549,7 @@ function loot(): DashboardDef {
         groupBy: ["player"],
         primaryMetric: "platPerHour",
       },
-      { x: 0, y: 16, w: 2, h: 4 },
+      { x: 0, y: 25, w: 2, h: 4 },
     ],
     [
       {
@@ -546,7 +561,7 @@ function loot(): DashboardDef {
         primaryMetric: "platinum",
         bucketSeconds: 60,
       },
-      { x: 2, y: 12, w: 10, h: 8 },
+      { x: 2, y: 21, w: 10, h: 8 },
     ],
   ]);
 }

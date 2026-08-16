@@ -532,6 +532,7 @@ public sealed class LogCache : IDisposable
         Loot,
         Consider,
         Level,
+        Merchant,
     }
 
     private void WriteRecord(BinaryWriter w, TimedRecord record, ref long lastTicks)
@@ -669,6 +670,15 @@ public sealed class LogCache : IDisposable
                 w.Write(l.Copper ?? 0);
                 w.Write7BitEncodedInt(l.Quantity);
                 break;
+            case MerchantEvent m:
+                w.Write((byte)Tag.Merchant);
+                WriteDelta(w, ticks, ref lastTicks);
+                WritePooled(w, m.Merchant);
+                WritePooled(w, m.Item);
+                w.Write7BitEncodedInt(m.Quantity);
+                w.Write(m.Copper);
+                w.Write(m.Sold);
+                break;
             case ConsiderEvent c:
                 w.Write((byte)Tag.Consider);
                 WriteDelta(w, ticks, ref lastTicks);
@@ -767,6 +777,7 @@ public sealed class LogCache : IDisposable
                 r.ReadBoolean(),
                 r.ReadBoolean()),
             Tag.Loot => ReadLoot(r, table, pool),
+            Tag.Merchant => ReadMerchant(r, table, pool),
             Tag.Consider => new ConsiderEvent(
                 ReadPooled(r, table, pool) ?? throw Corrupt(),
                 ReadPooled(r, table, pool) ?? throw Corrupt(),
@@ -797,6 +808,16 @@ public sealed class LogCache : IDisposable
         var copper = r.ReadInt64();
         var quantity = r.Read7BitEncodedInt();
         return new LootEvent(looter, item, source, hasCopper ? copper : null, quantity);
+    }
+
+    private static MerchantEvent ReadMerchant(BinaryReader r, List<string> table, StringPool pool)
+    {
+        var merchant = ReadPooled(r, table, pool) ?? throw Corrupt();
+        var item = ReadPooled(r, table, pool) ?? throw Corrupt();
+        var quantity = r.Read7BitEncodedInt();
+        var copper = r.ReadInt64();
+        var sold = r.ReadBoolean();
+        return new MerchantEvent(merchant, item, quantity, copper, sold);
     }
 
     private static InvalidDataException Corrupt() => new("Log cache record stream is corrupt.");

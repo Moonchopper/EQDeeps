@@ -137,3 +137,28 @@ overlay too, from when that sat in the same group, and a reset that quietly
 undid a preference was a trap.
 
 `UpdateSettings.tsx` is gone; its menu is the Updates section.
+
+## Decision 5 (2026-08-16): one log picker, in a dialog, reached from the rail and a `+`
+
+The header's other permanent resident was the log trio: a "Detected logs
+(n)…" dropdown that flattened every source — the running game, install
+folders, recently opened, the bundled sample — into one list and hid whatever
+was already open; a rescan button; and a free-text path box. Between them
+they were most of the header's width, and they are used at the start of a
+session and then not again for the night. The welcome screen, meanwhile, had
+grown its own list of the same logs, with the one affordance the dropdown
+lacked (forget a recent log), and its own copy of the sample callout.
+
+There is now **one `LogPicker`**, used by both. It groups by how EQDeeps knows
+about a log — *Running now*, *Recent* (with ✕ to forget), *Installed*, and
+the *Sample* on its own dashed row — shows a log that is already open with an
+`open` tag and switches to it on click rather than hiding it, and carries the
+path box beneath. The **Logs dialog** wraps it with rescan and close, and is
+opened from the rail's utility cluster (above Settings) or from a **`+` after
+the session tabs**, which is where a browser puts "new tab" and needs no
+explaining. The welcome screen is the same picker with a heading.
+
+The header is now: brand · session tabs · `+` · the time-frame group ·
+the update's live state. The time-frame group also hides when no log is
+open, since there is nothing for it to frame — the same rule as the World
+views, applied one level up.

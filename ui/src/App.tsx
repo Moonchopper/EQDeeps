@@ -807,6 +807,7 @@ export default function App() {
           onSetUpdateMode={setUpdateMode}
           onCheckForUpdate={checkForUpdateNow}
           checkNote={checkNote}
+          install={sessions.find((s) => s.id === activeId)?.install}
         />
       )}
       {showLogs && (
@@ -918,6 +919,7 @@ export default function App() {
               <MobHealthPanel
                 mobs={mobs}
                 server={sessions.find((s) => s.id === activeId)?.server ?? ""}
+                install={sessions.find((s) => s.id === activeId)?.install}
               />
             ) : view === "overview" && stdView === HITS_VIEW ? (
               <IncomingPanel

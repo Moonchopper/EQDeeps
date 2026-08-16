@@ -2,12 +2,15 @@ import { useMemo, useState } from "react";
 import type { MobHealthEstimate, MobHealthReport } from "../api";
 import { SERIES_COLORS, fmtNum, fmtWhen } from "../format";
 import { TableSearch, meterStyle } from "../dashboards/tableTools";
+import { LookupLink } from "../lookup/LookupLink";
 
 interface Props {
   /** Null until the first fetch lands. */
   mobs: MobHealthReport | null;
   /** Shown when nothing has been learned yet, so the emptiness has a reason. */
   server: string;
+  /** The install the log is from — picks which reference sites a mob's lookup offers. */
+  install?: string;
 }
 
 /**
@@ -26,7 +29,7 @@ interface Props {
  * tooltip for that reason: a single number would read as a measurement, and
  * this is an estimate with a spread.</p>
  */
-export function MobHealthPanel({ mobs, server }: Props) {
+export function MobHealthPanel({ mobs, server, install }: Props) {
   const [search, setSearch] = useState("");
   const [ladderOnly, setLadderOnly] = useState(false);
 
@@ -137,7 +140,10 @@ export function MobHealthPanel({ mobs, server }: Props) {
             <tbody>
               {rows.map((m) => (
                 <tr key={keyOf(m)}>
-                  <td className="mob-name">{m.mob}</td>
+                  <td className="mob-name">
+                    {m.mob}
+                    <LookupLink kind="npc" name={m.mob} install={install} />
+                  </td>
                   <td className="subtle">{m.zone}</td>
                   {mobs.instanced && <td>{tierLabel(m)}</td>}
                   <td className="num strong">{fmtNum(m.health)}</td>

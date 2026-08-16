@@ -2,6 +2,8 @@ import { useEffect, type ReactNode } from "react";
 import type { UpdateMode, UpdateState } from "../api";
 import { LABEL_SIZE_CHOICES } from "../fightOverlay";
 import { CONTEXT_MODES, type ContextMode } from "../contextOverlay";
+import { LOOKUP_WORLDS } from "../lookup/providers";
+import { rememberWorld, useLookupWorld } from "../lookup/lookupSettings";
 
 interface Props {
   onClose: () => void;
@@ -24,6 +26,8 @@ interface Props {
   onCheckForUpdate: () => void;
   /** Transient result of a manual check, e.g. "up to date". */
   checkNote: string | null;
+  /** The install the open log is from; the reference-site choice is kept per install. */
+  install?: string;
 }
 
 const UPDATE_MODES: { value: UpdateMode; label: string; hint: string }[] = [
@@ -62,7 +66,14 @@ export function SettingsDialog({
   onSetUpdateMode,
   onCheckForUpdate,
   checkNote,
+  install,
 }: Props) {
+  // The one preference here that is not lifted through App: it is a fact
+  // about the game the log came from rather than about this machine, so it
+  // lives with the map choices' kind of storage (per install, in the document
+  // store) and the row talks to that store directly. Still write-through: a
+  // change is on every lookup menu as it is made.
+  const lookup = useLookupWorld(install);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -107,6 +118,29 @@ export function SettingsDialog({
               checked={petRollup}
               onChange={(e) => onPetRollup(e.target.checked)}
             />
+          </Row>
+        </Section>
+
+        <Section title="Reference sites">
+          <Row
+            label="Look things up on"
+            hint={
+              (install ? `For logs from "${install}"` : "For logs whose game install is not known") +
+              (lookup.chosen ? "" : " — guessed from the install; pick one to make it stick") +
+              ". The arrow beside an item or mob opens these sites."
+            }
+          >
+            <select
+              value={lookup.world.id}
+              onChange={(e) => void rememberWorld(e.target.value, install)}
+              disabled={!lookup.ready}
+            >
+              {LOOKUP_WORLDS.map((w) => (
+                <option key={w.id} value={w.id} title={w.hint}>
+                  {w.name}
+                </option>
+              ))}
+            </select>
           </Row>
         </Section>
 

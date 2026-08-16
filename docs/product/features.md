@@ -421,6 +421,46 @@ the table cannot place is shown rather than hidden.
 
 ---
 
+### F29. Item lookup — from a name in the log to the page that explains it (issue #62) — **first slice shipped (2026-08-16)**
+
+When an item is looted or named in chat, get to "where does it drop, which
+quest wants it" without alt-tabbing to a search box. See
+[ADR-019](../architecture/adr-019-reference-lookup.md) and
+[eq-client-files.md](../domain/eq-client-files.md) for what discovery found:
+the client ships no item data, and on EverQuest Legends the log carries no
+item-link payload — a name is all there is — so the app links **out, by
+name**, to the sites that know the rest, and learns ids only from the
+player's own files.
+
+Acceptance:
+- Every item name in the Loot view (and the mob under it) carries a lookup
+  door: an arrow on hover, a menu of the reference sites for this log's world,
+  each opening a browser tab. *(shipped)*
+- Which sites: guessed from the install ("EverQuest Legends" → EQL Wiki, Gnoll
+  Guard, EQLBase, Allakhazam; otherwise the live set) and overridable per
+  install in Settings, persisted in the `ui-settings` document. *(shipped)*
+- Legends' ` +N` and ` (Exaltation)` decorations are stripped before asking a
+  site. *(shipped)*
+- Item ids learned from `userdata\LF_<Char>_<server>.ini` and the inventory
+  dump light up the id-addressed sites (EQLBase, EQResource, Lucy) and an
+  icon. *(open — slice 2)*
+- Item mentions in chat (who, when, which item) surfaced somewhere clickable,
+  matched by name against items the app knows. *(open — slice 2; F15's chat
+  archive is not a prerequisite)*
+- Room for other servers: a new world is one entry in `providers.ts`; the
+  era is not duplicated here (it lives with the maps).
+
+### F30. Bestiary — the NPCs the app knows, searchable (issue #51) — **open**
+
+One row per NPC name, per server: zones seen, levels seen (from /con), health
+estimate (F25), kills, first/last seen, with a lookup door on every row and
+the same fuzzy search box every table has. Built from what F25/F26, the
+identity registry, considers and deaths already know, persisted per server;
+enriched from the install by the Hunter achievements (named mob → zone for
+mobs never met) and on the map by the Brewall labels. See ADR-019 decision 4.
+The Mobs table already carries the lookup door as a down payment. *(shipped:
+lookup on Mobs rows; open: the registry, the view, the enrichment)*
+
 ## P2 — Later
 
 - **F15. Chat archive & search** — persist chat by channel/player with full-text search and date ranges.

@@ -31,6 +31,7 @@ import {
   type SortState,
 } from "./tableTools";
 import { colorPoolFor, ENTITY_POOL, type EntityColors } from "../colors";
+import { LookupLink, lookupKindFor } from "../lookup/LookupLink";
 import { ITEM_EMPHASIS, SERIES_EMPHASIS, useChartLink, useRowLink } from "../highlight";
 import {
   attachNearestLineHover,
@@ -278,6 +279,9 @@ function TablePanel({ panel, ctx, settings }: { panel: PanelDef; ctx: PanelConte
     // Only top-level rows name an entity the rest of the app knows; a child is
     // a spell or an item under it, which is a different pool.
     const link = depth === 0 ? rowLink(row.key) : null;
+    // What this row's name is a name *of* decides whether it gets a lookup
+    // door — the mob at the top, the item under it, never a player.
+    const lookupKind = lookupKindFor(panel.source, panel.groupBy[depth]);
 
     const out = [
       <tr
@@ -301,6 +305,7 @@ function TablePanel({ panel, ctx, settings }: { panel: PanelDef; ctx: PanelConte
           )}
           {chip}
           <Highlight text={row.label} hit={filtered.hits.get(path)} />
+          {lookupKind && <LookupLink kind={lookupKind} name={row.label} install={ctx.install} />}
           {share}
         </td>
         {panel.metrics.map((m) => (
@@ -1083,6 +1088,7 @@ function DropRatePanel({
           )}
           {chip}
           <Highlight text={row.label} hit={filtered.hits.get(path)} />
+          <LookupLink kind={depth === 0 ? "npc" : "item"} name={row.label} install={ctx.install} />
         </td>
         {DROP_COLUMNS.map((c) => (
           <td key={c.key} className="num">

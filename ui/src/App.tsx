@@ -916,6 +916,8 @@ export default function App() {
               onOpenLogs={() => setShowLogs(true)}
               onOpenSettings={() => setShowSettings(true)}
               update={update}
+              onCheckForUpdate={checkForUpdateNow}
+              checkNote={checkNote}
               collapsed={railCollapsed}
               onToggleCollapsed={toggleRail}
             />

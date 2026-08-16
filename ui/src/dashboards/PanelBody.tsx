@@ -290,6 +290,7 @@ function TablePanel({ panel, ctx, settings }: { panel: PanelDef; ctx: PanelConte
         style={rowStyle}
         onMouseEnter={link?.onMouseEnter}
         onMouseLeave={link?.onMouseLeave}
+        onClick={link?.onClick}
       >
         <td style={{ paddingLeft: depth * 16 + 8 }}>
           {hasChildren ? (
@@ -464,7 +465,9 @@ function LinePanel({
     });
     chart.getZr().on("dblclick", resetZoom);
     const detachWheelZoom = attachWheelZoom(chart, { left: 48, right: 10 }, () => extentRef.current);
-    const hover = attachNearestLineHover(chart, () => hoverLines.current);
+    const hover = attachNearestLineHover(chart, () => hoverLines.current, (name) =>
+      linkKeys.selectSeries(name),
+    );
     hoverRef.current = hover;
     const observer = new ResizeObserver(() => chart.resize());
     observer.observe(divRef.current);
@@ -1067,6 +1070,7 @@ function DropRatePanel({
         style={rowStyle}
         onMouseEnter={link?.onMouseEnter}
         onMouseLeave={link?.onMouseLeave}
+        onClick={link?.onClick}
         title={
           depth > 0 && (row.metrics.kills ?? 0) > 0
             ? `${Math.round(drops)} in ${Math.round(row.metrics.kills ?? 0)} kills`

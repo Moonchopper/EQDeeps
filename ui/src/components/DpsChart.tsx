@@ -176,7 +176,9 @@ export function DpsChart({
     });
     chart.getZr().on("dblclick", resetZoom);
     const detachWheelZoom = attachWheelZoom(chart, { left: 52, right: 12 }, () => extentRef.current);
-    const hover = attachNearestLineHover(chart, () => hoverLines.current);
+    const hover = attachNearestLineHover(chart, () => hoverLines.current, (name) =>
+      linkKeys.selectSeries(name),
+    );
     hoverRef.current = hover;
     const onResize = () => chart.resize();
     window.addEventListener("resize", onResize);

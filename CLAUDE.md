@@ -203,7 +203,8 @@ change it on the other in the same commit.
   hub groups. Events: `backfill`, `fights`, `tick`.
 - `colors.ts` / `highlight.tsx` — the shared 16-colour cycling palette and the
   linked-highlight behaviour (point at one reading of an entity, light up the
-  rest everywhere).
+  rest everywhere; click to keep it lit on this view, pin — the chip in the
+  header — to keep it on every view and across restarts).
 - `components/NavRail.tsx` + `dashboards/railGroups.ts` — the grouped,
   collapsible rail (ADR-017); `components/SettingsDialog.tsx` and
   `components/LogPicker.tsx` are the two utilities it opens.

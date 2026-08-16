@@ -1355,22 +1355,78 @@ tbody tr:hover td {
    stacks over the entity tint rather than replacing it. Deliberately stronger
    than the plain :hover wash above — that says "your pointer is here", this
    says "here it is again". */
-tbody tr.linked td {
+tbody tr.linked td,
+tbody tr.selected td {
   background: var(--wash-linked);
 }
 
-tbody tr.linked td:first-child {
+tbody tr.linked td:first-child,
+tbody tr.selected td:first-child {
   box-shadow: inset 2px 0 0 var(--accent);
 }
 
-.meter-row.linked {
+.meter-row.linked,
+.meter-row.selected {
   box-shadow: inset 0 0 0 1px var(--accent);
 }
 
 /* The bar under the name is the identity; brightening it is what the row has
    to give, and it costs no layout. */
-.meter-row.linked .meter-bar {
+.meter-row.linked .meter-bar,
+.meter-row.selected .meter-bar {
   opacity: 0.5;
+}
+
+/* A selection is a hover that stays (highlight.tsx), and it looks the same:
+   the row you clicked keeps the linked treatment while the pointer is off
+   somewhere else, so at most two rows are lit — the one you chose and the one
+   you are pointing at. A row that can be selected says so with the cursor. */
+.linkable {
+  cursor: pointer;
+}
+
+/* ---- selection chip: the standing selection, in the header ---- */
+.selection-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 4px 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-control);
+  color: var(--ink-2);
+  font-size: var(--fs-small);
+  font-weight: var(--w-bold);
+  white-space: nowrap;
+}
+
+.selection-chip.pinned {
+  border-color: var(--accent);
+}
+
+.selection-chip .color-chip {
+  margin: 0;
+}
+
+.selection-name {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.selection-btn {
+  display: inline-flex;
+  padding: 2px;
+  border-radius: var(--r-chip);
+  color: var(--muted);
+}
+
+.selection-btn:hover {
+  color: var(--ink);
+  background: var(--surface);
+}
+
+.selection-chip.pinned .selection-btn[aria-pressed="true"] {
+  color: var(--accent);
 }
 
 .color-chip {

@@ -17,7 +17,7 @@ tails `eqlog_<Character>_<server>.txt`, parses it into typed records, and serves
 a React SPA over REST + SignalR. The exe is a windowed WebView2 app; there is no
 cloud, no telemetry, and nothing binds beyond `127.0.0.1`.
 
-Currently **v0.12.0**, Windows-first, MIT, aiming at a public v1.
+Currently **v0.12.1**, Windows-first, MIT, aiming at a public v1.
 
 The one idea worth internalizing: **every table, chart, and live meter is a
 `QuerySpec`** — a serializable description of an aggregation

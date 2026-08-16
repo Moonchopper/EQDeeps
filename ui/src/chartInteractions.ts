@@ -303,13 +303,23 @@ export interface HoverLine {
   data: [number, number | null][];
 }
 
-/** How far, in pixels, the pointer can be from a line and still be "on" it. */
-const LINE_HOVER_PX = 14;
+/**
+ * The hover's reach, in pixels. Three numbers because a hover that is easy to
+ * get should also be hard to lose: a line is picked up within ACQUIRE of the
+ * pointer, kept while the pointer stays within HOLD of it — wider, so a hand
+ * drifting off the stroke does not drop it — and only given up for another
+ * line when that one is nearer by SWITCH_MARGIN, so two lines running close
+ * together do not trade the emphasis back and forth on every pixel.
+ */
+const ACQUIRE_PX = 24;
+const HOLD_PX = 48;
+const SWITCH_MARGIN_PX = 8;
 
 /**
  * Nearest-line hover: whichever line is closest to the pointer, within
- * LINE_HOVER_PX, is the hovered one — the whole plot is the hover surface,
- * not the stroke.
+ * ACQUIRE_PX, is the hovered one — the whole plot is the hover surface, not
+ * the stroke — and it stays hovered until the pointer has clearly moved on
+ * (see the three constants above).
  *
  * ECharts hit-tests a line against its own stroke plus a 5px tolerance, so a
  * 2px line has to be hit within about 7px, in a chart whose whole point is
@@ -353,7 +363,8 @@ export function attachNearestLineHover(
     }
   };
 
-  const nearest = (x: number, y: number): string | null => {
+  /** Pixel distance from the pointer to every line, at the time under it. */
+  const distances = (x: number, y: number): Map<string, number> | null => {
     if (!chart.containPixel({ gridIndex: 0 }, [x, y])) {
       return null;
     }
@@ -377,8 +388,7 @@ export function attachNearestLineHover(
       origin[0] + (time - t) * xPerMs,
       origin[1] + value * yPerValue,
     ];
-    let best: string | null = null;
-    let bestDist = LINE_HOVER_PX;
+    const out = new Map<string, number>();
     for (const line of getLines()) {
       const data = line.data;
       if (data.length === 0) {
@@ -404,19 +414,41 @@ export function attachNearestLineHover(
         }
         const px = toPixel(point[0], point[1]);
         const dist = Math.hypot(px[0] - x, px[1] - y);
-        if (dist < bestDist) {
-          bestDist = dist;
-          best = line.name;
+        if (dist < (out.get(line.name) ?? Infinity)) {
+          out.set(line.name, dist);
         }
       }
     }
-    return best;
+    return out;
+  };
+
+  /** Which line the pointer is on, given where it is and what it was on. */
+  const choose = (x: number, y: number): string | null => {
+    const dist = distances(x, y);
+    if (!dist) {
+      return null;
+    }
+    let best: string | null = null;
+    let bestDist = Infinity;
+    for (const [name, d] of dist) {
+      if (d < bestDist) {
+        bestDist = d;
+        best = name;
+      }
+    }
+    if (current !== null) {
+      const held = dist.get(current) ?? Infinity;
+      if (held <= HOLD_PX && bestDist > held - SWITCH_MARGIN_PX) {
+        return current; // still near enough, and nothing clearly nearer
+      }
+    }
+    return bestDist <= ACQUIRE_PX ? best : null;
   };
 
   const flush = () => {
     frame = 0;
     if (pending) {
-      apply(nearest(pending.x, pending.y));
+      apply(choose(pending.x, pending.y));
       pending = null;
     }
   };

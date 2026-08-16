@@ -1,6 +1,8 @@
 import type { ComponentType } from "react";
 import {
   IconChartLine,
+  IconChevronsLeft,
+  IconChevronsRight,
   IconDiamond,
   IconFileText,
   IconHeart,
@@ -163,10 +165,26 @@ export function NavRail({
     collapsed ? (description ? `${name} — ${description}` : name) : description;
 
   const Toggle = collapsed ? IconLayoutSidebarLeftExpand : IconLayoutSidebarLeftCollapse;
+  const Chevrons = collapsed ? IconChevronsRight : IconChevronsLeft;
+  const toggleTitle = collapsed ? "Expand the rail: icons and names" : "Collapse the rail to icons";
   const updateWaiting = Boolean(update && (update.restartRequired || update.promptRequired));
 
   return (
     <nav className={"nav-rail" + (collapsed ? " collapsed" : "")} aria-label="Views">
+      {/* The same toggle twice: a chevron at the top, where the eye lands
+          first and where every app puts one, and the labelled entry at the
+          foot with the other utilities. */}
+      <div className="rail-top">
+        <button
+          className="rail-chevron"
+          onClick={onToggleCollapsed}
+          title={toggleTitle}
+          aria-label={toggleTitle}
+          aria-expanded={!collapsed}
+        >
+          <Chevrons size={ICON_SIZE} stroke={ICON_STROKE} />
+        </button>
+      </div>
       {RAIL_GROUPS.map((g) => (
         <div key={g.key} className="rail-group">
           <div className="rail-heading">
@@ -280,7 +298,7 @@ export function NavRail({
         <button
           className="rail-tab rail-collapse"
           onClick={onToggleCollapsed}
-          title={collapsed ? "Expand the rail: icons and names" : "Collapse the rail to icons"}
+          title={toggleTitle}
           aria-label={collapsed ? "Expand the rail" : undefined}
           aria-expanded={!collapsed}
         >

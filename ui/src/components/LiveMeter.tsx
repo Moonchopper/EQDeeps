@@ -45,6 +45,7 @@ export function LiveMeter({ tick, colorFor, petRollup }: Props) {
                 className={`meter-row ${link.className ?? ""}`.trim()}
                 onMouseEnter={link.onMouseEnter}
                 onMouseLeave={link.onMouseLeave}
+                onClick={link.onClick}
               >
                 <div
                   className="meter-bar"

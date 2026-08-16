@@ -18,6 +18,8 @@ import { UpdateNotice, type UpdateChoice } from "./components/UpdateNotice";
 import { SettingsDialog } from "./components/SettingsDialog";
 import { LogPicker, LogsDialog } from "./components/LogPicker";
 import { NavRail } from "./components/NavRail";
+import { SelectionChip } from "./components/SelectionChip";
+import { useSelectionActions } from "./highlight";
 import { FightList } from "./components/FightList";
 import { SummaryTable } from "./components/SummaryTable";
 import { DpsChart } from "./components/DpsChart";
@@ -210,6 +212,13 @@ export default function App() {
     activeStdView || stdView === MOBS_VIEW || stdView === HITS_VIEW || stdView === MAPS_VIEW
       ? stdView
       : SUMMARY_VIEW;
+  // A selection made on one view is that view's, unless it was pinned:
+  // leaving the view — or the character — lets it go (see highlight.tsx).
+  const { clearUnlessPinned } = useSelectionActions();
+  useEffect(() => {
+    clearUnlessPinned();
+  }, [view, effectiveStdView, activeId, clearUnlessPinned]);
+
   const onMap = view === "overview" && effectiveStdView === MAPS_VIEW;
   const railCollapsed = onMap ? (railOnMap ?? true) : railPref;
   function toggleRail() {
@@ -828,6 +837,7 @@ export default function App() {
       )}
       <SessionBar
         sessions={sessions}
+        colorFor={(key, pool) => entityColors.claim(key, pool)}
         activeId={activeId}
         backfill={backfill}
         discovered={discovered}
@@ -983,6 +993,12 @@ export default function App() {
                         <div key={p.id} className="panel chart-panel">
                           <div className="panel-title">
                             <span className="panel-name">{p.title}</span>
+                            <span className="panel-controls">
+                              <SelectionChip
+                                colorFor={(k, pl) => entityColors.claim(k, pl)}
+                                compact
+                              />
+                            </span>
                           </div>
                           <PanelBody panel={p} ctx={panelCtx} settings={chartDefaults} />
                         </div>

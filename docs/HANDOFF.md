@@ -27,7 +27,10 @@
 > preferences gathered into a Settings dialog and the log picker into a Logs
 > dialog, both reached from a utility cluster at the foot of the rail, and
 > the rail given icons so it can collapse to them — and does, on the Map
-> (ADR-017, all six decisions shipped).
+> (ADR-017, all six decisions shipped); and the linked highlight gained a
+> click-to-select and a pin (`highlight.tsx`: a selection is a hover that
+> stays — on this view, or pinned, on every view and across restarts, with a
+> chip in the header saying which).
 > Currently at **v0.11.3**. See `docs/product/features.md` for per-feature
 > status. The main open items: real-log validation against EQLogParser (the
 > release gate), the spell-DB work (class detection, bane, lands-on

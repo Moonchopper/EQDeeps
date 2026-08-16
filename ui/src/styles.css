@@ -2933,3 +2933,136 @@ textarea:focus-visible,
   color: var(--accent);
   font-style: normal;
 }
+
+/* ---- reference lookup (issues #51, #62) ----
+   The arrow beside a name is a door, not a decoration: hidden until the row is
+   pointed at (or the button focused), so a table of two hundred mobs does not
+   read as two hundred links. The menu floats over the page like .range-menu,
+   but positioned fixed from the arrow's rect, because a panel's own scroll
+   box would clip an absolutely positioned one. */
+.lookup-btn {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: -1px;
+  margin-left: 5px;
+  padding: 1px;
+  border: 0;
+  border-radius: var(--r-tiny);
+  background: transparent;
+  color: var(--muted);
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity 80ms ease-out;
+}
+
+tr:hover .lookup-btn,
+.fight-row:hover .lookup-btn,
+.lookup-btn:focus-visible,
+.lookup-btn.on {
+  opacity: 1;
+}
+
+/* Inside a fight row the door is a span (the row is already a button); keep
+   it from stretching the name line and from inheriting the row's colour when
+   selected, where the muted arrow would vanish into the fill. */
+.fight-row .lookup-btn {
+  line-height: 1;
+}
+
+.fight-row.selected .lookup-btn {
+  color: var(--muted-raised);
+}
+
+.fight-row.selected .lookup-btn:hover,
+.fight-row.selected .lookup-btn.on {
+  color: var(--accent);
+}
+
+.lookup-btn:hover,
+.lookup-btn.on {
+  color: var(--accent);
+}
+
+.lookup-menu {
+  position: fixed;
+  z-index: var(--z-popover);
+  width: 240px;
+  padding: 6px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-inner);
+  box-shadow: var(--shadow-overlay);
+  font-size: var(--fs-small);
+}
+
+.lookup-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 8px 6px;
+  border-bottom: 1px solid var(--grid);
+  margin-bottom: 4px;
+}
+
+.lookup-name {
+  color: var(--ink);
+  font-weight: var(--w-medium);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lookup-kind {
+  color: var(--muted);
+  font-size: var(--fs-micro);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  flex: none;
+}
+
+.lookup-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: var(--r-chip);
+  color: var(--ink-2);
+  text-decoration: none;
+}
+
+.lookup-item svg {
+  color: var(--muted);
+}
+
+.lookup-item:hover,
+.lookup-item:focus-visible {
+  background: var(--hover);
+  color: var(--ink);
+  outline: none;
+}
+
+.lookup-item.default {
+  color: var(--ink);
+}
+
+.lookup-item.default::after {
+  content: "default";
+  order: 1;
+  margin-left: auto;
+  color: var(--muted);
+  font-size: var(--fs-micro);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+
+.lookup-item.default svg {
+  order: 2;
+}
+
+.lookup-foot {
+  padding: 6px 8px 2px;
+  color: var(--muted);
+  font-size: var(--fs-micro);
+}

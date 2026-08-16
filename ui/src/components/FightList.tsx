@@ -1,6 +1,7 @@
 import { Fragment, memo, useCallback, useRef } from "react";
 import type { FightInfo } from "../api";
 import { fmtClock, fmtDuration, fmtNum } from "../format";
+import { LookupLink } from "../lookup/LookupLink";
 
 interface Props {
   fights: FightInfo[];
@@ -187,6 +188,9 @@ const FightRow = memo(
         <span className="fight-name">
           {fight.dead ? "☠ " : fight.closed ? "" : "⚔ "}
           {fight.name}
+          {/* The row is a button, so the door is a span; it stops the click
+              from also selecting the fight. */}
+          <LookupLink kind="npc" name={fight.name} inline />
           {fight.difficulty !== undefined && (
             <span className="fight-tier" title={`Instance difficulty ${fight.difficulty}`}>
               T{fight.difficulty}

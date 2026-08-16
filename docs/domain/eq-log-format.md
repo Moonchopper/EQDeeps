@@ -53,6 +53,7 @@ Notes:
 - Senders can be cross-server: `Server.Name` (e.g., `Firiona.Bob tells you, ...` — the character name is the part **after** the dot; the reference parser extracts the post-dot segment as the player name, and its tests assert `Test.test2 tells you` → sender `test2`). Normalize/display accordingly.
 - NPC speech uses the same `says, '...'` grammar; `Test says 'My leader is hello'` (no comma) is a **pet leader** line, not chat — see §5.
 - Chat lines terminate processing — never fall through to combat parsing.
+- **Item links.** A live client writes a linked item as `<hex payload>Item Name`, the payload carrying the item id (the reference parser strips it). **EverQuest Legends does not**: a 112 MB Legends log (2026-08-16) held zero `0x12` bytes, and a linked item arrives as plain text — `Glubbug tells the group, 'Fine Steel Two Handed Sword +2'`. Ingestion decodes Latin-1 and strips nothing, so the payload would survive into `ChatEvent.Text` on a client that writes it; nothing decodes it yet (ADR-019). Item names in chat are therefore a matter of matching known names, not markup — see [eq-client-files.md](eq-client-files.md) for where names and ids can be learned.
 
 ### 3.2 Melee damage and avoidance
 

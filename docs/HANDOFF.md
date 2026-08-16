@@ -48,7 +48,7 @@
 > feed at the top of the Loot view listing every item looted, sold, bought or
 > named in chat, newest first, with a door on each (F29; also fixed the loot
 > grammar dropping `an` and stack counts, and parsed merchant sales).
-> Currently at **v0.13.0**. See `docs/product/features.md` for per-feature
+> Currently at **v0.13.1**. See `docs/product/features.md` for per-feature
 > status. The main open items: real-log validation against EQLogParser (the
 > release gate), the spell-DB work (class detection, bane, lands-on
 > resolution — reference data files not yet copied), identity-registry disk

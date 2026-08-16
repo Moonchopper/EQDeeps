@@ -31,7 +31,7 @@
 > click-to-select and a pin (`highlight.tsx`: a selection is a hover that
 > stays — on this view, or pinned, on every view and across restarts, with a
 > chip in the header saying which).
-> Currently at **v0.11.3**. See `docs/product/features.md` for per-feature
+> Currently at **v0.12.0**. See `docs/product/features.md` for per-feature
 > status. The main open items: real-log validation against EQLogParser (the
 > release gate), the spell-DB work (class detection, bane, lands-on
 > resolution — reference data files not yet copied), identity-registry disk

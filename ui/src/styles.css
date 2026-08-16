@@ -893,29 +893,11 @@ button.update-pill {
   box-shadow: 0 0 0 1.5px var(--page);
 }
 
-.rail-foot-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 4px 4px 0 12px;
-}
-
 .rail-version {
+  padding: 3px 10px 0 12px;
   color: var(--muted);
   font-size: var(--fs-micro);
   font-variant-numeric: tabular-nums;
-}
-
-.rail-collapse {
-  display: inline-flex;
-  padding: 3px;
-  border-radius: var(--r-chip);
-  color: var(--muted);
-}
-
-.rail-collapse:hover {
-  color: var(--ink);
-  background: var(--surface);
 }
 
 /* ---- dashboard grid ----
@@ -1710,10 +1692,6 @@ th.num {
   padding: 6px 0;
 }
 
-.nav-rail.collapsed .rail-foot-row {
-  justify-content: center;
-  padding: 4px 0 0;
-}
 
 .rail-tab:hover {
   color: var(--ink);

@@ -17,6 +17,7 @@ import { SessionBar } from "./components/SessionBar";
 import { UpdateNotice, type UpdateChoice } from "./components/UpdateNotice";
 import { SettingsDialog } from "./components/SettingsDialog";
 import { LogPicker, LogsDialog } from "./components/LogPicker";
+import { NavRail } from "./components/NavRail";
 import { FightList } from "./components/FightList";
 import { SummaryTable } from "./components/SummaryTable";
 import { DpsChart } from "./components/DpsChart";
@@ -46,7 +47,7 @@ import {
   summaryTrendPanels,
 } from "./dashboards/standardViews";
 import { PanelBody, type PanelContext } from "./dashboards/PanelBody";
-import { RAIL_GROUPS, isFramedView } from "./dashboards/railGroups";
+import { isFramedView } from "./dashboards/railGroups";
 import { DEFAULT_CHART_SETTINGS, type ChartSettings } from "./timeControls";
 import { DEFAULT_LABEL_PX } from "./fightOverlay";
 import {
@@ -78,24 +79,6 @@ const ACTIVE_POLL_MS = 700;
  * The default dashboard (feature F7): fight list + summary + DPS chart + live
  * meter + deaths, all scoped to the fight selection, live-updating via the hub.
  */
-/**
- * The rail entries that are not standard-view dashboards, keyed by view id.
- * The standard views bring their own names; these four are hand-built screens
- * and need theirs spelled out here.
- */
-const RAIL_ENTRIES: Record<string, { name: string; title?: string }> = {
-  [SUMMARY_VIEW]: { name: "Summary" },
-  [MOBS_VIEW]: {
-    name: "Mobs",
-    title: "What this server's mobs are worth, and what a difficulty tier costs",
-  },
-  [HITS_VIEW]: {
-    name: "Incoming",
-    title: "What is hitting you, in order, and what this server's mobs hit for",
-  },
-  [MAPS_VIEW]: { name: "Map", title: "Your own zone maps, and how the world joins up" },
-};
-
 export default function App() {
   const [sessions, setSessions] = useState<SessionInfo[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -187,6 +170,15 @@ export default function App() {
   const [showUpdateNotice, setShowUpdateNotice] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showLogs, setShowLogs] = useState(false);
+  // The rail collapses to icons. Two pieces of state because the Map is a
+  // special case: it brings its own left column (the zone list), so on Map
+  // the rail starts collapsed whatever the standing preference, and a toggle
+  // there is an override for this visit rather than a change of preference.
+  // Leaving Map drops the override; the preference is what it was.
+  const [railPref, setRailPref] = useState(
+    () => localStorage.getItem("eqdeeps.railCollapsed") === "on",
+  );
+  const [railOnMap, setRailOnMap] = useState<boolean | null>(null);
   const [checkNote, setCheckNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [dashboards, setDashboards] = useState<DashboardDef[]>([]);
@@ -218,6 +210,21 @@ export default function App() {
     activeStdView || stdView === MOBS_VIEW || stdView === HITS_VIEW || stdView === MAPS_VIEW
       ? stdView
       : SUMMARY_VIEW;
+  const onMap = view === "overview" && effectiveStdView === MAPS_VIEW;
+  const railCollapsed = onMap ? (railOnMap ?? true) : railPref;
+  function toggleRail() {
+    if (onMap) {
+      setRailOnMap(!railCollapsed);
+      return;
+    }
+    const next = !railPref;
+    setRailPref(next);
+    localStorage.setItem("eqdeeps.railCollapsed", next ? "on" : "off");
+  }
+  useEffect(() => {
+    if (!onMap) setRailOnMap(null);
+  }, [onMap]);
+
   // Scrolling needs a live tail AND a log that is still being written; see
   // LIVE_LOG_GRACE_MS.
   const newestRecordMs = fights.length
@@ -863,8 +870,6 @@ export default function App() {
               onAdoptRange: adoptRange,
               logSpanSeconds,
             };
-            const railClass = (id: string) =>
-              "rail-tab" + (view === "overview" && effectiveStdView === id ? " on" : "");
             /*
              * The fight list is a time-frame selector, so it belongs on the
              * views that report over a time frame — which is all of them
@@ -882,103 +887,28 @@ export default function App() {
           <main
             className={
               "dashboard" +
-              (!showFights ? " fights-hidden" : fightsCollapsed ? " fights-collapsed" : "")
+              (!showFights ? " fights-hidden" : fightsCollapsed ? " fights-collapsed" : "") +
+              (railCollapsed ? " rail-collapsed" : "")
             }
           >
-            {/* One rail, grouped by the question a view answers (ADR-017):
-                Combat, Character and World for the views that ship with the
-                app, then the dashboards the user built and owns. The groups
-                are data (railGroups.ts); RAIL_ENTRIES names the views that
-                are not standard-view dashboards. */}
-            <nav className="nav-rail">
-              {RAIL_GROUPS.map((g) => (
-                <div key={g.key} className="rail-group">
-                  <div className="rail-heading">{g.label}</div>
-                  {g.ids.map((id) => {
-                    const special = RAIL_ENTRIES[id];
-                    const std = special ? null : standard.find((d) => d.id === id);
-                    // A standard view this log does not have (Stances) is
-                    // simply absent, not disabled.
-                    if (!special && !std) return null;
-                    return (
-                      <button
-                        key={id}
-                        className={railClass(id)}
-                        onClick={() => selectStdView(id)}
-                        title={special?.title}
-                      >
-                        {special?.name ?? std!.name}
-                      </button>
-                    );
-                  })}
-                </div>
-              ))}
-              <div className="rail-group">
-              <div className="rail-heading">Dashboards</div>
-              {dashboards.map((d) => (
-                <button
-                  key={d.id}
-                  className={"rail-tab" + (view === d.id ? " on" : "")}
-                  onClick={() => setView(d.id)}
-                  onDoubleClick={() => renameDashboard(d.id)}
-                  title="Double-click to rename"
-                >
-                  {d.name}
-                </button>
-              ))}
-              <button className="rail-tab add" onClick={addDashboard} title="New dashboard">
-                + New
-              </button>
-              {view !== "overview" && (
-                <div className="rail-actions">
-                  <button className="mini-btn" onClick={() => exportDashboard(view)}>
-                    export
-                  </button>
-                  <label className="mini-btn" title="Import a dashboard JSON">
-                    import
-                    <input
-                      type="file"
-                      accept=".json"
-                      style={{ display: "none" }}
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) importDashboard(file);
-                        e.target.value = "";
-                      }}
-                    />
-                  </label>
-                  <button className="mini-btn" onClick={() => deleteDashboard(view)}>
-                    delete
-                  </button>
-                </div>
-              )}
-              </div>
-              {/* The utility cluster, pinned to the foot of the rail: what
-                  the app is and how it is set, apart from where you are in
-                  it. Settings first; the log picker joins it next (ADR-017). */}
-              <div className="rail-foot">
-                <button
-                  className="rail-tab"
-                  onClick={() => setShowLogs(true)}
-                  title="Every log EQDeeps can see, and a box for one it can't"
-                >
-                  Logs
-                </button>
-                <button
-                  className="rail-tab"
-                  onClick={() => setShowSettings(true)}
-                  title="Display, chart and update preferences"
-                >
-                  Settings
-                  {/* A staged or offered update is the one thing in here
-                      worth a glance before you open it. */}
-                  {update && (update.restartRequired || update.promptRequired) && (
-                    <span className="rail-dot" aria-label="Update available" />
-                  )}
-                </button>
-                {update && <span className="rail-version">v{update.version}</span>}
-              </div>
-            </nav>
+            <NavRail
+              standard={standard}
+              dashboards={dashboards}
+              view={view}
+              activeStdView={effectiveStdView}
+              onSelectStdView={selectStdView}
+              onSelectDashboard={setView}
+              onRenameDashboard={renameDashboard}
+              onAddDashboard={addDashboard}
+              onExportDashboard={exportDashboard}
+              onImportDashboard={importDashboard}
+              onDeleteDashboard={deleteDashboard}
+              onOpenLogs={() => setShowLogs(true)}
+              onOpenSettings={() => setShowSettings(true)}
+              update={update}
+              collapsed={railCollapsed}
+              onToggleCollapsed={toggleRail}
+            />
             {/* Three cases: a standard view, the hand-built Summary that
                 Overview opens on, or one of the user's own dashboards. Mobs
                 and Incoming are checked first — they are rail entries but not

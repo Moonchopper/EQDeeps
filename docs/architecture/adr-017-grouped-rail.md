@@ -162,3 +162,30 @@ The header is now: brand · session tabs · `+` · the time-frame group ·
 the update's live state. The time-frame group also hides when no log is
 open, since there is nothing for it to frame — the same rule as the World
 views, applied one level up.
+
+## Decision 6 (2026-08-16): icons, and a rail that collapses to them
+
+Every rail entry now carries an icon, from Tabler Icons (MIT; only the
+seventeen used are bundled, about 11 KB) — chosen for the question the view
+answers rather than the mechanism, and one shared glyph for every user
+dashboard because their names are what tell them apart. The rail extracted
+into `NavRail.tsx` on the way; it had outgrown the middle of `App.tsx`.
+
+The rail **collapses to that column of icons** — 44px against 150px — from a
+toggle at its foot, and the choice persists. Collapsed, it is the same rail:
+labels move into the hover title, group headings become their rule, nothing
+is a different control. This is the activity-bar upgrade path Decision 1
+left open, arrived at by narrowing rather than redesigning.
+
+**On the Map the rail starts collapsed** whatever the standing preference,
+because the Map brings its own left column — the zone list — and two wide
+lists side by side was the shape that prompted this. A toggle there is an
+override for that visit, not a change of preference; leaving the Map drops
+it and the preference stands. Two pieces of state, deliberately: a
+preference and a per-visit override, rather than one bit that the Map would
+have to silently rewrite.
+
+ADR-015's open note on Unicode glyphs is *partly* closed by this: the rail's
+are gone. The ones elsewhere — ⚔ and ☠ in the fight list, ✕, ↻, ★, the
+chevrons — remain, and are the same job for a later change now that the set
+is in.

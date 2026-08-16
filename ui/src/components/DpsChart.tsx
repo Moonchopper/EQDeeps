@@ -123,6 +123,7 @@ export function DpsChart({
   const zoomRangeRef = useRef<[number, number] | null>(null);
   // What is plotted, for the nearest-line hover; refilled with the series.
   const hoverLines = useRef<HoverLine[]>([]);
+  const hoverRef = useRef<{ reapply: () => void } | null>(null);
 
   // "fit" means show everything there is, which cannot also mean "and keep
   // sliding past it", so scrolling only applies to a fixed span. Zooming
@@ -175,12 +176,14 @@ export function DpsChart({
     });
     chart.getZr().on("dblclick", resetZoom);
     const detachWheelZoom = attachWheelZoom(chart, { left: 52, right: 12 }, () => extentRef.current);
-    const detachHover = attachNearestLineHover(chart, () => hoverLines.current);
+    const hover = attachNearestLineHover(chart, () => hoverLines.current);
+    hoverRef.current = hover;
     const onResize = () => chart.resize();
     window.addEventListener("resize", onResize);
     return () => {
       window.removeEventListener("resize", onResize);
-      detachHover();
+      hoverRef.current = null;
+      hover.detach();
       detachWheelZoom();
       chart.dispose();
       chartRef.current = null;
@@ -478,6 +481,9 @@ export function DpsChart({
       },
       { replaceMerge: ["series"] },
     );
+    // Replacing the series dropped their emphasis; put the hover back.
+    linkKeys.reapply();
+    hoverRef.current?.reapply();
 
     chartRef.current.dispatchAction({
       type: "takeGlobalCursor",

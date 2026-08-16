@@ -430,6 +430,7 @@ function LinePanel({
   const zoomRangeRef = useRef<[number, number] | null>(null);
   // What is plotted, for the nearest-line hover; refilled with the series.
   const hoverLines = useRef<HoverLine[]>([]);
+  const hoverRef = useRef<{ reapply: () => void } | null>(null);
   // Identity + scope, so the ceiling survives a remount but not a real change
   // of what is being plotted.
   const axisKey = `${panel.id}|${JSON.stringify(ctx.frame)}|${spanSec}|${windowBuckets}`;
@@ -463,12 +464,14 @@ function LinePanel({
     });
     chart.getZr().on("dblclick", resetZoom);
     const detachWheelZoom = attachWheelZoom(chart, { left: 48, right: 10 }, () => extentRef.current);
-    const detachHover = attachNearestLineHover(chart, () => hoverLines.current);
+    const hover = attachNearestLineHover(chart, () => hoverLines.current);
+    hoverRef.current = hover;
     const observer = new ResizeObserver(() => chart.resize());
     observer.observe(divRef.current);
     return () => {
       observer.disconnect();
-      detachHover();
+      hoverRef.current = null;
+      hover.detach();
       detachWheelZoom();
       chart.dispose();
       chartRef.current = null;
@@ -732,6 +735,9 @@ function LinePanel({
       },
       { replaceMerge: ["series"] },
     );
+    // Replacing the series dropped their emphasis; put the hover back.
+    linkKeys.reapply();
+    hoverRef.current?.reapply();
 
     chartRef.current.dispatchAction({
       type: "takeGlobalCursor",
@@ -846,6 +852,7 @@ function BarPanel({ panel, ctx, settings }: { panel: PanelDef; ctx: PanelContext
       },
       { replaceMerge: ["series"] },
     );
+    linkKeys.reapply(); // replacing the series dropped their emphasis
   }, [result, metric]);
 
   if (result === "no-selection") return <div className="empty">Select a fight</div>;

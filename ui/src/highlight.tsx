@@ -114,6 +114,15 @@ export interface ChartKeys {
 }
 
 /**
+ * The ref a linked chart fills in as it draws, plus the call it makes after
+ * drawing. `reapply` exists because a chart that rebuilds its series — every
+ * live refresh does — comes back with none of ECharts' emphasis state, so a
+ * highlight in force would silently lapse a second after it was made, and
+ * stay lapsed until the pointer moved. Call it after every `setOption`.
+ */
+export type ChartLink = React.MutableRefObject<ChartKeys> & { reapply: () => void };
+
+/**
  * Wires a chart into the highlight: hovering it publishes what is under the
  * cursor, and hovering anything else emphasises the matching series or bar.
  *
@@ -128,10 +137,13 @@ export interface ChartKeys {
 export function useChartLink(
   chartRef: React.MutableRefObject<echarts.ECharts | null>,
   pool: string = ENTITY_POOL,
-): React.MutableRefObject<ChartKeys> {
-  const keys = useRef<ChartKeys>({ series: new Map(), items: [] });
+): ChartLink {
+  const keys = useRef<ChartKeys>({ series: new Map(), items: [] }) as ChartLink;
   const hovered = useHovered();
   const setHovered = useSetHovered();
+  // The current hover, readable from `reapply` without a dependency on it.
+  const hoveredRef = useRef(hovered);
+  hoveredRef.current = hovered;
   // True only while we are the ones dispatching. ECharts emits action events
   // synchronously from dispatchAction, so this reliably tells the highlight we
   // asked for apart from the one the user caused.
@@ -208,34 +220,51 @@ export function useChartLink(
     };
   }, [chartRef, pool, setHovered]);
 
-  // App → chart.
-  useEffect(() => {
-    const chart = chartRef.current;
-    if (!chart || chart.isDisposed()) {
-      return;
-    }
-
-    echoing.current = true;
-    try {
-      chart.dispatchAction({ type: "downplay" });
-      if (!hovered || hovered.pool !== pool) {
+  // App → chart: what the chart should be emphasising right now, given the
+  // hover. Runs when the hover changes, and again from `reapply` when the
+  // chart has redrawn underneath an unchanged hover.
+  const apply = useCallback(
+    (target: HoverTarget | null) => {
+      const chart = chartRef.current;
+      if (!chart || chart.isDisposed()) {
         return;
       }
 
-      for (const [name, key] of keys.current.series) {
-        if (key === hovered.key) {
-          chart.dispatchAction({ type: "highlight", seriesName: name });
+      echoing.current = true;
+      try {
+        chart.dispatchAction({ type: "downplay" });
+        if (!target || target.pool !== pool) {
           return;
         }
+
+        for (const [name, key] of keys.current.series) {
+          if (key === target.key) {
+            chart.dispatchAction({ type: "highlight", seriesName: name });
+            return;
+          }
+        }
+        const index = keys.current.items.indexOf(target.key);
+        if (index >= 0) {
+          chart.dispatchAction({ type: "highlight", seriesIndex: 0, dataIndex: index });
+        }
+      } finally {
+        echoing.current = false;
       }
-      const index = keys.current.items.indexOf(hovered.key);
-      if (index >= 0) {
-        chart.dispatchAction({ type: "highlight", seriesIndex: 0, dataIndex: index });
-      }
-    } finally {
-      echoing.current = false;
+    },
+    [chartRef, pool],
+  );
+
+  useEffect(() => {
+    apply(hovered);
+  }, [apply, hovered]);
+
+  keys.reapply = useCallback(() => {
+    // Nothing to restore, nothing to dispatch: a downplay on every redraw
+    // of an unhovered chart would be a repaint for nothing.
+    if (hoveredRef.current) {
+      apply(hoveredRef.current);
     }
-  }, [chartRef, hovered, pool]);
+  }, [apply]);
 
   return keys;
 }

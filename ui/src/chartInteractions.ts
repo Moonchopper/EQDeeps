@@ -325,12 +325,16 @@ const LINE_HOVER_PX = 14;
  * per frame, not one per event.
  *
  * `getLines` is read on every frame rather than captured, because the chart
- * rebuilds its series without remounting. Returns a detach function.
+ * rebuilds its series without remounting. That rebuild is also why there is a
+ * `reapply`: a `setOption` that replaces the series comes back with no
+ * emphasis on any of them, so a line lit a moment ago goes dark under a still
+ * pointer. The chart calls `reapply` after drawing and the highlight is put
+ * back.
  */
 export function attachNearestLineHover(
   chart: echarts.ECharts,
   getLines: () => HoverLine[],
-): () => void {
+): { detach: () => void; reapply: () => void } {
   const zr = chart.getZr();
   let pending: { x: number; y: number } | null = null;
   let frame = 0;
@@ -430,11 +434,18 @@ export function attachNearestLineHover(
 
   zr.on("mousemove", onMove);
   zr.on("globalout", onOut);
-  return () => {
-    zr.off("mousemove", onMove);
-    zr.off("globalout", onOut);
-    if (frame) {
-      cancelAnimationFrame(frame);
-    }
+  return {
+    detach: () => {
+      zr.off("mousemove", onMove);
+      zr.off("globalout", onOut);
+      if (frame) {
+        cancelAnimationFrame(frame);
+      }
+    },
+    reapply: () => {
+      if (current !== null) {
+        chart.dispatchAction({ type: "highlight", seriesName: current });
+      }
+    },
   };
 }

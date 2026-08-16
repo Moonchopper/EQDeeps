@@ -22,7 +22,7 @@
 > classic-era server is not routed through Planes of Power (issue #57; the
 > zone-id bands behind it are in that doc's §5.3 and re-derivable with
 > `scripts/derive-zone-eras.mjs`).
-> Currently at **v0.11.2**. See `docs/product/features.md` for per-feature
+> Currently at **v0.11.3**. See `docs/product/features.md` for per-feature
 > status. The main open items: real-log validation against EQLogParser (the
 > release gate), the spell-DB work (class detection, bane, lands-on
 > resolution — reference data files not yet copied), identity-registry disk

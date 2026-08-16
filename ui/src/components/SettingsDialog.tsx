@@ -3,7 +3,7 @@ import type { UpdateMode, UpdateState } from "../api";
 import { LABEL_SIZE_CHOICES } from "../fightOverlay";
 import { CONTEXT_MODES, type ContextMode } from "../contextOverlay";
 import { LOOKUP_WORLDS } from "../lookup/providers";
-import { rememberWorld, useLookupWorld } from "../lookup/lookupSettings";
+import { rememberDefaultProvider, rememberWorld, useLookupWorld } from "../lookup/lookupSettings";
 
 interface Props {
   onClose: () => void;
@@ -137,6 +137,22 @@ export function SettingsDialog({
               {LOOKUP_WORLDS.map((w) => (
                 <option key={w.id} value={w.id} title={w.hint}>
                   {w.name}
+                </option>
+              ))}
+            </select>
+          </Row>
+          <Row
+            label="A click opens"
+            hint={`Which of ${lookup.world.name}'s sites the arrow goes to on a plain click; right-click the arrow for the others. A site that needs the game's id (EQLBase) falls back to the first that takes a name until the id is known.`}
+          >
+            <select
+              value={lookup.preferredId ?? lookup.world.providers[0]?.id ?? ""}
+              onChange={(e) => void rememberDefaultProvider(lookup.world.id, e.target.value)}
+              disabled={!lookup.ready}
+            >
+              {lookup.world.providers.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
                 </option>
               ))}
             </select>

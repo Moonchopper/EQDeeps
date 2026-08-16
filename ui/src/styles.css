@@ -2986,7 +2986,7 @@ tr:hover .lookup-btn,
 .lookup-menu {
   position: fixed;
   z-index: var(--z-popover);
-  width: 240px;
+  width: 260px;
   padding: 6px;
   background: var(--surface-2);
   border: 1px solid var(--border);
@@ -3024,41 +3024,81 @@ tr:hover .lookup-btn,
 .lookup-item {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  border-radius: var(--r-chip);
+}
+
+.lookup-item a {
+  flex: 1;
+  display: flex;
+  align-items: center;
   gap: 8px;
+  min-width: 0;
   padding: 5px 8px;
   border-radius: var(--r-chip);
   color: var(--ink-2);
   text-decoration: none;
 }
 
-.lookup-item svg {
-  color: var(--muted);
+.lookup-item a > span:first-child {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.lookup-item:hover,
-.lookup-item:focus-visible {
+.lookup-item svg {
+  color: var(--muted);
+  flex: none;
+}
+
+.lookup-item a:hover,
+.lookup-item a:focus-visible {
   background: var(--hover);
   color: var(--ink);
   outline: none;
 }
 
-.lookup-item.default {
+.lookup-item.default a {
   color: var(--ink);
 }
 
-.lookup-item.default::after {
-  content: "default";
-  order: 1;
-  margin-left: auto;
+.lookup-tag {
   color: var(--muted);
   font-size: var(--fs-micro);
   text-transform: uppercase;
   letter-spacing: 0.07em;
+  flex: none;
 }
 
-.lookup-item.default svg {
-  order: 2;
+/* The star sets what a plain click opens. Quiet until the row is pointed at,
+   except when it is the chosen one, which stays lit so the menu says which. */
+.lookup-star {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  padding: 4px;
+  margin-right: 2px;
+  border: 0;
+  border-radius: var(--r-chip);
+  background: transparent;
+  color: var(--muted);
+  opacity: 0;
+  cursor: pointer;
+}
+
+.lookup-item:hover .lookup-star,
+.lookup-star:focus-visible,
+.lookup-star.on {
+  opacity: 1;
+}
+
+.lookup-star:hover {
+  color: var(--ink);
+  background: var(--hover);
+}
+
+.lookup-star.on {
+  color: var(--gold);
 }
 
 .lookup-foot {

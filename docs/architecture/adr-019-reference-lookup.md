@@ -46,11 +46,17 @@ other servers with other eras unlocked**, and don't over-invest in that room.
 ## Decision 1: lookup is a link out, by name, to a world's sites
 
 The app never scrapes, caches or re-hosts a reference site. Beside a name it
-puts a door: an arrow that opens a small menu of the sites that can address
-that kind of thing, default on top, each a real `target="_blank"` link the
-shell hands to the default browser (ADR-009). One extra click over a straight
-jump, deliberately: the sites disagree about coverage — one has the quest,
-another the drop rate — and the person clicking knows which they wanted.
+puts a door: an arrow. **A plain click opens the site you usually want,
+straight away**, in a real browser tab (`window.open`, which the shell hands
+to the default browser, ADR-009); **a right-click opens the menu** of every
+site for the world, each a link, each with a star that makes it the one a
+plain click opens from then on — per world, stored beside the world choice
+(`ui-settings.lookup.defaults`), and also a select in Settings. The first
+cut was menu-only, one extra click deliberately, because the sites disagree
+about coverage; the owner asked for the straight jump the same day, and the
+menu kept its job for the exception and for saying which site is which. A
+default that needs an id (EQLBase) falls through to the first name-addressed
+site for a mob, or for an item whose id is not known yet.
 
 The door goes **wherever a name is, not where the data happened to be a
 table** — the owner's rule, stated the moment the first slice stopped at Loot

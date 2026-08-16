@@ -507,8 +507,13 @@ Acceptance:
   `…/items/resolve?name=`. *(shipped — 1,150 items / 528 numbered on the
   reference log)*
 - Ids light up the id-addressed sites (EQLBase, EQResource, Lucy) on the
-  lookup menu: the door asks the registry on open, name links show at once,
-  id links join when the answer lands. *(shipped)*
+  lookup menu: the door asks the registry on hover and on open, name links
+  show at once, id links join when the answer lands. *(shipped)*
+- **One click to the usual site**: a plain click on the arrow opens the
+  world's default site; right-click opens the menu, where a star on any site
+  makes it the default (per world; also a select in Settings). A default that
+  needs an id falls through to the first name-addressed site until the id is
+  known. *(shipped)*
 - **Item feed** at the top of the Loot view (viz `items`, also available to
   custom dashboards): every item looted, sold, bought or **named in chat** in
   the time frame, newest first — who, where (corpse, merchant, channel), the

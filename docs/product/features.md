@@ -190,6 +190,26 @@ landings, and an entry point from a death rather than from a tab.
 
 - AC: Recap for a fixture death matches the interleaving rules in the domain doc.
 
+### F10a. Spell emotes resolved from the client's own files — **shipped (2026-08-16)**
+
+The parser now reads `spells_us.txt` and `spells_us_str.txt` out of the game
+install a log sits in (read, never bundled — the rule the maps and the
+loot-filter file already follow) and uses them to resolve the per-spell emote
+text that a buff landing or a received-buff fade prints instead of a name.
+On the owner's log that is **93,791 fewer unrecognized lines (−26%: 355,303 →
+261,512)** and 94k new `LandedEvent`s.
+
+A shared emote does not name a spell: 39 spells say "Your wounds begin to
+heal.", 556 say "&lt;name&gt; staggers.", and only 40% of these lines by volume
+belong to exactly one. So the event carries the emote and the candidate count,
+and names a spell only when it is unambiguous. `--no-spells` switches the
+whole thing off; a log outside a game folder simply parses as it always did.
+
+Still open here: the 173-column `spells_us.txt` also holds durations, class
+levels and resists, but the columns are unlabelled and identifying them needs
+its own evidence — that is the next slice, and it is what would give the
+timeline true buff spans and class detection.
+
 ### F10. Spell/cast analytics
 
 Cast counts per player (casts, interrupts, twincasts), received-buff counts, spell damage breakdowns (DD vs DoT vs proc), resist tracking per spell and per NPC.

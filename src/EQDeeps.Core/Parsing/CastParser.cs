@@ -6,8 +6,9 @@ namespace EQDeeps.Core.Parsing;
 /// Spell-casting activity: cast starts (casting/singing), interrupts, fizzles,
 /// activated abilities, and the wear-off messages that carry a real spell name
 /// ("Your X spell has worn off [of Soandso]."). "Lands on" messages and
-/// received-buff fades use per-spell emote text instead of the name, so those
-/// need the spell database and are resolved in a later layer, not here.
+/// received-buff fades use per-spell emote text instead of the name; those are
+/// resolved here too when the session has the player's spell files
+/// (<see cref="ParserOptions.Spells"/>), and skipped when it does not.
 /// </summary>
 public static class CastParser
 {
@@ -115,6 +116,34 @@ public static class CastParser
         {
             return new AbilityEvent(
                 Names.CapitalizeFirst(action[..i]), action[(i + " activates ".Length)..^1]);
+        }
+
+        // Emote lines, last: they are matched against the player's own spell
+        // files rather than a grammar, so anything with a shape of its own has
+        // already had its chance above.
+        if (!options.Spells.IsEmpty)
+        {
+            if (options.Spells.TryLandsOnYou(action, out var onYou))
+            {
+                return new LandedEvent(options.PlayerName, onYou.Spell, action, onYou.Candidates);
+            }
+
+            if (options.Spells.TryFade(action, out var fade))
+            {
+                // A fade whose text names one spell is the same event a
+                // "Your X spell has worn off." line produces; an ambiguous one
+                // would have to invent a name, so it is left alone rather than
+                // filed under a guess.
+                if (fade.Spell is { } faded)
+                {
+                    return new WearOffEvent(faded, options.PlayerName);
+                }
+            }
+
+            if (options.Spells.TryLandsOnOther(action, out var target, out var onOther))
+            {
+                return new LandedEvent(Names.CapitalizeFirst(target), onOther.Spell, action, onOther.Candidates);
+            }
         }
 
         return null;

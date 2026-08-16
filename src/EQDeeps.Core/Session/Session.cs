@@ -1,3 +1,4 @@
+using EQDeeps.Core.Spells;
 using EQDeeps.Core.Cache;
 using EQDeeps.Core.Events;
 using EQDeeps.Core.Ingestion;
@@ -50,7 +51,8 @@ public sealed class Session : IDisposable
         IngestOptions? ingestOptions = null,
         IIngestClock? clock = null,
         bool emuMode = false,
-        LogCache? cache = null)
+        LogCache? cache = null,
+        SpellBook? spells = null)
     {
         Path = path;
         if (LogFileNames.TryParse(path, out var character, out var server))
@@ -69,7 +71,7 @@ public sealed class Session : IDisposable
         Records = new RecordStore();
         Fights = new FightTracker(Identity);
         Ingestion = new LogFileIngestion(path, ingestOptions, clock);
-        _parser = new LogEventParser(new ParserOptions(Character, emuMode));
+        _parser = new LogEventParser(new ParserOptions(Character, emuMode) { Spells = spells ?? SpellBook.Empty });
         _cache = cache;
         BackfillFrom = ingestOptions?.BackfillFrom;
     }

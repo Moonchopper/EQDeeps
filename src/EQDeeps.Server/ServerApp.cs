@@ -66,6 +66,10 @@ public static class ServerApp
         builder.Services.AddSingleton(_ => new MobHealthStore(builder.Configuration["mobRoot"]));
         // --attackRoot likewise redirects the learned mob-attack profiles (tests).
         builder.Services.AddSingleton(_ => new MobAttackStore(builder.Configuration["attackRoot"]));
+        // The player's own spell files, read from the install a log sits in.
+        // --no-spells switches that off; there is no root to redirect because
+        // nothing is written — the files are read where they already are.
+        builder.Services.AddSingleton(_ => new SpellLibrary(!args.Contains("--no-spells")));
         // --itemRoot likewise redirects the learned item registry (F29, tests).
         builder.Services.AddSingleton(_ => new ItemStore(builder.Configuration["itemRoot"]));
         // --cacheRoot likewise redirects the parsed-record caches (tests) —

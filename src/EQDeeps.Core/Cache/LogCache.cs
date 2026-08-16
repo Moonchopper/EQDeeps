@@ -533,6 +533,7 @@ public sealed class LogCache : IDisposable
         Consider,
         Level,
         Merchant,
+        Landed,
     }
 
     private void WriteRecord(BinaryWriter w, TimedRecord record, ref long lastTicks)
@@ -580,6 +581,14 @@ public sealed class LogCache : IDisposable
                 WritePooled(w, c.Spell);
                 w.Write((byte)c.Kind);
                 w.Write(c.Song);
+                break;
+            case LandedEvent l:
+                w.Write((byte)Tag.Landed);
+                WriteDelta(w, ticks, ref lastTicks);
+                WritePooled(w, l.Target);
+                WritePooled(w, l.Spell);
+                WritePooled(w, l.Emote);
+                w.Write7BitEncodedInt(l.Candidates);
                 break;
             case WearOffEvent o:
                 w.Write((byte)Tag.WearOff);
@@ -778,6 +787,11 @@ public sealed class LogCache : IDisposable
                 r.ReadBoolean()),
             Tag.Loot => ReadLoot(r, table, pool),
             Tag.Merchant => ReadMerchant(r, table, pool),
+            Tag.Landed => new LandedEvent(
+                ReadPooled(r, table, pool) ?? throw Corrupt(),
+                ReadPooled(r, table, pool),
+                ReadPooled(r, table, pool) ?? throw Corrupt(),
+                r.Read7BitEncodedInt()),
             Tag.Consider => new ConsiderEvent(
                 ReadPooled(r, table, pool) ?? throw Corrupt(),
                 ReadPooled(r, table, pool) ?? throw Corrupt(),

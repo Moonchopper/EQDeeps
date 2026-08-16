@@ -31,6 +31,9 @@ licensed components:
   Copyright .NET Foundation and Contributors.
 - react-grid-layout (https://github.com/react-grid-layout/react-grid-layout)
   — MIT License, Copyright Samuel Reed.
+- Tabler Icons (https://github.com/tabler/tabler-icons), via
+  @tabler/icons-react — MIT License, Copyright Paweł Kuna. Only the icons
+  the navigation rail uses are bundled.
 - .NET runtime, ASP.NET Core, and Windows Forms, including
   Microsoft.Extensions.* and Microsoft.Win32.Registry packages
   (https://github.com/dotnet) — MIT License, Copyright .NET Foundation and

@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using EQDeeps.Core.Maps;
 using EQDeeps.Core.Query;
+using EQDeeps.Server.Reference;
 using EQDeeps.Server.Updates;
 
 namespace EQDeeps.Server;
@@ -68,6 +69,15 @@ public static class ServerApp
         builder.Services.AddSingleton(_ => new MobAttackStore(builder.Configuration["attackRoot"]));
         // --itemRoot likewise redirects the learned item registry (F29, tests).
         builder.Services.AddSingleton(_ => new ItemStore(builder.Configuration["itemRoot"]));
+        // The NPC reference (F30, ADR-020). --referenceRoot redirects its cache
+        // like every other store; --no-reference switches the whole thing off,
+        // for anyone who wants an app that never speaks to a third party. It
+        // fetches nothing until something asks it a question.
+        builder.Services.AddSingleton<IReferenceSource>(_ => new EqlBaseSource());
+        builder.Services.AddSingleton(sp => new NpcReferenceStore(
+            sp.GetRequiredService<IReferenceSource>(),
+            builder.Configuration["referenceRoot"],
+            enabled: !args.Contains("--no-reference")));
         // --cacheRoot likewise redirects the parsed-record caches (tests) —
         // recomputable, but a few hundred megabytes per log, and a test that
         // wrote one into the real folder would leave it there.
@@ -434,6 +444,71 @@ public static class ServerApp
         // and it is a list, not an aggregation.
         app.MapPost("/api/sessions/{id}/items/mentions", (string id, ItemMentionsRequest request, SessionManager manager) =>
             manager.Get(id) is { } host ? Results.Ok(host.ItemMentions(request)) : Results.NotFound());
+
+        // ---- NPC reference (F30, ADR-020) ----------------------------------
+        // Someone else's data about the game, fetched on demand and cached
+        // here. Every one of these can answer "I don't know" and the app is
+        // unaffected: nothing the parser does depends on any of it.
+
+        app.MapGet("/api/reference/status", (NpcReferenceStore reference) =>
+            Results.Ok(reference.Status()));
+
+        // Browse the whole bestiary by name — the Bestiary view's search box.
+        app.MapGet("/api/reference/npcs", async (string? q, int? limit, NpcReferenceStore reference, CancellationToken ct) =>
+        {
+            var index = await reference.IndexAsync(ct);
+            if (index is null)
+            {
+                return Results.Ok(new NpcSearchResult(reference.SourceName, [], reference.Status().Error));
+            }
+
+            var rows = index.Browse(q ?? string.Empty, Math.Clamp(limit ?? 60, 1, 200))
+                .Select(r => new NpcBrowseRow(
+                    r.Name,
+                    r.MinLevel,
+                    r.MaxLevel,
+                    r.Listings,
+                    r.PerLevel.Select(v => new NpcListing(v.Name, v.Level, v.Id, reference.NpcUrl(v.Id))).ToList()))
+                .ToList();
+            return Results.Ok(new NpcSearchResult(reference.SourceName, rows, null));
+        });
+
+        // One listing's stat block and loot table.
+        app.MapGet("/api/reference/npcs/{id:int}", async (int id, NpcReferenceStore reference, CancellationToken ct) =>
+            await reference.DetailAsync(id, ct) is { } detail
+                ? Results.Ok(new NpcDetailResult(reference.SourceName, reference.NpcUrl(id), detail))
+                : Results.NoContent());
+
+        // A name the log met, resolved to the listing that fits it — using the
+        // levels this session's /consider lines reported, which is what tells
+        // "a rabid kobold (6)" from "a rabid kobold (9)".
+        app.MapGet("/api/sessions/{id}/npcs/lookup", async (string id, string name, SessionManager manager, NpcReferenceStore reference, CancellationToken ct) =>
+        {
+            if (manager.Get(id) is not { } host)
+            {
+                return Results.NotFound();
+            }
+
+            var index = await reference.IndexAsync(ct);
+            if (index is null)
+            {
+                return Results.NoContent();
+            }
+
+            var listing = index.Resolve(name, host.ObservedLevels(name), out var exact);
+            if (listing is null)
+            {
+                return Results.NoContent();
+            }
+
+            var detail = await reference.DetailAsync(listing.Id, ct);
+            return Results.Ok(new NpcLookupResult(
+                reference.SourceName,
+                new NpcListing(listing.Name, listing.Level, listing.Id, reference.NpcUrl(listing.Id)),
+                exact,
+                host.ObservedLevels(name).ToArray(),
+                detail));
+        });
 
         app.MapHub<LiveHub>("/hubs/live");
 

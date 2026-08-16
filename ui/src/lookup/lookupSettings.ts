@@ -32,8 +32,14 @@ export interface LookupSettings {
   defaults?: Record<string, string>;
 }
 
+/** Whether the Bestiary may reach a reference site at all (ADR-020). */
+export interface ReferenceSettings {
+  enabled?: boolean;
+}
+
 export interface UiSettingsDocument {
   lookup?: LookupSettings;
+  reference?: ReferenceSettings;
   /* Other UI preferences may join later; unknown fields are carried through the read-modify-write below. */
   [key: string]: unknown;
 }
@@ -90,6 +96,34 @@ export async function rememberWorld(worldId: string | null, install?: string): P
     delete lookup.world;
   }
   next.lookup = lookup;
+  cached = next;
+  notify();
+  await api.putStore(KEY, next);
+}
+
+/**
+ * Whether mob details may be fetched. On by default — the Bestiary is worth
+ * having and the request carries nothing about the player (ADR-020) — but a
+ * switch, because "no cloud" is a promise this app makes and a promise with
+ * no off switch is a slogan. Off means the view asks nothing of anyone.
+ */
+export function useReferenceEnabled(): { enabled: boolean; ready: boolean } {
+  const [, bump] = useState(0);
+  useEffect(() => {
+    const l = () => bump((n) => n + 1);
+    listeners.add(l);
+    if (!cached) void load().then(l);
+    return () => {
+      listeners.delete(l);
+    };
+  }, []);
+  return { enabled: cached?.reference?.enabled !== false, ready: cached !== null };
+}
+
+/** Remembers whether mob details may be fetched. Read-modify-write, as above. */
+export async function rememberReferenceEnabled(enabled: boolean): Promise<void> {
+  const current = await api.getStore<UiSettingsDocument>(KEY).catch(() => null);
+  const next: UiSettingsDocument = { ...(current ?? {}), reference: { enabled } };
   cached = next;
   notify();
   await api.putStore(KEY, next);

@@ -14,6 +14,7 @@ import {
   IconRefresh,
   IconSettings,
   IconShield,
+  IconBook,
   IconSkull,
   IconTargetArrow,
   IconTrendingUp,
@@ -25,6 +26,7 @@ import { RAIL_GROUPS } from "../dashboards/railGroups";
 import {
   HITS_VIEW,
   MAPS_VIEW,
+  BESTIARY_VIEW,
   MOBS_VIEW,
   STANCES_VIEW_ID,
   SUMMARY_VIEW,
@@ -86,6 +88,10 @@ const RAIL_ENTRIES: Record<string, { name: string; title?: string }> = {
     name: "Incoming",
     title: "What is hitting you, in order, and what this server's mobs hit for",
   },
+  [BESTIARY_VIEW]: {
+    name: "Bestiary",
+    title: "Every mob in the game, searchable — and what your own logs measured",
+  },
   [MAPS_VIEW]: { name: "Map", title: "Your own zone maps, and how the world joins up" },
 };
 
@@ -106,6 +112,7 @@ const RAIL_ICONS: Record<string, Icon> = {
   "preset-faction": IconUsersGroup,
   "preset-loot": IconDiamond,
   [MOBS_VIEW]: IconSkull,
+  [BESTIARY_VIEW]: IconBook,
   [MAPS_VIEW]: IconMap2,
 };
 

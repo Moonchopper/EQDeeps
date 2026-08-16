@@ -2425,36 +2425,40 @@ textarea:focus-visible,
   stroke: var(--accent);
 }
 
-.zone-node circle {
+/* The dot itself. State rules target .dot, not every circle in the group:
+   the click disc and the "you are here" ring live beside it and must keep
+   their own paint whatever state the zone is in. */
+.zone-node .dot {
   fill: var(--muted);
-  cursor: pointer;
+  /* No handlers of its own: hover and click resolve on the svg to the nearest
+     zone. It stays hit-testable only so the tooltip has something to hang on. */
 }
 
-.zone-node:hover circle {
+.zone-node:hover .dot {
   fill: var(--ink);
 }
 
-.zone-node.on circle {
+.zone-node.on .dot {
   fill: var(--accent);
 }
 
 /* With an era chosen, a zone the table could not place is kept but hollowed:
    it may or may not exist on this server, and the tooltip says so. */
-.zone-node.unsure circle {
+.zone-node.unsure .dot {
   fill: var(--page);
   stroke: var(--muted);
   stroke-width: 1.5;
   vector-effect: non-scaling-stroke;
 }
 
-.zone-node.unsure:hover circle {
+.zone-node.unsure:hover .dot {
   stroke: var(--ink);
 }
 
 /* Searching the world: hits come forward, everything else steps back. Gold
    rather than the accent, so a search hit is not mistaken for a route step —
    the two can be on screen together. */
-.zone-node.hit circle {
+.zone-node.hit .dot {
   fill: var(--gold);
 }
 
@@ -2471,7 +2475,7 @@ textarea:focus-visible,
 /* A zone lit only because it connects to a hit: a ring, not a dot, so it
    reads as "next to" rather than "found", and its label says which hit. The
    connecting edge is drawn in the same gold, so the reason is on the picture. */
-.zone-node.via circle {
+.zone-node.via .dot {
   fill: var(--page);
   stroke: var(--gold);
   stroke-width: 1.5;
@@ -2520,7 +2524,11 @@ textarea:focus-visible,
 }
 
 /* Size and halo width are set inline, in viewBox units: SVG scales text with
-   the drawing, so a fixed pixel size renders differently for every world. */
+   the drawing, so a fixed pixel size renders differently for every world.
+   Names take no pointer events: they are wide, they overlap their
+   neighbours, and a clickable label stole clicks meant for the dot beneath
+   it. Clicking on or near a name still opens its zone, because the click
+   goes to the nearest zone within reach and the name sits over its own dot. */
 .zone-node text {
   fill: var(--ink-2);
   text-anchor: middle;

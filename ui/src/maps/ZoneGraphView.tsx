@@ -629,6 +629,88 @@ export function ZoneGraphView({
   const unit = size.w > 0 ? box.w / size.w : 1;
   const nameSize = 11 * unit;
 
+  /** The "via …" note a connected zone's label carries, or "". */
+  const viaNoteOf = (z: ZoneGraphNode): string => {
+    const via = found?.via.get(z.shortName);
+    return via
+      ? "via " +
+          via
+            .slice(0, 2)
+            .map((v) => names.get(v) ?? v)
+            .join(", ") +
+          (via.length > 2 ? ` +${via.length - 2}` : "")
+      : "";
+  };
+
+  /** Whether a zone's name is drawn right now, and if so what it says. Shared by the label and the hit test. */
+  const labelOf = (z: ZoneGraphNode): string | null => {
+    const near = hover === z.shortName;
+    const lit = onRouteNode.has(z.shortName);
+    const isHere = z.shortName === here;
+    const shown = found
+      ? found.hits.has(z.shortName) || found.via.has(z.shortName) || near || lit || isHere
+      : z.degree >= labelAbove || near || lit || isHere;
+    if (!shown) {
+      return null;
+    }
+    const via = viaNoteOf(z);
+    return (names.get(z.shortName) ?? z.shortName) + (via ? ` · ${via}` : "") + (isHere ? " · you are here" : "");
+  };
+
+  /**
+   * The zone nearest a screen point, within reach, or null.
+   *
+   * <p>The dot is three to seven pixels across — a fine thing to look at and a
+   * poor thing to aim at. A wider invisible disc per zone was tried first and
+   * failed the other way: at fit zoom the world is dense enough that discs
+   * overlap, the topmost wins, and clicking beside Butcherblock opened Old
+   * Guk. Nearest-within-reach is both generous and unambiguous: whatever you
+   * are closest to is what you get, up to twelve screen pixels away, and the
+   * hover shows you which before you commit.</p>
+   */
+  const nearestZone = (clientX: number, clientY: number, rect: DOMRect): string | null => {
+    if (!drawn) {
+      return null;
+    }
+
+    const wx = box.x + ((clientX - rect.left) / rect.width) * box.w;
+    const wy = box.y + ((clientY - rect.top) / rect.height) * box.h;
+    const reach = 12 * unit;
+    let best: string | null = null;
+    let bestD = reach * reach;
+    let bestOnLabel = false;
+
+    for (const z of drawn.graph.zones) {
+      const p = positions.get(z.shortName);
+      if (!p) {
+        continue;
+      }
+
+      const d = (p.x - wx) * (p.x - wx) + (p.y - wy) * (p.y - wy);
+
+      // A drawn name is part of its zone: a point inside the name's box goes
+      // to that zone whatever dot is nearer, because the name sits above its
+      // dot and a hub's name is long enough to reach past its neighbours. The
+      // box is estimated from the character count rather than measured — a
+      // little wide or narrow is fine, the point is the middle of a name.
+      const label = labelOf(z);
+      let onLabel = false;
+      if (label) {
+        const halfW = label.length * nameSize * 0.26;
+        const top = p.y - nameSize * (z.shortName === here ? 1.3 : 0.7) - nameSize;
+        onLabel = wx >= p.x - halfW && wx <= p.x + halfW && wy >= top && wy <= top + nameSize * 1.2;
+      }
+
+      if (onLabel ? !bestOnLabel || d < bestD : !bestOnLabel && d < bestD) {
+        bestD = d;
+        best = z.shortName;
+        bestOnLabel = onLabel;
+      }
+    }
+
+    return best;
+  };
+
   // Labels thin out by connectedness rather than by chance, and the threshold
   // relaxes as you zoom in: at a distance only the hubs are named, and by the
   // time a handful of zones fill the frame everything has a name. Drawing all
@@ -764,7 +846,19 @@ export function ZoneGraphView({
           className="zone-graph"
           viewBox={`${box.x} ${box.y} ${box.w} ${box.h}`}
           preserveAspectRatio="xMidYMid meet"
-          style={{ cursor: dragRef.current ? "grabbing" : "grab" }}
+          style={{ cursor: dragRef.current?.moved ? "grabbing" : hover ? "pointer" : "grab" }}
+          // Every click resolves through the one nearest-zone rule, dots
+          // included: a dot can sit under another zone's name, and the name
+          // is what the person clicked. Nothing opens at the end of a drag.
+          onClick={(e) => {
+            if (draggedRef.current) {
+              return;
+            }
+            const near = nearestZone(e.clientX, e.clientY, e.currentTarget.getBoundingClientRect());
+            if (near) {
+              onOpenZone(near);
+            }
+          }}
           onWheel={(e) => {
             const rect = e.currentTarget.getBoundingClientRect();
             const fx = (e.clientX - rect.left) / rect.width;
@@ -795,6 +889,11 @@ export function ZoneGraphView({
           onPointerMove={(e) => {
             const drag = dragRef.current;
             if (!drag) {
+              // Not dragging: the hover follows the nearest zone within
+              // reach, by the same rule a click uses, so what lights up is
+              // what a click would open.
+              const near = nearestZone(e.clientX, e.clientY, e.currentTarget.getBoundingClientRect());
+              setHover((h) => (h === near ? h : near));
               return;
             }
 
@@ -862,19 +961,11 @@ export function ZoneGraphView({
             }
 
             const lit = onRouteNode.has(z.shortName);
-            const near = hover === z.shortName;
             const hit = found?.hits.get(z.shortName);
             const via = found?.via.get(z.shortName);
             const isHere = z.shortName === here;
             const dim = found !== null && hit === undefined && via === undefined && !lit && !isHere;
-            const viaNote = via
-              ? "via " +
-                via
-                  .slice(0, 2)
-                  .map((v) => names.get(v) ?? v)
-                  .join(", ") +
-                (via.length > 2 ? ` +${via.length - 2}` : "")
-              : "";
+            const viaNote = viaNoteOf(z);
 
             // With an era chosen, a zone the table could not place is kept
             // but marked: it may or may not exist on this server.
@@ -898,13 +989,6 @@ export function ZoneGraphView({
                   (isHere ? " here" : "") +
                   (dim ? " dim" : "")
                 }
-                onMouseEnter={() => setHover(z.shortName)}
-                onMouseLeave={() => setHover(null)}
-                onClick={() => {
-                  if (!draggedRef.current) {
-                    onOpenZone(z.shortName);
-                  }
-                }}
               >
                 {/* Sizes are in view units scaled by `unit`, so a dot stays the
                     same size on screen however far in you are — zooming shows
@@ -912,7 +996,7 @@ export function ZoneGraphView({
                 {/* Where the log says you are: a ring around the dot, in the
                     accent, drawn under it so the dot keeps its own colour. */}
                 {isHere && <circle className="here-ring" r={12 * unit} />}
-                <circle r={Math.min(7, 2.5 + z.degree * 0.4) * unit} />
+                <circle className="dot" r={Math.min(7, 2.5 + z.degree * 0.4) * unit} />
                 <title>
                   {names.get(z.shortName)} — {z.degree}{" "}
                   {z.degree === 1 ? "connection" : "connections"}
@@ -926,9 +1010,7 @@ export function ZoneGraphView({
                     and every hit is, however small, because it is what you
                     asked for. A connected zone carries its reason in the
                     label itself. */}
-                {(found
-                  ? hit !== undefined || via !== undefined || near || lit || isHere
-                  : z.degree >= labelAbove || near || lit || isHere) && (
+                {labelOf(z) !== null && (
                   <text
                     x={0}
                     y={-nameSize * (isHere ? 1.3 : 0.7)}

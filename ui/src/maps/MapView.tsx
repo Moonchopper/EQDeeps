@@ -4,9 +4,12 @@ import { fuzzyMatch } from "../fuzzy";
 import { MapCanvas } from "./MapCanvas";
 import {
   chosenFor,
+  eraFor,
   loadMapSettings,
   rememberEra,
   rememberMap,
+  stripInstance,
+  zoneKey,
   type MapSettings,
 } from "./mapSettings";
 import { ZoneGraphView } from "./ZoneGraphView";
@@ -28,13 +31,20 @@ interface Props {
   /** The zone the log says the character is in, if a log is open. */
   currentZone?: string;
   /**
+   * The installation the open log is from — "EverQuest Legends", "EverQuest"
+   * — if one is. Which drawing is right and how far the world is unlocked are
+   * facts about the install, so every choice made here is remembered against
+   * it; the shard in the file name is a finer cut than the world it plays in.
+   */
+  install?: string;
+  /**
    * Whether a log is open at all — the signal for "a zone is coming, wait for
    * it" as opposed to "nobody is playing, draw anything".
    */
   hasLog?: boolean;
 }
 
-export function MapView({ currentZone, hasLog = false }: Props) {
+export function MapView({ currentZone, install, hasLog = false }: Props) {
   const [catalog, setCatalog] = useState<MapCatalog | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState<"zone" | "world">("zone");
@@ -57,6 +67,25 @@ export function MapView({ currentZone, hasLog = false }: Props) {
 
   /** True once the log's zone has no map and the user has not said otherwise. */
   const [unresolved, setUnresolved] = useState(false);
+
+  /**
+   * The user has said the map the log's zone opened on is the wrong one and
+   * is off to pick another. Turns the "use for <zone>" button on while they
+   * browse, and off again once they press it or give up.
+   */
+  const [correcting, setCorrecting] = useState(false);
+
+  /**
+   * The zone the World view should land on when it opens from here, and a
+   * counter so asking again for the same zone frames it again.
+   */
+  const [worldFocus, setWorldFocus] = useState<{ zone: string; seq: number } | null>(null);
+
+  /** To the world, landing on the zone on screen. Right-click and the header button both come here. */
+  const showInWorld = () => {
+    setWorldFocus((f) => (selected ? { zone: selected, seq: (f?.seq ?? 0) + 1 } : f));
+    setMode("world");
+  };
 
   // The zone the log is in wins once, on arrival. After that the user is
   // steering: auto-following every zone line would yank the map out from under
@@ -120,7 +149,7 @@ export function MapView({ currentZone, hasLog = false }: Props) {
 
     followed.current = true;
     const known = (s: string) => catalog.zones.some((z) => z.shortName === s);
-    const override = chosenFor(settings, currentZone);
+    const override = chosenFor(settings, currentZone, install);
 
     if (override && known(override)) {
       setSelected(override);
@@ -142,7 +171,7 @@ export function MapView({ currentZone, hasLog = false }: Props) {
       })
       .catch(() => undefined)
       .finally(() => setFollowDone(true));
-  }, [catalog, currentZone, settings, settingsLoaded]);
+  }, [catalog, currentZone, settings, settingsLoaded, install]);
 
   // Fall back to the first zone so the view is never an empty frame — but not
   // while a log is still telling us where the character is. Landing on an
@@ -257,7 +286,7 @@ export function MapView({ currentZone, hasLog = false }: Props) {
 
   /** Opens a place on whichever of its maps the user last chose. */
   const openPlace = (p: { name: string; maps: MapCatalogEntry[] }) => {
-    const override = chosenFor(settings, p.name);
+    const override = chosenFor(settings, p.name, install);
     const target =
       override && p.maps.some((m) => m.shortName === override) ? override : p.maps[0].shortName;
 
@@ -268,13 +297,31 @@ export function MapView({ currentZone, hasLog = false }: Props) {
 
   /** Binds a zone name to a map, or forgets the binding when null. */
   const bind = (zone: string, shortName: string | null) => {
-    rememberMap(zone, shortName)
+    rememberMap(zone, shortName, install)
       .then((next) => {
         setSettings(next);
         setUnresolved(false);
+        setCorrecting(false);
       })
       .catch(() => undefined);
   };
+
+  /**
+   * The place on screen is the one the log's zone name means. The place's own
+   * "use for" control and the zone's are then one setting under one key, so
+   * only the place's is shown.
+   */
+  const sameName = !!currentZone && !!place && zoneKey(place.name) === zoneKey(currentZone);
+
+  /**
+   * The zone name as a binding sees it — instance suffix off, since "The Ruins
+   * of Old Guk 3 (Fused)" is remembered as, and reads better as, the Ruins of
+   * Old Guk.
+   */
+  const zoneName = currentZone ? stripInstance(currentZone) : "";
+
+  /** The map on screen is one the user bound the log's zone name to. */
+  const boundHere = !!currentZone && !!selected && chosenFor(settings, currentZone, install) === selected;
 
   const applyRoot = (path: string | null) => {
     setBusy(true);
@@ -444,6 +491,9 @@ export function MapView({ currentZone, hasLog = false }: Props) {
 
       {mode === "world" ? (
         <ZoneGraphView
+          focus={worldFocus?.zone}
+          focusSeq={worldFocus?.seq}
+          onBack={() => setMode("zone")}
           // A graph node is a place, and a place opens on whichever of its
           // drawings the user last chose — the same rule as the zone list.
           onOpenZone={(shortName) => {
@@ -456,10 +506,10 @@ export function MapView({ currentZone, hasLog = false }: Props) {
             }
           }}
           currentZone={currentZone}
-          currentMap={currentZone ? chosenFor(settings, currentZone) : undefined}
-          era={settings.era}
+          currentMap={currentZone ? chosenFor(settings, currentZone, install) : undefined}
+          era={eraFor(settings, install)}
           onEraChange={(era) => {
-            rememberEra(era)
+            rememberEra(era, install)
               .then(setSettings)
               .catch(() => undefined);
           }}
@@ -488,8 +538,24 @@ export function MapView({ currentZone, hasLog = false }: Props) {
             </div>
 
             <div className="map-controls">
+              {/* Out to the world, landing on this zone. Right-click on the
+                  map does the same; the button is there so it can be found. */}
+              {selected && (
+                <button
+                  className="mini-btn"
+                  onClick={showInWorld}
+                  title="Show this zone in the world map. Right-click on the map does the same; right-click there comes back."
+                >
+                  world
+                </button>
+              )}
+
               {/* Which map file to draw this place from. Only appears when
-                  something is actually being chosen between. */}
+                  something is actually being chosen between. Switching here
+                  is just looking; the button beside it is what makes the
+                  choice stick — which drawing is right depends on the install
+                  (EverQuest Legends has the old Freeport, live the new), and
+                  a silent write on every look was invisible and surprising. */}
               {place && place.maps.length > 1 && (
                 <select
                   className="mini-select"
@@ -498,11 +564,8 @@ export function MapView({ currentZone, hasLog = false }: Props) {
                     setSelected(e.target.value);
                     setSet(undefined);
                     setSteered(true);
-                    // Remembered against the place, so this zone opens on the
-                    // drawing they picked next time rather than the first one.
-                    bind(place.name, e.target.value);
                   }}
-                  title="More than one map file claims this zone name"
+                  title={`More than one map file claims "${place.name}"`}
                 >
                   {place.maps.map((m) => (
                     <option key={m.shortName} value={m.shortName}>
@@ -510,6 +573,26 @@ export function MapView({ currentZone, hasLog = false }: Props) {
                     </option>
                   ))}
                 </select>
+              )}
+
+              {place && place.maps.length > 1 && selected && chosenFor(settings, place.name, install) !== selected && (
+                <button
+                  className="mini-btn"
+                  onClick={() => bind(place.name, selected)}
+                  title={`Open "${place.name}" on ${selected} from now on${install ? ` on ${install}` : ""} — the drawing this install's world uses`}
+                >
+                  use for “{place.name}”
+                </button>
+              )}
+
+              {place && place.maps.length > 1 && selected && chosenFor(settings, place.name, install) === selected && (
+                <button
+                  className="mini-btn on"
+                  onClick={() => bind(place.name, null)}
+                  title={`"${place.name}" opens on ${selected}${install ? ` on ${install}` : ""}. Click to forget and go back to the first drawing.`}
+                >
+                  remembered ✕
+                </button>
               )}
 
               {entry && entry.sets.length > 1 && (
@@ -554,25 +637,44 @@ export function MapView({ currentZone, hasLog = false }: Props) {
                 true colour
               </button>
 
-              {/* The table can be wrong or silent about a zone. This is how the
-                  person who can see both the map and the game corrects it. */}
-              {currentZone && selected && chosenFor(settings, currentZone) !== selected && (
+              {/* The table can be wrong or silent about the zone the log names.
+                  This is how the person who can see both the map and the game
+                  corrects it — but only offered while a correction is actually
+                  in progress: with no map for the zone, or after "wrong map?".
+                  Offered on every map, it read as "use East Freeport for the
+                  Ruins of Old Guk" to someone merely browsing. */}
+              {currentZone && selected && !sameName && !boundHere && (unresolved || correcting) && (
                 <button
                   className="mini-btn"
                   onClick={() => bind(currentZone, selected)}
-                  title={`Remember this map as the one for "${currentZone}"`}
+                  title={`Remember this map as the one for "${zoneName}"`}
                 >
-                  use for “{currentZone}”
+                  use for “{zoneName}”
                 </button>
               )}
 
-              {currentZone && chosenFor(settings, currentZone) === selected && (
+              {/* On a map the user bound the log's zone to: the undo. Unless
+                  the place's own control above already stands for it — same
+                  name, same key. */}
+              {currentZone && boundHere && !(sameName && place && place.maps.length > 1) && (
                 <button
                   className="mini-btn on"
                   onClick={() => bind(currentZone, null)}
-                  title="Forget this choice and go back to the shipped table"
+                  title={`"${zoneName}" opens on this map because you said so. Click to forget and go back to the shipped table.`}
                 >
-                  remembered ✕
+                  remembered for “{zoneName}” ✕
+                </button>
+              )}
+
+              {/* On the map the table opened for the log's zone: the way to
+                  say it is the wrong one, which turns "use for" on elsewhere. */}
+              {currentZone && sameName && !boundHere && !correcting && (
+                <button
+                  className="mini-btn"
+                  onClick={() => setCorrecting(true)}
+                  title={`The table opened this map for "${zoneName}". If that is wrong, pick the right one and it will be remembered.`}
+                >
+                  wrong map?
                 </button>
               )}
             </div>
@@ -580,13 +682,30 @@ export function MapView({ currentZone, hasLog = false }: Props) {
 
           {unresolved && currentZone && (
             <div className="map-notice">
-              The log says you are in <strong>{currentZone}</strong>, and no map
+              The log says you are in <strong>{zoneName}</strong>, and no map
               is known for that name. Pick one on the left, then press{" "}
-              <em>use for “{currentZone}”</em> and it will be remembered.
+              <em>use for “{zoneName}”</em> and it will be remembered.
             </div>
           )}
 
-          <div className="map-body">
+          {correcting && !unresolved && currentZone && (
+            <div className="map-notice">
+              Pick the right map for <strong>{zoneName}</strong> on the left,
+              then press <em>use for “{zoneName}”</em> and it will open there
+              from now on.{" "}
+              <button className="mini-btn" onClick={() => setCorrecting(false)}>
+                never mind
+              </button>
+            </div>
+          )}
+
+          <div
+            className="map-body"
+            onContextMenu={(e) => {
+              e.preventDefault();
+              showInWorld();
+            }}
+          >
             {loading && <div className="map-loading">Reading the map…</div>}
             {map && !loading && (
               <MapCanvas

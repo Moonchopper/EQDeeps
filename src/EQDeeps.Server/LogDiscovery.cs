@@ -55,6 +55,47 @@ public static class LogDiscovery
     /// <c>/outputfile inventory</c> is another, so this is shared rather than
     /// private to log scanning.
     /// </summary>
+    /// <summary>
+    /// The installation a log belongs to, named as a player would name it —
+    /// "EverQuest Legends", "EverQuest", whatever folder a Project 1999 client
+    /// was unpacked into — or null when the log is not where a game writes
+    /// them.
+    ///
+    /// <para>Every EverQuest client, live or emulated, writes logs to
+    /// <c>&lt;install&gt;\Logs\</c>, so the install is the folder above
+    /// <c>Logs</c>. That is deliberately not tied to discovery: a client this
+    /// app has never heard of still names itself correctly, and a log copied
+    /// somewhere else honestly names nothing. The map settings key on this,
+    /// because which drawing of Freeport is right and how far the world is
+    /// unlocked are facts about the install — a Legends log and a live log
+    /// name different worlds even when both say "West Freeport" — and the
+    /// shard in the file name (<c>qeynos</c>) is a finer cut than that: every
+    /// server on one install shares its client and its era.</para>
+    /// </summary>
+    public static string? InstallOf(string logPath)
+    {
+        try
+        {
+            var logs = Path.GetDirectoryName(Path.GetFullPath(logPath));
+            if (logs is null || !string.Equals(Path.GetFileName(logs), "Logs", StringComparison.OrdinalIgnoreCase))
+            {
+                return null;
+            }
+
+            var install = Path.GetDirectoryName(logs);
+            var name = install is null ? null : Path.GetFileName(install);
+            return string.IsNullOrEmpty(name) ? null : name;
+        }
+        catch (ArgumentException)
+        {
+            return null;
+        }
+        catch (PathTooLongException)
+        {
+            return null;
+        }
+    }
+
     public static List<(string Dir, string Source)> InstallRoots()
     {
         var candidates = new List<(string Dir, string Source)>();

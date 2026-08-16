@@ -275,6 +275,11 @@ export function MapCanvas({
   };
 
   const onPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    // Only the primary button pans; the right button is the way out to the
+    // World view and must not start a drag on its way there.
+    if (e.button !== 0) {
+      return;
+    }
     e.currentTarget.setPointerCapture(e.pointerId);
     dragRef.current = { x: e.clientX, y: e.clientY };
   };

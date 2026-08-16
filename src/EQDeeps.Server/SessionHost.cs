@@ -100,7 +100,8 @@ public sealed class SessionHost : IAsyncDisposable
                 Id, Session.Path, Session.Character, Session.Server,
                 Session.BackfillComplete, Session.Records.Count, Session.Fights.Fights.Count,
                 Session.UnrecognizedLines, Session.Ingestion.MalformedLines,
-                Session.StanceSwitches);
+                Session.StanceSwitches,
+                LogDiscovery.InstallOf(Session.Path));
         }
     }
 

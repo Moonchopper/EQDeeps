@@ -397,7 +397,8 @@ the table cannot place is shown rather than hidden.
   error or an empty screen with no explanation.
 - AC: Where a zone has more than one map — a revamp beside its classic version,
   like `freportw` and `freeportwest` — both are offered rather than one being
-  guessed, and the choice sticks.
+  guessed, and the choice can be made to stick with one press (which drawing is
+  right depends on the server: a classic-era server has the old Freeport).
 - AC: Every display name in the shipped table is one the client itself uses,
   checked against `Resources/ZoneNames.txt` rather than trusted.
 - AC: A hand-written pairing is distinguishable in the UI from a derived one,

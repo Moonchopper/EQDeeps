@@ -18,9 +18,12 @@ import { chosenFor, loadMapSettings, type MapSettings } from "./mapSettings";
  */
 export function MapPanel({
   context,
+  install,
   pinned,
 }: {
   context: ContextTimeline | null;
+  /** The installation the log is from; the user's map choices are kept per install. */
+  install?: string;
   /** A map short name to hold on, instead of following the log. */
   pinned?: string;
 }) {
@@ -78,7 +81,7 @@ export function MapPanel({
       return;
     }
 
-    const override = chosenFor(settings, zoneName);
+    const override = chosenFor(settings, zoneName, install);
     if (override) {
       load(override);
       return () => {

@@ -23,6 +23,22 @@ public sealed class LogDiscoveryTests : IDisposable
         }
     }
 
+    /// <summary>
+    /// The install is the folder above <c>Logs</c>, named as the player named
+    /// it, and nothing else — a log copied out of a game folder names no
+    /// install rather than a wrong one.
+    /// </summary>
+    [Theory]
+    [InlineData(@"D:\Users\Public\Daybreak Game Company\Installed Games\EverQuest Legends\Logs\eqlog_Moonchopper_qeynos.txt", "EverQuest Legends")]
+    [InlineData(@"C:\Games\P99\Logs\eqlog_Soandso_P1999Green.txt", "P99")]
+    [InlineData(@"C:\Games\P99\logs\eqlog_Soandso_P1999Green.txt", "P99")]
+    [InlineData(@"C:\Users\me\Desktop\eqlog_Soandso_firiona.txt", null)]
+    [InlineData(@"C:\Logs\eqlog_Soandso_firiona.txt", null)]
+    public void NamesTheInstallALogBelongsTo(string path, string? expected)
+    {
+        Assert.Equal(expected, LogDiscovery.InstallOf(path));
+    }
+
     [Fact]
     public void ScansOnlyParseableCharacterLogs()
     {

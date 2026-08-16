@@ -3,6 +3,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -37,40 +38,124 @@ export interface HoverTarget {
   pool: string;
 }
 
+/**
+ * A selection is a hover that stays: click a row or a line and the entity
+ * keeps its emphasis after the pointer leaves, until it is clicked again,
+ * something else is selected, or — unless pinned — the view changes. Pinned,
+ * it holds across every view and across restarts. Hover still runs on top of
+ * it and falls back to it, so pointing at another player is a glance and the
+ * selection is what the screen returns to.
+ */
+export interface Selection {
+  target: HoverTarget;
+  pinned: boolean;
+}
+
+interface SelectionActions {
+  /** Select `target`, or clear it if it is already the selection. */
+  toggle: (target: HoverTarget) => void;
+  setPinned: (pinned: boolean) => void;
+  clear: () => void;
+  /** Drop an unpinned selection — what a view change does. */
+  clearUnlessPinned: () => void;
+}
+
 const HoveredContext = createContext<HoverTarget | null>(null);
 const SetHoveredContext = createContext<(target: HoverTarget | null) => void>(() => undefined);
+const SelectionContext = createContext<Selection | null>(null);
+const SelectionActionsContext = createContext<SelectionActions>({
+  toggle: () => undefined,
+  setPinned: () => undefined,
+  clear: () => undefined,
+  clearUnlessPinned: () => undefined,
+});
+
+const PINNED_KEY = "eqdeeps.pinned";
+
+function readPinned(): Selection | null {
+  try {
+    const raw = localStorage.getItem(PINNED_KEY);
+    if (!raw) return null;
+    const t = JSON.parse(raw) as Partial<HoverTarget>;
+    return typeof t.key === "string" && typeof t.pool === "string"
+      ? { target: { key: t.key, pool: t.pool }, pinned: true }
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+const same = (a: HoverTarget | null, b: HoverTarget | null) =>
+  a === b || (a !== null && b !== null && a.key === b.key && a.pool === b.pool);
 
 /**
- * Two contexts rather than one object, because the two halves have opposite
- * update patterns: the setter never changes, so components that only emit
- * hover (chart wrappers) don't re-render when the pointer moves, while the
- * ones that respond to it do.
+ * Two contexts per concern rather than one object, because the halves have
+ * opposite update patterns: the setters never change, so components that only
+ * emit hover or clicks (chart wrappers) don't re-render when the pointer
+ * moves, while the ones that respond to it do.
+ *
+ * `HoveredContext` carries the EFFECTIVE highlight — the hover if there is
+ * one, else the selection — so everything that already lights up for a hover
+ * lights up for a selection with no change of its own.
  */
 export function HighlightProvider({ children }: { children: ReactNode }) {
   const [hovered, setState] = useState<HoverTarget | null>(null);
+  const [selection, setSelection] = useState<Selection | null>(readPinned);
 
   // Re-stating the current hover is a no-op, not a re-render. Charts echo the
   // highlight they were just given (see useChartLink), so this is what keeps
   // "point at a row, light the line, which reports the row" from being a loop
   // rather than a round trip.
   const setHovered = useCallback((next: HoverTarget | null) => {
-    setState((previous) =>
-      previous === next ||
-      (previous !== null && next !== null && previous.key === next.key && previous.pool === next.pool)
-        ? previous
-        : next,
-    );
+    setState((previous) => (same(previous, next) ? previous : next));
   }, []);
+
+  const actions = useMemo<SelectionActions>(() => {
+    const persist = (next: Selection | null) => {
+      if (next?.pinned) {
+        localStorage.setItem(PINNED_KEY, JSON.stringify(next.target));
+      } else {
+        localStorage.removeItem(PINNED_KEY);
+      }
+      return next;
+    };
+    return {
+      // A pin belongs to what was pinned: choosing something else starts an
+      // unpinned selection rather than silently moving the pin.
+      toggle: (target) =>
+        setSelection((prev) =>
+          persist(prev && same(prev.target, target) ? null : { target, pinned: false }),
+        ),
+      setPinned: (pinned) => setSelection((prev) => persist(prev ? { ...prev, pinned } : null)),
+      clear: () => setSelection(() => persist(null)),
+      clearUnlessPinned: () => setSelection((prev) => (prev?.pinned ? prev : null)),
+    };
+  }, []);
+
+  const effective = hovered ?? selection?.target ?? null;
 
   return (
     <SetHoveredContext.Provider value={setHovered}>
-      <HoveredContext.Provider value={hovered}>{children}</HoveredContext.Provider>
+      <SelectionActionsContext.Provider value={actions}>
+        <SelectionContext.Provider value={selection}>
+          <HoveredContext.Provider value={effective}>{children}</HoveredContext.Provider>
+        </SelectionContext.Provider>
+      </SelectionActionsContext.Provider>
     </SetHoveredContext.Provider>
   );
 }
 
+/** The effective highlight: the hover if there is one, else the selection. */
 export function useHovered(): HoverTarget | null {
   return useContext(HoveredContext);
+}
+
+export function useSelection(): Selection | null {
+  return useContext(SelectionContext);
+}
+
+export function useSelectionActions(): SelectionActions {
+  return useContext(SelectionActionsContext);
 }
 
 export function useSetHovered(): (target: HoverTarget | null) => void {
@@ -83,21 +168,37 @@ export function isHovered(hovered: HoverTarget | null, key: string, pool: string
 }
 
 /**
- * Mouse handlers making a row a hover source, plus the class that makes it a
- * target. One hook for both directions because every row is both: hovering the
- * meter lights the table, and hovering the table lights the meter.
+ * Mouse handlers making a row a hover source and a click a selection, plus
+ * the class that makes it a target. One hook for both directions because
+ * every row is both: hovering the meter lights the table, and hovering the
+ * table lights the meter. `linked` is the effective highlight; `selected` is
+ * the standing selection, kept lit while the pointer is elsewhere.
  */
 export function useRowLink(pool: string = ENTITY_POOL) {
   const hovered = useHovered();
   const setHovered = useSetHovered();
+  const selection = useSelection();
+  const { toggle } = useSelectionActions();
 
   return useCallback(
     (key: string) => ({
-      className: isHovered(hovered, key, pool) ? "linked" : undefined,
+      className: [
+        "linkable",
+        isHovered(hovered, key, pool) ? "linked" : "",
+        selection && isHovered(selection.target, key, pool) ? "selected" : "",
+      ]
+        .filter(Boolean)
+        .join(" "),
       onMouseEnter: () => setHovered({ key, pool }),
       onMouseLeave: () => setHovered(null),
+      // A click anywhere on the row selects, except on a control the row
+      // carries (an expander, say) — that click was for the control.
+      onClick: (e: React.MouseEvent) => {
+        if ((e.target as HTMLElement).closest("button, a, input, select")) return;
+        toggle({ key, pool });
+      },
     }),
-    [hovered, pool, setHovered],
+    [hovered, selection, pool, setHovered, toggle],
   );
 }
 
@@ -120,7 +221,11 @@ export interface ChartKeys {
  * highlight in force would silently lapse a second after it was made, and
  * stay lapsed until the pointer moved. Call it after every `setOption`.
  */
-export type ChartLink = React.MutableRefObject<ChartKeys> & { reapply: () => void };
+export type ChartLink = React.MutableRefObject<ChartKeys> & {
+  reapply: () => void;
+  /** Select the entity a series stands for — the nearest-line hover's click. */
+  selectSeries: (name: string) => void;
+};
 
 /**
  * Wires a chart into the highlight: hovering it publishes what is under the
@@ -141,6 +246,7 @@ export function useChartLink(
   const keys = useRef<ChartKeys>({ series: new Map(), items: [] }) as ChartLink;
   const hovered = useHovered();
   const setHovered = useSetHovered();
+  const { toggle } = useSelectionActions();
   // The current hover, readable from `reapply` without a dependency on it.
   const hoveredRef = useRef(hovered);
   hoveredRef.current = hovered;
@@ -200,11 +306,35 @@ export function useChartLink(
       }
     };
 
+    // A click on a bar or a legend entry selects what it names, the way a
+    // click on a row does. Lines have no element to click when the pointer
+    // is merely near them; attachNearestLineHover reports those through
+    // `selectSeries` below.
+    const clicked = (params: {
+      componentType?: string;
+      seriesName?: string;
+      name?: string;
+      dataIndex?: number;
+    }) => {
+      const byIndex =
+        params.componentType === "series" &&
+        keys.current.items.length > 0 &&
+        typeof params.dataIndex === "number"
+          ? keys.current.items[params.dataIndex]
+          : undefined;
+      const name = params.componentType === "legend" ? params.name : params.seriesName;
+      const key = byIndex ?? (name ? keys.current.series.get(name) : undefined);
+      if (key) {
+        toggle({ key, pool });
+      }
+    };
+
     const zr = chart.getZr();
     chart.on("mouseover", enter);
     chart.on("mouseout", leave);
     chart.on("highlight", highlighted);
     chart.on("downplay", downplayed);
+    chart.on("click", clicked);
     // The pointer leaving the canvas entirely fires no mouseout on any element.
     zr.on("globalout", leave);
 
@@ -216,9 +346,10 @@ export function useChartLink(
       chart.off("mouseout", leave);
       chart.off("highlight", highlighted);
       chart.off("downplay", downplayed);
+      chart.off("click", clicked);
       zr.off("globalout", leave);
     };
-  }, [chartRef, pool, setHovered]);
+  }, [chartRef, pool, setHovered, toggle]);
 
   // App → chart: what the chart should be emphasising right now, given the
   // hover. Runs when the hover changes, and again from `reapply` when the
@@ -266,7 +397,44 @@ export function useChartLink(
     }
   }, [apply]);
 
+  // For the nearest-line hover's click: a series name, resolved to the entity
+  // it stands for, becomes the selection.
+  keys.selectSeries = useCallback(
+    (name: string) => {
+      const key = keys.current.series.get(name);
+      if (key) {
+        toggle({ key, pool });
+      }
+    },
+    [pool, toggle],
+  );
+
   return keys;
+}
+
+/**
+ * Legend entries with the selected series' name set heavy and bright, so the
+ * selection reads in the legend as well as on the line. Names that stand for
+ * no entity ("Other (n)") pass through as plain strings. Built at chart-build
+ * time — every live rebuild reads the selection afresh — which is why the
+ * charts take the selection as a dependency rather than styling after the
+ * fact.
+ */
+export function legendData(
+  names: string[],
+  keyOf: Map<string, string>,
+  pool: string,
+  selection: Selection | null,
+): (string | { name: string; textStyle: { color: string; fontWeight: number } })[] {
+  if (!selection || selection.target.pool !== pool) {
+    return names;
+  }
+  const ink = getComputedStyle(document.documentElement).getPropertyValue("--ink").trim();
+  return names.map((name) =>
+    keyOf.get(name) === selection.target.key
+      ? { name, textStyle: { color: ink || "#f1ece3", fontWeight: 700 } }
+      : name,
+  );
 }
 
 /**

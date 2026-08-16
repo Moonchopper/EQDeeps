@@ -27,14 +27,17 @@
 > preferences gathered into a Settings dialog and the log picker into a Logs
 > dialog, both reached from a utility cluster at the foot of the rail, and
 > the rail given icons so it can collapse to them — and does, on the Map
-> (ADR-017, all six decisions shipped), and the first slice of reference
-> lookup — an arrow beside every item and mob name (fight list, Summary,
-> Incoming, Deaths, Loot, Mobs) that opens the community sites for the log's world (Legends: EQL Wiki, Gnoll
-> Guard, EQLBase; guessed from the install, overridable in Settings), the
-> design and the discovery behind it in ADR-019 and
-> `docs/domain/eq-client-files.md` (the client ships no item or NPC database;
-> Legends logs carry no item-link ids; names are the join key).
-> Currently at **v0.11.3**. See `docs/product/features.md` for per-feature
+> (ADR-017, all six decisions shipped); and the linked highlight gained a
+> click-to-select and a pin (`highlight.tsx`: a selection is a hover that
+> stays — on this view, or pinned, on every view and across restarts, with a
+> chip in the header saying which); and the first slice of reference lookup —
+> an arrow beside every item and mob name (fight list, Summary, Incoming,
+> Deaths, Loot, Mobs) that opens the community sites for the log's world
+> (Legends: EQL Wiki, Gnoll Guard, EQLBase; guessed from the install,
+> overridable in Settings), the design and the discovery behind it in ADR-019
+> and `docs/domain/eq-client-files.md` (the client ships no item or NPC
+> database; Legends logs carry no item-link ids; names are the join key).
+> Currently at **v0.12.1**. See `docs/product/features.md` for per-feature
 > status. The main open items: real-log validation against EQLogParser (the
 > release gate), the spell-DB work (class detection, bane, lands-on
 > resolution — reference data files not yet copied), identity-registry disk

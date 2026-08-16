@@ -62,6 +62,7 @@ export function DeathLog({ sessionId, frame, refreshKey }: Props) {
                       className={rowLink(victim.key).className}
                       onMouseEnter={rowLink(victim.key).onMouseEnter}
                       onMouseLeave={rowLink(victim.key).onMouseLeave}
+                      onClick={rowLink(victim.key).onClick}
                     >
                       <td>
                         {victim.label}

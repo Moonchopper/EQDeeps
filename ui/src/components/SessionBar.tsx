@@ -4,9 +4,12 @@ import type { BackfillEvent } from "../live";
 import { TimeControls, type ChartSettings } from "../timeControls";
 import { isDefaultState, type TimeFrame } from "../timeFrame";
 import { TimeRangePicker } from "./TimeRangePicker";
+import { SelectionChip } from "./SelectionChip";
 
 interface Props {
   sessions: SessionInfo[];
+  /** Colour for the selection chip's swatch — the same registry the panels use. */
+  colorFor: (key: string, pool: string) => string;
   activeId: string | null;
   backfill: BackfillEvent | null;
   discovered: DiscoveredLog[];
@@ -49,6 +52,7 @@ export function describeAge(iso: string): string {
 /** Top bar: open a log by path or pick a detected one, switch characters. */
 export function SessionBar({
   sessions,
+  colorFor,
   activeId,
   backfill,
   discovered,
@@ -98,6 +102,7 @@ export function SessionBar({
       <button className="session-add" onClick={onOpenLogs} title="Open a log" aria-label="Open a log">
         +
       </button>
+      <SelectionChip colorFor={colorFor} />
       {backfill && !backfill.complete && backfill.totalBytes > 0 && (
         <span className="backfill">
           loading {Math.round((backfill.bytesProcessed / backfill.totalBytes) * 100)}%

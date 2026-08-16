@@ -17,7 +17,7 @@ tails `eqlog_<Character>_<server>.txt`, parses it into typed records, and serves
 a React SPA over REST + SignalR. The exe is a windowed WebView2 app; there is no
 cloud, no telemetry, and nothing binds beyond `127.0.0.1`.
 
-Currently **v0.11.3**, Windows-first, MIT, aiming at a public v1.
+Currently **v0.12.1**, Windows-first, MIT, aiming at a public v1.
 
 The one idea worth internalizing: **every table, chart, and live meter is a
 `QuerySpec`** — a serializable description of an aggregation
@@ -203,7 +203,8 @@ change it on the other in the same commit.
   hub groups. Events: `backfill`, `fights`, `tick`.
 - `colors.ts` / `highlight.tsx` — the shared 16-colour cycling palette and the
   linked-highlight behaviour (point at one reading of an entity, light up the
-  rest everywhere).
+  rest everywhere; click to keep it lit on this view, pin — the chip in the
+  header — to keep it on every view and across restarts).
 - `components/NavRail.tsx` + `dashboards/railGroups.ts` — the grouped,
   collapsible rail (ADR-017); `components/SettingsDialog.tsx` and
   `components/LogPicker.tsx` are the two utilities it opens.
@@ -272,7 +273,7 @@ copied outright with attribution in `NOTICE`.
 | What is a fight? How is DPS/sDPS/crit rate computed? What is the denominator? | `docs/domain/metrics-and-aggregation.md` |
 | Stack, component boundaries, QuerySpec model, persistence layout | `docs/architecture/system-overview.md` |
 | Why is ingestion built that way? | `docs/architecture/log-ingestion-brief.md` + `adr-002` |
-| Why was decision D made? | `docs/architecture/adr-001…019` (parser, ingestion, session state, query engine, API/live, SPA, dashboards, packaging, windowed shell, auto-update, gear snapshots (withdrawn), mob health, incoming damage, navigation rail, visual language, zone maps, grouped rail, log cache, reference lookup) |
+| Why was decision D made? | `docs/architecture/adr-001…019` (parser, ingestion, session state, query engine, API/live, SPA, dashboards, packaging, windowed shell, auto-update, gear snapshots (withdrawn), mob health, incoming damage, navigation rail, visual language, zone maps, grouped rail, reference lookup) |
 | Build order, status, verification strategy | `docs/HANDOFF.md` |
 | Signing, release keys, what to do before tagging | `docs/release-signing.md` |
 | How do I run it / what do the flags do? | `README.md` |

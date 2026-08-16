@@ -32,7 +32,14 @@ import {
 } from "./tableTools";
 import { colorPoolFor, ENTITY_POOL, type EntityColors } from "../colors";
 import { LookupLink, lookupKindFor } from "../lookup/LookupLink";
-import { ITEM_EMPHASIS, SERIES_EMPHASIS, useChartLink, useRowLink } from "../highlight";
+import {
+  ITEM_EMPHASIS,
+  SERIES_EMPHASIS,
+  legendData,
+  useChartLink,
+  useRowLink,
+  useSelection,
+} from "../highlight";
 import {
   attachNearestLineHover,
   attachWheelZoom,
@@ -294,6 +301,7 @@ function TablePanel({ panel, ctx, settings }: { panel: PanelDef; ctx: PanelConte
         style={rowStyle}
         onMouseEnter={link?.onMouseEnter}
         onMouseLeave={link?.onMouseLeave}
+        onClick={link?.onClick}
       >
         <td style={{ paddingLeft: depth * 16 + 8 }}>
           {hasChildren ? (
@@ -469,7 +477,9 @@ function LinePanel({
     });
     chart.getZr().on("dblclick", resetZoom);
     const detachWheelZoom = attachWheelZoom(chart, { left: 48, right: 10 }, () => extentRef.current);
-    const hover = attachNearestLineHover(chart, () => hoverLines.current);
+    const hover = attachNearestLineHover(chart, () => hoverLines.current, (name) =>
+      linkKeys.selectSeries(name),
+    );
     hoverRef.current = hover;
     const observer = new ResizeObserver(() => chart.resize());
     observer.observe(divRef.current);
@@ -486,6 +496,7 @@ function LinePanel({
   // After the effect above, which is what creates the chart it attaches to.
   const pool = colorPoolFor(panel.source, panel.groupBy[0]);
   const linkKeys = useChartLink(chartRef, pool);
+  const selection = useSelection();
 
   useEffect(() => {
     if (!chartRef.current) return;
@@ -712,7 +723,12 @@ function LinePanel({
         legend: {
           type: "scroll",
           top: 0,
-          data: top.map((row) => row.label).concat(rest.length > 0 ? [`Other (${rest.length})`] : []),
+          data: legendData(
+            top.map((row) => row.label).concat(rest.length > 0 ? [`Other (${rest.length})`] : []),
+            linkKeys.current.series,
+            pool,
+            selection,
+          ),
         },
         tooltip: {
           trigger: "axis",
@@ -749,7 +765,7 @@ function LinePanel({
       key: "dataZoomSelect",
       dataZoomSelectActive: true,
     });
-  }, [result, panel.source, bucketSeconds, smoothingSec, spanSec, isZoomed, bandsKey, ctx.fightLabelPx, ctx.scrollNowMs]);
+  }, [result, panel.source, bucketSeconds, smoothingSec, spanSec, isZoomed, bandsKey, ctx.fightLabelPx, ctx.scrollNowMs, selection]);
 
   if (result === "no-selection") return <div className="empty">Select a fight</div>;
   return (
@@ -1072,6 +1088,7 @@ function DropRatePanel({
         style={rowStyle}
         onMouseEnter={link?.onMouseEnter}
         onMouseLeave={link?.onMouseLeave}
+        onClick={link?.onClick}
         title={
           depth > 0 && (row.metrics.kills ?? 0) > 0
             ? `${Math.round(drops)} in ${Math.round(row.metrics.kills ?? 0)} kills`

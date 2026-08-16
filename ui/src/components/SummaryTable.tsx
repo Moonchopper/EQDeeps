@@ -146,6 +146,7 @@ export function SummaryTable({
         style={rowStyle}
         onMouseEnter={link?.onMouseEnter}
         onMouseLeave={link?.onMouseLeave}
+        onClick={link?.onClick}
       >
         <td style={{ paddingLeft: depth * 18 + 8 }}>
           {hasChildren ? (

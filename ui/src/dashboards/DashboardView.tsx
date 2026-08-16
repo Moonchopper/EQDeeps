@@ -4,6 +4,7 @@ import { defaultPanel, newId, type DashboardDef, type PanelDef } from "./model";
 import { PanelBody, type PanelContext } from "./PanelBody";
 import { QueryBuilder } from "./QueryBuilder";
 import { TimeControls, type ChartSettings } from "../timeControls";
+import { SelectionChip } from "../components/SelectionChip";
 
 interface Props {
   dashboard: DashboardDef;
@@ -142,6 +143,9 @@ export function DashboardView({
               <div className={"panel-title" + (readOnly ? "" : " panel-drag")}>
                 <span className="panel-name">{panel.title}</span>
                 <span className="panel-controls">
+                  {(panel.viz === "line" || panel.viz === "bar") && (
+                    <SelectionChip colorFor={(k, p) => ctx.colors.claim(k, p)} compact />
+                  )}
                   {panel.viz === "line" && (
                     <TimeControls
                       settings={settingsFor(panel)}

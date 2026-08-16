@@ -3,6 +3,7 @@ import { api, type IncomingHit, type MobAttackEstimate, type MobAttackReport } f
 import { fmtClock, fmtNum, fmtRate, fmtWhen } from "../format";
 import { TableSearch } from "../dashboards/tableTools";
 import { frameScope, type TimeFrame } from "../timeFrame";
+import { LookupLink } from "../lookup/LookupLink";
 
 interface Props {
   /** Null until the first fetch lands. */
@@ -159,7 +160,10 @@ export function IncomingPanel({ attacks, sessionId, frame, server }: Props) {
                 {[...(feed ?? [])].reverse().map((hit, i) => (
                   <tr key={`${hit.at}|${i}`} className={hit.amount > 0 ? "" : "hit-avoided"}>
                     <td className="subtle">{fmtClock(hit.at)}</td>
-                    <td className="mob-name">{hit.attacker}</td>
+                    <td className="mob-name">
+                      {hit.attacker}
+                      <LookupLink kind="npc" name={hit.attacker} />
+                    </td>
                     {!ownerOnly && (
                       <td className="subtle">
                         {hit.defender}
@@ -296,6 +300,7 @@ export function IncomingPanel({ attacks, sessionId, frame, server }: Props) {
                           <td className="mob-name">
                             <span className="expander">{expanded ? "▾" : "▸"}</span>
                             {m.mob}
+                            <LookupLink kind="npc" name={m.mob} />
                           </td>
                           <td className="subtle">{m.zone}</td>
                           {attacks.instanced && <td>{tierLabel(m)}</td>}

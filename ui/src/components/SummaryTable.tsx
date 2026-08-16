@@ -5,6 +5,7 @@ import { defaultPanel, type PanelDef } from "../dashboards/model";
 import { meterStyle } from "../dashboards/tableTools";
 import { ENTITY_POOL, type EntityColors } from "../colors";
 import { useRowLink } from "../highlight";
+import { LookupLink } from "../lookup/LookupLink";
 import { frameScope, type TimeFrame } from "../timeFrame";
 
 interface Column {
@@ -167,6 +168,7 @@ export function SummaryTable({
           )}
           {chip}
           {row.label}
+          {depth === 0 && rowsBy === "target" && <LookupLink kind="npc" name={row.label} />}
         </td>
         {columns.map((c) => (
           <td key={c.metric} className="num">

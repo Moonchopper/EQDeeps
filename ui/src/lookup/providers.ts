@@ -179,6 +179,19 @@ export function guessWorldId(install: string | undefined): string {
 }
 
 /**
+ * Whether a name has the shape of an NPC's — an article, or more than one
+ * word — for the places that list players and mobs in one column and have to
+ * decide which cells get a door. The same rule the identity registry uses for
+ * "definitely an NPC" (`IdentityRegistry.IsDefinitelyNpc`); it misses
+ * single-word named mobs, which is why it is only used where the alternative
+ * is a door beside every player.
+ */
+export function looksLikeNpc(name: string): boolean {
+  const s = name.trim();
+  return /^(a|an|the)\s/i.test(s) || s.includes(" ");
+}
+
+/**
  * Whether a name is a thing at all. The query engine's stand-ins — "coin" for
  * a coin drop, "Unknown" for a corpse the loot line did not name — are labels
  * for the absence of one, and a door beside them would open on nothing.

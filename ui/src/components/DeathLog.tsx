@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { api, type QueryResult } from "../api";
 import { useRowLink } from "../highlight";
 import { frameScope, type TimeFrame } from "../timeFrame";
+import { LookupLink } from "../lookup/LookupLink";
+import { looksLikeNpc } from "../lookup/providers";
 
 interface Props {
   sessionId: string;
@@ -61,8 +63,20 @@ export function DeathLog({ sessionId, frame, refreshKey }: Props) {
                       onMouseEnter={rowLink(victim.key).onMouseEnter}
                       onMouseLeave={rowLink(victim.key).onMouseLeave}
                     >
-                      <td>{victim.label}</td>
-                      <td>{killer.label}</td>
+                      <td>
+                        {victim.label}
+                        {/* Players and mobs share both columns. A name shaped
+                            like a mob's gets a door; so does whatever killed a
+                            player, since that is a mob even when its name is
+                            one word — while a mob's killer is the raid. */}
+                        {looksLikeNpc(victim.label) && <LookupLink kind="npc" name={victim.label} />}
+                      </td>
+                      <td>
+                        {killer.label}
+                        {(looksLikeNpc(killer.label) || !looksLikeNpc(victim.label)) && (
+                          <LookupLink kind="npc" name={killer.label} />
+                        )}
+                      </td>
                       <td className="num">{killer.metrics.deaths ?? 0}</td>
                     </tr>
                   ),

@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { api } from "../api";
 import { guessWorldId, worldById, type LookupWorld } from "./providers";
+import { LookupInstallContext } from "./LookupScope";
 
 /**
  * Which world's reference sites a log should open (see `providers.ts`),
@@ -92,7 +93,15 @@ export async function rememberWorld(worldId: string | null, install?: string): P
  * user or a guess — the settings row says which, so "why is this opening the
  * P99 wiki" has an answer on the screen.
  */
-export function useLookupWorld(install?: string): { world: LookupWorld; chosen: boolean; ready: boolean } {
+export function useLookupWorld(installOverride?: string): {
+  world: LookupWorld;
+  chosen: boolean;
+  ready: boolean;
+  install?: string;
+} {
+  // The install comes from the nearest LookupScope unless a caller knows better.
+  const scoped = useContext(LookupInstallContext);
+  const install = installOverride ?? scoped;
   const [, bump] = useState(0);
   useEffect(() => {
     const l = () => bump((n) => n + 1);
@@ -107,5 +116,6 @@ export function useLookupWorld(install?: string): { world: LookupWorld; chosen: 
     world: worldById(chosen ?? guessWorldId(install)),
     chosen: chosen !== undefined,
     ready: cached !== null,
+    install,
   };
 }

@@ -26,8 +26,6 @@ interface Props {
   onCheckForUpdate: () => void;
   /** Transient result of a manual check, e.g. "up to date". */
   checkNote: string | null;
-  /** The install the open log is from; the reference-site choice is kept per install. */
-  install?: string;
 }
 
 const UPDATE_MODES: { value: UpdateMode; label: string; hint: string }[] = [
@@ -66,14 +64,15 @@ export function SettingsDialog({
   onSetUpdateMode,
   onCheckForUpdate,
   checkNote,
-  install,
 }: Props) {
   // The one preference here that is not lifted through App: it is a fact
   // about the game the log came from rather than about this machine, so it
   // lives with the map choices' kind of storage (per install, in the document
-  // store) and the row talks to that store directly. Still write-through: a
-  // change is on every lookup menu as it is made.
-  const lookup = useLookupWorld(install);
+  // store) and the row talks to that store directly, with the install from the
+  // enclosing LookupScope. Still write-through: a change is on every lookup
+  // menu as it is made.
+  const lookup = useLookupWorld();
+  const install = lookup.install;
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();

@@ -52,6 +52,16 @@ shell hands to the default browser (ADR-009). One extra click over a straight
 jump, deliberately: the sites disagree about coverage — one has the quest,
 another the drop rate — and the person clicking knows which they wanted.
 
+The door goes **wherever a name is, not where the data happened to be a
+table** — the owner's rule, stated the moment the first slice stopped at Loot
+and Mobs: fighting a spiroc caller, you start from the fight list or the
+Summary, not from a view you have to remember exists. So the fight list rows,
+the Summary's by-target rows, the Incoming feed and profiles, and the death
+log carry it too, and any new surface that names a mob or an item is expected
+to. The install that decides the world is a React context (`LookupScope`) set
+once by App for the active session, so a door in a memoised fight row deep in
+a list needs no prop about game installs.
+
 `ui/src/lookup/providers.ts` is the whole of the knowledge: a **provider** is
 a URL template over a `LookupRef { kind, name, id? }`; a **world** is a named,
 ordered list of providers. Providers that need an id (EQLBase, EQResource,
@@ -121,9 +131,11 @@ box is not proposed until there is a second thing to search.
 
 ## Consequences
 
-- Slice 1 (this ADR's first commit): providers/worlds, install-keyed
-  preference, the arrow-and-menu on Loot rows (item and mob), on drop-rate
-  rows, and on the Mobs table; the Settings row. No server change.
+- Slice 1 (this ADR's first commits): providers/worlds, install-keyed
+  preference, the arrow-and-menu on Loot rows (item and mob), drop-rate rows,
+  the Mobs table, the fight list, the Summary's by-target rows, the Incoming
+  feed and profiles, and the death log (a mob-shaped name, or the killer of a
+  player); the Settings row. No server change.
 - Slice 2 (#62): item registry from `LF_`/inventory files + loot + chat
   mentions; ids reach the menu; a "Recent items" surface.
 - Slice 3 (#51): NPC registry (persisted per server, F13-style snapshot of

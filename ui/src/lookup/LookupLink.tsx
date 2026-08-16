@@ -1,4 +1,11 @@
-import { useEffect, useRef, useState, type MouseEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type MouseEvent,
+  type RefObject,
+} from "react";
 import { createPortal } from "react-dom";
 import { IconExternalLink } from "@tabler/icons-react";
 import { linksFor, lookupName, type LookupKind } from "./providers";
@@ -9,8 +16,14 @@ interface Props {
   name: string;
   /** The game's id for the thing, when known — unlocks the id-addressed sites. */
   id?: number;
-  /** The install the log is from, which decides the world (see `providers.ts`). */
+  /** The install the log is from, when the caller knows better than the enclosing LookupScope. */
   install?: string;
+  /**
+   * Render as a span rather than a button: for a door inside something that
+   * is already a button (a fight row), where a nested button is invalid HTML
+   * and the browsers disagree about which one a click means.
+   */
+  inline?: boolean;
 }
 
 /**
@@ -28,10 +41,10 @@ interface Props {
  * <p>Renders nothing when no site can address the reference, so a column
  * never carries a dead arrow.</p>
  */
-export function LookupLink({ kind, name, id, install }: Props) {
+export function LookupLink({ kind, name, id, install, inline = false }: Props) {
   const { world } = useLookupWorld(install);
   const [open, setOpen] = useState<{ x: number; y: number } | null>(null);
-  const button = useRef<HTMLButtonElement>(null);
+  const button = useRef<HTMLElement>(null);
   const menu = useRef<HTMLDivElement>(null);
 
   const links = linksFor(world, { kind, name, id });
@@ -77,20 +90,36 @@ export function LookupLink({ kind, name, id, install }: Props) {
   const shown = lookupName(name, kind);
   const kindLabel = kind === "npc" ? "mob" : kind;
 
+  const doorProps = {
+    className: "lookup-btn" + (open ? " on" : ""),
+    title: `Look up this ${kindLabel}`,
+    "aria-label": `Look up ${shown}`,
+    "aria-haspopup": "menu" as const,
+    "aria-expanded": open !== null,
+    onClick: toggle,
+  };
+  const glyph = <IconExternalLink size={12} stroke={2} aria-hidden />;
+  const onKey = (e: ReactKeyboardEvent) => {
+    if (e.key === "Enter" || e.key === " ") toggle(e as unknown as MouseEvent);
+  };
+
   return (
     <>
-      <button
-        ref={button}
-        type="button"
-        className={"lookup-btn" + (open ? " on" : "")}
-        title={`Look up this ${kindLabel}`}
-        aria-label={`Look up ${shown}`}
-        aria-haspopup="menu"
-        aria-expanded={open !== null}
-        onClick={toggle}
-      >
-        <IconExternalLink size={12} stroke={2} aria-hidden />
-      </button>
+      {inline ? (
+        <span
+          ref={button as RefObject<HTMLSpanElement>}
+          role="button"
+          tabIndex={0}
+          onKeyDown={onKey}
+          {...doorProps}
+        >
+          {glyph}
+        </span>
+      ) : (
+        <button ref={button as RefObject<HTMLButtonElement>} type="button" {...doorProps}>
+          {glyph}
+        </button>
+      )}
       {open &&
         createPortal(
           <div

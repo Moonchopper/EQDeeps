@@ -28,8 +28,8 @@
 > dialog, both reached from a utility cluster at the foot of the rail, and
 > the rail given icons so it can collapse to them — and does, on the Map
 > (ADR-017, all six decisions shipped), and the first slice of reference
-> lookup — an arrow beside every item and mob name in the Loot and Mobs tables
-> that opens the community sites for the log's world (Legends: EQL Wiki, Gnoll
+> lookup — an arrow beside every item and mob name (fight list, Summary,
+> Incoming, Deaths, Loot, Mobs) that opens the community sites for the log's world (Legends: EQL Wiki, Gnoll
 > Guard, EQLBase; guessed from the install, overridable in Settings), the
 > design and the discovery behind it in ADR-019 and
 > `docs/domain/eq-client-files.md` (the client ships no item or NPC database;

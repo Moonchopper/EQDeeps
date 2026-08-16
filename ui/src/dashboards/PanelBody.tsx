@@ -305,7 +305,7 @@ function TablePanel({ panel, ctx, settings }: { panel: PanelDef; ctx: PanelConte
           )}
           {chip}
           <Highlight text={row.label} hit={filtered.hits.get(path)} />
-          {lookupKind && <LookupLink kind={lookupKind} name={row.label} install={ctx.install} />}
+          {lookupKind && <LookupLink kind={lookupKind} name={row.label} />}
           {share}
         </td>
         {panel.metrics.map((m) => (
@@ -1088,7 +1088,7 @@ function DropRatePanel({
           )}
           {chip}
           <Highlight text={row.label} hit={filtered.hits.get(path)} />
-          <LookupLink kind={depth === 0 ? "npc" : "item"} name={row.label} install={ctx.install} />
+          <LookupLink kind={depth === 0 ? "npc" : "item"} name={row.label} />
         </td>
         {DROP_COLUMNS.map((c) => (
           <td key={c.key} className="num">

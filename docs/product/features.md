@@ -436,6 +436,10 @@ Acceptance:
 - Every item name in the Loot view (and the mob under it) carries a lookup
   door: an arrow on hover, a menu of the reference sites for this log's world,
   each opening a browser tab. *(shipped)*
+- The same door beside a mob's name **wherever one is shown** — the fight
+  list, the Summary's by-target rows, Incoming's feed and profiles, the death
+  log, the Mobs table — so a lookup starts from whatever view is open.
+  *(shipped)*
 - Which sites: guessed from the install ("EverQuest Legends" → EQL Wiki, Gnoll
   Guard, EQLBase, Allakhazam; otherwise the live set) and overridable per
   install in Settings, persisted in the `ui-settings` document. *(shipped)*

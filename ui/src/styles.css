@@ -2792,9 +2792,26 @@ textarea:focus-visible,
 }
 
 tr:hover .lookup-btn,
+.fight-row:hover .lookup-btn,
 .lookup-btn:focus-visible,
 .lookup-btn.on {
   opacity: 1;
+}
+
+/* Inside a fight row the door is a span (the row is already a button); keep
+   it from stretching the name line and from inheriting the row's colour when
+   selected, where the muted arrow would vanish into the fill. */
+.fight-row .lookup-btn {
+  line-height: 1;
+}
+
+.fight-row.selected .lookup-btn {
+  color: var(--muted-raised);
+}
+
+.fight-row.selected .lookup-btn:hover,
+.fight-row.selected .lookup-btn.on {
+  color: var(--accent);
 }
 
 .lookup-btn:hover,

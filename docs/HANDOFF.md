@@ -42,7 +42,7 @@
 > where the last one stopped, ~3× faster, with every repeating string pooled
 > so the session holds half the memory it did, and the World view's map
 > labels kept the same way (ADR-018, feature F28, issue #59).
-> Currently at **v0.12.1**. See `docs/product/features.md` for per-feature
+> Currently at **v0.13.0**. See `docs/product/features.md` for per-feature
 > status. The main open items: real-log validation against EQLogParser (the
 > release gate), the spell-DB work (class detection, bane, lands-on
 > resolution — reference data files not yet copied), identity-registry disk

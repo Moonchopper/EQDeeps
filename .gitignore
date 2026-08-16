@@ -9,3 +9,13 @@ node_modules/
 src/EQDeeps.Server/wwwroot/
 *.tsbuildinfo
 .claude/worktrees/
+
+# design-kit (component library + design-sync sync state)
+design-kit/dist/
+design-kit/.ds-sync/
+design-kit/ds-bundle/
+design-kit/.design-sync/sb-reference/
+design-kit/.design-sync/.cache/
+design-kit/.design-sync/learnings/
+design-kit/.design-sync/node_modules
+design-kit/storybook-static/

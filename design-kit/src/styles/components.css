@@ -1,0 +1,789 @@
+/* eqdeeps-ui-kit component treatments.
+   Ported from EQDeeps' ui/src/styles.css — the classes this kit's components
+   render. Class names were kept identical to the source app on purpose (see
+   ADR-015's consequences: "class names were not renamed" when the app's own
+   button/chip treatments were consolidated) — a design agent copying markup
+   from this kit and markup from the app should never find the same visual
+   pattern under two different names.
+
+   A few rules below are additions this kit needed that the source app's CSS
+   didn't have to define (an app owns exactly one instance of each component,
+   this kit ships components meant to be reused and composed) — each is
+   commented at the point it appears. */
+
+/* ---- panel ---- */
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-card);
+  /* Elevation on a dark ground is a lightness step plus a rim-light, not a
+     shadow — a drop shadow under a --surface panel on --page is invisible and
+     still costs a paint. */
+  box-shadow: var(--rim);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.panel-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  color: var(--ink);
+  font-weight: var(--w-bold);
+  border-bottom: 1px solid var(--border);
+}
+
+.title-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Addition: the source app's panels each own bespoke body content (a table,
+   a chart, a form) with their own padding rules. A generic reusable Panel
+   needs a sane default body padding for the common "just some content" case;
+   a consumer that needs edge-to-edge content (a table) overrides it. */
+.panel-body {
+  padding: var(--sp-5);
+  overflow: auto;
+  min-height: 0;
+}
+
+/* ---- buttons ---- */
+.btn {
+  border: 1px solid var(--border);
+  border-radius: var(--r-control);
+  padding: 5px 14px;
+  color: var(--ink-2);
+  font-weight: var(--w-bold);
+}
+
+.btn:hover:not(:disabled) {
+  color: var(--ink);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.btn.primary {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-color: var(--accent);
+}
+
+.btn.primary:hover:not(:disabled) {
+  color: var(--accent-ink);
+}
+
+.mini-btn {
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: var(--r-chip);
+  padding: 1px 8px;
+  font-size: var(--fs-tiny);
+  font-weight: var(--w-normal);
+}
+
+.mini-btn:hover:enabled {
+  color: var(--ink);
+  border-color: var(--accent);
+}
+
+.mini-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* Addition: the source app only styled .mini-btn.on scoped to one context
+   (.fight-actions .mini-btn.on, tinted --live for "following the live tail").
+   A reusable MiniButton needs a general "pressed/active" treatment that isn't
+   tied to that one meaning — accent, matching every other "selected" signal
+   in the kit (.tab.on, .rail-tab.on). */
+.mini-btn.on {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+/* ---- tabs ---- */
+.tab {
+  padding: 3px 10px;
+  border-radius: var(--r-control);
+  color: var(--muted);
+  font-weight: var(--w-bold);
+}
+
+.tab.on {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+.tab.small {
+  font-size: var(--fs-tiny);
+  padding: 2px 8px;
+}
+
+.tabs {
+  display: flex;
+  gap: 2px;
+}
+
+/* ---- selection chip: a standing selection, e.g. in a header ---- */
+.selection-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 4px 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-control);
+  color: var(--ink-2);
+  font-size: var(--fs-small);
+  font-weight: var(--w-bold);
+  white-space: nowrap;
+}
+
+.selection-chip.pinned {
+  border-color: var(--accent);
+}
+
+.selection-name {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.selection-btn {
+  display: inline-flex;
+  padding: 2px;
+  border-radius: var(--r-chip);
+  color: var(--muted);
+}
+
+.selection-btn:hover {
+  color: var(--ink);
+  background: var(--surface);
+}
+
+.selection-chip.pinned .selection-btn[aria-pressed="true"] {
+  color: var(--accent);
+}
+
+/* One size down: the pin and the way out sit beside the line that named the
+   selection, and the chip yields width before that title does. */
+.selection-chip.compact {
+  gap: 4px;
+  padding: 0 2px 0 6px;
+  font-size: var(--fs-tiny);
+  font-weight: var(--w-normal);
+  color: var(--ink-2);
+  min-width: 0;
+  overflow: hidden;
+  flex-shrink: 10;
+}
+
+.selection-chip.compact .color-chip,
+.selection-chip.compact .selection-btn {
+  flex-shrink: 0;
+}
+
+.selection-chip.compact .color-chip {
+  width: 7px;
+  height: 7px;
+  margin-right: 2px;
+}
+
+.selection-chip.compact .selection-name {
+  max-width: 120px;
+  min-width: 0;
+  font-weight: var(--w-bold);
+}
+
+.selection-chip.compact .selection-btn {
+  padding: 1px;
+}
+
+.color-chip {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--r-tiny);
+  margin-right: 7px;
+  vertical-align: baseline;
+}
+
+.selection-chip .color-chip {
+  margin: 0;
+}
+
+/* ---- status badges: sample callout + update pill families ---- */
+/* The bundled demo log's badge: violet + dashed so it never reads as a real
+   log — the same "obviously not the real thing" language a sample/preview
+   badge needs generically. */
+.sample-badge {
+  display: inline-block;
+  padding: 1px 7px;
+  border: 1px solid var(--sample);
+  border-radius: var(--r-control);
+  color: var(--sample);
+  font-size: var(--fs-tiny);
+  font-weight: var(--w-heavy);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.update-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 9px;
+  border: 1px solid var(--gold);
+  border-radius: var(--r-control);
+  color: var(--gold);
+  font-weight: var(--w-bold);
+}
+
+.update-pill-quiet {
+  border-color: var(--border);
+  color: var(--muted);
+  font-weight: var(--w-normal);
+}
+
+/* Determinate progress: the pill itself fills left-to-right as --pct rises,
+   so a long operation is visibly moving rather than a static number. */
+.update-pill-progress {
+  position: relative;
+  overflow: hidden;
+  border-color: var(--accent);
+  color: var(--ink);
+  font-weight: var(--w-normal);
+  font-variant-numeric: tabular-nums slashed-zero lining-nums;
+}
+
+.update-pill-progress::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: var(--pct, 0%);
+  background: var(--accent);
+  opacity: 0.28;
+  transition: width 0.4s ease-out;
+}
+
+.update-pill-label {
+  position: relative; /* above the fill */
+}
+
+.update-pill-failed {
+  border-color: var(--danger);
+  color: var(--danger);
+  cursor: help;
+}
+
+/* Addition: a fourth status family the source app expresses with a colour
+   plus a pulsing dot on a row (.fight-row.active) rather than as a standalone
+   badge. Generalised here into its own badge for anywhere a design needs a
+   compact "this is live" mark that isn't attached to a table row. */
+.status-badge-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 9px;
+  border: 1px solid var(--live);
+  border-radius: var(--r-control);
+  color: var(--live);
+  font-weight: var(--w-bold);
+}
+
+.status-badge-live::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--live);
+  flex: none;
+}
+
+/* ---- empty / loading / error ----
+   One class used to serve every "nothing to show" message, so a thing still
+   arriving was indistinguishable from a thing that isn't there and from a
+   thing that went wrong. Three states, three treatments.
+
+   Copy rule for all of them: literal and declarative, no second person, no
+   flavour verbs — "No combat recorded in this range", never "The mobs grow
+   restless...". */
+.empty {
+  color: var(--muted);
+  padding: var(--sp-6);
+  text-align: center;
+}
+
+/* Still arriving. Skeleton bars rather than a spinner: a spinner says "wait"
+   and a skeleton says "here is the shape of what is coming". */
+.empty-loading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-5) var(--sp-6);
+}
+
+.empty-loading::before,
+.empty-loading::after {
+  content: "";
+  height: 9px;
+  border-radius: var(--r-tiny);
+  background: var(--surface-2);
+}
+
+.empty-loading::after {
+  width: 62%;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .empty-loading::before,
+  .empty-loading::after {
+    animation: eqd-skeleton 1.6s ease-in-out infinite;
+  }
+}
+
+@keyframes eqd-skeleton {
+  50% {
+    background: var(--hover);
+  }
+}
+
+/* Went wrong. A rule rather than a filled banner: an error in a panel is a
+   note about that panel, not an alarm about the whole app. */
+.empty-error {
+  color: var(--danger);
+  padding: var(--sp-4) var(--sp-6);
+  border-left: 2px solid var(--danger);
+}
+
+/* ---- nav rail ---- */
+.nav-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 8px;
+  border-right: 1px solid var(--border);
+  width: 190px;
+}
+
+.nav-rail.collapsed {
+  width: 52px;
+  padding-right: 6px;
+}
+
+.rail-top {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 2px 2px 0;
+}
+
+.nav-rail.collapsed .rail-top {
+  justify-content: center;
+  padding: 0 0 2px;
+}
+
+.rail-chevron {
+  display: inline-flex;
+  padding: 2px;
+  border-radius: var(--r-chip);
+  color: var(--muted);
+}
+
+.rail-chevron:hover {
+  color: var(--ink);
+  background: var(--surface);
+}
+
+/* A heading sits a level above its entries: brighter than them (entries sit
+   at --muted), set off by a rule rather than just a gap. A heading and its
+   entries at the same grey read as one flat list with some rows in caps. */
+.rail-heading {
+  padding: 4px 8px 5px;
+  color: var(--ink-2);
+  font-size: var(--fs-micro);
+  font-weight: var(--w-heavy);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.nav-rail.collapsed .rail-heading {
+  padding: 0;
+  height: 6px;
+}
+
+.nav-rail.collapsed .rail-heading-text {
+  display: none;
+}
+
+/* Each group is one column of entries under its heading. The rule between
+   groups is what makes them read as blocks rather than a paragraph break. */
+.rail-group {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.rail-group + .rail-group {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--grid);
+}
+
+.rail-group .rail-tab {
+  margin-left: 6px;
+}
+
+.nav-rail.collapsed .rail-group .rail-tab {
+  margin-left: 0;
+}
+
+.rail-tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px 5px 8px;
+  text-align: left;
+  border-radius: var(--r-chip);
+  color: var(--muted);
+  font-size: var(--fs-small);
+  font-weight: var(--w-bold);
+  white-space: nowrap;
+  overflow: hidden;
+  /* The selected marker is one edge, not an outline — a rail of ten outlined
+     pills reads as ten separate controls rather than one list of views. */
+  border-left: 2px solid transparent;
+  width: 100%;
+}
+
+.nav-rail.collapsed .rail-tab {
+  justify-content: center;
+  padding: 6px 0;
+}
+
+.rail-tab:hover {
+  color: var(--ink);
+  background: var(--surface);
+}
+
+.rail-tab.on {
+  color: var(--ink);
+  background: var(--surface-2);
+  border-left-color: var(--accent);
+}
+
+.rail-tab.add {
+  color: var(--accent);
+}
+
+.rail-icon {
+  flex: none;
+  /* A hair below the label's ink, so a column of glyphs doesn't outweigh a
+     column of words; the selected one comes up with the rest of the row. */
+  opacity: 0.85;
+}
+
+.rail-tab.on .rail-icon,
+.rail-tab:hover .rail-icon {
+  opacity: 1;
+}
+
+.rail-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nav-rail.collapsed .rail-label {
+  display: none;
+}
+
+.rail-foot {
+  margin-top: auto;
+  padding-top: 8px;
+  border-top: 1px solid var(--grid);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+/* ---- table ---- */
+.table-scroll {
+  overflow: auto;
+  min-height: 0;
+}
+
+.table-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px 5px 10px;
+  border-bottom: 1px solid var(--grid);
+  flex: none;
+}
+
+.search-input {
+  flex: 1;
+  min-width: 0;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-chip);
+  color: var(--ink);
+  font-size: var(--fs-small);
+  padding: 3px 7px;
+}
+
+.search-input::placeholder {
+  color: var(--muted);
+}
+
+.search-input:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.search-count {
+  color: var(--muted);
+  font-size: var(--fs-tiny);
+  font-variant-numeric: tabular-nums slashed-zero lining-nums;
+  white-space: nowrap;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  padding: var(--row-pad-y) 10px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+th {
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+  color: var(--muted);
+  font-weight: var(--w-bold);
+  font-size: var(--fs-tiny);
+  border-bottom: 1px solid var(--grid);
+}
+
+td {
+  border-bottom: 1px solid var(--grid);
+  color: var(--ink-2);
+}
+
+th.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+th.sortable:hover {
+  color: var(--ink);
+}
+
+th.sorted {
+  color: var(--ink);
+}
+
+.sort-caret {
+  display: inline-block;
+  width: 12px;
+  margin-left: 3px;
+  font-size: var(--fs-micro);
+  color: var(--muted);
+}
+
+th.sorted .sort-caret {
+  color: var(--accent);
+}
+
+td.num,
+th.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums slashed-zero lining-nums;
+}
+
+/* Translucent, so entity row tints stay visible under the hover wash. */
+tbody tr:hover td {
+  background: var(--wash-hover);
+}
+
+/* The same entity, pointed at anywhere on screen: an inset ring on the first
+   cell (a border would resize the row) and a wash that stacks over any
+   entity tint rather than replacing it. */
+tbody tr.linked td,
+tbody tr.selected td {
+  background: var(--wash-linked);
+}
+
+tbody tr.linked td:first-child,
+tbody tr.selected td:first-child {
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.linkable {
+  cursor: pointer;
+}
+
+/* A breakdown row's share of its parent. Sits under a row tint and takes the
+   hover/linked washes, so it uses the raised ink — plain --muted is 4.29 on
+   --hover and 3.93 on --selected, both under 4.5. */
+.child-row td {
+  color: var(--muted-raised);
+}
+
+.expander {
+  color: var(--muted);
+  width: 16px;
+  display: inline-block;
+}
+
+.expander-spacer {
+  display: inline-block;
+  width: 16px;
+}
+
+/* ---- form controls ---- */
+.form-grid {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  gap: 10px 12px;
+  align-items: center;
+}
+
+.form-grid > label {
+  color: var(--muted);
+  font-size: var(--fs-small);
+}
+
+.form-grid input[type="text"],
+.form-grid input:not([type]),
+.form-grid select {
+  background: var(--page);
+  border: 1px solid var(--border);
+  border-radius: var(--r-control);
+  color: var(--ink);
+  padding: 5px 8px;
+  font: inherit;
+  width: 100%;
+}
+
+/* Addition: the source app relies on the .form-grid descendant selector
+   above, which only paints an <input>/<select> when it happens to sit inside
+   a .form-grid ancestor. This kit's TextInput/Select are meant to render
+   correctly on their own too — inside FormRow, standalone, wherever a
+   consumer puts them — so they carry their own class with the identical
+   treatment. */
+.text-input,
+.select-input {
+  background: var(--page);
+  border: 1px solid var(--border);
+  border-radius: var(--r-control);
+  color: var(--ink);
+  padding: 5px 8px;
+  font: inherit;
+  width: 100%;
+}
+
+.text-input:focus,
+.select-input:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.num-input {
+  width: 64px;
+  background: var(--page);
+  border: 1px solid var(--border);
+  border-radius: var(--r-control);
+  color: var(--ink);
+  padding: 3px 6px;
+  font: inherit;
+}
+
+.num-input:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.radio-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  color: var(--ink-2);
+}
+
+.radio-row label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.inline-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink-2);
+}
+
+.check-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 4px 10px;
+  color: var(--ink-2);
+}
+
+.check-grid label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--fs-small);
+}
+
+/* ---- modal ---- */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: var(--scrim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--z-backdrop);
+}
+
+.modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-modal);
+  padding: 16px 18px;
+  width: min(680px, 92vw);
+  max-height: 86vh;
+  overflow-y: auto;
+}
+
+.modal-title {
+  color: var(--ink);
+  font-weight: var(--w-heavy);
+  font-size: var(--fs-xl);
+  margin-bottom: 12px;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
+}

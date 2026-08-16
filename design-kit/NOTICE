@@ -1,0 +1,25 @@
+eqdeeps-ui-kit
+
+A standalone component library extracted from EQDeeps (https://github.com/Moonchopper/EQDeeps)
+as a template for future projects. It embeds or includes the following
+permissively licensed components:
+
+- IBM Plex Sans (https://github.com/IBM/plex) — SIL Open Font License 1.1,
+  Copyright 2017 IBM Corp. Designed by Mike Abbink with Bold Monday. The
+  bundled file is the variable-weight Latin subset, copied unmodified from
+  EQDeeps' ui/public/fonts/ibm-plex-sans-latin-var.woff2 into
+  src/fonts/ibm-plex-sans-latin-var.woff2 (and inlined as a data URI in the
+  built stylesheet). The OFL permits redistribution as part of a larger work;
+  the font is not sold on its own and its name is unchanged.
+- Tabler Icons (https://github.com/tabler/tabler-icons), via
+  @tabler/icons-react — MIT License, Copyright Paweł Kuna.
+- React and ReactDOM (https://react.dev) — MIT License, Copyright Meta
+  Platforms, Inc. and affiliates. (peer dependency, not bundled)
+- Storybook (https://storybook.js.org) — MIT License, Copyright the
+  Storybook contributors. Dev-only; not shipped in the built package.
+- tsup (https://github.com/egoist/tsup) — MIT License, Copyright EGOIST.
+  Dev-only build tool; not shipped in the built package.
+
+EverQuest is a registered trademark of Daybreak Game Company LLC. This
+package is an unaffiliated fan project's design system and includes no game
+assets.

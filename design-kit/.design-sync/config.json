@@ -1,0 +1,33 @@
+{
+  "projectId": "1cd42391-7d24-4aa4-92a2-ebd956287be1",
+  "pkg": "eqdeeps-ui-kit",
+  "globalName": "EQDeepsUIKit",
+  "shape": "storybook",
+  "storybookStatic": ".design-sync/sb-reference",
+  "buildCmd": "npm run build",
+  "cssEntry": "dist/index.css",
+  "readmeHeader": ".design-sync/conventions.md",
+  "storyImports": {
+    "loaders": {
+      ".woff2": "dataurl"
+    }
+  },
+  "provider": {
+    "component": "EqdPage"
+  },
+  "componentSrcMap": {
+    "EqdPage": null
+  },
+  "overrides": {
+    "Modal": {
+      "cardMode": "single",
+      "viewport": "480x320"
+    },
+    "EmptyState": { "cardMode": "column" },
+    "CheckboxRow": { "cardMode": "column" },
+    "FormRow": { "cardMode": "column" },
+    "Panel": { "cardMode": "column" },
+    "DataTable": { "cardMode": "column" },
+    "TokenGallery": { "viewport": "960x2000" }
+  }
+}

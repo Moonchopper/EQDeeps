@@ -57,9 +57,9 @@
 > owner's log that used to go past unrecognized, now events, with a spell
 > named only when the text belongs to one (F10a).
 > Currently at **v0.13.2**. See `docs/product/features.md` for per-feature
-> status. The main open items: real-log validation against EQLogParser (the
-> release gate), the spell-DB work (class detection, bane, lands-on
-> resolution — reference data files not yet copied), identity-registry disk
+> status. The main open items: the release-gate invariants (CLAUDE.md §8 —
+> defined, not yet written), class detection from the client's spell files
+> (the emote and duration halves shipped as F10a/F10b), identity-registry disk
 > persistence, and the P1/P2 backlog.
 >
 > **Releasing:** tags are single-use (GitHub immutable releases reserve a tag
@@ -84,9 +84,9 @@ You are picking up a **documented, greenfield** project: a clean-room, modern su
 `d:\git\EQLogParser` (also `github.com/kauffman12/EQLogParser`, Apache 2.0) is the incumbent this project succeeds. Ground rules:
 
 - **Behavior authority, not code source.** When a grammar or formula question isn't answered by the domain docs, read the reference to determine *behavior*, then update the domain doc. **Do not port/transcribe its code** — this is a clean-room rewrite (different architecture, and we keep licensing simple).
-- Its parser tests (`EQLogParser.Wpf.Test/src/parsing/*.cs`) hold hundreds of real log lines with expected parse results — **harvest these as fixture data** (log lines are game output, not creative code; copying expected-value assertions as data is fine).
-- Its `data/*.txt` files (spell DB, NPC names, pet names — see domain doc §6) can be copied outright; they're Apache 2.0 — **add attribution to a NOTICE file** ("Reference data derived from EQLogParser, © kauffman12, Apache License 2.0").
-- EQDeeps itself: choose a license at public release (owner's call; MIT or Apache 2.0 both fine given the above).
+- Its parser tests (`EQLogParser.Wpf.Test/src/parsing/*.cs`) hold hundreds of real log lines with expected parse results. The fixture corpus was harvested from them and **is attributed in `NOTICE`** — that attribution is a licence obligation and stays as long as the fixtures do.
+- Its `data/*.txt` files (spell DB, NPC names, pet names) were never copied, and are no longer wanted: the game client ships its own complete spell database and the app reads it from the player's install (F10a/F10b, `docs/domain/eq-client-files.md`). Reading the player's own files beats copying anyone's.
+- EQDeeps is MIT. `NOTICE` records both the fixture attribution and the fact that no source code was ported.
 
 ## Suggested build order
 
@@ -107,7 +107,7 @@ There is no EverQuest install in the loop. The whole product is testable by **wr
 
 - Build a **synthetic log generator** early (phase 2): emits realistic raid scenarios (N players, pets, heals, deaths, chat noise, timestamp pacing, the two-entries-on-one-line glitch, truncation/rotation events). It powers unit fixtures, benchmarks, and end-to-end tests.
 - Live-mode e2e: start the app on a temp `eqlog_Test_server.txt`, append lines on a schedule, assert UI/API updates.
-- Real-log validation: the owner has real logs; before release, compare summary numbers for a real fight against EQLogParser's output for the same file (they should agree within documented deviations).
+- Release-gate invariants (CLAUDE.md §8): per-player damage sums to the fight total, every damage record lands in exactly one fight or none, recognized plus unrecognized equals lines read. Defined, not yet written. Comparing against EQLogParser was retired on 2026-08-16 — it parses live EverQuest, this app is used on Legends, and the two disagree by design on denominators.
 
 ## Visual language (ADR-015)
 

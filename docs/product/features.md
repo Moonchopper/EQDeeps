@@ -14,9 +14,11 @@ event system that will annotate DPS/heal charts — spell-DB integration adds
 received buffs and true durations later).
 ⏳ pending — F9 (death recap), F10 (spell/cast analytics — needs the spell DB),
 F11, F12, F13 (identity persists in-memory per server with serializable
-snapshots; the disk read/write wiring remains), F15–F21. Release gate still
-open: real-log validation against EQLogParser. Design decisions live in
-`docs/architecture/adr-0*.md`.
+snapshots; the disk read/write wiring remains), F15–F21. Release gate: fixture
+fidelity (enforced) plus the consistency invariants described in CLAUDE.md §8
+(defined, not yet written) — validating against EQLogParser was retired on
+2026-08-16, since it parses live EverQuest and this app is used on Legends.
+Design decisions live in `docs/architecture/adr-0*.md`.
 
 **Update (2026-08-06):** F25 (estimated mob health) shipped — instance
 difficulty is parsed off the zone line, kills are measured into a per-server
@@ -607,4 +609,4 @@ Acceptance:
 - **Backfill throughput:** historical load should saturate disk read, not parser — target ≥ 100 MB/s on typical hardware; a 1 GB log's last raid night loads in seconds. (Old app parses a full file in minutes on large logs.)
 - **Scale:** 54-player raids, hundreds of combat lines/second burst, logs up to several GB, fights lasting 10+ minutes, sessions monitoring 3+ characters.
 - **Correctness:** parsing fidelity against the fixture corpus (see HANDOFF.md verification section) is a release gate.
-- **Licensing:** all dependencies MIT/Apache-2.0/BSD-compatible. If any data files or fixtures are copied from EQLogParser (Apache 2.0), preserve attribution in a NOTICE file.
+- **Licensing:** all dependencies MIT/Apache-2.0/BSD-compatible. The fixture corpus is derived from EQLogParser's parser tests (Apache 2.0) and **its attribution in `NOTICE` is an obligation, not a courtesy** — it stays as long as those fixtures do. No data files have been copied from it and none are wanted: reference data comes from the player's own game install (`docs/domain/eq-client-files.md`) or is fetched at their request and attributed on screen (ADR-020).

@@ -354,7 +354,19 @@ Fights are keyed by NPC name (see metrics doc); misclassifying a player as an NP
 
 ## 6. Reference data files
 
-The reference app ships plain-text data files (Apache 2.0 — attribution required if copied; they live in `EQLogParser/EQLogParser/data/`):
+**The client ships its own, and that is what this app reads.** `spells_us.txt`
+and `spells_us_str.txt` in the player's EverQuest install carry the whole spell
+database — every name, and the per-spell emote text that a landing or a fade
+prints instead of one — and the app reads them from there (F10a/F10b, see
+[eq-client-files.md](eq-client-files.md)). Nothing is bundled, nothing is
+copied, and the data matches the game the log came from rather than a
+different one.
+
+The table below describes the reference app's own data files
+(`EQLogParser/EQLogParser/data/`, Apache 2.0, attribution required if copied).
+**None of them have been copied and none are wanted**; it is kept because it
+documents what each file holds, which is occasionally useful when settling
+what a mechanic is called:
 
 | File | Contents / purpose |
 |---|---|

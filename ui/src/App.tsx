@@ -44,6 +44,7 @@ import {
   summaryTrendPanels,
 } from "./dashboards/standardViews";
 import { PanelBody, type PanelContext } from "./dashboards/PanelBody";
+import { RAIL_GROUPS, isFramedView } from "./dashboards/railGroups";
 import { DEFAULT_CHART_SETTINGS, type ChartSettings } from "./timeControls";
 import { DEFAULT_LABEL_PX } from "./fightOverlay";
 import {
@@ -75,6 +76,24 @@ const ACTIVE_POLL_MS = 700;
  * The default dashboard (feature F7): fight list + summary + DPS chart + live
  * meter + deaths, all scoped to the fight selection, live-updating via the hub.
  */
+/**
+ * The rail entries that are not standard-view dashboards, keyed by view id.
+ * The standard views bring their own names; these four are hand-built screens
+ * and need theirs spelled out here.
+ */
+const RAIL_ENTRIES: Record<string, { name: string; title?: string }> = {
+  [SUMMARY_VIEW]: { name: "Summary" },
+  [MOBS_VIEW]: {
+    name: "Mobs",
+    title: "What this server's mobs are worth, and what a difficulty tier costs",
+  },
+  [HITS_VIEW]: {
+    name: "Incoming",
+    title: "What is hitting you, in order, and what this server's mobs hit for",
+  },
+  [MAPS_VIEW]: { name: "Map", title: "Your own zone maps, and how the world joins up" },
+};
+
 export default function App() {
   const [sessions, setSessions] = useState<SessionInfo[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -790,6 +809,7 @@ export default function App() {
         onPlayedTimeOnly={updatePlayedTimeOnly}
         liveScroll={liveScroll}
         onLiveScroll={toggleLiveScroll}
+        framed={!activeId || view !== "overview" || isFramedView(effectiveStdView)}
         onAbsoluteRange={adoptRange}
         onOpen={openLog}
         onRefreshDiscovered={refreshDiscovered}
@@ -831,13 +851,11 @@ export default function App() {
              * nothing to what was on screen would be furniture — it gets the
              * width instead.
              */
-            // The fight list scopes a parse. Mobs reads a server-wide index and
-            // the Map reads a folder on disk; neither has anything for a fight
-            // selection to act on, so the list would be furniture.
-            const showFights = !(
-              view === "overview" &&
-              (effectiveStdView === MOBS_VIEW || effectiveStdView === MAPS_VIEW)
-            );
+            // The fight list scopes a parse, so it shows where the time frame
+            // applies — which the view's rail group decides (ADR-017). The
+            // World views read a server-wide index or a folder on disk, and a
+            // pane whose every click changed nothing would be furniture.
+            const showFights = view !== "overview" || isFramedView(effectiveStdView);
             return (
           <main
             className={
@@ -845,42 +863,35 @@ export default function App() {
               (!showFights ? " fights-hidden" : fightsCollapsed ? " fights-collapsed" : "")
             }
           >
-            {/* One rail, two kinds of thing: the views that ship with the app
-                above the divider, the dashboards the user built and owns
-                below it. They were two stacked rows of tabs; standing them up
-                spends width the panels were not using and buys back height
-                they were. */}
+            {/* One rail, grouped by the question a view answers (ADR-017):
+                Combat, Character and World for the views that ship with the
+                app, then the dashboards the user built and owns. The groups
+                are data (railGroups.ts); RAIL_ENTRIES names the views that
+                are not standard-view dashboards. */}
             <nav className="nav-rail">
-              <div className="rail-heading">Overview</div>
-              <button className={railClass(SUMMARY_VIEW)} onClick={() => selectStdView(SUMMARY_VIEW)}>
-                Summary
-              </button>
-              {standard.map((d) => (
-                <button key={d.id} className={railClass(d.id)} onClick={() => selectStdView(d.id)}>
-                  {d.name}
-                </button>
+              {RAIL_GROUPS.map((g) => (
+                <div key={g.key} className="rail-group">
+                  <div className="rail-heading">{g.label}</div>
+                  {g.ids.map((id) => {
+                    const special = RAIL_ENTRIES[id];
+                    const std = special ? null : standard.find((d) => d.id === id);
+                    // A standard view this log does not have (Stances) is
+                    // simply absent, not disabled.
+                    if (!special && !std) return null;
+                    return (
+                      <button
+                        key={id}
+                        className={railClass(id)}
+                        onClick={() => selectStdView(id)}
+                        title={special?.title}
+                      >
+                        {special?.name ?? std!.name}
+                      </button>
+                    );
+                  })}
+                </div>
               ))}
-              <button
-                className={railClass(MOBS_VIEW)}
-                onClick={() => selectStdView(MOBS_VIEW)}
-                title="What this server's mobs are worth, and what a difficulty tier costs"
-              >
-                Mobs
-              </button>
-              <button
-                className={railClass(HITS_VIEW)}
-                onClick={() => selectStdView(HITS_VIEW)}
-                title="What is hitting you, in order, and what this server's mobs hit for"
-              >
-                Incoming
-              </button>
-              <button
-                className={railClass(MAPS_VIEW)}
-                onClick={() => selectStdView(MAPS_VIEW)}
-                title="Your own zone maps, and how the world joins up"
-              >
-                Map
-              </button>
+              <div className="rail-group">
               <div className="rail-heading">Dashboards</div>
               {dashboards.map((d) => (
                 <button
@@ -919,6 +930,7 @@ export default function App() {
                   </button>
                 </div>
               )}
+              </div>
             </nav>
             {/* Three cases: a standard view, the hand-built Summary that
                 Overview opens on, or one of the user's own dashboards. Mobs

@@ -2,8 +2,9 @@ import { defaultPanel, newId, type DashboardDef, type LayoutRect, type PanelDef 
 
 /**
  * The standard views: specialized breakdowns that ship with EQDeeps and sit
- * as sub-tabs under Overview — healing with overheal, tanking with the
- * defensive rates, and the progression sources (experience, faction, loot).
+ * in the nav rail under their groups (see railGroups.ts) — healing with
+ * overheal, tanking with the defensive rates, and the progression sources
+ * (experience, faction, loot).
  *
  * Damage rankings and a "right now" view used to be here and are not, because
  * Summary already answers both: it carries the damage summary and a DPS chart
@@ -38,11 +39,11 @@ export const STANDARD_VIEW_IDS = new Set(standardViews().map((d) => d.id));
  */
 const RETIRED_VIEW_IDS = ["preset-raid-dps", "preset-right-now"];
 
-/** The sub-tab that shows the hand-built Overview, not a standard view. */
+/** The rail entry that shows the hand-built Summary, not a standard view. */
 export const SUMMARY_VIEW = "summary";
 
 /**
- * Mob health (F25): a sub-tab reading a derived
+ * Mob health (F25): a rail entry reading a derived
  * index rather than a QuerySpec. It is also the one view that is not about the
  * open log — the index belongs to the server, and every character on it reads
  * the same answers.
@@ -50,7 +51,7 @@ export const SUMMARY_VIEW = "summary";
 export const MOBS_VIEW = "mobs";
 
 /**
- * Incoming damage (F26), the same shape again: a sub-tab reading a derived
+ * Incoming damage (F26), the same shape again: a rail entry reading a derived
  * index and a raw feed rather than a QuerySpec. The feed half is the reason it
  * cannot be a dashboard — its subject is the ORDER swings arrived in, and
  * every viz the query model offers aggregates that away. The Tanking view still

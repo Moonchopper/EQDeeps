@@ -577,6 +577,13 @@ optgroup {
 .version {
   color: var(--muted);
   font-size: var(--fs-tiny);
+  /* Holds the right edge on its own when the time controls are absent
+     (a World view); otherwise their margin-left: auto has already done it. */
+  margin-left: auto;
+}
+
+.global-time-controls + .version {
+  margin-left: 0;
 }
 
 .version a {
@@ -1541,8 +1548,17 @@ th.num {
   text-transform: uppercase;
 }
 
-.rail-heading:first-child {
+.rail-group:first-child .rail-heading {
   padding-top: 2px;
+}
+
+/* Each group is one column of entries under its heading; the gap between
+   groups is the heading's own top padding, so a group with every entry
+   filtered out still leaves the rhythm intact. */
+.rail-group {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
 }
 
 .rail-tab {

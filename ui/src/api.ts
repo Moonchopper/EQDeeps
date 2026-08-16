@@ -6,6 +6,12 @@ export interface SessionInfo {
   path: string;
   character: string;
   server: string;
+  /**
+   * The installation the log belongs to — "EverQuest Legends", "EverQuest" —
+   * or absent when the log is not under a Logs folder. Map choices and the
+   * era are kept per install.
+   */
+  install?: string;
   backfillComplete: boolean;
   recordCount: number;
   fightCount: number;

@@ -56,6 +56,8 @@ export interface PanelContext {
   fightLabelPx: number;
   /** Where the character was and what level they were; null until it lands. */
   context: ContextTimeline | null;
+  /** The installation the open log is from — map choices are kept per install. */
+  install?: string;
   /** Which lanes of that the strip shows, if any. */
   contextMode: ContextMode;
   /** Measure framed ranges over played time rather than wall clock. */
@@ -143,7 +145,7 @@ export function PanelBody({
       return <DropRatePanel panel={panel} ctx={ctx} settings={settings} />;
     // No query runs for this one — it reads a folder on disk, not the log.
     case "map":
-      return <MapPanel context={ctx.context} pinned={panel.mapZone} />;
+      return <MapPanel context={ctx.context} install={ctx.install} pinned={panel.mapZone} />;
     default:
       return <TilePanel panel={panel} ctx={ctx} settings={settings} />;
   }

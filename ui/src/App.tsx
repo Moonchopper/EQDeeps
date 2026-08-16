@@ -809,6 +809,7 @@ export default function App() {
               fights,
               fightLabelPx,
               context,
+              install: sessions.find((s) => s.id === activeId)?.install,
               contextMode,
               playedTimeOnly,
               refreshKey,
@@ -943,6 +944,7 @@ export default function App() {
               // playing" from "wait a moment" and settles on an unrelated zone.
               <MapView
                 currentZone={context?.zones?.[context.zones.length - 1]?.label}
+                install={sessions.find((s) => s.id === activeId)?.install}
                 hasLog={Boolean(activeId)}
               />
             ) : view === "overview" && activeStdView ? (

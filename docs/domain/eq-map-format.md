@@ -190,13 +190,34 @@ the user picks one, which is also how a wrong pairing gets corrected.
 Because the table is incomplete and fallible by construction, the person who can
 see both the map and the game gets the last word. `map-settings.json` in the
 document store — beside their dashboards, because it is their work and not a
-cache — holds two corrections:
+cache — holds their corrections:
 
 | Field | What |
 |---|---|
-| `root` | A maps folder they nominated, when discovery found none. Replaces discovery outright. |
-| `chosen` | Normalized zone name → map short name. Beats anything the table says. |
-| `era` | The expansion their server has reached, as an era id (§5.3). Absent means the whole world. |
+| `root` | A maps folder they nominated, when discovery found none. Replaces discovery outright. Machine-level: it is where the files are. |
+| `installs[<install>].chosen` | Normalized zone name → map short name, for one installation of the game. Beats anything the table says. |
+| `installs[<install>].era` | The expansion that install's world has reached, as an era id (§5.3). Absent means the whole world. |
+| `lastInstall` | The install most recently written to, so the Map tab opened with no log shows the world as it was last set. |
+| `chosen`, `era` | The same two fields at the top level: the layer underneath every install, read as the fallback and written to only when no install is known. A file from before there were installs is read as-is. |
+
+Keyed by **installation**, not by the shard in the log's file name. Which
+drawing is right and how far the world is unlocked are facts about the game a
+log comes from — an EverQuest Legends install runs a classic world with the
+old Freeport and no Planes of Power; live has the revamps and everything; a
+Project 1999 client its own era — and one machine may hold several. Every
+server on one install shares its client and its era, so `qeynos` is a finer
+cut than the thing that varies. The install is named by its folder — the log
+sits in `<install>\Logs\`, so it is the folder above `Logs`, which every
+client, live or emulated, agrees on — and reported on the session as
+`install`. A log copied out of its game folder names no install and falls to
+the layer underneath. A forget is applied to the install's layer and the one
+underneath, so "forget" means gone rather than "the older answer shows
+through".
+
+The one thing this cannot tell apart is two servers on one install with
+different eras — a progression server beside the regular ones on live. If that
+matters, a per-server era on top of the install's is the addition, not a
+different key.
 
 The key is normalized exactly as `ZoneTable.Normalize` does it, with the
 instance suffix stripped first, so a choice made against "The Estate of Unrest

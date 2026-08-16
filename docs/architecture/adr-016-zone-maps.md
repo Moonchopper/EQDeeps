@@ -136,8 +136,10 @@ unlocked, so on a classic-era server the world graph drew — and routed through
 inferred. The log names zones already visited, a lower bound at best; the map
 files carry no content gating; the client's zone table lists every zone that
 ever existed. So the era is a setting: chosen in the World view, remembered in
-`map-settings.json` beside the user's other map corrections, and with none
-chosen the view is exactly what it was.
+`map-settings.json` beside the user's other map corrections — per
+installation, since how far the world is unlocked is a fact about the game the
+log comes from, and the shard in the file name is a finer cut than that — and
+with none chosen the view is exactly what it was.
 
 **What the table can say** is which expansion a zone is *from*, because the
 client's zone ids were handed out in blocks as expansions shipped. That is

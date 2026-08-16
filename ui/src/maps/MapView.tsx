@@ -4,6 +4,7 @@ import { fuzzyMatch } from "../fuzzy";
 import { MapCanvas } from "./MapCanvas";
 import {
   chosenFor,
+  eraFor,
   loadMapSettings,
   rememberEra,
   rememberMap,
@@ -30,13 +31,20 @@ interface Props {
   /** The zone the log says the character is in, if a log is open. */
   currentZone?: string;
   /**
+   * The installation the open log is from — "EverQuest Legends", "EverQuest"
+   * — if one is. Which drawing is right and how far the world is unlocked are
+   * facts about the install, so every choice made here is remembered against
+   * it; the shard in the file name is a finer cut than the world it plays in.
+   */
+  install?: string;
+  /**
    * Whether a log is open at all — the signal for "a zone is coming, wait for
    * it" as opposed to "nobody is playing, draw anything".
    */
   hasLog?: boolean;
 }
 
-export function MapView({ currentZone, hasLog = false }: Props) {
+export function MapView({ currentZone, install, hasLog = false }: Props) {
   const [catalog, setCatalog] = useState<MapCatalog | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState<"zone" | "world">("zone");
@@ -129,7 +137,7 @@ export function MapView({ currentZone, hasLog = false }: Props) {
 
     followed.current = true;
     const known = (s: string) => catalog.zones.some((z) => z.shortName === s);
-    const override = chosenFor(settings, currentZone);
+    const override = chosenFor(settings, currentZone, install);
 
     if (override && known(override)) {
       setSelected(override);
@@ -151,7 +159,7 @@ export function MapView({ currentZone, hasLog = false }: Props) {
       })
       .catch(() => undefined)
       .finally(() => setFollowDone(true));
-  }, [catalog, currentZone, settings, settingsLoaded]);
+  }, [catalog, currentZone, settings, settingsLoaded, install]);
 
   // Fall back to the first zone so the view is never an empty frame — but not
   // while a log is still telling us where the character is. Landing on an
@@ -266,7 +274,7 @@ export function MapView({ currentZone, hasLog = false }: Props) {
 
   /** Opens a place on whichever of its maps the user last chose. */
   const openPlace = (p: { name: string; maps: MapCatalogEntry[] }) => {
-    const override = chosenFor(settings, p.name);
+    const override = chosenFor(settings, p.name, install);
     const target =
       override && p.maps.some((m) => m.shortName === override) ? override : p.maps[0].shortName;
 
@@ -277,7 +285,7 @@ export function MapView({ currentZone, hasLog = false }: Props) {
 
   /** Binds a zone name to a map, or forgets the binding when null. */
   const bind = (zone: string, shortName: string | null) => {
-    rememberMap(zone, shortName)
+    rememberMap(zone, shortName, install)
       .then((next) => {
         setSettings(next);
         setUnresolved(false);
@@ -301,7 +309,7 @@ export function MapView({ currentZone, hasLog = false }: Props) {
   const zoneName = currentZone ? stripInstance(currentZone) : "";
 
   /** The map on screen is one the user bound the log's zone name to. */
-  const boundHere = !!currentZone && !!selected && chosenFor(settings, currentZone) === selected;
+  const boundHere = !!currentZone && !!selected && chosenFor(settings, currentZone, install) === selected;
 
   const applyRoot = (path: string | null) => {
     setBusy(true);
@@ -483,10 +491,10 @@ export function MapView({ currentZone, hasLog = false }: Props) {
             }
           }}
           currentZone={currentZone}
-          currentMap={currentZone ? chosenFor(settings, currentZone) : undefined}
-          era={settings.era}
+          currentMap={currentZone ? chosenFor(settings, currentZone, install) : undefined}
+          era={eraFor(settings, install)}
           onEraChange={(era) => {
-            rememberEra(era)
+            rememberEra(era, install)
               .then(setSettings)
               .catch(() => undefined);
           }}
@@ -518,8 +526,8 @@ export function MapView({ currentZone, hasLog = false }: Props) {
               {/* Which map file to draw this place from. Only appears when
                   something is actually being chosen between. Switching here
                   is just looking; the button beside it is what makes the
-                  choice stick — which drawing is right depends on the server
-                  (a classic-era server has the old Freeport, live the new), and
+                  choice stick — which drawing is right depends on the install
+                  (EverQuest Legends has the old Freeport, live the new), and
                   a silent write on every look was invisible and surprising. */}
               {place && place.maps.length > 1 && (
                 <select
@@ -540,21 +548,21 @@ export function MapView({ currentZone, hasLog = false }: Props) {
                 </select>
               )}
 
-              {place && place.maps.length > 1 && selected && chosenFor(settings, place.name) !== selected && (
+              {place && place.maps.length > 1 && selected && chosenFor(settings, place.name, install) !== selected && (
                 <button
                   className="mini-btn"
                   onClick={() => bind(place.name, selected)}
-                  title={`Open "${place.name}" on ${selected} from now on — the drawing your server uses`}
+                  title={`Open "${place.name}" on ${selected} from now on${install ? ` on ${install}` : ""} — the drawing this install's world uses`}
                 >
                   use for “{place.name}”
                 </button>
               )}
 
-              {place && place.maps.length > 1 && selected && chosenFor(settings, place.name) === selected && (
+              {place && place.maps.length > 1 && selected && chosenFor(settings, place.name, install) === selected && (
                 <button
                   className="mini-btn on"
                   onClick={() => bind(place.name, null)}
-                  title={`"${place.name}" opens on ${selected} on this machine. Click to forget and go back to the first drawing.`}
+                  title={`"${place.name}" opens on ${selected}${install ? ` on ${install}` : ""}. Click to forget and go back to the first drawing.`}
                 >
                   remembered ✕
                 </button>

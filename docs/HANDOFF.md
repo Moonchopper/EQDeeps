@@ -59,7 +59,7 @@
 > that same file identified against durations measured from the log itself, so
 > the timeline now draws received buffs — debuffs on mobs included — and ends
 > an unfaded buff of the owner's own when the spell says it would (F10b).
-> Currently at **v0.13.2**. See `docs/product/features.md` for per-feature
+> Currently at **v0.14.0**. See `docs/product/features.md` for per-feature
 > status. The main open items: the release-gate invariants (CLAUDE.md §8 —
 > defined, not yet written), class detection from the client's spell files
 > (the emote and duration halves shipped as F10a/F10b), identity-registry disk

@@ -21,6 +21,9 @@ switch (command)
     case "latency":
         await LatencyAsync(args.Length > 1 ? int.Parse(args[1]) : 200);
         break;
+    case "live":
+        await LiveAsync(args[1], args.Length > 2 ? double.Parse(args[2]) : 1);
+        break;
     case "all":
     {
         var mb = args.Length > 1 ? long.Parse(args[1]) : 512;
@@ -32,7 +35,7 @@ switch (command)
         break;
     }
     default:
-        Console.Error.WriteLine("usage: gen <path> <MB> | backfill <path> | latency [samples] | all [MB]");
+        Console.Error.WriteLine("usage: gen <path> <MB> | backfill <path> | latency [samples] | live <path> [hours] | all [MB]");
         return 1;
 }
 
@@ -43,6 +46,42 @@ static void Generate(string path, long bytes)
     var sw = Stopwatch.StartNew();
     var written = new SyntheticLogGenerator(seed: 99).WriteFile(path, bytes);
     Console.WriteLine($"gen: {written / 1048576.0:F0} MB in {sw.Elapsed.TotalSeconds:F1}s ({written / 1048576.0 / sw.Elapsed.TotalSeconds:F0} MB/s) -> {path}");
+}
+
+/// <summary>
+/// A log that behaves like a raid in progress: <paramref name="hours"/> of
+/// history stamped up to now, then one simulated second appended per real
+/// second until interrupted. Point the app at the file to see the live path —
+/// ticks, scrolling charts, refresh cadence — without EverQuest running.
+/// </summary>
+static async Task LiveAsync(string path, double hours)
+{
+    var history = TimeSpan.FromHours(hours);
+    var gen = new SyntheticLogGenerator(seed: 99, start: DateTime.Now - history);
+    await using (var writer = new StreamWriter(path, append: false))
+    {
+        foreach (var line in gen.Lines(history))
+        {
+            await writer.WriteLineAsync(line);
+        }
+    }
+    Console.WriteLine($"live: {hours:F1}h of history -> {path}; appending, Ctrl+C to stop");
+
+    // The generator's clock runs on simulated seconds; pin it to the wall
+    // clock so the timestamps in the file stay current.
+    while (true)
+    {
+        var lag = DateTime.Now - gen.CurrentTime;
+        if (lag > TimeSpan.Zero)
+        {
+            await using var writer = new StreamWriter(path, append: true);
+            foreach (var line in gen.Lines(lag))
+            {
+                await writer.WriteLineAsync(line);
+            }
+        }
+        await Task.Delay(250);
+    }
 }
 
 static async Task BackfillAsync(string path)

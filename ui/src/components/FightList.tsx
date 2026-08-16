@@ -1,4 +1,4 @@
-import { Fragment, useRef } from "react";
+import { Fragment, memo, useCallback, useRef } from "react";
 import type { FightInfo } from "../api";
 import { fmtClock, fmtDuration, fmtNum } from "../format";
 
@@ -37,8 +37,14 @@ export function FightList({
   // Where a shift-click measures from. Kept as a ref so extending the range
   // repeatedly always reaches back to the same anchor.
   const anchorRef = useRef<number | null>(null);
+  // `pick` is handed to memoised rows, so it has to keep its identity across
+  // renders — and still see the current list and selection when clicked.
+  // Refs carry the latest of each; the callback itself never changes.
+  const latest = useRef({ fights, selected, onSelect });
+  latest.current = { fights, selected, onSelect };
 
-  const pick = (id: number, event: React.MouseEvent) => {
+  const pick = useCallback((id: number, event: React.MouseEvent) => {
+    const { fights, selected, onSelect } = latest.current;
     if (event.shiftKey && anchorRef.current !== null) {
       const a = fights.findIndex((f) => f.id === anchorRef.current);
       const b = fights.findIndex((f) => f.id === id);
@@ -50,7 +56,7 @@ export function FightList({
     }
 
     if (event.ctrlKey || event.metaKey) {
-      const next = new Set(selectedSet);
+      const next = new Set(selected);
       if (next.has(id)) {
         next.delete(id);
       } else {
@@ -63,7 +69,7 @@ export function FightList({
 
     anchorRef.current = id;
     onSelect([id]);
-  };
+  }, []);
 
   const selectGroup = (groupIndex: number) => {
     const group = fights.filter((f) => f.groupIndex === groupIndex);
@@ -88,30 +94,12 @@ export function FightList({
       );
     }
     rows.push(
-      <button
+      <FightRow
         key={fight.id}
-        className={
-          "fight-row" +
-          (selectedSet.has(fight.id) ? " selected" : "") +
-          (!fight.closed ? " active" : "")
-        }
-        onClick={(e) => pick(fight.id, e)}
-      >
-        <span className="fight-name">
-          {fight.dead ? "☠ " : fight.closed ? "" : "⚔ "}
-          {fight.name}
-          {fight.difficulty !== undefined && (
-            <span className="fight-tier" title={`Instance difficulty ${fight.difficulty}`}>
-              T{fight.difficulty}
-            </span>
-          )}
-        </span>
-        <span className="fight-meta">
-          {fmtClock(fight.beginTime)} · {fmtDuration(fight.beginTime, fight.lastDamageTime)} ·{" "}
-          {fmtNum(fight.damageTotal)}
-          <Share fight={fight} />
-        </span>
-      </button>,
+        fight={fight}
+        selected={selectedSet.has(fight.id)}
+        onPick={pick}
+      />,
     );
   }
 
@@ -173,6 +161,59 @@ export function FightList({
     </div>
   );
 }
+
+/**
+ * One fight, memoised on what it shows. The hub replaces the whole fights
+ * array on every push — several times a second in combat — and the list
+ * re-rendered every row each time, which made it the single most expensive
+ * thing on an idle Summary. Now only the row whose numbers moved (the open
+ * fight) re-renders; a hundred closed ones are compared and skipped.
+ */
+const FightRow = memo(
+  function FightRow({
+    fight,
+    selected,
+    onPick,
+  }: {
+    fight: FightInfo;
+    selected: boolean;
+    onPick: (id: number, event: React.MouseEvent) => void;
+  }) {
+    return (
+      <button
+        className={"fight-row" + (selected ? " selected" : "") + (!fight.closed ? " active" : "")}
+        onClick={(e) => onPick(fight.id, e)}
+      >
+        <span className="fight-name">
+          {fight.dead ? "☠ " : fight.closed ? "" : "⚔ "}
+          {fight.name}
+          {fight.difficulty !== undefined && (
+            <span className="fight-tier" title={`Instance difficulty ${fight.difficulty}`}>
+              T{fight.difficulty}
+            </span>
+          )}
+        </span>
+        <span className="fight-meta">
+          {fmtClock(fight.beginTime)} · {fmtDuration(fight.beginTime, fight.lastDamageTime)} ·{" "}
+          {fmtNum(fight.damageTotal)}
+          <Share fight={fight} />
+        </span>
+      </button>
+    );
+  },
+  (a, b) =>
+    a.selected === b.selected &&
+    a.onPick === b.onPick &&
+    a.fight.id === b.fight.id &&
+    a.fight.name === b.fight.name &&
+    a.fight.closed === b.fight.closed &&
+    a.fight.dead === b.fight.dead &&
+    a.fight.difficulty === b.fight.difficulty &&
+    a.fight.beginTime === b.fight.beginTime &&
+    a.fight.lastDamageTime === b.fight.lastDamageTime &&
+    a.fight.damageTotal === b.fight.damageTotal &&
+    a.fight.estimatedHealth === b.fight.estimatedHealth,
+);
 
 /**
  * How much of the mob this fight actually accounted for: damage dealt against

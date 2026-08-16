@@ -298,6 +298,7 @@ export function AbilityChart({ sessionId, frame, refreshKey, petRollup, colors }
       },
       { replaceMerge: ["series"] },
     );
+    linkKeys.reapply(); // replacing the series dropped their emphasis
   }, [abilities, players, player, mode, splitActive, colors]);
 
   return (

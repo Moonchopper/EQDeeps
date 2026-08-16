@@ -12,7 +12,6 @@ import {
   IconSettings,
   IconShield,
   IconSkull,
-  IconSwords,
   IconTargetArrow,
   IconTrendingUp,
   IconUsersGroup,
@@ -28,7 +27,46 @@ import {
   SUMMARY_VIEW,
 } from "../dashboards/standardViews";
 
-type Icon = ComponentType<{ size?: number | string; stroke?: number | string; className?: string }>;
+type IconProps = { size?: number | string; stroke?: number | string; className?: string };
+type Icon = ComponentType<IconProps>;
+
+/**
+ * A fencer in the lunge, for Stances — the one glyph the set did not have.
+ * Drawn on Tabler's 24-unit grid with its stroke, caps and joins, so it sits
+ * in the column as one of them: mask, blade out and up, front leg long, back
+ * leg bent, off hand back. Line art rather than a filled silhouette because
+ * at sixteen pixels a silhouette is a blot beside fifteen line icons.
+ */
+function IconFencer({ size = 24, stroke = 2, className }: IconProps) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={stroke}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      {/* mask */}
+      <circle cx="15" cy="4.5" r="1.7" />
+      {/* torso, leaning into the lunge */}
+      <path d="M14.6 6.6 L13.2 12" />
+      {/* sword arm, and the blade running up and out */}
+      <path d="M14.2 7.6 L9.2 9.2 L2.5 2.5" />
+      {/* off hand back on the hip */}
+      <path d="M15 7.6 L18.8 10 L17.6 12.6" />
+      {/* front leg, long and low; back leg bent */}
+      <path d="M13.2 12 L4.5 19.5 M13.2 12 L17.6 15.2 L19.6 19.6" />
+      {/* feet */}
+      <path d="M2.8 20 L6 20 M18.6 20.5 L21.8 20.5" />
+    </svg>
+  );
+}
 
 /**
  * The rail entries that are not standard-view dashboards, keyed by view id.
@@ -59,7 +97,7 @@ const RAIL_ICONS: Record<string, Icon> = {
   [SUMMARY_VIEW]: IconChartLine,
   "preset-healing": IconHeart,
   "preset-tanking": IconShield,
-  [STANCES_VIEW_ID]: IconSwords,
+  [STANCES_VIEW_ID]: IconFencer,
   [HITS_VIEW]: IconTargetArrow,
   "preset-experience": IconTrendingUp,
   "preset-faction": IconUsersGroup,
@@ -236,18 +274,20 @@ export function NavRail({
           </span>
           <span className="rail-label">Settings</span>
         </button>
-        <div className="rail-foot-row">
-          {update && <span className="rail-version rail-label">v{update.version}</span>}
-          <button
-            className="rail-collapse"
-            onClick={onToggleCollapsed}
-            title={collapsed ? "Expand the rail" : "Collapse the rail to icons"}
-            aria-label={collapsed ? "Expand the rail" : "Collapse the rail to icons"}
-            aria-expanded={!collapsed}
-          >
-            <Toggle size={ICON_SIZE} stroke={ICON_STROKE} />
-          </button>
-        </div>
+        {/* A rail entry like the others, not a chevron in a corner: the way
+            to a narrower rail should be as findable as anything else in it,
+            and its label says what it does. */}
+        <button
+          className="rail-tab rail-collapse"
+          onClick={onToggleCollapsed}
+          title={collapsed ? "Expand the rail: icons and names" : "Collapse the rail to icons"}
+          aria-label={collapsed ? "Expand the rail" : undefined}
+          aria-expanded={!collapsed}
+        >
+          <Toggle size={ICON_SIZE} stroke={ICON_STROKE} className="rail-icon" />
+          <span className="rail-label">Collapse</span>
+        </button>
+        {update && <span className="rail-version rail-label">v{update.version}</span>}
       </div>
     </nav>
   );

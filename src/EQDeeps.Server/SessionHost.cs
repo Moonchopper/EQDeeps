@@ -202,7 +202,7 @@ public sealed class SessionHost : IAsyncDisposable
         lock (Session.Gate)
         {
             return TimelineBuilder.Build(
-                Session.Records, Session.Fights, Session.Character, request.Scope);
+                Session.Records, Session.Fights, Session.Character, request.Scope, Session.Spells);
         }
     }
 

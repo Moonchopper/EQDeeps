@@ -44,7 +44,10 @@ public sealed record SpellMatch(string? Spell, int Candidates)
 public sealed class SpellBook
 {
     /// <summary>A book that knows nothing — what a session gets when the log has no install beside it.</summary>
-    public static readonly SpellBook Empty = new([], [], []);
+    public static readonly SpellBook Empty = new([], [], [], []);
+
+    /// <summary>Spell name → the duration pair from columns 107/108 (see <see cref="SpellDuration"/>).</summary>
+    private readonly Dictionary<string, (int Formula, int Cap)> _durations;
 
     private readonly Dictionary<string, SpellMatch> _landsOnYou;
     private readonly Dictionary<string, SpellMatch> _landsOnOther;
@@ -53,12 +56,25 @@ public sealed class SpellBook
     private SpellBook(
         Dictionary<string, SpellMatch> landsOnYou,
         Dictionary<string, SpellMatch> landsOnOther,
-        Dictionary<string, SpellMatch> fades)
+        Dictionary<string, SpellMatch> fades,
+        Dictionary<string, (int Formula, int Cap)> durations)
     {
         _landsOnYou = landsOnYou;
         _landsOnOther = landsOnOther;
         _fades = fades;
+        _durations = durations;
     }
+
+    /// <summary>
+    /// How long this spell lasts when cast by someone of this level, or null
+    /// when the spell is unknown, instant, or does not expire on its own.
+    /// </summary>
+    public TimeSpan? DurationOf(string spell, int casterLevel) =>
+        _durations.TryGetValue(spell, out var d)
+            ? SpellDuration.Duration(d.Formula, d.Cap, casterLevel)
+            : null;
+
+    public int DurationCount => _durations.Count;
 
     public bool IsEmpty => _landsOnYou.Count == 0 && _landsOnOther.Count == 0 && _fades.Count == 0;
 
@@ -147,7 +163,7 @@ public sealed class SpellBook
     /// </summary>
     public static SpellBook Build(string spellsUs, string spellsUsStr)
     {
-        var names = ParseNames(spellsUs);
+        var (names, durations) = ParseSpells(spellsUs);
         if (names.Count == 0)
         {
             return Empty;
@@ -176,13 +192,22 @@ public sealed class SpellBook
             Add(fades, parts[5], name);
         }
 
-        return new SpellBook(Collapse(landsOnYou), Collapse(landsOnOther), Collapse(fades));
+        return new SpellBook(Collapse(landsOnYou), Collapse(landsOnOther), Collapse(fades), durations);
     }
 
-    /// <summary>id → name, from the first two of the file's 173 columns.</summary>
-    private static Dictionary<string, string> ParseNames(string spellsUs)
+    /// <summary>Duration formula, and its cap: columns 107 and 108 (see <see cref="SpellDuration"/> for how they were identified).</summary>
+    private const int FormulaColumn = 107;
+    private const int CapColumn = 108;
+
+    /// <summary>
+    /// id → name, and name → duration pair. Only four of the file's 173
+    /// columns are read; a row too short to hold them still contributes its
+    /// name, because the emote grammars need only that.
+    /// </summary>
+    private static (Dictionary<string, string> Names, Dictionary<string, (int, int)> Durations) ParseSpells(string spellsUs)
     {
         var names = new Dictionary<string, string>(StringComparer.Ordinal);
+        var durations = new Dictionary<string, (int, int)>(StringComparer.Ordinal);
         foreach (var line in Lines(spellsUs))
         {
             var first = line.IndexOf('^');
@@ -191,17 +216,26 @@ public sealed class SpellBook
                 continue;
             }
 
-            var second = line.IndexOf('^', first + 1);
-            var name = second > first
-                ? line[(first + 1)..second]
-                : line[(first + 1)..];
-            if (name.Length > 0)
+            var parts = line.Split('^');
+            if (parts.Length < 2 || parts[1].Length == 0)
             {
-                names[line[..first]] = name;
+                continue;
+            }
+
+            var name = parts[1];
+            names[parts[0]] = name;
+            if (parts.Length > CapColumn &&
+                int.TryParse(parts[FormulaColumn], out var formula) &&
+                int.TryParse(parts[CapColumn], out var cap) &&
+                formula > 0)
+            {
+                // First spelling wins: ranks share a name only rarely, and the
+                // first row is the one the emote maps were built against.
+                durations.TryAdd(name, (formula, cap));
             }
         }
 
-        return names;
+        return (names, durations);
     }
 
     private static void Add(Dictionary<string, List<string>> map, string message, string spell)

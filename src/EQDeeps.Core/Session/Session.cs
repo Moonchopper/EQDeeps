@@ -71,10 +71,14 @@ public sealed class Session : IDisposable
         Records = new RecordStore();
         Fights = new FightTracker(Identity);
         Ingestion = new LogFileIngestion(path, ingestOptions, clock);
-        _parser = new LogEventParser(new ParserOptions(Character, emuMode) { Spells = spells ?? SpellBook.Empty });
+        Spells = spells ?? SpellBook.Empty;
+        _parser = new LogEventParser(new ParserOptions(Character, emuMode) { Spells = Spells });
         _cache = cache;
         BackfillFrom = ingestOptions?.BackfillFrom;
     }
+
+    /// <summary>The player's own spell files, or an empty book; the timeline asks it for durations.</summary>
+    public SpellBook Spells { get; }
 
     public string Path { get; }
 

@@ -210,6 +210,25 @@ levels and resists, but the columns are unlabelled and identifying them needs
 its own evidence — that is the next slice, and it is what would give the
 timeline true buff spans and class detection.
 
+### F10b. Buff durations, and buff spans that end when they should — **shipped (2026-08-16)**
+
+`spells_us.txt` columns 107 (duration formula) and 108 (cap, in 6-second
+ticks) are identified and read, validated against durations measured from the
+owner's own log (see [eq-client-files.md](../domain/eq-client-files.md)). With
+them and F10a's landings, the timeline finally does what its own comments have
+promised:
+
+- **Received buffs are spans.** A buff landing opens one and its fade closes
+  it, so a buff nobody watched being cast — including a debuff on a *mob* — is
+  now drawn. On the owner's log a three-hour window holds 143 buff spans where
+  it held only the handful they cast and saw fade.
+- **A span with no fade ends when the spell says it would**, for spells the
+  owner cast themselves, since the formula needs the caster's level and the
+  log only ever states the owner's. Someone else's unfaded buff is still not
+  drawn rather than given an invented end.
+- A fade always beats the prediction: dispelled, zoned or overwritten is what
+  actually happened.
+
 ### F10. Spell/cast analytics
 
 Cast counts per player (casts, interrupts, twincasts), received-buff counts, spell damage breakdowns (DD vs DoT vs proc), resist tracking per spell and per NPC.

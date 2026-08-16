@@ -1,0 +1,197 @@
+/* eqdeeps-ui-kit design tokens.
+   Ported from EQDeeps' ui/src/styles.css (the `:root` block) and
+   docs/architecture/adr-015-visual-language.md, which explains the reasoning
+   behind every value here — read that doc before changing one. This file is
+   the tokens verbatim; it does not re-derive or re-justify them.
+
+   Every value is measured, not chosen by eye; the ratios in the comments are
+   WCAG contrast against the surface each token is legal on. */
+
+/* IBM Plex Sans, variable weight, Latin subset, self-hosted (SIL OFL 1.1 —
+   Mike Abbink and Bold Monday for IBM; see NOTICE). Embedded as a data URI
+   rather than a separate file so the built stylesheet is one self-contained
+   artifact — there is no second file whose path can go stale when this
+   package is bundled somewhere else. `font-display: block`: the file is
+   inline and available the instant the stylesheet parses, so there is no
+   flash to trade against, and a swap would reflow every table. */
+@font-face {
+  font-family: "IBM Plex Sans";
+  src: url("../fonts/ibm-plex-sans-latin-var.woff2") format("woff2-variations");
+  font-weight: 100 700;
+  font-style: normal;
+  font-display: block;
+}
+
+:root {
+  color-scheme: dark;
+
+  /* ---- surfaces: chrome recedes, content comes forward ----
+     A page ground and a panel surface, one step apart. That inversion is
+     what keeps a dark UI from reading as one undifferentiated rectangle.
+
+     --surface on --page measures 1.216:1. That looks low and is in fact near
+     the ceiling: the +0.05 term in the WCAG formula caps a dark-on-dark step,
+     and for this surface the theoretical maximum — against pure black — is
+     1.317:1. Do NOT chase a bigger number by lightening --surface without
+     re-checking the chart palette below against it; those categorical slots
+     are only 3:1 marks and they lose that first. */
+  --page: #0f0d0b;
+  --surface: #26211c;
+  --surface-2: #2a2520; /* sticky th, popovers, selected rows */
+  --hover: #322b25;
+  --selected: #39312a;
+
+  /* ---- ink ----
+     --muted is legal on --page / --surface / --surface-2 only. On --hover and
+     --selected it lands at 4.29 and 3.93, so anything that can sit on a
+     raised or tinted row takes --muted-raised instead. This is the easiest
+     accessibility regression to reintroduce, which is why it is a token and
+     not a note in a doc. */
+  --ink: #f1ece3; /* 13.55 on --surface */
+  --ink-2: #c5bdae; /*  8.55 on --surface */
+  --muted: #968e7e; /*  4.91 on --surface */
+  --muted-raised: #aca493; /*  5.15 on --selected */
+
+  /* ---- rules: three opaque tiers, deliberately not one alpha ----
+     An alpha-white border gives a panel edge, a table rule and an input
+     border identical weight, so nothing reads as a region boundary. Opaque
+     also survives a light-theme swap; additive white does not. */
+  --grid: #3a342e; /* 1.30 — cell rules, chart split lines */
+  --border: #4d453d; /* 1.70 — panel and control edges */
+  --baseline: #605851; /* 2.29 — region boundaries, the strongest rule tier */
+
+  /* ---- accents ---- */
+  --accent: #e8963c; /* 6.73 on --surface */
+  --accent-ink: #1a1005; /* text and glyphs ON --accent */
+  --danger: #ef7268; /* 5.53 — never rendered on --selected (4.42) */
+  --live: #4ecb8c;
+  --gold: #e0b64e;
+  --sample: #c9a3ef;
+
+  /* ---- washes ----
+     Tokenised because these are the surfaces whose polarity would have to
+     invert for a light theme. Row tints cap at --tint-alpha so text over a
+     tinted row still clears 4.5:1 — a "hover a name, light it up everywhere"
+     interaction should not make the row you just pointed at the hardest one
+     to read. */
+  --wash-hover: rgba(241, 236, 227, 0.055);
+  --wash-linked: rgba(241, 236, 227, 0.1);
+  --wash-faint: rgba(241, 236, 227, 0.02);
+  --wash-gold: rgba(224, 182, 78, 0.12);
+  --scrim: rgba(6, 4, 3, 0.62);
+  --tint-alpha: 14%;
+
+  /* ---- radius: a scale keyed to element size ----
+     A 6px radius on a 900px panel and a 6px radius on a 20px chip are
+     different curvatures; one value everywhere is what makes a UI read as
+     unconsidered. The panel is 16px, not the 8px framework default — it is
+     the element the user sees a dozen of. */
+  --r-tiny: 3px; /* colour chips, bar caps */
+  --r-chip: 6px; /* badges, sort-caret box, mini-buttons */
+  --r-control: 8px; /* inputs, selects, buttons */
+  --r-inner: 11px; /* nested cards, breakdown rows */
+  --r-card: 16px; /* panels */
+  --r-modal: 20px; /* modals */
+  --r-pill: 999px; /* segmented controls, meter fills, live badges */
+
+  /* ---- type ---- */
+  --font-ui: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, Consolas, monospace;
+
+  /* Eight sizes. Not invented for this kit — measured out of the app and
+     tidied. */
+  --fs-micro: 10px; /* rail headings, chart-adjacent meta */
+  --fs-tiny: 11px; /* column headers, controls, chips */
+  --fs-small: 12px; /* secondary meta */
+  --fs-base: 13px; /* body and table cells */
+  --fs-lg: 14px; /* panel and section names */
+  --fs-xl: 15px; /* stat values */
+  --fs-display: 34px; /* dashboard tile values */
+
+  /* 450 and 520 are the point of a variable face: 400-to-600 is a shove, and
+     a dense table wants a nudge. Hierarchy is carried by WEIGHT, not
+     brightness — promoting a row costs no contrast, where brightening it
+     spends the little a dark ground has. */
+  --w-normal: 400;
+  --w-medium: 450;
+  --w-strong: 520;
+  --w-bold: 600;
+  --w-heavy: 700;
+
+  /* ---- density ----
+     One number, so every surface with a row — a table, a sticky header, a
+     live-meter row, a nav-rail entry — moves together or the UI looks
+     assembled from parts. Comfortable is the default; see the App shell for
+     why that way round (dense tables read badly at small text). */
+  --row-pad-y: 5px;
+
+  /* ---- spacing: real extremes, not just 8 and 16 ---- */
+  --sp-1: 2px;
+  --sp-2: 4px;
+  --sp-3: 6px;
+  --sp-4: 10px;
+  --sp-5: 14px;
+  --sp-6: 20px;
+  --sp-7: 28px;
+  --sp-8: 48px;
+
+  /* ---- elevation ----
+     Shadows do not read on a dark ground, so elevation is a lightness step
+     plus a rim-light on the top edge. The one real shadow is reserved for
+     things that float over the page: menus, modals, tooltips. */
+  --rim: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  --shadow-overlay: 0 14px 34px -10px rgba(4, 3, 2, 0.72);
+
+  /* ---- z-index ---- */
+  --z-sticky: 5;
+  --z-popover: 30;
+  --z-backdrop: 40;
+  --z-modal: 41;
+}
+
+:root[data-density="compact"] {
+  --row-pad-y: 3px;
+}
+
+/* ---- the kit's root scope ----
+   Deliberately NOT a bare `body` selector. A component library that repaints
+   an arbitrary host page's <body> the moment its stylesheet loads is a bad
+   citizen — this kit ships alongside other things (a claude.ai/design canvas,
+   a future app shell that isn't dark-only everywhere). Apply .eqd-page to
+   whatever element is the actual page ground; every story in this Storybook
+   does it via the preview decorator. box-sizing:border-box is scoped the same
+   way, for the same reason. */
+.eqd-page,
+.eqd-page * {
+  box-sizing: border-box;
+}
+
+.eqd-page {
+  background: var(--page);
+  color: var(--ink-2);
+  font: var(--fs-base) / 1.45 var(--font-ui);
+}
+
+.eqd-page button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+/* The open dropdown list is painted from these rules, not the closed
+   control's — so a select styled dark still drops a light popup, and light
+   option text on it is invisible until the row highlight lands under the
+   cursor. */
+.eqd-page option,
+.eqd-page optgroup {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+.eqd-page input[type="checkbox"],
+.eqd-page input[type="radio"] {
+  accent-color: var(--accent);
+}

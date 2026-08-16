@@ -577,6 +577,13 @@ optgroup {
 .version {
   color: var(--muted);
   font-size: var(--fs-tiny);
+  /* Holds the right edge on its own when the time controls are absent
+     (a World view); otherwise their margin-left: auto has already done it. */
+  margin-left: auto;
+}
+
+.global-time-controls + .version {
+  margin-left: 0;
 }
 
 .version a {
@@ -1532,17 +1539,38 @@ th.num {
   border-right: 1px solid var(--border);
 }
 
+/* A heading is a level above its entries and has to look it: brighter than
+   the entries (they sit at --muted), and set off from the group before by a
+   rule, not just a gap. Headings and entries at the same grey read as one
+   flat list with some rows in caps, which is exactly what grouping the rail
+   was meant to fix. */
 .rail-heading {
-  padding: 10px 8px 4px;
-  color: var(--muted);
+  padding: 4px 8px 5px;
+  color: var(--ink-2);
   font-size: var(--fs-micro);
   font-weight: var(--w-heavy);
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
 }
 
-.rail-heading:first-child {
-  padding-top: 2px;
+/* Each group is one column of entries under its heading. The rule between
+   groups is what makes them read as blocks rather than a paragraph break. */
+.rail-group {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.rail-group + .rail-group {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--grid);
+}
+
+/* Entries step in under their heading, so the eye reads heading > entries
+   from the left edge alone. */
+.rail-group .rail-tab {
+  margin-left: 6px;
 }
 
 .rail-tab {

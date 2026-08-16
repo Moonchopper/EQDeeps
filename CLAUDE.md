@@ -245,7 +245,7 @@ copied outright with attribution in `NOTICE`.
 - The domain docs are the **spec of record**. When reality disagrees with them,
   fix the doc in the same change.
 - Significant design choices get a short ADR in `docs/architecture/`
-  (`adr-0NN-topic.md`, numbered sequentially — 015 is the newest).
+  (`adr-0NN-topic.md`, numbered sequentially — 017 is the newest).
 - Features carry stable ids (F1…F26) in `docs/product/features.md`; update the
   status line there when one ships, and reference the id in commits and comments.
 - `docs/HANDOFF.md` carries the rolling status paragraph. Keep it current.
@@ -265,7 +265,7 @@ copied outright with attribution in `NOTICE`.
 | What is a fight? How is DPS/sDPS/crit rate computed? What is the denominator? | `docs/domain/metrics-and-aggregation.md` |
 | Stack, component boundaries, QuerySpec model, persistence layout | `docs/architecture/system-overview.md` |
 | Why is ingestion built that way? | `docs/architecture/log-ingestion-brief.md` + `adr-002` |
-| Why was decision D made? | `docs/architecture/adr-001…016` (parser, ingestion, session state, query engine, API/live, SPA, dashboards, packaging, windowed shell, auto-update, gear snapshots (withdrawn), mob health, incoming damage, navigation rail, visual language, zone maps) |
+| Why was decision D made? | `docs/architecture/adr-001…017` (parser, ingestion, session state, query engine, API/live, SPA, dashboards, packaging, windowed shell, auto-update, gear snapshots (withdrawn), mob health, incoming damage, navigation rail, visual language, zone maps, grouped rail) |
 | Build order, status, verification strategy | `docs/HANDOFF.md` |
 | Signing, release keys, what to do before tagging | `docs/release-signing.md` |
 | How do I run it / what do the flags do? | `README.md` |

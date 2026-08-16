@@ -1,7 +1,9 @@
 # ADR-014: One navigation rail, and a conditional fight list
 
-Status: accepted (2026-08-09). Scope: feature F7b (standard views), F8 (custom
-dashboards).
+Status: accepted (2026-08-09); decision 1 superseded by ADR-017 (2026-08-15),
+which groups the shipped views by the question they answer and lets the group
+decide whether the fight list and time controls show. Decisions 2 and 3
+stand. Scope: feature F7b (standard views), F8 (custom dashboards).
 
 ## Context
 

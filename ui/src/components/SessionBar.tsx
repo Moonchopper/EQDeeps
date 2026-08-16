@@ -41,6 +41,13 @@ interface Props {
   /** Whether charts follow the wall clock through quiet time. */
   liveScroll: boolean;
   onLiveScroll: (on: boolean) => void;
+  /**
+   * Whether the current view reports over the app-wide time frame. The
+   * World views (Mobs, Map) do not, and the time controls go with the fight
+   * list there: hidden, not disabled — the frame itself stays in force
+   * (ADR-014, ADR-017).
+   */
+  framed: boolean;
   /** Absolute window straight from the picker. */
   onAbsoluteRange: (beginMs: number, endMs: number) => void;
   onOpen: (path: string) => void;
@@ -89,6 +96,7 @@ export function SessionBar({
   onFightLabelPx,
   liveScroll,
   onLiveScroll,
+  framed,
   onAbsoluteRange,
   onOpen,
   onRefreshDiscovered,
@@ -204,82 +212,87 @@ export function SessionBar({
       {/* The parent window/span for every chart in the app. It sits up here
           rather than on a panel precisely because it belongs to none of them:
           changing it pushes down and clears any per-panel deviation. */}
-      <span className="global-time-controls" title="Rolling window and time range for every chart">
-        <TimeRangePicker
-          frame={frame}
-          spanSec={chartDefaults.spanSec}
-          fights={fights}
-          onSpan={(span) => onChartDefaults({ ...chartDefaults, spanSec: span })}
-          onAbsolute={onAbsoluteRange}
-        />
-        <TimeControls
-          settings={chartDefaults}
-          bucketSeconds={1}
-          showSpan={false}
-          onChange={onChartDefaults}
-        />
-        <label className="time-controls" title="Fight overlay: off, shaded bands only, or bands with mob names at this size">
-          overlay
-          <select
-            value={fightLabelPx}
-            onChange={(e) => onFightLabelPx(Number(e.target.value))}
-          >
-            {LABEL_SIZE_CHOICES.map((c) => (
-              <option key={c.value} value={c.value}>
-                {c.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label
-          className="time-controls"
-          title="What the hours in a rate or a duration are counted from. Played cuts the gaps between play sessions out of the range, so a rate over a window that includes a night is not divided by the night."
+      {framed && (
+        <span
+          className="global-time-controls"
+          title="Rolling window and time range for every chart"
         >
-          hours
-          <select
-            value={playedTimeOnly ? "played" : "clock"}
-            onChange={(e) => onPlayedTimeOnly(e.target.value === "played")}
-          >
-            <option value="clock">wall clock</option>
-            <option value="played">played</option>
-          </select>
-        </label>
-        <label
-          className="time-controls"
-          title="A strip above every time chart showing which zone the character was in and what level they were"
-        >
-          strip
-          <select
-            value={contextMode}
-            onChange={(e) => onContextMode(e.target.value as ContextMode)}
-          >
-            {CONTEXT_MODES.map((c) => (
-              <option key={c.value} value={c.value}>
-                {c.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label
-          className="toggle"
-          title="Keep the charts moving with the clock when the log goes quiet, drawing the idle time as zero. Off pins them to the newest record."
-        >
-          <input
-            type="checkbox"
-            checked={liveScroll}
-            onChange={(e) => onLiveScroll(e.target.checked)}
+          <TimeRangePicker
+            frame={frame}
+            spanSec={chartDefaults.spanSec}
+            fights={fights}
+            onSpan={(span) => onChartDefaults({ ...chartDefaults, spanSec: span })}
+            onAbsolute={onAbsoluteRange}
           />
-          scroll
-        </label>
-        <button
-          className="mini-btn"
-          onClick={onResetDefaults}
-          disabled={isDefaultState(frame, chartDefaults, fightLabelPx)}
-          title="Back to the opening state: live, 10 s window, 15 m time range"
-        >
-          reset
-        </button>
-      </span>
+          <TimeControls
+            settings={chartDefaults}
+            bucketSeconds={1}
+            showSpan={false}
+            onChange={onChartDefaults}
+          />
+          <label className="time-controls" title="Fight overlay: off, shaded bands only, or bands with mob names at this size">
+            overlay
+            <select
+              value={fightLabelPx}
+              onChange={(e) => onFightLabelPx(Number(e.target.value))}
+            >
+              {LABEL_SIZE_CHOICES.map((c) => (
+                <option key={c.value} value={c.value}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label
+            className="time-controls"
+            title="What the hours in a rate or a duration are counted from. Played cuts the gaps between play sessions out of the range, so a rate over a window that includes a night is not divided by the night."
+          >
+            hours
+            <select
+              value={playedTimeOnly ? "played" : "clock"}
+              onChange={(e) => onPlayedTimeOnly(e.target.value === "played")}
+            >
+              <option value="clock">wall clock</option>
+              <option value="played">played</option>
+            </select>
+          </label>
+          <label
+            className="time-controls"
+            title="A strip above every time chart showing which zone the character was in and what level they were"
+          >
+            strip
+            <select
+              value={contextMode}
+              onChange={(e) => onContextMode(e.target.value as ContextMode)}
+            >
+              {CONTEXT_MODES.map((c) => (
+                <option key={c.value} value={c.value}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label
+            className="toggle"
+            title="Keep the charts moving with the clock when the log goes quiet, drawing the idle time as zero. Off pins them to the newest record."
+          >
+            <input
+              type="checkbox"
+              checked={liveScroll}
+              onChange={(e) => onLiveScroll(e.target.checked)}
+            />
+            scroll
+          </label>
+          <button
+            className="mini-btn"
+            onClick={onResetDefaults}
+            disabled={isDefaultState(frame, chartDefaults, fightLabelPx)}
+            title="Back to the opening state: live, 10 s window, 15 m time range"
+          >
+            reset
+          </button>
+        </span>
+      )}
       {update && (
         <span className="version">
           <UpdateSettings

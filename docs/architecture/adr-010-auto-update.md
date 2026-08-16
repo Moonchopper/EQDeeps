@@ -132,6 +132,21 @@ The app cast is published as a release asset, so
 It is generated *after* the GitHub release exists so it can carry the generated
 release notes, which are what the consent dialog shows as bullets.
 
+## Amendment (2026-08-16): the prompt waits for a quiet moment, and "restart now" leads
+
+Two owner requests after living with it. The consent prompt from the
+background check appeared whenever the check happened to finish — once, in
+the middle of a fight. It now waits until the active session is between
+fights (no fight open, nothing hit for two minutes; `combatQuiet` in
+`App.tsx`), re-checking on every fight push and on a slow timer; a prompt the
+user asked for by clicking *check for updates* shows at once, because that
+click was the request. And *Update & restart now* is the primary button
+rather than *update on exit*: with the prompt only ever arriving between
+fights and a restart resuming from the log cache (ADR-018) in seconds, the
+reason to prefer "on exit" — never interrupting a parse — no longer holds,
+and the owner's own answer was "now" every time. "On exit" stays as the
+quiet button for whoever would rather not blink at all.
+
 ## Consequences
 
 - Updates re-download the full installer (~76 MB). The mitigation, if it starts

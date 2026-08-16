@@ -33,6 +33,7 @@ import {
 } from "./tableTools";
 import { colorPoolFor, ENTITY_POOL, type EntityColors } from "../colors";
 import { LookupLink, lookupKindFor } from "../lookup/LookupLink";
+import { useChartLookup } from "../lookup/lookupMenu";
 import {
   ITEM_EMPHASIS,
   SERIES_EMPHASIS,
@@ -292,7 +293,7 @@ function TablePanel({ panel, ctx, settings }: { panel: PanelDef; ctx: PanelConte
     const link = depth === 0 ? rowLink(row.key) : null;
     // What this row's name is a name *of* decides whether it gets a lookup
     // door — the mob at the top, the item under it, never a player.
-    const lookupKind = lookupKindFor(panel.source, panel.groupBy[depth]);
+    const lookupKind = lookupKindFor(panel.source, panel.groupBy[depth], row.label);
 
     const out = [
       <tr
@@ -500,6 +501,9 @@ function LinePanel({
   // After the effect above, which is what creates the chart it attaches to.
   const pool = colorPoolFor(panel.source, panel.groupBy[0]);
   const linkKeys = useChartLink(chartRef, pool);
+  // Right-click on a legend entry naming a mob opens the lookup menu; the
+  // left click stays the selection's.
+  useChartLookup(chartRef, (name) => lookupKindFor(panel.source, panel.groupBy[0], name));
   const selection = useSelection();
 
   useEffect(() => {
@@ -823,6 +827,8 @@ function BarPanel({ panel, ctx, settings }: { panel: PanelDef; ctx: PanelContext
 
   // After the effect above, which is what creates the chart it attaches to.
   const linkKeys = useChartLink(chartRef, colorPoolFor(panel.source, panel.groupBy[0]));
+  // The axis labels are the doors here — a canvas has nowhere to hang an arrow.
+  useChartLookup(chartRef, (name) => lookupKindFor(panel.source, panel.groupBy[0], name));
 
   useEffect(() => {
     if (!chartRef.current) return;
@@ -857,6 +863,8 @@ function BarPanel({ panel, ctx, settings }: { panel: PanelDef; ctx: PanelContext
           axisLine: { show: false },
           axisTick: { show: false },
           axisLabel: { color: chartInk().ink2, fontSize: 11, width: 130, overflow: "truncate" },
+          // So a click on a name reaches useChartLookup; without it labels are silent.
+          triggerEvent: true,
         },
         series: [
           {

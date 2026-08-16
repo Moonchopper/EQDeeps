@@ -492,8 +492,11 @@ Acceptance:
   each opening a browser tab. *(shipped)*
 - The same door beside a mob's name **wherever one is shown** — the fight
   list, the Summary's by-target rows, Incoming's feed and profiles, the death
-  log, the Mobs table — so a lookup starts from whatever view is open.
-  *(shipped)*
+  log, the Mobs table, and mobs in player-shaped columns (a death's victim)
+  — so a lookup starts from whatever view is open. **Chart names too**: a
+  click on a category-axis label (Hardest hitters, Timeline actors) goes to
+  the usual site; right-click on an axis label, legend entry or bar opens the
+  menu. *(shipped)*
 - Which sites: guessed from the install ("EverQuest Legends" → EQL Wiki, Gnoll
   Guard, EQLBase, Allakhazam; otherwise the live set) and overridable per
   install in Settings, persisted in the `ui-settings` document. *(shipped)*

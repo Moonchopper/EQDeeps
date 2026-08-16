@@ -64,9 +64,18 @@ and Mobs: fighting a spiroc caller, you start from the fight list or the
 Summary, not from a view you have to remember exists. So the fight list rows,
 the Summary's by-target rows, the Incoming feed and profiles, and the death
 log carry it too, and any new surface that names a mob or an item is expected
-to. The install that decides the world is a React context (`LookupScope`) set
-once by App for the active session, so a door in a memoised fight row deep in
-a list needs no prop about game installs.
+to. **Charts included**: a canvas label has no DOM to hang an arrow on, so
+the label is the door — a click on a category-axis name (Hardest hitters,
+the Timeline's actors) goes, a right-click on an axis name, a legend entry
+or a bar opens the menu, through ECharts events (`useChartLookup`, with
+`triggerEvent: true` on the axis). One menu (`LookupMenuHost`) serves every
+trigger. What a table row *is* comes from its dimension and its value both
+(`lookupKindFor`): a death's victim sits in the `player` column and is a mob
+when its name has an article or a second word; healing's `target` and a
+death's killer are allies unless the name says otherwise. The install that
+decides the world is a React context (`LookupScope`) set once by App for the
+active session, so a door in a memoised fight row deep in a list needs no
+prop about game installs.
 
 `ui/src/lookup/providers.ts` is the whole of the knowledge: a **provider** is
 a URL template over a `LookupRef { kind, name, id? }`; a **world** is a named,

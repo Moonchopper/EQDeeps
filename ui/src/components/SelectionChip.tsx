@@ -10,7 +10,18 @@ import { useSelection, useSelectionActions } from "../highlight";
  * Absent when nothing is selected. A permanent "nothing selected" slot would
  * be furniture on the ninety-percent path.
  */
-export function SelectionChip({ colorFor }: { colorFor: (key: string, pool: string) => string }) {
+export function SelectionChip({
+  colorFor,
+  compact = false,
+}: {
+  colorFor: (key: string, pool: string) => string;
+  /**
+   * The panel-title version: the same chip, smaller, in every chart's title
+   * bar — so the pin and the way out are beside the line you clicked, not
+   * only at the top of the window.
+   */
+  compact?: boolean;
+}) {
   const selection = useSelection();
   const { setPinned, clear } = useSelectionActions();
   if (!selection) {
@@ -20,7 +31,9 @@ export function SelectionChip({ colorFor }: { colorFor: (key: string, pool: stri
   const Pin = selection.pinned ? IconPinned : IconPin;
   return (
     <span
-      className={"selection-chip" + (selection.pinned ? " pinned" : "")}
+      className={
+        "selection-chip" + (selection.pinned ? " pinned" : "") + (compact ? " compact" : "")
+      }
       title={
         selection.pinned
           ? `${key} stays lit on every view until unpinned`
@@ -36,7 +49,7 @@ export function SelectionChip({ colorFor }: { colorFor: (key: string, pool: stri
         aria-label={selection.pinned ? "Unpin" : "Pin across every view"}
         aria-pressed={selection.pinned}
       >
-        <Pin size={14} stroke={1.75} />
+        <Pin size={compact ? 12 : 14} stroke={1.75} />
       </button>
       <button
         className="selection-btn"
@@ -44,7 +57,7 @@ export function SelectionChip({ colorFor }: { colorFor: (key: string, pool: stri
         title="Clear the selection"
         aria-label="Clear the selection"
       >
-        <IconX size={14} stroke={1.75} />
+        <IconX size={compact ? 12 : 14} stroke={1.75} />
       </button>
     </span>
   );

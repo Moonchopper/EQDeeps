@@ -8,8 +8,9 @@ import {
   type QueryRow,
 } from "../api";
 import { CHART_SERIES_LIMIT, fmtNum, OTHER_COLOR } from "../format";
-import type { EntityColors } from "../colors";
-import { SERIES_EMPHASIS, useChartLink } from "../highlight";
+import { ENTITY_POOL, type EntityColors } from "../colors";
+import { SERIES_EMPHASIS, legendData, useChartLink, useSelection } from "../highlight";
+import { SelectionChip } from "./SelectionChip";
 import { attachNearestLineHover, type HoverLine } from "../chartInteractions";
 import {
   attachWheelZoom,
@@ -194,6 +195,7 @@ export function DpsChart({
 
   // After the effect above, which is what creates the chart it attaches to.
   const linkKeys = useChartLink(chartRef);
+  const selection = useSelection();
 
   useEffect(() => {
     resetZoom(); // new frame: fresh viewport
@@ -454,7 +456,12 @@ export function DpsChart({
           top: 0,
           // The bands ride on their own series; it has no line to toggle, so
           // naming the real series keeps it out of the legend.
-          data: top.map((row) => row.label).concat(rest.length > 0 ? [`Other (${rest.length})`] : []),
+          data: legendData(
+            top.map((row) => row.label).concat(rest.length > 0 ? [`Other (${rest.length})`] : []),
+            linkKeys.current.series,
+            ENTITY_POOL,
+            selection,
+          ),
         },
         tooltip: {
           trigger: "axis",
@@ -492,13 +499,14 @@ export function DpsChart({
       key: "dataZoomSelect",
       dataZoomSelectActive: true,
     });
-  }, [result, smoothingSec, span, colors, isZoomed, bandsKey, fightLabelPx, scrollNowMs]);
+  }, [result, smoothingSec, span, colors, isZoomed, bandsKey, fightLabelPx, scrollNowMs, selection]);
 
   return (
     <div className="panel chart-panel">
       <div className="panel-title">
         <span>Damage per second</span>
         <span className="title-controls">
+          <SelectionChip colorFor={(k, p) => colors.claim(k, p)} compact />
           {/* The scope tabs are gone: the app has one time frame now, set by
               the fight list or the top bar, and this chart reads it like
               everything else. What is left is how to read it. */}

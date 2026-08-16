@@ -31,7 +31,14 @@ import {
   type SortState,
 } from "./tableTools";
 import { colorPoolFor, ENTITY_POOL, type EntityColors } from "../colors";
-import { ITEM_EMPHASIS, SERIES_EMPHASIS, useChartLink, useRowLink } from "../highlight";
+import {
+  ITEM_EMPHASIS,
+  SERIES_EMPHASIS,
+  legendData,
+  useChartLink,
+  useRowLink,
+  useSelection,
+} from "../highlight";
 import {
   attachNearestLineHover,
   attachWheelZoom,
@@ -484,6 +491,7 @@ function LinePanel({
   // After the effect above, which is what creates the chart it attaches to.
   const pool = colorPoolFor(panel.source, panel.groupBy[0]);
   const linkKeys = useChartLink(chartRef, pool);
+  const selection = useSelection();
 
   useEffect(() => {
     if (!chartRef.current) return;
@@ -710,7 +718,12 @@ function LinePanel({
         legend: {
           type: "scroll",
           top: 0,
-          data: top.map((row) => row.label).concat(rest.length > 0 ? [`Other (${rest.length})`] : []),
+          data: legendData(
+            top.map((row) => row.label).concat(rest.length > 0 ? [`Other (${rest.length})`] : []),
+            linkKeys.current.series,
+            pool,
+            selection,
+          ),
         },
         tooltip: {
           trigger: "axis",
@@ -747,7 +760,7 @@ function LinePanel({
       key: "dataZoomSelect",
       dataZoomSelectActive: true,
     });
-  }, [result, panel.source, bucketSeconds, smoothingSec, spanSec, isZoomed, bandsKey, ctx.fightLabelPx, ctx.scrollNowMs]);
+  }, [result, panel.source, bucketSeconds, smoothingSec, spanSec, isZoomed, bandsKey, ctx.fightLabelPx, ctx.scrollNowMs, selection]);
 
   if (result === "no-selection") return <div className="empty">Select a fight</div>;
   return (

@@ -1429,6 +1429,67 @@ tbody tr.selected td:first-child {
   color: var(--accent);
 }
 
+/* In a panel's title bar: same chip, one size down, so the pin and the way
+   out sit beside the line that was clicked. It yields width before the
+   title does — the name truncates, the panel's name never wraps — because
+   the chip is a repeat of something the header already says in full. */
+.selection-chip.compact {
+  gap: 4px;
+  padding: 0 2px 0 6px;
+  font-size: var(--fs-tiny);
+  font-weight: var(--w-normal);
+  color: var(--ink-2);
+  min-width: 0;
+  overflow: hidden;
+  /* Shrinks ten times as readily as the panel's name, and its own name goes
+     first: swatch, pin and clear are what has to survive a tight title bar. */
+  flex-shrink: 10;
+}
+
+.selection-chip.compact .color-chip,
+.selection-chip.compact .selection-btn {
+  flex-shrink: 0;
+}
+
+/* When a chip is in the bar, the panel's own name gives way last: it holds
+   its width until it would take more than its share, and only then
+   truncates. Scoped to bars with a chip so a title strip that was already
+   flexible (the summary table's tabs) is left alone. */
+.panel-title:has(.selection-chip) > :first-child {
+  white-space: nowrap;
+  flex-shrink: 0;
+  max-width: 60%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.panel-title .title-controls,
+.panel-title .panel-controls {
+  min-width: 0;
+  flex-shrink: 1;
+}
+
+.panel-title .title-controls > :not(.selection-chip),
+.panel-title .panel-controls > :not(.selection-chip) {
+  flex-shrink: 0;
+}
+
+.selection-chip.compact .color-chip {
+  width: 7px;
+  height: 7px;
+  margin-right: 2px;
+}
+
+.selection-chip.compact .selection-name {
+  max-width: 120px;
+  min-width: 0;
+  font-weight: var(--w-bold);
+}
+
+.selection-chip.compact .selection-btn {
+  padding: 1px;
+}
+
 .color-chip {
   display: inline-block;
   width: 8px;

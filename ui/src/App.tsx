@@ -18,6 +18,7 @@ import { UpdateNotice, type UpdateChoice } from "./components/UpdateNotice";
 import { SettingsDialog } from "./components/SettingsDialog";
 import { LogPicker, LogsDialog } from "./components/LogPicker";
 import { NavRail } from "./components/NavRail";
+import { SelectionChip } from "./components/SelectionChip";
 import { useSelectionActions } from "./highlight";
 import { FightList } from "./components/FightList";
 import { SummaryTable } from "./components/SummaryTable";
@@ -992,6 +993,12 @@ export default function App() {
                         <div key={p.id} className="panel chart-panel">
                           <div className="panel-title">
                             <span className="panel-name">{p.title}</span>
+                            <span className="panel-controls">
+                              <SelectionChip
+                                colorFor={(k, pl) => entityColors.claim(k, pl)}
+                                compact
+                              />
+                            </span>
                           </div>
                           <PanelBody panel={p} ctx={panelCtx} settings={chartDefaults} />
                         </div>

@@ -413,6 +413,31 @@ export function useChartLink(
 }
 
 /**
+ * Legend entries with the selected series' name set heavy and bright, so the
+ * selection reads in the legend as well as on the line. Names that stand for
+ * no entity ("Other (n)") pass through as plain strings. Built at chart-build
+ * time — every live rebuild reads the selection afresh — which is why the
+ * charts take the selection as a dependency rather than styling after the
+ * fact.
+ */
+export function legendData(
+  names: string[],
+  keyOf: Map<string, string>,
+  pool: string,
+  selection: Selection | null,
+): (string | { name: string; textStyle: { color: string; fontWeight: number } })[] {
+  if (!selection || selection.target.pool !== pool) {
+    return names;
+  }
+  const ink = getComputedStyle(document.documentElement).getPropertyValue("--ink").trim();
+  return names.map((name) =>
+    keyOf.get(name) === selection.target.key
+      ? { name, textStyle: { color: ink || "#f1ece3", fontWeight: 700 } }
+      : name,
+  );
+}
+
+/**
  * Emphasis for a series that shares its chart with others: the hovered one
  * keeps full strength and the rest fade, which is the only treatment that
  * works when eight lines cross. `blurScope: "coordinateSystem"` keeps a fade

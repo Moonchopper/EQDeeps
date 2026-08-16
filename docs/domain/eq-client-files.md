@@ -29,6 +29,7 @@ what is here is what *any* Daybreak client of the same vintage carries.
 | NPC locations on the map | Yes, community data — the Brewall pack is installed with the client | `maps\brewalls\<zone>_1.txt` `P` labels: `Name_(Roam)`, `Willaen_(Banker)`, `GS:_Item_Name` (ground spawns) |
 | NPC lore blurbs | 306 famous ones (Overseer agent cards) | `dbstr_us.txt` types 52/53/61 |
 | Faction id → name | Yes, complete, 2,048 rows | `dbstr_us.txt` type 45; ripple table in `Resources\Faction\FactionAssociations.txt` |
+| Spell **durations** | Yes — `spells_us.txt` **column 107 = duration formula, column 108 = cap in ticks** (1 tick = 6 s). Identified, not guessed: see below | same file |
 | Spell database | **Yes, complete**: 73,963 spells, 173 columns; cast messages; descriptions | `spells_us.txt`, `spells_us_str.txt` (headed: `#SPELLINDEX^CASTERMETXT^CASTEROTHERTXT^CASTEDMETXT^CASTEDOTHERTXT^SPELLGONE^`), `dbstr_us.txt` type 6 |
 | Every system/combat message template | Yes — 7,120 format strings with `%N` slots | `eqstr_us.txt` |
 | Zone id → long name | Yes, 699 rows — but **no short name column**, so nothing on disk joins `2` ↔ `qeynos2` ↔ "North Qeynos" | `Resources\ZoneNames.txt` (`id^Long Name^n^n`) |
@@ -68,6 +69,40 @@ None bundles item or NPC data; the format never carried it.
 | 52 / 53 / 61 | 306 each | Overseer agent short name / full name / lore — real NPCs (`181^53^Fippy Darkpaw^`) |
 
 Nothing in it is an item name or item lore.
+
+### The duration columns, and how they were pinned down
+
+`spells_us.txt` has 173 columns and no header. Two of them matter so far:
+
+| column | meaning | shape that gives it away |
+|---|---|---|
+| 107 | duration formula | 25 distinct values, 37,920 of 73,963 rows at 0, the rest clustered on 1–13 |
+| 108 | duration cap, in 6-second ticks | 122 distinct values, wide spread, capped at 100,000 |
+
+The shapes suggested it; **the log proved it**. Pairing the landing and fade
+emotes the parser now resolves (F10a) yields an *observed* duration for every
+buff the player actually received, and for 13 of the 19 spells with enough
+pairs the standard EverQuest formula over columns 107/108 predicts the
+observation to within a single tick:
+
+| spell | level | observed | predicted |
+|---|---|---|---|
+| Center | 23 | 1,641 s | 1,620 s |
+| Shifting Shield | 28 | 2,733 s | 2,700 s |
+| Divine Vigor | 36 | 3,011 s | 3,000 s |
+| Daring | 39 | 2,169 s | 2,160 s |
+| Valor | 28 | 3,299 s | 3,240 s |
+
+All six misses are observed *shorter* than predicted, which is what a re-buff,
+a zone, a death or a dispel looks like — never longer, which is what a wrong
+formula would look like.
+
+**Columns 11 and 12 carry the same two shapes** and agree with 107/108 on 82%
+of rows. Which the client actually applies is unsettled; 107/108 are used
+because they are the pair the observations validate. The remaining 169 columns
+(class levels, resists, targets) are still unlabelled — identifying them is
+the same exercise with a different signal, and unmeasured guesses do not
+belong here.
 
 ### `Resources\`
 

@@ -1,3 +1,4 @@
+using EQDeeps.Core.Spells;
 using EQDeeps.Core.Events;
 using EQDeeps.Core.Sessions;
 
@@ -54,18 +55,28 @@ public sealed record TimelineResult(
 /// <summary>
 /// Assembles the per-entity event timeline (feature F11 groundwork and the
 /// seed of the event-annotation system): discrete casts/abilities/deaths/
-/// resists inside the scope, plus buff spans derived by pairing the owner's
-/// "begin casting X" with the named wear-off "Your X spell has worn off
-/// [of T]". Only cast→wear-off *pairs* become spans — without the spell
-/// database we cannot tell a nuke from a buff, nor see fades of received
-/// buffs (their messages carry emote text, not names). The spell DB later
-/// upgrades this to true durations and received-buff tracking.
+/// resists inside the scope, plus buff spans.
+///
+/// <para>A span is opened by the owner's "begin casting X" or by a buff
+/// landing on someone (<see cref="LandedEvent"/>, which the player's own spell
+/// files make readable), and closed by the matching wear-off. Received buffs
+/// are therefore visible now, which they were not while the only evidence was
+/// a cast line the owner had to have made.</para>
+///
+/// <para>A span with no fade in the log used to run to the end of the range.
+/// Where the spell files give a duration and the owner's level is known — so,
+/// for spells the owner cast on themselves — the span now ends when the buff
+/// actually would have. Everything else still stops at the range, because a
+/// guess about someone else's caster level would be a worse answer than an
+/// honest open end.</para>
 /// </summary>
 public static class TimelineBuilder
 {
     public static TimelineResult Build(
-        RecordStore records, FightTracker fights, string character, QueryScope scope)
+        RecordStore records, FightTracker fights, string character, QueryScope scope,
+        SpellBook? spellBook = null)
     {
+        var spells = spellBook ?? SpellBook.Empty;
         var version = records.Version + fights.Version;
         var union = ResolveScope(records, fights, scope);
         if (union.Segments.Count == 0)
@@ -85,14 +96,33 @@ public static class TimelineBuilder
         // does not, so two same-spell buffs on different targets share one span
         // and the second fade falls back to an instant Fade mark.
         var pending = new Dictionary<string, DateTime>(StringComparer.OrdinalIgnoreCase);
+        // Spans the owner cast on themselves, where a predicted end is honest:
+        // we know the spell and we know what level they were at the time.
+        var selfCast = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         var fades = new List<TimelineItem>();
+        var ownerLevel = 0;
         for (var i = 0; i < records.Count; i++)
         {
             var (timestamp, evt) = records[i];
-            if (evt is CastEvent { Kind: CastKind.Begin, Spell: { } spell } cast &&
+            if (evt is LevelEvent level)
+            {
+                ownerLevel = level.Level;
+            }
+            else if (evt is CastEvent { Kind: CastKind.Begin, Spell: { } spell } cast &&
                 string.Equals(cast.Caster, character, StringComparison.OrdinalIgnoreCase))
             {
-                pending.TryAdd(spell, timestamp);
+                if (pending.TryAdd(spell, timestamp) && ownerLevel > 0)
+                {
+                    selfCast[spell] = ownerLevel;
+                }
+            }
+            else if (evt is LandedEvent { Spell: { } landed } landing)
+            {
+                // A buff landing opens a span in its own right. The cast that
+                // caused it may be the owner's — already pending, and the
+                // earlier moment — or someone else's, which the log never
+                // showed us until now.
+                pending.TryAdd(landed, timestamp);
             }
             else if (evt is WearOffEvent wearOff)
             {
@@ -114,6 +144,34 @@ public static class TimelineBuilder
                         wearOff.Target, TimelineItemKind.Fade, wearOff.Spell, timestamp));
                 }
             }
+        }
+
+        // Buffs that never faded in the log. A duration is only applied to a
+        // spell the owner cast themselves: the formula needs the *caster's*
+        // level, and using the owner's for someone else's buff would invent a
+        // number. The rest are left to the old behaviour of simply not being
+        // drawn as spans, which is what an unknown end honestly looks like.
+        foreach (var (spell, castTime) in pending)
+        {
+            if (!selfCast.TryGetValue(spell, out var castLevel) ||
+                spells.DurationOf(spell, castLevel) is not { } duration ||
+                duration <= TimeSpan.Zero)
+            {
+                continue;
+            }
+
+            var end = castTime + duration;
+            if (end < rangeBegin || castTime > rangeEnd)
+            {
+                continue;
+            }
+
+            items.Add(new TimelineItem(
+                character, TimelineItemKind.Buff, spell,
+                castTime < rangeBegin ? rangeBegin : castTime,
+                end > rangeEnd ? rangeEnd : end,
+                StartsBefore: castTime < rangeBegin,
+                EndsAfter: end > rangeEnd));
         }
 
         // Stance spans: unlike buffs these need no pairing, because a switch

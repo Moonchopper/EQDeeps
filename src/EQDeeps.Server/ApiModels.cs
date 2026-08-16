@@ -67,7 +67,9 @@ public sealed record SessionInfo(
     long MalformedLines,
     /// <summary>Stance switches by this character — gates the Stances view.</summary>
     long StanceSwitches = 0,
-    string? Install = null);
+    string? Install = null,
+    /// <summary>Records this open took from the log cache instead of the parser (issue #59).</summary>
+    long RestoredRecords = 0);
 
 /// <summary>
 /// Everything learned about one server's mobs (F25). The estimates are the

@@ -61,7 +61,9 @@ Harness: `dotnet run -c Release --project tools/EQDeeps.Bench -- all [MB]`.
   phases) drags throughput below target.
 - **Index/checkpoint sidecar** — deferred; binary search makes date-range opens
   fast enough without persistence. Reconsider for instant "resume where I left
-  off" UX later.
+  off" UX later. *(Reconsidered: ADR-018. The scan was disk-bound; the parser
+  behind it was not, and a cache of the parsed records with a resume offset
+  is what made the second open of a log ~3× faster.)*
 - **File-identity (creation time / file ID) rotation detection** — Windows
   filesystem tunneling makes recreation inherit creation times, and file IDs need
   P/Invoke; the length-divergence heuristic is portable and covers the real

@@ -17,6 +17,8 @@ export interface SessionInfo {
   fightCount: number;
   unrecognizedLines: number;
   malformedLines: number;
+  /** Records this open restored from the log cache rather than re-parsing. */
+  restoredRecords: number;
   /** Stance switches by this character; 0 hides the Stances view. */
   stanceSwitches: number;
 }

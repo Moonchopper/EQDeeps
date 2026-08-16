@@ -21,6 +21,18 @@ public sealed class LogEventParser
         _options = options;
     }
 
+    /// <summary>
+    /// The one piece of state that outlives a line: an EMU crit announcement
+    /// waiting for the hit it applies to. Exposed so a checkpoint can carry
+    /// it across runs — a resume that lands between the announcement and the
+    /// hit would otherwise lose the crit on that one hit.
+    /// </summary>
+    public string? PendingEmuCritAttacker
+    {
+        get => _damageState.PendingEmuCritAttacker;
+        set => _damageState.PendingEmuCritAttacker = value;
+    }
+
     public GameEvent? Parse(string action) => Parse(action, out _);
 
     /// <summary>

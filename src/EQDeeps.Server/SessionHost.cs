@@ -26,6 +26,14 @@ public sealed class SessionHost : IAsyncDisposable
     /// </summary>
     private static readonly TimeSpan HarvestOverlap = TimeSpan.FromSeconds(120);
 
+    /// <summary>
+    /// How often the live tail is checkpointed into the log cache. A crash
+    /// loses at most this much to re-parsing on the next open; more often
+    /// would be more header rewrites and disk flushes for less than a
+    /// minute of lines.
+    /// </summary>
+    private static readonly TimeSpan CheckpointInterval = TimeSpan.FromSeconds(60);
+
     private readonly IHubContext<LiveHub> _hub;
     private readonly MobHealthStore? _mobs;
     private readonly MobAttackStore? _attacks;
@@ -48,6 +56,7 @@ public sealed class SessionHost : IAsyncDisposable
     private int _lastPushedFightVersion = -1;
     private DateTime _harvested = DateTime.MinValue;
     private DateTime _attacksHarvested = DateTime.MinValue;
+    private DateTime _checkpointed = DateTime.MinValue;
 
     /// <summary>
     /// Learned health by mob key, rebuilt only when a sweep actually banked a
@@ -99,9 +108,10 @@ public sealed class SessionHost : IAsyncDisposable
             return new SessionInfo(
                 Id, Session.Path, Session.Character, Session.Server,
                 Session.BackfillComplete, Session.Records.Count, Session.Fights.Fights.Count,
-                Session.UnrecognizedLines, Session.Ingestion.MalformedLines,
+                Session.UnrecognizedLines, Session.MalformedLines,
                 Session.StanceSwitches,
-                LogDiscovery.InstallOf(Session.Path));
+                LogDiscovery.InstallOf(Session.Path),
+                Session.RestoredRecords);
         }
     }
 
@@ -488,9 +498,38 @@ public sealed class SessionHost : IAsyncDisposable
                 {
                     Notify();
                 }
+
+                // The cache is written here too — first as soon as backfill
+                // is done, which is the write that matters (everything the
+                // parser just did, so the next open need not), then once a
+                // minute for whatever the tail has added. Off the processing
+                // task by construction: this loop is not it, and the session
+                // copies its slice under the gate and serializes outside it.
+                var now = DateTime.UtcNow;
+                if (now - _checkpointed >= CheckpointInterval)
+                {
+                    _checkpointed = now;
+                    TryCheckpoint();
+                }
             }
         }
         catch (OperationCanceledException)
+        {
+        }
+    }
+
+    /// <summary>
+    /// A checkpoint that cannot fail the session: the cache is a convenience,
+    /// and a full disk or a vanished log is a reason to go without it, not to
+    /// stop reading.
+    /// </summary>
+    private void TryCheckpoint()
+    {
+        try
+        {
+            Session.Checkpoint();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException or NotSupportedException)
         {
         }
     }
@@ -513,6 +552,11 @@ public sealed class SessionHost : IAsyncDisposable
                 // Ingestion may fault if the file vanished mid-shutdown.
             }
         }
+
+        // The tail since the last minute mark, so a clean close and the next
+        // open meet exactly. After the tasks: nothing is appending any more.
+        TryCheckpoint();
+        Session.Dispose();
 
         _cts.Dispose();
         _signal.Dispose();

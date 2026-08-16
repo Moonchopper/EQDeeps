@@ -27,7 +27,11 @@
 > preferences gathered into a Settings dialog and the log picker into a Logs
 > dialog, both reached from a utility cluster at the foot of the rail, and
 > the rail given icons so it can collapse to them — and does, on the Map
-> (ADR-017, all six decisions shipped).
+> (ADR-017, all six decisions shipped), and a log cache so a log is parsed
+> once — its records are written to disk after backfill and the next open
+> restores them and resumes at the byte where the last one stopped, ~3×
+> faster, with every repeating string pooled so the session holds half the
+> memory it did (ADR-018, feature F28, issue #59).
 > Currently at **v0.11.3**. See `docs/product/features.md` for per-feature
 > status. The main open items: real-log validation against EQLogParser (the
 > release gate), the spell-DB work (class detection, bane, lands-on

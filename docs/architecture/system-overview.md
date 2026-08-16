@@ -84,7 +84,7 @@ Root: `%AppData%\EQDeeps\` (path-provider abstraction; no hardcoding scattered a
 | Dashboards / saved queries | JSON files (exportable/importable by design) |
 | Identity registry (players/pets/classes per server) | JSON or SQLite — small, write-debounced |
 | Reference data (spells/npcs/petnames…) | shipped read-only alongside the app; see domain doc §6 and NOTICE obligations |
-| Parsed records | in-memory per session (recompute from log on reopen); optional cache/index files are an ingestion-brief topic |
+| Parsed records | in-memory per session, with a per-log binary cache under `cache\` (`<hash of path>-<parser build>.eqdc`) written after backfill and once a minute after; the next open restores the records and resumes the parser at the cached byte offset. Records only — fights and identity are replayed — stamped with the parser build and validated against the log's own bytes (ADR-018) |
 | Learned mob health (F25) | JSON per **server** under `mobs\`, capped per mob. Recomputable — it is a cache of what the logs still say — so a corrupt or missing file just relearns (ADR-012) |
 | Learned mob attacks (F26) | JSON per **server** under `attacks\`, keyed on (mob, zone, difficulty, **defender level**) — how hard something hits is a fact about a pairing, not about the mob. A rolling tally with a log-spaced hit-size histogram rather than raw samples: hits arrive three orders of magnitude faster than kills. Also a cache (ADR-013) |
 

@@ -66,6 +66,10 @@ public static class ServerApp
         builder.Services.AddSingleton(_ => new MobHealthStore(builder.Configuration["mobRoot"]));
         // --attackRoot likewise redirects the learned mob-attack profiles (tests).
         builder.Services.AddSingleton(_ => new MobAttackStore(builder.Configuration["attackRoot"]));
+        // --cacheRoot likewise redirects the parsed-record caches (tests) —
+        // recomputable, but a few hundred megabytes per log, and a test that
+        // wrote one into the real folder would leave it there.
+        builder.Services.AddSingleton(_ => new LogCacheStore(builder.Configuration["cacheRoot"]));
         // --mapRoot points at a maps folder instead of discovering one, so the
         // map tests do not need EverQuest installed. Unlike the stores above
         // this reads a folder the app never writes to (F27).

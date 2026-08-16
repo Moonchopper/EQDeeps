@@ -24,6 +24,8 @@ public sealed class LogFileIngestion
     private readonly IIngestClock _clock;
     private readonly Channel<LogBatch> _channel;
     private readonly EntryScanner _scanner;
+    private int _generation;
+    private bool _resumable = true;
 
     public LogFileIngestion(string path, IngestOptions? options = null, IIngestClock? clock = null)
     {
@@ -50,8 +52,17 @@ public sealed class LogFileIngestion
     /// Runs the pipeline until cancellation (or end of backfill when
     /// <see cref="IngestOptions.Follow"/> is off / the file is gzip). Completes
     /// the channel on exit; a fatal error faults both the channel and this task.
+    ///
+    /// <para><paramref name="resumeAt"/> is a line-start offset from an
+    /// earlier run's <see cref="LogBatch.ResumeOffset"/>: reading begins there
+    /// instead of at the top, because the caller restored everything before it
+    /// from the log cache. A runtime argument rather than an option because it
+    /// is a fact established moments before — the cache validated against the
+    /// file as it is — not a configuration. Ignored for gzip archives, which
+    /// have no seekable offsets. A file shorter than the offset faults the
+    /// run: the checkpoint no longer describes it.</para>
     /// </summary>
-    public async Task RunAsync(CancellationToken cancellationToken)
+    public async Task RunAsync(CancellationToken cancellationToken, long? resumeAt = null)
     {
         try
         {
@@ -61,7 +72,7 @@ public sealed class LogFileIngestion
             }
             else
             {
-                await RunPlainAsync(cancellationToken).ConfigureAwait(false);
+                await RunPlainAsync(cancellationToken, resumeAt).ConfigureAwait(false);
             }
 
             _channel.Writer.TryComplete();
@@ -77,7 +88,7 @@ public sealed class LogFileIngestion
         }
     }
 
-    private async Task RunPlainAsync(CancellationToken cancellationToken)
+    private async Task RunPlainAsync(CancellationToken cancellationToken, long? resumeAt)
     {
         var buffer = new byte[_options.ReadBufferSize];
         var entries = new List<LogEntry>();
@@ -90,6 +101,21 @@ public sealed class LogFileIngestion
             if (_options.BackfillFrom is { } from && backfillEnd > 0)
             {
                 position = TimestampSeek.FindStart(stream, from);
+            }
+
+            if (resumeAt is { } start)
+            {
+                if (start > backfillEnd)
+                {
+                    throw new IOException(
+                        $"Log is {backfillEnd} bytes, shorter than the {start}-byte resume offset; it has been replaced since the checkpoint was taken.");
+                }
+
+                // Whichever is later. A window that begins after the cached
+                // stretch wants none of it (the caller filtered the restored
+                // records the same way); one that begins inside it wants the
+                // parser to start where the cache stopped.
+                position = Math.Max(position, start);
             }
 
             stream.Seek(position, SeekOrigin.Begin);
@@ -138,6 +164,7 @@ public sealed class LogFileIngestion
                     _scanner.Reset();
                     stream = await WaitForFileAsync(cancellationToken).ConfigureAwait(false);
                     position = 0;
+                    _generation++;
                     idleStreak = 0;
                     continue;
                 }
@@ -154,6 +181,9 @@ public sealed class LogFileIngestion
 
     private async Task RunGzipAsync(CancellationToken cancellationToken)
     {
+        // Positions in a gzip stream are not offsets a later run could seek
+        // to, so batches from an archive carry no resume offset.
+        _resumable = false;
         using var file = Open();
         using var gzip = new GZipStream(file, CompressionMode.Decompress);
         var buffer = new byte[_options.ReadBufferSize];
@@ -188,7 +218,9 @@ public sealed class LogFileIngestion
             return;
         }
 
-        var batch = new LogBatch(phase, entries.ToArray(), bytesProcessed, totalBytes);
+        var batch = new LogBatch(
+            phase, entries.ToArray(), bytesProcessed, totalBytes,
+            _resumable ? bytesProcessed - _scanner.PendingBytes : -1, _generation);
         entries.Clear();
         await _channel.Writer.WriteAsync(batch, cancellationToken).ConfigureAwait(false);
     }

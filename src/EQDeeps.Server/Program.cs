@@ -91,6 +91,13 @@ if (!noUpdateCheck)
     updates.ApplyOnExit();
 }
 
+// Stopping the host does not dispose it, and disposal is what closes the open
+// sessions — which is where each one writes its final log-cache checkpoint,
+// so the next open picks up exactly where this one stopped instead of
+// re-parsing the last minute of tail. After ApplyOnExit on purpose: the
+// installer it hands off waits for this process to exit anyway.
+await app.DisposeAsync();
+
 return;
 
 // The shell window runs its message loop on a dedicated STA thread while the

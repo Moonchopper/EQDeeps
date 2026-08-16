@@ -79,6 +79,7 @@ public sealed class MapEndpointTests : IAsyncLifetime
             "--mobRoot", _dir,
             "--attackRoot", _dir,
             "--storeRoot", _dir,
+            "--cacheRoot", _dir,
             "--mapRoot", maps,
         ]);
         await _app.StartAsync();

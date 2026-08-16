@@ -35,9 +35,9 @@ tell you when a new release exists but can't install it for you.
 
 Either way the app opens in its own
 window (WebView2, the browser engine built into Windows 10/11). No
-.NET required. Closing the window exits the app (reopening backfills from the
-log, so nothing is lost), and launching the exe again focuses the already-open
-window. On machines without the WebView2 runtime it falls back to your default
+.NET required. Closing the window exits the app (reopening resumes from a
+cache of what was already parsed, so nothing is lost and little is redone),
+and launching the exe again focuses the already-open window. On machines without the WebView2 runtime it falls back to your default
 browser, where deliberately closing the last tab shuts the app down a few
 seconds later — backgrounded or slept tabs do **not** stop it. Flags:
 `--browser` (use your default browser instead of the app window),

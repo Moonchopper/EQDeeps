@@ -16,6 +16,7 @@ public sealed class SessionManager : IAsyncDisposable
     private readonly SampleLog _sample;
     private readonly MobHealthStore _mobs;
     private readonly MobAttackStore _attacks;
+    private readonly LogCacheStore _caches;
     private readonly ConcurrentDictionary<string, SessionHost> _sessions = new();
     private readonly ConcurrentDictionary<string, IdentityRegistry> _registries =
         new(StringComparer.OrdinalIgnoreCase);
@@ -26,13 +27,21 @@ public sealed class SessionManager : IAsyncDisposable
         RecentLogs recents,
         SampleLog sample,
         MobHealthStore mobs,
-        MobAttackStore attacks)
+        MobAttackStore attacks,
+        LogCacheStore caches)
     {
         _hub = hub;
         _recents = recents;
         _sample = sample;
         _mobs = mobs;
         _attacks = attacks;
+        _caches = caches;
+
+        // Caches for logs that are gone, or that nobody has opened in months,
+        // are reclaimed here rather than never. Off the request path: it
+        // reads a header per file, and there is no reason to make the first
+        // open wait for it.
+        _ = Task.Run(() => _caches.Sweep());
     }
 
     public SessionHost Open(OpenSessionRequest request)
@@ -45,11 +54,15 @@ public sealed class SessionManager : IAsyncDisposable
         var serverName = LogFileNames.TryParse(request.Path, out _, out var server) ? server : "unknown";
         var registry = _registries.GetOrAdd(serverName, _ => new IdentityRegistry());
 
+        // The cache is validated against the log right here, so what the
+        // session restores is what the file still holds. Null when there can
+        // be no cache; the session then reads the log as it always has.
         var session = new Session(
             request.Path,
             registry,
             new IngestOptions { BackfillFrom = request.BackfillFrom },
-            emuMode: request.EmuMode);
+            emuMode: request.EmuMode,
+            cache: _caches.Open(request.Path, request.EmuMode));
 
         var id = "s" + Interlocked.Increment(ref _nextId);
 

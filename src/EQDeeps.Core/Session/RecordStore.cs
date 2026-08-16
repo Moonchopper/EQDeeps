@@ -28,6 +28,20 @@ public sealed class RecordStore
         Version++;
     }
 
+    /// <summary>
+    /// A copy of the records at <c>[from, to)</c>, for a caller that wants to
+    /// work on them off the session gate — the checkpoint writer serializes a
+    /// slice this way. Structs of a timestamp and a reference, so the copy is
+    /// cheap and the records themselves are shared, immutable, and safe to
+    /// read from any thread.
+    /// </summary>
+    public TimedRecord[] CopyRange(int from, int to)
+    {
+        var slice = new TimedRecord[Math.Max(0, to - from)];
+        _records.CopyTo(from, slice, 0, slice.Length);
+        return slice;
+    }
+
     /// <summary>Records with <c>from &lt;= Timestamp &lt;= to</c>.</summary>
     public IEnumerable<TimedRecord> Range(DateTime from, DateTime to)
     {

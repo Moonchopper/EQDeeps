@@ -204,9 +204,13 @@ change it on the other in the same commit.
 - `colors.ts` / `highlight.tsx` — the shared 16-colour cycling palette and the
   linked-highlight behaviour (point at one reading of an entity, light up the
   rest everywhere).
+- `components/NavRail.tsx` + `dashboards/railGroups.ts` — the grouped,
+  collapsible rail (ADR-017); `components/SettingsDialog.tsx` and
+  `components/LogPicker.tsx` are the two utilities it opens.
 
-Charting is ECharts; layout is react-grid-layout. **Every dependency must be
-MIT/Apache-2.0/BSD** — check the license before adding one, and add it to
+Charting is ECharts; layout is react-grid-layout; icons are Tabler
+(`@tabler/icons-react`, tree-shaken — import each icon by name). **Every
+dependency must be MIT/Apache-2.0/BSD** — check the license before adding one, and add it to
 `NOTICE` if it ships.
 
 ---

@@ -183,9 +183,11 @@ The harness holds each mode to its own ceiling — 32px comfortable, 28px compac
 
 ## Still open
 
-The `LORE ITEM`-style property tags, the ~30 Unicode glyph icons that still fall
-through to Segoe UI Symbol and will look increasingly out of place beside Plex,
-and the con chip above.
+The `LORE ITEM`-style property tags, the Unicode glyph icons that still fall
+through to Segoe UI Symbol and will look increasingly out of place beside
+Plex (the rail's are gone — ADR-017 decision 6 brought in Tabler Icons for
+it; the fight list's ⚔/☠, the ✕, ↻, ★ and the chevrons remain), and the con
+chip above.
 
 None of it has been seen in the running app on a real log. The ground split, the
 pill meters, the amber accent and the spline curvature are all things that would

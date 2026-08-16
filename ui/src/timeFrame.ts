@@ -1,6 +1,5 @@
 import type { FightInfo, QuerySpec } from "./api";
 import { DEFAULT_CHART_SETTINGS, type ChartSettings, type Span } from "./timeControls";
-import { DEFAULT_LABEL_PX } from "./fightOverlay";
 
 /**
  * What slice of the log the whole app is looking at. There is exactly one of
@@ -204,16 +203,16 @@ export function frameLabel(frame: TimeFrame, fights: FightInfo[]): string {
   return `${chosen.length || frame.fightIds.length} fights · ${length}`;
 }
 
-/** True when nothing has been changed from the app's opening state. */
-export function isDefaultState(
-  frame: TimeFrame,
-  settings: ChartSettings,
-  fightLabelPx: number,
-): boolean {
+/**
+ * True when the time state is the app's opening state: live, default range,
+ * default window. Preferences (overlay, strip, density…) are deliberately not
+ * part of this — they live in Settings now, and "reset" is the way back from
+ * a zoom or a framed fight, not a way to lose a preference (ADR-017).
+ */
+export function isDefaultState(frame: TimeFrame, settings: ChartSettings): boolean {
   return (
     frame.kind === "live" &&
     frame.spanSec === DEFAULT_CHART_SETTINGS.spanSec &&
-    settings.windowBuckets === DEFAULT_CHART_SETTINGS.windowBuckets &&
-    fightLabelPx === DEFAULT_LABEL_PX
+    settings.windowBuckets === DEFAULT_CHART_SETTINGS.windowBuckets
   );
 }

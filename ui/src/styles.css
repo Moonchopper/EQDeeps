@@ -146,7 +146,7 @@
   --shadow-overlay: 0 14px 34px -10px rgba(4, 3, 2, 0.72);
 
   /* ---- z-index ----
-     .range-menu, .update-menu and .modal-backdrop were all at 40. */
+     .range-menu, the old update menu and .modal-backdrop were all at 40. */
   --z-sticky: 5;
   --z-popover: 30;
   --z-backdrop: 40;
@@ -729,125 +729,129 @@ button.update-pill {
   color: var(--ink);
 }
 
-/* ---- update preferences menu ---- */
-.update-settings {
-  position: relative;
+/* ---- settings dialog ---- */
+.modal.settings {
+  width: min(560px, 92vw);
 }
 
-.version-btn {
-  text-decoration: none;
-  color: inherit;
-  font-size: inherit;
-}
-
-.version-btn:hover {
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-
-.gear-icon {
-  margin-left: 4px;
-  opacity: 0.75;
-}
-
-.version-btn:hover .gear-icon {
-  opacity: 1;
-  color: var(--ink);
-}
-
-/* On-demand update check, beside the version. */
-.check-btn {
-  margin-left: 6px;
-  padding: 0 3px;
-  color: var(--muted);
-  line-height: 1;
-}
-
-.check-btn:hover:enabled {
-  color: var(--ink);
-}
-
-.check-btn:disabled {
-  cursor: default;
-}
-
-.check-icon {
-  display: inline-block;
-  font-size: var(--fs-base);
-}
-
-.spinning {
-  animation: spin 900ms linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-/* Transient outcome of a manual check, so the button never looks inert. */
-.check-note {
-  margin-left: 6px;
-  color: var(--muted);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .spinning {
-    animation: none;
-  }
-}
-
-.update-menu {
-  position: absolute;
-  top: 22px;
-  right: 0;
-  z-index: var(--z-popover);
-  min-width: 230px;
-  padding: 10px 12px;
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: var(--r-card);
-  box-shadow: var(--shadow-overlay);
-  text-align: left;
-  font-weight: var(--w-normal);
-}
-
-.update-menu-title {
-  color: var(--muted);
-  font-size: var(--fs-tiny);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  margin-bottom: 6px;
-}
-
-.update-menu-row {
+.settings-title {
   display: flex;
   align-items: center;
-  gap: 7px;
-  padding: 3px 0;
+  justify-content: space-between;
+}
+
+.settings-section + .settings-section {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--grid);
+}
+
+.settings-heading {
+  margin: 0 0 6px;
   color: var(--ink-2);
-  font-size: var(--fs-small);
+  font-size: var(--fs-micro);
+  font-weight: var(--w-heavy);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* Control on the left, name and sentence on the right, so the eye can run
+   down the controls or down the names — a label with the checkbox trailing a
+   long sentence would leave the box somewhere different on every row. */
+.settings-row {
+  display: grid;
+  grid-template-columns: 24px 1fr;
+  gap: 4px 10px;
+  align-items: start;
+  padding: 5px 0;
   cursor: pointer;
 }
 
-.update-menu-row:hover {
+.settings-row:hover .settings-label {
   color: var(--ink);
 }
 
-.update-menu-foot {
+.settings-control {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-top: 9px;
-  padding-top: 8px;
-  border-top: 1px solid var(--border);
+  justify-content: center;
+  padding-top: 2px;
 }
 
-.update-menu-note {
+.settings-row select {
+  min-width: 120px;
+}
+
+/* A select is wider than a checkbox: it takes the whole first row and the
+   text drops beneath, rather than squeezing into a 24px column. */
+.settings-row:has(select) {
+  grid-template-columns: 1fr;
+}
+
+.settings-row:has(select) .settings-control {
+  justify-content: flex-start;
+  order: 2;
+}
+
+.settings-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.settings-label {
+  color: var(--ink-2);
+  font-size: var(--fs-small);
+  font-weight: var(--w-bold);
+}
+
+.settings-hint {
   color: var(--muted);
   font-size: var(--fs-tiny);
   line-height: 1.4;
+}
+
+.settings-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.settings-note {
+  color: var(--muted);
+  font-size: var(--fs-tiny);
+  line-height: 1.4;
+}
+
+/* ---- rail foot: the utility cluster ---- */
+.rail-foot {
+  margin-top: auto;
+  padding-top: 8px;
+  border-top: 1px solid var(--grid);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.rail-foot .rail-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rail-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.rail-version {
+  padding: 2px 10px 0 12px;
+  color: var(--muted);
+  font-size: var(--fs-micro);
+  font-variant-numeric: tabular-nums;
 }
 
 /* ---- dashboard grid ----

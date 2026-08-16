@@ -23,9 +23,10 @@
 > zone-id bands behind it are in that doc's §5.3 and re-derivable with
 > `scripts/derive-zone-eras.mjs`), and the rail regrouped by the question a
 > view answers — Combat, Character, World, Dashboards — with the group
-> deciding whether the fight list and time controls apply (ADR-017; the
-> Settings dialog, Logs popover and collapsible icon rail from the same brief
-> are phased behind it).
+> deciding whether the fight list and time controls apply, and the set-once
+> preferences gathered into a Settings dialog reached from a utility cluster
+> at the foot of the rail (ADR-017; the Logs popover and collapsible icon rail
+> from the same brief are phased behind it).
 > Currently at **v0.11.3**. See `docs/product/features.md` for per-feature
 > status. The main open items: real-log validation against EQLogParser (the
 > release gate), the spell-DB work (class detection, bane, lands-on

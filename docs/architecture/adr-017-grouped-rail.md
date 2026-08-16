@@ -109,3 +109,31 @@ name of their own to bring.
   rail can collapse — and auto-collapse on Map, where the zone list is a
   second left column. ADR-015's open note on the Unicode glyphs is the same
   item as that last one.
+
+## Decision 4 (2026-08-15): preferences in one dialog, reached from the rail's foot
+
+The header carried five different jobs, and two of them were preferences: two
+checkboxes by the log picker (pets → owners, compact) and four selects inside
+the time-controls group (overlay, hours, strip, scroll), plus an update menu
+hung off the version number. A thing you decide once sat beside the range you
+change all night, and the row had run out of width at anything narrower than
+the owner's monitor.
+
+Those now live in a **Settings** dialog — sections Display, Charts, Updates —
+opened from a **utility cluster pinned to the foot of the rail**, which also
+shows the version and a dot when an update is staged or on offer. Sections
+scale where a toolbar does not: the next preference gets a row, not a header
+slot. Every control writes straight through to the handler the header used,
+so a change shows behind the dialog as it is made and there is no Apply. The
+hover titles became visible sentences: a preference you set once is one you
+have to understand once, and a tooltip is the wrong place for a sentence.
+
+What stays in the header is what changes during play: the session tabs, the
+log picker (until the Logs popover), the time-frame group — range, window and
+the reset pill — and the update's *live* state (a download in flight, a staged
+install, a failure), which is something happening rather than something to
+set. `reset` now resets only the time state; it used to reset the fight
+overlay too, from when that sat in the same group, and a reset that quietly
+undid a preference was a trap.
+
+`UpdateSettings.tsx` is gone; its menu is the Updates section.

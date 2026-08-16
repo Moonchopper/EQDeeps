@@ -1,12 +1,9 @@
 import { useState, type CSSProperties } from "react";
-import type { DiscoveredLog, FightInfo, SessionInfo, UpdateMode, UpdateState } from "../api";
+import type { DiscoveredLog, FightInfo, SessionInfo, UpdateState } from "../api";
 import type { BackfillEvent } from "../live";
-import { UpdateSettings } from "./UpdateSettings";
 import { TimeControls, type ChartSettings } from "../timeControls";
 import { isDefaultState, type TimeFrame } from "../timeFrame";
 import { TimeRangePicker } from "./TimeRangePicker";
-import { LABEL_SIZE_CHOICES } from "../fightOverlay";
-import { CONTEXT_MODES, type ContextMode } from "../contextOverlay";
 
 interface Props {
   sessions: SessionInfo[];
@@ -16,14 +13,6 @@ interface Props {
   update: UpdateState | null;
   onShowUpdatePrompt: () => void;
   onApplyUpdate: () => void;
-  onSetUpdateMode: (mode: UpdateMode) => void;
-  onCheckForUpdate: () => void;
-  /** Transient result of a manual check, e.g. "up to date". */
-  checkNote: string | null;
-  petRollup: boolean;
-  density: "comfortable" | "compact";
-  onToggleDensity: (compact: boolean) => void;
-  onTogglePetRollup: (on: boolean) => void;
   /** App-wide window/span. Owned here, pushed down to every chart. */
   chartDefaults: ChartSettings;
   onChartDefaults: (next: ChartSettings) => void;
@@ -31,16 +20,6 @@ interface Props {
   frame: TimeFrame;
   fights: FightInfo[];
   onResetDefaults: () => void;
-  /** Fight overlay: -1 off, 0 bands only, otherwise the name size in px. */
-  fightLabelPx: number;
-  contextMode: ContextMode;
-  onContextMode: (mode: ContextMode) => void;
-  playedTimeOnly: boolean;
-  onPlayedTimeOnly: (on: boolean) => void;
-  onFightLabelPx: (px: number) => void;
-  /** Whether charts follow the wall clock through quiet time. */
-  liveScroll: boolean;
-  onLiveScroll: (on: boolean) => void;
   /**
    * Whether the current view reports over the app-wide time frame. The
    * World views (Mobs, Map) do not, and the time controls go with the fight
@@ -76,26 +55,11 @@ export function SessionBar({
   update,
   onShowUpdatePrompt,
   onApplyUpdate,
-  onSetUpdateMode,
-  onCheckForUpdate,
-  checkNote,
-  petRollup,
-  density,
-  onToggleDensity,
-  onTogglePetRollup,
   chartDefaults,
   onChartDefaults,
   frame,
   fights,
   onResetDefaults,
-  fightLabelPx,
-  contextMode,
-  onContextMode,
-  playedTimeOnly,
-  onPlayedTimeOnly,
-  onFightLabelPx,
-  liveScroll,
-  onLiveScroll,
   framed,
   onAbsoluteRange,
   onOpen,
@@ -181,28 +145,6 @@ export function SessionBar({
         />
         <button type="submit">Open log</button>
       </form>
-      <label
-        className="toggle"
-        title="Merge each pet's damage and healing into its owner's rows everywhere — a query-time switch, nothing reparses"
-      >
-        <input
-          type="checkbox"
-          checked={petRollup}
-          onChange={(e) => onTogglePetRollup(e.target.checked)}
-        />
-        pets → owners
-      </label>
-      <label
-        className="toggle"
-        title="Tighter table rows — about four more on screen, at the cost of some legibility"
-      >
-        <input
-          type="checkbox"
-          checked={density === "compact"}
-          onChange={(e) => onToggleDensity(e.target.checked)}
-        />
-        compact
-      </label>
       {backfill && !backfill.complete && backfill.totalBytes > 0 && (
         <span className="backfill">
           loading {Math.round((backfill.bytesProcessed / backfill.totalBytes) * 100)}%
@@ -230,91 +172,21 @@ export function SessionBar({
             showSpan={false}
             onChange={onChartDefaults}
           />
-          <label className="time-controls" title="Fight overlay: off, shaded bands only, or bands with mob names at this size">
-            overlay
-            <select
-              value={fightLabelPx}
-              onChange={(e) => onFightLabelPx(Number(e.target.value))}
-            >
-              {LABEL_SIZE_CHOICES.map((c) => (
-                <option key={c.value} value={c.value}>
-                  {c.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label
-            className="time-controls"
-            title="What the hours in a rate or a duration are counted from. Played cuts the gaps between play sessions out of the range, so a rate over a window that includes a night is not divided by the night."
-          >
-            hours
-            <select
-              value={playedTimeOnly ? "played" : "clock"}
-              onChange={(e) => onPlayedTimeOnly(e.target.value === "played")}
-            >
-              <option value="clock">wall clock</option>
-              <option value="played">played</option>
-            </select>
-          </label>
-          <label
-            className="time-controls"
-            title="A strip above every time chart showing which zone the character was in and what level they were"
-          >
-            strip
-            <select
-              value={contextMode}
-              onChange={(e) => onContextMode(e.target.value as ContextMode)}
-            >
-              {CONTEXT_MODES.map((c) => (
-                <option key={c.value} value={c.value}>
-                  {c.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label
-            className="toggle"
-            title="Keep the charts moving with the clock when the log goes quiet, drawing the idle time as zero. Off pins them to the newest record."
-          >
-            <input
-              type="checkbox"
-              checked={liveScroll}
-              onChange={(e) => onLiveScroll(e.target.checked)}
-            />
-            scroll
-          </label>
           <button
             className="mini-btn"
             onClick={onResetDefaults}
-            disabled={isDefaultState(frame, chartDefaults, fightLabelPx)}
+            disabled={isDefaultState(frame, chartDefaults)}
             title="Back to the opening state: live, 10 s window, 15 m time range"
           >
             reset
           </button>
         </span>
       )}
+      {/* Only the update's live state stays up here — a download in flight,
+          a staged install, a failure — because those are things happening,
+          not things to set. Preferences and the version moved to Settings. */}
       {update && (
         <span className="version">
-          <UpdateSettings
-            state={update}
-            onSetMode={onSetUpdateMode}
-            onCheckNow={onCheckForUpdate}
-          />
-          {/* On-demand check. Deliberately its own control rather than buried
-              in the menu: it is the way back for anyone who chose "don't ask
-              again", and it overrides auto mode to ask before installing. */}
-          <button
-            className="check-btn"
-            onClick={onCheckForUpdate}
-            disabled={update.stage === "checking"}
-            title="Check for updates now"
-            aria-label="Check for updates now"
-          >
-            <span className={update.stage === "checking" ? "check-icon spinning" : "check-icon"}>
-              ⟳
-            </span>
-          </button>
-          {checkNote && <span className="check-note">{checkNote}</span>}
           <UpdatePill
             state={update}
             onShowPrompt={onShowUpdatePrompt}

@@ -104,6 +104,9 @@ public sealed class MapLibrary
         _labels = labels;
     }
 
+    /// <summary>The label cache the graph was built from, for its hit counts.</summary>
+    public MapLabelCache Labels => _labels;
+
     /// <summary>
     /// The folder the user nominated, or null. <c>--mapRoot</c> deliberately
     /// does not appear here: a test's redirect is not a user preference, and

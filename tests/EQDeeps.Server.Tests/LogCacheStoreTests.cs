@@ -141,8 +141,27 @@ public sealed class LogCacheStoreTests : IAsyncLifetime
         File.WriteAllText(Path.Combine(store.Root, "junk.eqdc"), "not a cache");
         File.WriteAllText(Path.Combine(store.Root, "0123456789ABCDEF0123456789ABCDEF.eqdc"), "pre-build-suffix name");
 
-        // gone, old, junk, the unsuffixed one, and the two older dev builds.
-        Assert.Equal(6, store.Sweep());
+        // Label caches follow the same rule: mine, the newest foreign, and two
+        // older foreign ones that go.
+        void Labels(Guid build, DateTime written)
+        {
+            var path = Path.Combine(store.Root, MapLabelCache.FileNameFor(build));
+            File.WriteAllText(path, "{}");
+            File.SetLastWriteTimeUtc(path, written);
+        }
+
+        Labels(LogCache.CoreVersion, now);
+        Labels(release, now.AddDays(-1));
+        Labels(devA, now.AddDays(-3));
+        Labels(devB, now.AddDays(-2));
+
+        // gone, old, junk, the unsuffixed one, the two older dev builds — and
+        // the two older dev builds' label caches.
+        Assert.Equal(8, store.Sweep());
+        Assert.True(File.Exists(Path.Combine(store.Root, MapLabelCache.FileNameFor(LogCache.CoreVersion))));
+        Assert.True(File.Exists(Path.Combine(store.Root, MapLabelCache.FileNameFor(release))));
+        Assert.False(File.Exists(Path.Combine(store.Root, MapLabelCache.FileNameFor(devA))));
+        Assert.False(File.Exists(Path.Combine(store.Root, MapLabelCache.FileNameFor(devB))));
         Assert.True(File.Exists(store.PathFor(live)));
         Assert.True(File.Exists(store.PathFor(live, release)));
         Assert.False(File.Exists(store.PathFor(live, devA)));

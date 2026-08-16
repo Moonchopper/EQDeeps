@@ -6,9 +6,10 @@ using EQDeeps.Core.Maps;
 namespace EQDeeps.Server;
 
 /// <summary>
-/// The labels of every map file the world graph has been built from, on disk,
-/// so the next build reads a few thousand file stats instead of two hundred
-/// megabytes of geometry (issue #59; ADR-018 §6).
+/// The labels of every map file the world graph has been built from, on disk
+/// (<c>cache\map-labels-&lt;build&gt;.json</c>), so the next build reads a few
+/// thousand file stats instead of two hundred megabytes of geometry (issue
+/// #59; ADR-018 §6).
 ///
 /// <para>The graph needs one thing from each map — its <c>P</c> records, the
 /// labelled points whose <c>to_Zone</c> text names an exit — and getting them
@@ -46,19 +47,30 @@ public sealed class MapLabelCache
     private Dictionary<string, Entry>? _entries;
     private bool _dirty;
 
-    public MapLabelCache(string? root = null)
+    public MapLabelCache(string? root = null, Guid? build = null)
     {
+        // One file per Core build, for the same reason the log caches are:
+        // a build can only read its own (the label grammar is Core's), and a
+        // single shared file would have a dev build and the installed one
+        // taking turns rewriting it. LogCacheStore.Sweep keeps this bounded.
         _path = Path.Combine(
             root ?? Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "EQDeeps"),
-            "cache", "map-labels.json");
+            "cache", FileNameFor(build ?? LogCache.CoreVersion));
     }
+
+    /// <summary>The file name a build's label cache carries; the sweep matches on the prefix.</summary>
+    public static string FileNameFor(Guid build) =>
+        "map-labels-" + Convert.ToHexString(build.ToByteArray().AsSpan(0, 8)) + ".json";
 
     /// <summary>Where the cache lives, for tests and for the curious.</summary>
     public string FilePath => _path;
 
-    /// <summary>Files whose labels were parsed rather than served since the cache was loaded — a test's window onto the hit rate.</summary>
+    /// <summary>Files whose labels were parsed rather than served since the cache was loaded — the window onto the hit rate.</summary>
     public int Parsed { get; private set; }
+
+    /// <summary>Files whose labels were served from the cache since it was loaded.</summary>
+    public int Served { get; private set; }
 
     /// <summary>
     /// The labels-only layer for one map file: from the cache when the file's
@@ -92,6 +104,7 @@ public sealed class MapLabelCache
             var entries = Load();
             if (entries.TryGetValue(path, out var hit) && hit.Size == size && hit.Modified == modified)
             {
+                Served++;
                 return hit.ToLayer(index);
             }
         }

@@ -96,9 +96,10 @@ public sealed class LogCacheStore
     /// <summary>
     /// Deletes caches whose logs are gone, caches nothing has written in
     /// <see cref="SweepAge"/>, and, per log, every foreign build's cache but
-    /// the newest. Reads each header to learn the log path; a file that is
-    /// not a readable cache at all is deleted too. Never throws: a sweep that
-    /// fails is a little disk not reclaimed.
+    /// the newest — and the same for the world graph's label caches. Reads
+    /// each header to learn the log path; a file that is not a readable cache
+    /// at all is deleted too. Never throws: a sweep that fails is a little
+    /// disk not reclaimed.
     /// </summary>
     public int Sweep(DateTime? now = null, Guid? build = null)
     {
@@ -155,6 +156,17 @@ public sealed class LogCacheStore
                     // Held by a live session, or otherwise not ours to touch
                     // right now.
                 }
+            }
+
+            // The world graph's label caches follow the same per-build rule:
+            // this build's stays, the newest other build's stays, the rest go.
+            var labelFiles = Directory.EnumerateFiles(Root, "map-labels-*.json")
+                .Where(f => !string.Equals(Path.GetFileName(f), MapLabelCache.FileNameFor(build ?? LogCache.CoreVersion), StringComparison.OrdinalIgnoreCase))
+                .Select(f => (File: f, Written: File.GetLastWriteTimeUtc(f)))
+                .ToList();
+            if (labelFiles.Count > 0)
+            {
+                foreign["map-labels"] = labelFiles;
             }
 
             foreach (var list in foreign.Values)

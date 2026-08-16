@@ -152,7 +152,8 @@ geometry, because a map is one text stream with the labels scattered through
 click after every launch**, 4 ms after that, and gone with the process.
 
 `MapLabelCache` (Server) keeps each map file's labels in
-`cache\map-labels.json` — ~36,000 records, 3.5 MB — keyed by full path and
+`cache\map-labels-<build>.json` — ~36,000 records, 3.5 MB; per build for the
+same reason the log caches are, and swept by the same rule — keyed by full path and
 validated per entry against the file's size and last-write time, and the
 whole file stamped with the Core build (the label grammar is Core's). The
 same principle as the records: cache the expensive *input*, never the derived

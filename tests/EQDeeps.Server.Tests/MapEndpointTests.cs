@@ -71,17 +71,7 @@ public sealed class MapEndpointTests : IAsyncLifetime
         File.WriteAllText(Path.Combine(maps, "brewalls", "gfaydark.txt"),
             "L 0, 0, 0, 5, 5, 0, 255, 0, 255");
 
-        _app = ServerApp.Build([
-            "--urls", "http://127.0.0.1:0",
-            "--recentLogsRoot", _dir,
-            "--sampleLogRoot", _dir,
-            "--updateRoot", _dir,
-            "--mobRoot", _dir,
-            "--attackRoot", _dir,
-            "--storeRoot", _dir,
-            "--cacheRoot", _dir,
-            "--mapRoot", maps,
-        ]);
+        _app = ServerApp.Build(Args(maps));
         await _app.StartAsync();
         _http = new HttpClient { BaseAddress = new Uri(_app.Urls.First()) };
     }
@@ -99,6 +89,19 @@ public sealed class MapEndpointTests : IAsyncLifetime
         {
         }
     }
+
+    private string[] Args(string maps) =>
+    [
+        "--urls", "http://127.0.0.1:0",
+        "--recentLogsRoot", _dir,
+        "--sampleLogRoot", _dir,
+        "--updateRoot", _dir,
+        "--mobRoot", _dir,
+        "--attackRoot", _dir,
+        "--storeRoot", _dir,
+        "--cacheRoot", _dir,
+        "--mapRoot", maps,
+    ];
 
     private async Task<JsonElement> Get(string url)
     {
@@ -254,14 +257,35 @@ public sealed class MapEndpointTests : IAsyncLifetime
     [Fact]
     public async Task GraphWritesTheLabelCacheUnderTheRedirect()
     {
-        await Get("/api/maps/graph");
+        var first = await Get("/api/maps/graph");
+        Assert.Equal(9, first.GetProperty("mapsRead").GetInt32());
+        Assert.Equal(0, first.GetProperty("mapsRemembered").GetInt32());
 
-        var path = Path.Combine(_dir, "cache", "map-labels.json");
+        var path = Path.Combine(_dir, "cache", MapLabelCache.FileNameFor(EQDeeps.Core.Cache.LogCache.CoreVersion));
         Assert.True(File.Exists(path), $"Nothing was written to {path} — is the label cache wired?");
         var files = JsonDocument.Parse(await File.ReadAllTextAsync(path)).RootElement.GetProperty("files");
         // Every map file the fixture wrote, in both sets, layer files included.
         Assert.Equal(9, files.EnumerateObject().Count());
         Assert.Contains(files.EnumerateObject(), f => f.Name.EndsWith("gfaydark_1.txt", StringComparison.OrdinalIgnoreCase));
+
+        // A second launch against the same folders reads nothing and builds
+        // the same graph.
+        var again = ServerApp.Build(Args(Path.Combine(_dir, "maps")));
+        await again.StartAsync();
+        try
+        {
+            using var http = new HttpClient { BaseAddress = new Uri(again.Urls.First()) };
+            var second = await http.GetFromJsonAsync<JsonElement>("/api/maps/graph");
+            Assert.Equal(0, second.GetProperty("mapsRead").GetInt32());
+            Assert.Equal(9, second.GetProperty("mapsRemembered").GetInt32());
+            Assert.Equal(first.GetProperty("edges").GetRawText(), second.GetProperty("edges").GetRawText());
+            Assert.Equal(first.GetProperty("zones").GetRawText(), second.GetProperty("zones").GetRawText());
+        }
+        finally
+        {
+            await again.StopAsync();
+            await again.DisposeAsync();
+        }
     }
 
     [Fact]

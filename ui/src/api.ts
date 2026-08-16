@@ -409,6 +409,13 @@ export interface ZoneGraph {
   edges: ZoneGraphEdge[];
   /** Every expansion in release order, so era codes can be compared. */
   eras: ZoneEra[];
+  /**
+   * Map files read from disk to build this graph, and those whose labels came
+   * from the label cache; the first is zero once the cache is warm. Optional
+   * because the view derives sub-graphs that carry neither.
+   */
+  mapsRead?: number;
+  mapsRemembered?: number;
 }
 
 export interface ZoneRouteStep {

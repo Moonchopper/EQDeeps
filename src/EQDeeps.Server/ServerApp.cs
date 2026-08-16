@@ -292,7 +292,8 @@ public static class ServerApp
                 }
             }
 
-            return Results.Ok(new ZoneGraphDto(nodes, edges.ToArray(), ZoneEras.All));
+            return Results.Ok(new ZoneGraphDto(
+                nodes, edges.ToArray(), ZoneEras.All, maps.Labels.Parsed, maps.Labels.Served));
         });
 
         // `era` is the expansion the player says their server has reached; a

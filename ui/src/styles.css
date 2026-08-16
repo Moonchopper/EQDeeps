@@ -893,11 +893,58 @@ button.update-pill {
   box-shadow: 0 0 0 1.5px var(--page);
 }
 
+.rail-foot-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  padding: 3px 4px 0 12px;
+}
+
 .rail-version {
-  padding: 3px 10px 0 12px;
   color: var(--muted);
   font-size: var(--fs-micro);
   font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rail-check {
+  display: inline-flex;
+  padding: 2px;
+  border-radius: var(--r-chip);
+  color: var(--muted);
+}
+
+.rail-check:hover:enabled {
+  color: var(--ink);
+  background: var(--surface);
+}
+
+.rail-check:disabled {
+  cursor: default;
+}
+
+.spinning {
+  animation: spin 900ms linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinning {
+    animation: none;
+  }
+}
+
+.nav-rail.collapsed .rail-foot-row {
+  justify-content: center;
+  padding: 3px 0 0;
 }
 
 /* ---- dashboard grid ----

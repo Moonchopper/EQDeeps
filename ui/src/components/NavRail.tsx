@@ -11,6 +11,7 @@ import {
   IconLayoutSidebarLeftExpand,
   IconMap2,
   IconPlus,
+  IconRefresh,
   IconSettings,
   IconShield,
   IconSkull,
@@ -129,6 +130,9 @@ interface Props {
   onOpenLogs: () => void;
   onOpenSettings: () => void;
   update: UpdateState | null;
+  onCheckForUpdate: () => void;
+  /** Transient result of a manual check, e.g. "up to date". */
+  checkNote: string | null;
   collapsed: boolean;
   onToggleCollapsed: () => void;
 }
@@ -154,6 +158,8 @@ export function NavRail({
   onOpenLogs,
   onOpenSettings,
   update,
+  onCheckForUpdate,
+  checkNote,
   collapsed,
   onToggleCollapsed,
 }: Props) {
@@ -305,7 +311,36 @@ export function NavRail({
           <Toggle size={ICON_SIZE} stroke={ICON_STROKE} className="rail-icon" />
           <span className="rail-label">Collapse</span>
         </button>
-        {update && <span className="rail-version rail-label">v{update.version}</span>}
+        {/* The version, and a check for a newer one beside it — here rather
+            than only inside Settings, because "is there an update" is a
+            question people ask on the way past, and the answer belongs next
+            to the number it is about. The result shows in place for a few
+            seconds; a found update lights the dot on Settings and the pill
+            in the header. */}
+        {update && (
+          <div className="rail-foot-row">
+            <span className="rail-version rail-label">
+              {checkNote ?? `v${update.version}`}
+            </span>
+            <button
+              className="rail-check"
+              onClick={onCheckForUpdate}
+              disabled={update.stage === "checking"}
+              title={
+                collapsed
+                  ? `v${update.version} — check for updates${checkNote ? ` (${checkNote})` : ""}`
+                  : "Check for updates now"
+              }
+              aria-label="Check for updates now"
+            >
+              <IconRefresh
+                size={ICON_SIZE}
+                stroke={ICON_STROKE}
+                className={update.stage === "checking" ? "spinning" : undefined}
+              />
+            </button>
+          </div>
+        )}
       </div>
     </nav>
   );

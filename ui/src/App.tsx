@@ -15,6 +15,7 @@ import { IncomingPanel } from "./components/IncomingPanel";
 import { MobHealthPanel } from "./components/MobHealthPanel";
 import { describeAge, SessionBar } from "./components/SessionBar";
 import { UpdateNotice, type UpdateChoice } from "./components/UpdateNotice";
+import { SettingsDialog } from "./components/SettingsDialog";
 import { FightList } from "./components/FightList";
 import { SummaryTable } from "./components/SummaryTable";
 import { DpsChart } from "./components/DpsChart";
@@ -183,6 +184,7 @@ export default function App() {
   const [discovered, setDiscovered] = useState<DiscoveredLog[]>([]);
   const [update, setUpdate] = useState<UpdateState | null>(null);
   const [showUpdateNotice, setShowUpdateNotice] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [checkNote, setCheckNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [dashboards, setDashboards] = useState<DashboardDef[]>([]);
@@ -291,11 +293,12 @@ export default function App() {
   }
 
   /** One control for "put it back how it started". */
+  // The time state only: the fight overlay used to be reset here too, from
+  // when it sat in the same header group; it is a preference now.
   function resetToDefaults() {
     setFrame(DEFAULT_FRAME);
     setChartDefaults(DEFAULT_CHART_SETTINGS);
     localStorage.setItem("eqdeeps.chartDefaults", JSON.stringify(DEFAULT_CHART_SETTINGS));
-    updateFightLabelPx(DEFAULT_LABEL_PX);
   }
 
   function updateFightLabelPx(px: number) {
@@ -781,6 +784,27 @@ export default function App() {
       {showUpdateNotice && update?.latestVersion && (
         <UpdateNotice state={update} onChoice={answerUpdate} />
       )}
+      {showSettings && (
+        <SettingsDialog
+          onClose={() => setShowSettings(false)}
+          density={density}
+          onDensity={toggleDensity}
+          petRollup={petRollup}
+          onPetRollup={togglePetRollup}
+          fightLabelPx={fightLabelPx}
+          onFightLabelPx={updateFightLabelPx}
+          contextMode={contextMode}
+          onContextMode={updateContextMode}
+          playedTimeOnly={playedTimeOnly}
+          onPlayedTimeOnly={updatePlayedTimeOnly}
+          liveScroll={liveScroll}
+          onLiveScroll={toggleLiveScroll}
+          update={update}
+          onSetUpdateMode={setUpdateMode}
+          onCheckForUpdate={checkForUpdateNow}
+          checkNote={checkNote}
+        />
+      )}
       <SessionBar
         sessions={sessions}
         activeId={activeId}
@@ -789,26 +813,11 @@ export default function App() {
         update={update}
         onShowUpdatePrompt={() => setShowUpdateNotice(true)}
         onApplyUpdate={applyUpdateNow}
-        onSetUpdateMode={setUpdateMode}
-        onCheckForUpdate={checkForUpdateNow}
-        checkNote={checkNote}
-        petRollup={petRollup}
-        onTogglePetRollup={togglePetRollup}
-        density={density}
-        onToggleDensity={toggleDensity}
         chartDefaults={chartDefaults}
         onChartDefaults={updateChartDefaults}
         frame={frame}
         fights={fights}
         onResetDefaults={resetToDefaults}
-        fightLabelPx={fightLabelPx}
-        onFightLabelPx={updateFightLabelPx}
-        contextMode={contextMode}
-        onContextMode={updateContextMode}
-        playedTimeOnly={playedTimeOnly}
-        onPlayedTimeOnly={updatePlayedTimeOnly}
-        liveScroll={liveScroll}
-        onLiveScroll={toggleLiveScroll}
         framed={!activeId || view !== "overview" || isFramedView(effectiveStdView)}
         onAbsoluteRange={adoptRange}
         onOpen={openLog}
@@ -930,6 +939,24 @@ export default function App() {
                   </button>
                 </div>
               )}
+              </div>
+              {/* The utility cluster, pinned to the foot of the rail: what
+                  the app is and how it is set, apart from where you are in
+                  it. Settings first; the log picker joins it next (ADR-017). */}
+              <div className="rail-foot">
+                <button
+                  className="rail-tab"
+                  onClick={() => setShowSettings(true)}
+                  title="Display, chart and update preferences"
+                >
+                  Settings
+                  {/* A staged or offered update is the one thing in here
+                      worth a glance before you open it. */}
+                  {update && (update.restartRequired || update.promptRequired) && (
+                    <span className="rail-dot" aria-label="Update available" />
+                  )}
+                </button>
+                {update && <span className="rail-version">v{update.version}</span>}
               </div>
             </nav>
             {/* Three cases: a standard view, the hand-built Summary that

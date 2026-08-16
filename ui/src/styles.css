@@ -1603,6 +1603,31 @@ th.num {
    rule, not just a gap. Headings and entries at the same grey read as one
    flat list with some rows in caps, which is exactly what grouping the rail
    was meant to fix. */
+/* The chevron row above the first group: right-aligned against the rail's
+   edge when expanded, centred over the icon column when collapsed. */
+.rail-top {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 2px 2px 0;
+}
+
+.rail-chevron {
+  display: inline-flex;
+  padding: 2px;
+  border-radius: var(--r-chip);
+  color: var(--muted);
+}
+
+.rail-chevron:hover {
+  color: var(--ink);
+  background: var(--surface);
+}
+
+.nav-rail.collapsed .rail-top {
+  justify-content: center;
+  padding: 0 0 2px;
+}
+
 .rail-heading {
   padding: 4px 8px 5px;
   color: var(--ink-2);

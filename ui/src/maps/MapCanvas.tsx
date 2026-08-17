@@ -35,6 +35,19 @@ export interface MapView {
   y: number;
 }
 
+/**
+ * A point to draw over the map — a spawn point, in **map** coordinates
+ * (the caller has already turned the game's into the file's).
+ */
+export interface MapMarker {
+  x: number;
+  y: number;
+  /** What stands here; drawn beside the point when there are few enough to read. */
+  label: string;
+  /** Drawn larger and brighter — the one being pointed at. */
+  lit?: boolean;
+}
+
 interface Props {
   map: ZoneMap;
   /** Layer indices to draw. */
@@ -45,6 +58,8 @@ interface Props {
   zRange?: [number, number] | null;
   /** A label the user is pointing at elsewhere — drawn picked out. */
   highlight?: string | null;
+  /** Points to draw over the map — a mob's spawn points, from the Bestiary. */
+  markers?: MapMarker[];
   /** Clicking an exit label. The argument is the destination as written. */
   onTravel?: (destination: string) => void;
 }
@@ -66,6 +81,7 @@ export function MapCanvas({
   trueColors = false,
   zRange = null,
   highlight = null,
+  markers = [],
   onTravel,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -236,8 +252,44 @@ export function MapCanvas({
       }
     }
 
+    // ---- markers ---------------------------------------------------------
+    // Spawn points, over everything: a filled disc with a dark halo so it
+    // reads on dense geometry, in the accent so it is unmistakably ours and
+    // not the mapmaker's. Names go beside them only while there are few
+    // enough to read; past that the dots are the answer and the header names
+    // the mob.
+    if (markers.length > 0) {
+      const named = markers.length <= 12;
+      for (const m of markers) {
+        const sx = FLIP_X * m.x * view.scale + view.x;
+        const sy = FLIP_Y * m.y * view.scale + view.y;
+        if (sx < -20 || sy < -20 || sx > size.w + 20 || sy > size.h + 20) {
+          continue;
+        }
+
+        const r = m.lit ? 7 : 5;
+        ctx.beginPath();
+        ctx.arc(sx, sy, r + 2, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(15,13,11,0.9)";
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(sx, sy, r, 0, Math.PI * 2);
+        ctx.fillStyle = m.lit ? "#f1ece3" : "#e8963c";
+        ctx.fill();
+
+        if (named || m.lit) {
+          ctx.lineWidth = 3;
+          ctx.strokeStyle = "rgba(15,13,11,0.85)";
+          ctx.strokeText(m.label, sx + r + 4, sy);
+          ctx.lineWidth = 1;
+          ctx.fillStyle = m.lit ? "#f1ece3" : "#e8963c";
+          ctx.fillText(m.label, sx + r + 4, sy);
+        }
+      }
+    }
+
     placedRef.current = placed;
-  }, [map, layers, trueColors, zRange, highlight, size]);
+  }, [map, layers, trueColors, zRange, highlight, markers, size]);
 
   useEffect(() => {
     cancelAnimationFrame(frameRef.current);

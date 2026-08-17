@@ -39,12 +39,26 @@ public enum ZoneNameSource
 /// A <see cref="ZoneEra.Id"/>, or null when unknown. Null is a first-class
 /// answer, not a gap: it means "shown under every era filter".
 /// </param>
+/// <param name="Ids">
+/// Every zone id the client's own name table gives this display name,
+/// ascending; empty when the table has none. Several is normal — a revamp
+/// keeps the name ("The Ocean of Tears" is 69, 409 and 569) — and so is two
+/// short names sharing the same ids, since <c>freportw</c> and
+/// <c>freeportwest</c> are two drawings of one name. The ids are the client's
+/// numbers, read off <c>ZoneNames.txt</c> offline by
+/// <c>scripts/derive-zone-eras.mjs</c>; the reference layer (ADR-020) uses
+/// them as addresses, and checks what it finds at one against content.
+/// </param>
 public sealed record ZoneEntry(
     string ShortName,
     string DisplayName,
     ZoneNameSource Source,
     string? Era = null,
-    ZoneEraSource? EraSource = null);
+    ZoneEraSource? EraSource = null,
+    IReadOnlyList<int>? Ids = null)
+{
+    public IReadOnlyList<int> Ids { get; init; } = Ids ?? Array.Empty<int>();
+}
 
 /// <summary>
 /// Joins the name the log speaks ("The Estate of Unrest") to the name the map
@@ -90,6 +104,7 @@ public sealed class ZoneTable
 {
     private readonly FrozenDictionary<string, IReadOnlyList<string>> _byDisplay;
     private readonly FrozenDictionary<string, ZoneEntry> _byShortName;
+    private readonly FrozenDictionary<int, IReadOnlyList<ZoneEntry>> _byId;
 
     private ZoneTable(IReadOnlyList<ZoneEntry> entries)
     {
@@ -98,6 +113,14 @@ public sealed class ZoneTable
         _byShortName = entries
             .GroupBy(e => e.ShortName, StringComparer.OrdinalIgnoreCase)
             .ToFrozenDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+
+        // An id names a place, and a place may have several drawings — so an
+        // id maps to every entry that carries it, first-listed first, and the
+        // caller decides which map to open the way the Map view already does.
+        _byId = entries
+            .SelectMany(e => e.Ids.Select(id => (id, e)))
+            .GroupBy(x => x.id)
+            .ToFrozenDictionary(g => g.Key, g => (IReadOnlyList<ZoneEntry>)g.Select(x => x.e).ToArray());
 
         // Many-to-one is normal, not a defect: a zone that was revamped keeps
         // its old map alongside the new one (freportw and freeportwest are both
@@ -151,11 +174,20 @@ public sealed class ZoneTable
         _byShortName.TryGetValue(shortName, out var entry) ? entry.Era : null;
 
     /// <summary>
-    /// Reads the TSV form: <c>shortname\tdisplay\tsource[\tera\terasource]</c>.
-    /// Blank lines and <c>#</c> comments are skipped; a row that does not parse
-    /// is skipped rather than thrown, on the same principle as the log parser.
-    /// An era code this build does not recognise is read as no era — shown, not
-    /// hidden — for the same reason.
+    /// The entries carrying a client zone id — the place that id names, in
+    /// each of its drawings — or empty when no row does.
+    /// </summary>
+    public IReadOnlyList<ZoneEntry> ZonesForId(int id) =>
+        _byId.TryGetValue(id, out var entries) ? entries : Array.Empty<ZoneEntry>();
+
+    /// <summary>
+    /// Reads the TSV form:
+    /// <c>shortname\tdisplay\tsource[\tera\terasource[\tids]]</c>. Blank lines
+    /// and <c>#</c> comments are skipped; a row that does not parse is skipped
+    /// rather than thrown, on the same principle as the log parser. An era code
+    /// this build does not recognise is read as no era — shown, not hidden — for
+    /// the same reason, and an id that is not a number is dropped from the list
+    /// rather than sinking the row.
     /// </summary>
     public static ZoneTable Parse(string tsv)
     {
@@ -201,7 +233,16 @@ public sealed class ZoneTable
                     ? ZoneEraSource.Curated
                     : ZoneEraSource.Id;
 
-            entries.Add(new ZoneEntry(shortName, display, source, era, eraSource));
+            var ids = cells.Length > 5
+                ? cells[5].Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                    .Select(s => int.TryParse(s, out var id) ? id : (int?)null)
+                    .Where(id => id is > 0)
+                    .Select(id => id!.Value)
+                    .Distinct()
+                    .ToArray()
+                : Array.Empty<int>();
+
+            entries.Add(new ZoneEntry(shortName, display, source, era, eraSource, ids));
         }
 
         return new ZoneTable(entries);
@@ -229,7 +270,7 @@ public sealed class ZoneTable
     /// so all three are removed before comparing. "Bazaar" and "The Bazaar" are
     /// the same place and must land on the same key.
     /// </summary>
-    internal static string Normalize(string value)
+    public static string Normalize(string value)
     {
         var sb = new StringBuilder(value.Length);
 

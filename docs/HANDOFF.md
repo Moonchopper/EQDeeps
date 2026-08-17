@@ -58,7 +58,14 @@
 > named only when the text belongs to one (F10a); and the duration columns of
 > that same file identified against durations measured from the log itself, so
 > the timeline now draws received buffs — debuffs on mobs included — and ends
-> an unfaded buff of the owner's own when the spell says it would (F10b).
+> an unfaded buff of the owner's own when the spell says it would (F10b); and
+> the Bestiary's second pass: it opens on the mobs this server has killed and
+> browses the rest by level, a mob's page leads with listed-beside-measured
+> health and hits with a con colour, and it is joined to the Map both ways —
+> a mob's zones open the map with its spawn points drawn, a zone's roster
+> opens the mob, with a trail of crumbs back — which rests on the reference
+> site numbering NPCs by client zone id, so `zones.tsv` now carries those ids
+> (ADR-020 decision 6, map format doc §3).
 > Currently at **v0.14.0**. See `docs/product/features.md` for per-feature
 > status. The main open items: the release-gate invariants (CLAUDE.md §8 —
 > defined, not yet written), class detection from the client's spell files

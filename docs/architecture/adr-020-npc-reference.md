@@ -127,6 +127,55 @@ on a consed level, 60%, with the median ratio moving from ×1.12 to ×1.08 —
 about what overkill alone should cost. So the app shows the match, says what
 backed it, and leaves the reader to judge.
 
+## Decision 6: a shard is a zone, and the client's zone ids are its address (2026-08-17)
+
+The site numbers its NPCs as **zone id × 1000 + n**, where the zone id is
+the client's own: Neriak Third Gate is 42 and its 107 NPCs are 42000–42116,
+West Karana is 12 and its 171 are 12000–12197. Checked on every shard fetched
+while this was written (12, 14, 20, 21, 22, 42, 58) and against the site's own
+zone pages, which list exactly the shard's rows. Two things follow, and both
+were the missing half of the feature:
+
+- **A zone's roster is one file.** `GET /api/reference/zones/{shortName}/npcs`
+  reads the shard at the zone's id and returns every listing that stands
+  there — the Map view's "who is here", with the log's kills marked beside
+  each name.
+- **A listing's zone is known from its id alone.** "Where does a ghoul stand"
+  is 33 listings across 9 zones; answering it from stat blocks would be nine
+  shard fetches (~1.4 MB), and from the ids it is none. Every browse row now
+  carries its `places` (`NpcPlaces`), which is what the Map's mob search and
+  the Bestiary's "also listed in" chips are made of.
+
+For that the app has to know the client's zone ids, which it did not:
+`zones.tsv` derived its *era* columns from them but did not keep them. It
+now carries an `ids` column — every id the client's `ZoneNames.txt` gives the
+row's display name, written by the same `derive-zone-eras.mjs` and checked
+in as data, so the app still never reads the player's install for it. A name
+with several ids (revamps keep the name) lists them all.
+
+**It is their convention, not a contract**, so nothing built on it is taken
+on trust. A roster keeps only the rows whose own `zones` field names this
+zone — by the site's short name, or by the place's name for a zone with two
+drawings — so a wrong id costs one fetch and an honest "not known", never
+another zone's roster under this zone's heading. A missing shard (the site
+does not cover the zone) is a 404 and is treated as an empty answer, not as
+the reference being down. Places derived from ids are cross-checked against
+the index's own zone rows where it has one; an id the zone table has no
+place for is kept, unnamed, so the listing count still adds up on screen.
+
+**Spawn points on the map.** A stat block's `locs` are `[x, y, z]` in the
+game's coordinates; the map files' are the same axes negated, so a spawn
+draws at `(−x, −y)`. Settled against the data rather than folklore: under
+that transform every one of 1,265 spawn points across six zones lands inside
+its map's bounding box, and under no other transform do more than 60% —
+see the map format doc §3.
+
+**Opening the view is the ask.** The index used to load on the first search,
+which left the header saying "loading…" with nothing loading behind it. It
+now loads when the view opens (`/api/reference/status?warm=true`): the user
+clicked Bestiary, which is exactly the consent Decision 2 waits for, and the
+Settings switch still gates every byte.
+
 ## What was considered and not done
 
 - **A log-derived NPC registry** (the original plan). Measured at 24% coverage
@@ -148,7 +197,13 @@ backed it, and leaves the reader to judge.
 - The Bestiary is the first view whose content is partly not ours. It says so,
   every time, in the panel it appears in.
 - If EQLBase changes shape or disappears, the Bestiary empties and says why;
-  nothing else in the app notices.
+  nothing else in the app notices. If it renumbers its NPCs, rosters go
+  "not known" and the places chips go quiet — visibly, not wrongly.
+- The Bestiary and the Map are joined both ways (a mob's zones open the map
+  with its spawn points drawn; a zone's roster opens the mob), with a trail
+  of crumbs back. `zones.tsv` is now load-bearing for the reference layer as
+  well as for the maps, so a row added there should carry its ids — the
+  derive script writes them.
 - Open: item icons could come from the same source (`iconId` is already in the
   data), and the same index could seed F21's level-normalized DPS — both are
   cross-checks against our own measurements rather than replacements for them.

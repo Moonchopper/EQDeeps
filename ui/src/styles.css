@@ -3323,3 +3323,617 @@ tr:hover .lookup-btn,
   margin: 6px 0 0;
   font-size: var(--fs-tiny);
 }
+
+/* ---- bestiary landing, hero and places (F30, second pass) ----------------
+   The view opens on the mobs this server has killed and browses the rest by
+   level; a mob page leads with the two numbers that decide a fight — theirs
+   beside ours — and every zone on it is a hop to the map. */
+
+.trail-host {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  min-height: 0;
+}
+
+.trail-host > .bestiary,
+.trail-host > .map-main {
+  flex: 1;
+  min-height: 0;
+}
+
+/* The way back. A strip, not a bar: it only exists once there is somewhere
+   to return to, and it should read as a trail rather than a header. */
+.trail {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px;
+  font-size: var(--fs-tiny);
+  color: var(--muted);
+}
+
+.trail-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.trail-crumb {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--border);
+  color: var(--ink-2);
+}
+
+.trail-crumb:hover {
+  border-color: var(--accent);
+  color: var(--ink);
+}
+
+.trail-sep {
+  color: var(--muted);
+}
+
+.trail-here {
+  padding-left: 4px;
+}
+
+.bestiary-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 8px 6px;
+  border-bottom: 1px solid var(--grid);
+}
+
+.bestiary-input {
+  margin: 0;
+  padding: 5px 8px;
+  background: var(--page);
+  border: 1px solid var(--border);
+  border-radius: var(--r-control);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--fs-small);
+}
+
+.bestiary-bands {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.bestiary-band {
+  padding: 1px 7px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-pill);
+  color: var(--muted-raised);
+  font-size: var(--fs-micro);
+}
+
+.bestiary-band:hover {
+  border-color: var(--accent);
+  color: var(--ink);
+}
+
+.bestiary-band.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+.bestiary-more {
+  padding: 6px 8px 2px;
+  font-size: var(--fs-tiny);
+}
+
+.bestiary-landing {
+  padding: 4px 0;
+}
+
+.bestiary-landing-title {
+  margin: 4px 8px 4px;
+  color: var(--muted);
+  font-size: var(--fs-micro);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  font-weight: var(--w-bold);
+}
+
+.bestiary-landing-title .subtle {
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: var(--w-normal);
+}
+
+.bestiary-landing-empty {
+  text-align: left;
+  padding: 16px 12px;
+}
+
+/* Nothing picked yet: say what the page will be, not just that it is empty. */
+.bestiary-blank {
+  padding: 32px 28px;
+  max-width: 56ch;
+  color: var(--ink-2);
+}
+
+.bestiary-blank-lead {
+  margin: 0 0 6px;
+  color: var(--ink);
+  font-size: var(--fs-lg);
+  font-weight: var(--w-bold);
+}
+
+.bestiary-blank .subtle {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.bestiary-head {
+  flex-wrap: wrap;
+}
+
+.bestiary-head .panel-name {
+  font-size: var(--fs-lg);
+}
+
+.bestiary-head-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  font-weight: var(--w-normal);
+}
+
+/* Which level the con colours read against. A socket, since it is typed in. */
+.bestiary-con {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-tiny);
+}
+
+.bestiary-con input {
+  width: 46px;
+  padding: 1px 4px;
+  background: var(--page);
+  border: 1px solid var(--border);
+  border-radius: var(--r-control);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--fs-tiny);
+  text-align: center;
+}
+
+.bestiary-con b {
+  font-weight: var(--w-bold);
+}
+
+.bestiary-body {
+  padding: 10px 12px 12px;
+}
+
+/* Several short tables share this one scroller, so a sticky header from the
+   first would ride over the second's rows. None of them is long enough to
+   need one. */
+.bestiary-body th {
+  position: static;
+}
+
+/* The two numbers that decide a fight, theirs beside ours. Cards rather than
+   tiles, and first, because everything else on the page is a footnote to
+   them. */
+.bestiary-hero {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 10px;
+  padding: 2px 0 10px;
+}
+
+.bestiary-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-card);
+  background: var(--surface-2);
+}
+
+.bestiary-card-title {
+  color: var(--muted);
+  font-size: var(--fs-micro);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  font-weight: var(--w-bold);
+}
+
+.bestiary-card-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+
+.bestiary-card-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+/* Between a stat value and a dashboard tile on purpose: two numbers being
+   compared, not one being announced. */
+.bestiary-card-value {
+  color: var(--ink);
+  font-size: 22px;
+  font-weight: var(--w-bold);
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+}
+
+.bestiary-card-value.measured {
+  color: var(--accent);
+}
+
+.bestiary-card-value.none {
+  color: var(--muted);
+}
+
+/* The ratio's colour is a reading aid for the verdict below it, not a grade:
+   about-listed is the quiet case, and both directions of disagreement are
+   the interesting ones. */
+.bestiary-card-value.ratio.ok {
+  color: var(--ink-2);
+}
+
+.bestiary-card-value.ratio.high {
+  color: var(--gold);
+}
+
+.bestiary-card-value.ratio.low {
+  color: var(--sample);
+}
+
+.bestiary-card-label {
+  color: var(--muted);
+  font-size: var(--fs-micro);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.bestiary-card-note {
+  font-size: var(--fs-tiny);
+  line-height: 1.4;
+}
+
+.bestiary-none {
+  margin: 0;
+}
+
+.bestiary-more-rows {
+  margin: 4px 0 0;
+  font-size: var(--fs-tiny);
+}
+
+.bestiary-hits {
+  margin-top: 8px;
+}
+
+.bestiary-h4-note {
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: var(--w-normal);
+}
+
+/* Where this listing stands: each zone a row that opens the map. */
+.bestiary-places {
+  list-style: none;
+  margin: 0 0 6px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.bestiary-place-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 5px 8px;
+  border: 1px solid var(--grid);
+  border-radius: var(--r-inner);
+  color: var(--ink-2);
+  text-align: left;
+  font-size: var(--fs-small);
+}
+
+.bestiary-place-btn:hover {
+  border-color: var(--accent);
+  color: var(--ink);
+  background: var(--hover);
+}
+
+.bestiary-place-btn svg {
+  color: var(--accent);
+  flex: none;
+}
+
+.bestiary-place-name {
+  color: var(--ink);
+  font-weight: var(--w-bold);
+}
+
+.bestiary-place-go {
+  margin-left: auto;
+}
+
+/* Every other place the name stands in: chips, each of which reads that
+   listing, with a small map door beside it. */
+.bestiary-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  padding-top: 6px;
+}
+
+.bestiary-chip {
+  display: inline-flex;
+  align-items: stretch;
+  border: 1px solid var(--border);
+  border-radius: var(--r-pill);
+  overflow: hidden;
+  font-size: var(--fs-tiny);
+  color: var(--ink-2);
+}
+
+.bestiary-chip.on {
+  border-color: var(--accent);
+  color: var(--ink);
+}
+
+.bestiary-chip-main {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  padding: 2px 8px;
+  color: inherit;
+}
+
+.bestiary-chip-main:hover {
+  background: var(--hover);
+  color: var(--ink);
+}
+
+.bestiary-chip-lvl,
+.bestiary-chip-era {
+  color: var(--muted-raised);
+  font-size: var(--fs-micro);
+}
+
+.bestiary-chip-map {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 7px;
+  border-left: 1px solid var(--border);
+  color: var(--muted-raised);
+}
+
+.bestiary-chip-map:hover {
+  color: var(--accent);
+  background: var(--hover);
+}
+
+.bestiary-seen {
+  margin-left: 8px;
+  padding: 0 6px;
+  border-radius: var(--r-pill);
+  background: var(--selected);
+  color: var(--live);
+  font-size: var(--fs-micro);
+}
+
+/* The six con colours, as the game paints a /consider. Chosen for the dark
+   surface — the game's own blue is unreadable here — and used only as a
+   reading aid (see conColor.ts — not con.ts, which Windows would read as
+   the console device and refuse to check out). */
+.con-green { color: #7fd18a; }
+.con-lightblue { color: #8fd3ff; }
+.con-blue { color: #6f9cf5; }
+.con-white { color: var(--ink); }
+.con-yellow { color: var(--gold); }
+.con-red { color: var(--danger); }
+
+.bestiary-variant.con-green.on { background: #7fd18a; border-color: #7fd18a; color: var(--accent-ink); }
+.bestiary-variant.con-lightblue.on { background: #8fd3ff; border-color: #8fd3ff; color: var(--accent-ink); }
+.bestiary-variant.con-blue.on { background: #6f9cf5; border-color: #6f9cf5; color: var(--accent-ink); }
+.bestiary-variant.con-white.on { background: var(--ink); border-color: var(--ink); color: var(--accent-ink); }
+.bestiary-variant.con-yellow.on { background: var(--gold); border-color: var(--gold); color: var(--accent-ink); }
+.bestiary-variant.con-red.on { background: var(--danger); border-color: var(--danger); color: var(--accent-ink); }
+
+/* ---- the map's mobs tab (F30 × F27) --------------------------------------
+   Who stands in the zone on screen, and where any mob stands. */
+.map-rail-tabs {
+  display: flex;
+  flex: none; /* the rail is a flex column and the list below is tall: without this the tabs shrink to a sliver */
+  border: 1px solid var(--border);
+  border-radius: var(--r-control);
+  overflow: hidden;
+}
+
+.map-rail-tab {
+  flex: 1;
+  padding: 3px 0;
+  color: var(--muted);
+  font-size: var(--fs-tiny);
+  text-align: center;
+}
+
+.map-rail-tab + .map-rail-tab {
+  border-left: 1px solid var(--border);
+}
+
+.map-rail-tab:hover {
+  color: var(--ink);
+  background: var(--hover);
+}
+
+.map-rail-tab.on {
+  color: var(--accent);
+  background: var(--selected);
+}
+
+.map-mob-heading {
+  padding: 5px 8px 3px;
+  color: var(--ink);
+  font-size: var(--fs-tiny);
+  font-weight: var(--w-bold);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+}
+
+.map-mob {
+  display: flex;
+  flex-direction: column;
+  border-bottom: 1px solid var(--border);
+}
+
+.map-mob:last-child {
+  border-bottom: none;
+}
+
+.map-mob-name {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  width: 100%;
+  padding: 3px 8px;
+  color: var(--ink-2);
+  font-size: var(--fs-small);
+  text-align: left;
+}
+
+.map-mob-name:hover {
+  background: var(--hover);
+  color: var(--ink);
+}
+
+.map-mob-lvl {
+  flex: none;
+  min-width: 40px;
+  color: var(--muted-raised);
+  font-size: var(--fs-micro);
+  font-variant-numeric: tabular-nums;
+}
+
+.map-mob-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.map-mob-kills {
+  margin-left: auto;
+  flex: none;
+  color: var(--accent);
+  font-size: var(--fs-micro);
+  font-variant-numeric: tabular-nums;
+}
+
+.map-mob-places {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  padding: 0 8px 5px 8px;
+}
+
+.map-mob-place {
+  padding: 0 6px;
+  border: 1px solid var(--grid);
+  border-radius: var(--r-pill);
+  color: var(--muted-raised);
+  font-size: var(--fs-micro);
+}
+
+.map-mob-place:hover {
+  border-color: var(--accent);
+  color: var(--ink);
+}
+
+.map-mob-place.on {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.map-mob-place.none {
+  font-style: italic;
+  border-style: dashed;
+}
+
+/* A roster row: the name, and a pin beside it when it has spawn points. */
+.map-roster-row {
+  flex-direction: row;
+  align-items: stretch;
+}
+
+.map-roster-row .map-mob-name {
+  flex: 1;
+  min-width: 0;
+}
+
+.map-roster-row.pinned {
+  background: var(--selected);
+}
+
+.map-mob-pin {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 7px;
+  color: var(--muted);
+  border-left: 1px solid var(--grid);
+}
+
+.map-mob-pin:hover,
+.map-mob-pin.on {
+  color: var(--accent);
+}
+
+/* Whose spawn points are on the map, in the header where the drawing's
+   other controls are. */
+.map-spawn-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 1px 4px 1px 8px;
+  border: 1px solid var(--accent);
+  border-radius: var(--r-pill);
+  color: var(--accent);
+  font-size: var(--fs-tiny);
+}
+
+.map-spawn-name {
+  color: var(--ink);
+  font-weight: var(--w-bold);
+}
+
+.map-spawn-name:hover {
+  text-decoration: underline;
+}
+
+.map-spawn-clear {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px;
+  color: var(--muted-raised);
+}
+
+.map-spawn-clear:hover {
+  color: var(--ink);
+}

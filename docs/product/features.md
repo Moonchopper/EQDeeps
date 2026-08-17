@@ -602,11 +602,27 @@ Acceptance:
 - Matching a log name to a listing uses the session's /consider levels, since
   one name is listed at several levels, and says whether a level corroborated
   it rather than implying certainty. *(shipped)*
-- **Nothing is fetched until the view is opened and something is typed**; the
-  index revalidates at most once a day by ETag; Settings → "Look mobs up
-  online" and `--no-reference` switch it off entirely. *(shipped)*
+- **Nothing is fetched until the view is opened**; the index loads on open
+  (opening the view is the ask), revalidates at most once a day by ETag, and
+  Settings → "Look mobs up online" and `--no-reference` switch it off
+  entirely. *(shipped; 2026-08-17 moved the index load from first search to
+  open, which is what fixed a header that said "loading…" over nothing)*
 - Data is never bundled — EQLBase states no licence — and every screen showing
   it names and links the source. *(shipped)*
+- The view opens on something: the mobs this server's logs have killed, most
+  killed first, and level bands to browse the rest of the world; the page for
+  a mob leads with listed health beside measured damage-to-kill and listed
+  damage beside what it actually hit you for (F26), with a con colour against
+  a level you can change, and says plainly when nothing has been measured.
+  *(shipped 2026-08-17)*
+- **Both ways to the map (F27):** a listing's zone and every other zone the
+  name stands in open the Map with the mob's spawn points drawn; the Map's
+  Mobs tab lists who stands in the zone on screen — the log's kills marked —
+  and searches where any mob stands; each hop leaves a crumb back. The zones
+  come from the listing ids alone (ADR-020, decision 6), so "where does it
+  stand" costs no fetch. *(shipped 2026-08-17)*
+- Loot sorted by chance, with the lines the item registry (F29) has seen
+  looted marked. *(shipped 2026-08-17)*
 - Open: item icons (the icon id is already in the data), and using the same
   index to seed F21's level-normalized DPS.
 

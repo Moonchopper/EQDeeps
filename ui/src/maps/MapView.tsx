@@ -1,7 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { api, type MapCatalog, type MapCatalogEntry, type ZoneMap } from "../api";
+import { IconMapPin, IconX } from "@tabler/icons-react";
+import {
+  api,
+  type MapCatalog,
+  type MapCatalogEntry,
+  type MobHealthReport,
+  type NpcBrowseRow,
+  type ZoneMap,
+  type ZoneRoster,
+} from "../api";
+import { fmtNum } from "../format";
 import { fuzzyMatch } from "../fuzzy";
-import { MapCanvas } from "./MapCanvas";
+import type { BestiaryTarget, Crumb, MapTarget, SpawnOverlay } from "../trail";
+import { MapCanvas, type MapMarker } from "./MapCanvas";
 import {
   chosenFor,
   eraFor,
@@ -42,9 +53,30 @@ interface Props {
    * it" as opposed to "nobody is playing, draw anything".
    */
   hasLog?: boolean;
+  /** What this server's logs have killed (F25), for "mobs you have killed here". */
+  mobs?: MobHealthReport | null;
+  /** The Settings switch for the reference site; off means no roster and no mob search. */
+  referenceEnabled?: boolean;
+  /** A zone another view asked to open here, with a mob's spawn points to draw; re-fires on `seq`. */
+  target?: MapTarget | null;
+  /** To the Bestiary, on a mob, with this zone left behind as a crumb. */
+  onOpenMob?: (target: Omit<BestiaryTarget, "seq">, from: Crumb) => void;
 }
 
-export function MapView({ currentZone, install, hasLog = false }: Props) {
+/** Turns the site's spawn coordinates into the file's — see docs/domain/eq-map-format.md §3. */
+function toMarkers(spawn: SpawnOverlay, lit = false): MapMarker[] {
+  return spawn.points.map(([x, y]) => ({ x: -x, y: -y, label: spawn.mob, lit }));
+}
+
+export function MapView({
+  currentZone,
+  install,
+  hasLog = false,
+  mobs = null,
+  referenceEnabled = true,
+  target = null,
+  onOpenMob,
+}: Props) {
   const [catalog, setCatalog] = useState<MapCatalog | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState<"zone" | "world">("zone");
@@ -87,6 +119,22 @@ export function MapView({ currentZone, install, hasLog = false }: Props) {
     setMode("world");
   };
 
+  // ---- mobs (F30 × F27) --------------------------------------------------
+  // The rail's second tab: who stands in the zone on screen, and a search
+  // over every mob for where it stands. Nothing here is fetched until the
+  // tab is opened or a mob is asked for.
+  const [railTab, setRailTab] = useState<"zones" | "mobs">("zones");
+  const [mobQuery, setMobQuery] = useState("");
+  const [mobResults, setMobResults] = useState<NpcBrowseRow[] | null>(null);
+  const [roster, setRoster] = useState<ZoneRoster | null>(null);
+  const [rosterFor, setRosterFor] = useState<string | null>(null);
+  const [rosterLoading, setRosterLoading] = useState(false);
+  /** A mob's spawn points drawn over the zone — from the Bestiary, or pinned from the roster. */
+  const [spawn, setSpawn] = useState<SpawnOverlay | null>(null);
+  /** The roster row under the pointer, drawn lit while it is. */
+  const [hoverSpawn, setHoverSpawn] = useState<SpawnOverlay | null>(null);
+  const mobDebounce = useRef<number | undefined>(undefined);
+
   // The zone the log is in wins once, on arrival. After that the user is
   // steering: auto-following every zone line would yank the map out from under
   // someone reading it.
@@ -97,6 +145,14 @@ export function MapView({ currentZone, install, hasLog = false }: Props) {
   // stay there.
   const followed = useRef(false);
   const [followDone, setFollowDone] = useState(false);
+
+  /**
+   * Another view has asked for a zone. A ref rather than state because the
+   * follow below starts in the same commit as the ask arrives and resolves
+   * asynchronously — by the time it would move the map, this has to already
+   * be true, and a state update would not be visible to it yet.
+   */
+  const asked = useRef(false);
 
   /**
    * The user has chosen a zone themselves, so the log must not move the map
@@ -143,7 +199,7 @@ export function MapView({ currentZone, install, hasLog = false }: Props) {
   // table, which is the whole point of recording one — the table is knowingly
   // incomplete and knowingly fallible, and this is the correction.
   useEffect(() => {
-    if (!catalog?.found || !settingsLoaded || followed.current || !currentZone || steered) {
+    if (!catalog?.found || !settingsLoaded || followed.current || !currentZone || steered || asked.current) {
       return;
     }
 
@@ -160,6 +216,13 @@ export function MapView({ currentZone, install, hasLog = false }: Props) {
     api
       .resolveZone(currentZone)
       .then((r) => {
+        // Another view may have asked for a zone while this was in flight;
+        // the ask wins, or the map would land on the log's zone with another
+        // mob's spawn points drawn over it.
+        if (asked.current) {
+          return;
+        }
+
         const hit = r.shortNames.find(known);
         if (hit) {
           setSelected(hit);
@@ -294,6 +357,174 @@ export function MapView({ currentZone, install, hasLog = false }: Props) {
     setSet(undefined);
     setSteered(true);
   };
+
+  // Another view asked for a zone (the Bestiary's "show on map", or a crumb
+  // back). By the map short name it named when the catalogue has it; else by
+  // the place's name; else through the zone table — the same road the log's
+  // own zone takes. Waits for the catalogue, since the ask usually arrives
+  // with the view still mounting.
+  useEffect(() => {
+    if (!target || !catalog?.found) {
+      return;
+    }
+
+    asked.current = true;
+    followed.current = true;
+    setFollowDone(true);
+    setMode("zone");
+    setSpawn(target.spawn ?? null);
+    setSteered(true);
+    setSet(undefined);
+
+    if (target.shortName && catalog.zones.some((z) => z.shortName === target.shortName)) {
+      setSelected(target.shortName);
+      return;
+    }
+
+    const byName = places.find((p) => zoneKey(p.name) === zoneKey(target.place));
+    if (byName) {
+      const override = chosenFor(settings, byName.name, install);
+      setSelected(
+        override && byName.maps.some((m) => m.shortName === override) ? override : byName.maps[0].shortName,
+      );
+      return;
+    }
+
+    api
+      .resolveZone(target.place)
+      .then((r) => {
+        const hit = r.shortNames.find((s) => catalog.zones.some((z) => z.shortName === s));
+        if (hit) setSelected(hit);
+      })
+      .catch(() => undefined);
+    // `places` and `settings` are read, not followed: this fires on the ask.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [target?.seq, catalog]);
+
+  // The roster for the zone on screen, when the Mobs tab is open. One shard
+  // per zone, cached by the server; a zone the site does not cover is a
+  // quick "not known" rather than an error.
+  useEffect(() => {
+    if (!referenceEnabled || railTab !== "mobs" || !selected || rosterFor === selected) {
+      return;
+    }
+
+    let cancelled = false;
+    setRosterLoading(true);
+    api
+      .zoneRoster(selected)
+      .then((r) => {
+        if (cancelled) return;
+        setRoster(r.roster);
+        setRosterFor(selected);
+      })
+      .catch(() => !cancelled && setRoster(null))
+      .finally(() => !cancelled && setRosterLoading(false));
+    return () => {
+      cancelled = true;
+    };
+  }, [referenceEnabled, railTab, selected, rosterFor]);
+
+  // Where does a mob stand: the same search as the Bestiary's, and every row
+  // already carries its zones — that is what the id scheme buys.
+  useEffect(() => {
+    if (!referenceEnabled) return;
+    window.clearTimeout(mobDebounce.current);
+    const q = mobQuery.trim();
+    if (q.length < 2) {
+      setMobResults(null);
+      return;
+    }
+    mobDebounce.current = window.setTimeout(() => {
+      api
+        .searchNpcs(q, { limit: 40 })
+        .then((r) => setMobResults(r.npcs))
+        .catch(() => setMobResults([]));
+    }, 250);
+    return () => window.clearTimeout(mobDebounce.current);
+  }, [mobQuery, referenceEnabled]);
+
+  /** Kills this server's logs recorded in the place on screen, by name. */
+  const killedHere = useMemo(() => {
+    if (!mobs || !place) return new Map<string, number>();
+    const key = zoneKey(place.name);
+    const out = new Map<string, number>();
+    for (const m of mobs.mobs) {
+      if (zoneKey(stripInstance(m.zone)) !== key) continue;
+      const k = m.mob.trim().toLowerCase();
+      out.set(k, (out.get(k) ?? 0) + m.samples);
+    }
+    return out;
+  }, [mobs, place]);
+
+  /**
+   * The roster, one row per name. The site lists a name once per level it
+   * stands at, and the log's kills are per name — so "a shin ghoul knight
+   * ×198" beside four level rows reads as 792. One row, its level span, its
+   * points together, its kills once.
+   */
+  const rosterRows = useMemo(() => {
+    if (!roster || rosterFor !== selected || !roster.known) return [];
+    const byName = new Map<
+      string,
+      { name: string; id: number; minLevel?: number; maxLevel?: number; spawnPoints: number; locations: number[][]; kills: number }
+    >();
+    for (const n of roster.npcs) {
+      const key = n.name.trim().toLowerCase();
+      const row = byName.get(key) ?? {
+        name: n.name,
+        id: n.id,
+        minLevel: n.level,
+        maxLevel: n.maxLevel ?? n.level,
+        spawnPoints: 0,
+        locations: [],
+        kills: killedHere.get(key) ?? 0,
+      };
+      if (n.level !== undefined) {
+        row.minLevel = row.minLevel === undefined ? n.level : Math.min(row.minLevel, n.level);
+        const top = n.maxLevel ?? n.level;
+        row.maxLevel = row.maxLevel === undefined ? top : Math.max(row.maxLevel, top);
+      }
+      row.spawnPoints += n.spawnPoints;
+      row.locations = row.locations.concat(n.locations);
+      byName.set(key, row);
+    }
+    return [...byName.values()].sort(
+      (a, b) => (a.minLevel ?? 999) - (b.minLevel ?? 999) || a.name.localeCompare(b.name),
+    );
+  }, [roster, rosterFor, selected, killedHere]);
+
+  /** The crumb this zone leaves behind when a mob is opened from it. */
+  const crumbHere = (): Crumb => ({
+    view: "map",
+    label: place?.name ?? entry?.displayName ?? selected ?? "Map",
+    map: selected ? { place: place?.name ?? selected, shortName: selected, spawn: spawn ?? undefined } : undefined,
+  });
+
+  /** From a search result's place chip: open that zone, drawing the mob's points there. */
+  const goToPlace = async (row: NpcBrowseRow, shortName: string, maps: string[], id: number) => {
+    // The site's short name may be the other drawing of the place; open on
+    // whichever of the place's maps this install has.
+    const known = maps.find((m) => catalog?.zones.some((z) => z.shortName === m)) ?? shortName;
+    const detail = await api.npcDetail(id).catch(() => null);
+    const points = detail?.detail.zones.find((z) => z.shortName === shortName)?.locations ?? [];
+    setMode("zone");
+    setSteered(true);
+    setSet(undefined);
+    setSelected(known);
+    setSpawn(points.length > 0 ? { mob: row.name, points } : null);
+  };
+
+  const markers = useMemo<MapMarker[]>(() => {
+    const out: MapMarker[] = [];
+    if (spawn) out.push(...toMarkers(spawn));
+    if (hoverSpawn && hoverSpawn.mob !== spawn?.mob) out.push(...toMarkers(hoverSpawn, true));
+    else if (hoverSpawn && spawn) {
+      // Pointing at the pinned mob: light what is already drawn.
+      return toMarkers(spawn, true);
+    }
+    return out;
+  }, [spawn, hoverSpawn]);
 
   /** Binds a zone name to a map, or forgets the binding when null. */
   const bind = (zone: string, shortName: string | null) => {
@@ -457,34 +688,206 @@ export function MapView({ currentZone, install, hasLog = false }: Props) {
 
         {mode === "zone" && (
           <>
-            <input
-              className="map-filter"
-              placeholder={`Search ${catalog.zones.length} zones…`}
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-            />
-            <div className="map-zone-list">
-              {shown.map((p) => (
+            {/* Two lists share the rail: the zones, and the mobs. The mobs tab
+                is the Bestiary's door into this view — who stands here, and
+                where does that one stand — and it only appears when the
+                reference site is switched on, since it has nothing to say
+                otherwise. */}
+            {referenceEnabled && (
+              <div className="map-rail-tabs" role="tablist">
                 <button
-                  key={p.key}
-                  className={"map-zone" + (place?.key === p.key ? " on" : "")}
-                  onClick={() => openPlace(p)}
-                  title={p.maps.map((m) => m.shortName).join(", ")}
+                  role="tab"
+                  aria-selected={railTab === "zones"}
+                  className={"map-rail-tab" + (railTab === "zones" ? " on" : "")}
+                  onClick={() => setRailTab("zones")}
                 >
-                  <span className="map-zone-name">{p.name}</span>
-                  {/* More than one map claims this name; the header lets you
-                      pick which. Said here so the choice is discoverable
-                      before you land on the zone. */}
-                  {p.maps.length > 1 && (
-                    <span className="map-zone-variants">{p.maps.length} maps</span>
-                  )}
-                  {/* An unnamed map is a file we can draw but cannot name. Say
-                      so rather than showing a short name as if it were a place. */}
-                  {!p.maps[0].displayName && <span className="map-zone-unnamed">unnamed</span>}
+                  Zones
                 </button>
-              ))}
-              {shown.length === 0 && <div className="map-empty-small">No zone matches that.</div>}
-            </div>
+                <button
+                  role="tab"
+                  aria-selected={railTab === "mobs"}
+                  className={"map-rail-tab" + (railTab === "mobs" ? " on" : "")}
+                  onClick={() => setRailTab("mobs")}
+                  title="Who stands in this zone, and where any mob stands"
+                >
+                  Mobs
+                </button>
+              </div>
+            )}
+
+            {(railTab === "zones" || !referenceEnabled) && (
+              <>
+                <input
+                  className="map-filter"
+                  placeholder={`Search ${catalog.zones.length} zones…`}
+                  value={filter}
+                  onChange={(e) => setFilter(e.target.value)}
+                />
+                <div className="map-zone-list">
+                  {shown.map((p) => (
+                    <button
+                      key={p.key}
+                      className={"map-zone" + (place?.key === p.key ? " on" : "")}
+                      onClick={() => openPlace(p)}
+                      title={p.maps.map((m) => m.shortName).join(", ")}
+                    >
+                      <span className="map-zone-name">{p.name}</span>
+                      {/* More than one map claims this name; the header lets you
+                          pick which. Said here so the choice is discoverable
+                          before you land on the zone. */}
+                      {p.maps.length > 1 && (
+                        <span className="map-zone-variants">{p.maps.length} maps</span>
+                      )}
+                      {/* An unnamed map is a file we can draw but cannot name. Say
+                          so rather than showing a short name as if it were a place. */}
+                      {!p.maps[0].displayName && <span className="map-zone-unnamed">unnamed</span>}
+                    </button>
+                  ))}
+                  {shown.length === 0 && <div className="map-empty-small">No zone matches that.</div>}
+                </div>
+              </>
+            )}
+
+            {railTab === "mobs" && referenceEnabled && (
+              <>
+                <input
+                  className="map-filter"
+                  placeholder="Where does a mob stand?"
+                  value={mobQuery}
+                  onChange={(e) => setMobQuery(e.target.value)}
+                />
+                <div className="map-zone-list map-mob-list">
+                  {mobQuery.trim().length >= 2 ? (
+                    <>
+                      {mobResults === null && <div className="map-empty-small">Searching…</div>}
+                      {mobResults !== null && mobResults.length === 0 && (
+                        <div className="map-empty-small">Nothing by that name.</div>
+                      )}
+                      {(mobResults ?? []).map((row) => (
+                        <div key={row.name} className="map-mob">
+                          <button
+                            className="map-mob-name"
+                            onClick={() => onOpenMob?.({ name: row.name }, crumbHere())}
+                            title={`Open ${row.name} in the Bestiary`}
+                          >
+                            <span>{row.name}</span>
+                            <span className="map-mob-lvl">
+                              {row.minLevel !== undefined
+                                ? `L${row.minLevel}${row.maxLevel !== undefined && row.maxLevel !== row.minLevel ? `–${row.maxLevel}` : ""}`
+                                : ""}
+                            </span>
+                          </button>
+                          {/* Its zones, each a click to go there with the
+                              spawn points drawn. A place with no name is one
+                              this build has no map row for. */}
+                          <div className="map-mob-places">
+                            {row.places.map((p) =>
+                              p.shortName ? (
+                                <button
+                                  key={p.id}
+                                  className={"map-mob-place" + (p.shortName === selected || p.maps.includes(selected ?? "") ? " on" : "")}
+                                  onClick={() => void goToPlace(row, p.shortName!, p.maps, p.id)}
+                                  title={`${p.name} — L${p.levels.join(", ")}${p.era ? ` · ${p.era}` : ""}`}
+                                >
+                                  {p.name}
+                                </button>
+                              ) : (
+                                <span key={p.id} className="map-mob-place none" title="A zone this build has no map for">
+                                  elsewhere
+                                </span>
+                              ),
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </>
+                  ) : (
+                    <>
+                      <div className="map-mob-heading">
+                        {place?.name ?? entry?.displayName ?? selected}
+                        {roster && rosterFor === selected && roster.known && (
+                          <span className="subtle"> · {rosterRows.length} names</span>
+                        )}
+                      </div>
+                      {rosterLoading && <div className="map-empty-small">Reading the roster…</div>}
+                      {!rosterLoading && roster && rosterFor === selected && !roster.known && killedHere.size === 0 && (
+                        <div className="map-empty-small">
+                          The reference site lists nothing for this zone, and your logs have killed nothing here.
+                        </div>
+                      )}
+                      {!rosterLoading && roster && rosterFor === selected && roster.known && roster.npcs.length === 0 && (
+                        <div className="map-empty-small">Nothing listed here.</div>
+                      )}
+                      {/* The roster: level, name, and — where the logs have
+                          them — this server's kills. Pointing at a row lights
+                          its spawn points; the pin keeps them; the name opens
+                          the mob. */}
+                      {rosterRows.map((n) => {
+                        const pinned = spawn?.mob === n.name;
+                        const lvl =
+                          n.minLevel === undefined
+                            ? ""
+                            : n.maxLevel !== undefined && n.maxLevel !== n.minLevel
+                              ? `L${n.minLevel}–${n.maxLevel}`
+                              : `L${n.minLevel}`;
+                        return (
+                          <div
+                            key={n.id}
+                            className={"map-mob map-roster-row" + (pinned ? " pinned" : "") + (n.kills > 0 ? " killed" : "")}
+                            onMouseEnter={() => n.locations.length > 0 && setHoverSpawn({ mob: n.name, points: n.locations })}
+                            onMouseLeave={() => setHoverSpawn(null)}
+                          >
+                            <button
+                              className="map-mob-name"
+                              onClick={() => onOpenMob?.({ name: n.name, id: n.id }, crumbHere())}
+                              title={`Open ${n.name} in the Bestiary`}
+                            >
+                              <span className="map-mob-lvl">{lvl}</span>
+                              <span className="map-mob-text">{n.name}</span>
+                              {n.kills > 0 && (
+                                <span className="map-mob-kills" title={`Your logs killed ${n.kills} here`}>
+                                  ×{fmtNum(n.kills)}
+                                </span>
+                              )}
+                            </button>
+                            {n.locations.length > 0 && (
+                              <button
+                                className={"map-mob-pin" + (pinned ? " on" : "")}
+                                onClick={() => setSpawn(pinned ? null : { mob: n.name, points: n.locations })}
+                                title={pinned ? "Stop drawing its spawn points" : `Draw its ${n.spawnPoints} spawn point${n.spawnPoints === 1 ? "" : "s"}`}
+                              >
+                                <IconMapPin size={13} stroke={1.8} aria-hidden />
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
+                      {/* Kills the logs have here that the roster does not
+                          list — or everything, when there is no roster. */}
+                      {[...killedHere.entries()]
+                        .filter(([k]) => !rosterRows.some((n) => n.name.trim().toLowerCase() === k))
+                        .sort((a, b) => b[1] - a[1])
+                        .map(([k, kills]) => {
+                          const name = mobs?.mobs.find((m) => m.mob.trim().toLowerCase() === k)?.mob ?? k;
+                          return (
+                            <div key={"killed:" + k} className="map-mob map-roster-row killed">
+                              <button
+                                className="map-mob-name"
+                                onClick={() => onOpenMob?.({ name }, crumbHere())}
+                                title={`Open ${name} in the Bestiary — your logs killed ${kills} here`}
+                              >
+                                <span className="map-mob-lvl subtle">you</span>
+                                <span className="map-mob-text">{name}</span>
+                                <span className="map-mob-kills">×{fmtNum(kills)}</span>
+                              </button>
+                            </div>
+                          );
+                        })}
+                    </>
+                  )}
+                </div>
+              </>
+            )}
           </>
         )}
       </aside>
@@ -538,6 +941,27 @@ export function MapView({ currentZone, install, hasLog = false }: Props) {
             </div>
 
             <div className="map-controls">
+              {/* Whose spawn points are drawn. The name opens the mob; the ✕
+                  clears the drawing. */}
+              {spawn && (
+                <span className="map-spawn-chip">
+                  <IconMapPin size={12} stroke={2} aria-hidden />
+                  <button
+                    className="map-spawn-name"
+                    onClick={() => onOpenMob?.({ name: spawn.mob }, crumbHere())}
+                    title={`Open ${spawn.mob} in the Bestiary`}
+                  >
+                    {spawn.mob}
+                  </button>
+                  <span className="subtle">
+                    {spawn.points.length} spawn point{spawn.points.length === 1 ? "" : "s"}
+                  </span>
+                  <button className="map-spawn-clear" onClick={() => setSpawn(null)} title="Stop drawing these">
+                    <IconX size={12} stroke={2} aria-hidden />
+                  </button>
+                </span>
+              )}
+
               {/* Out to the world, landing on this zone. Right-click on the
                   map does the same; the button is there so it can be found. */}
               {selected && (
@@ -713,6 +1137,7 @@ export function MapView({ currentZone, install, hasLog = false }: Props) {
                 layers={map.layers.map((l) => l.index).filter((i) => !hiddenLayers.includes(i))}
                 trueColors={trueColors}
                 highlight={highlight}
+                markers={markers}
                 onTravel={travel}
               />
             )}

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using EQDeeps.Core.Maps;
 using EQDeeps.Core.Reference;
 
 namespace EQDeeps.Server.Reference;
@@ -12,6 +13,27 @@ public sealed record ReferenceStatus(
     int Listings,
     DateTime? RefreshedUtc,
     string? Error);
+
+/// <summary>One NPC of a zone's roster: enough to list it, place it on the map, and open it.</summary>
+public sealed record ZoneRosterNpc(
+    int Id,
+    string Name,
+    int? Level,
+    int? MaxLevel,
+    int SpawnPoints,
+    IReadOnlyList<double[]> Locations);
+
+/// <summary>
+/// Every NPC the site lists in one zone. <see cref="Known"/> false means the
+/// question could not be answered — the zone has no id in the table, or the
+/// file at its id turned out to hold some other zone — as opposed to a zone
+/// the site simply lists nothing in.
+/// </summary>
+public sealed record ZoneRoster(
+    string ShortName,
+    string? ZoneName,
+    bool Known,
+    IReadOnlyList<ZoneRosterNpc> Npcs);
 
 /// <summary>
 /// The NPC reference (F30, ADR-020): a name index and the stat blocks behind
@@ -89,7 +111,7 @@ public sealed class NpcReferenceStore
             var path = CachePath("search-index.json");
             if (_index is null && ReadCached(path) is { } cached)
             {
-                _index = new NpcIndex(NpcReferenceFormat.ParseIndex(cached));
+                _index = new NpcIndex(NpcReferenceFormat.ParseIndex(cached), NpcReferenceFormat.ParseIndexZones(cached));
                 _refreshedUtc = File.GetLastWriteTimeUtc(path);
             }
 
@@ -112,7 +134,7 @@ public sealed class NpcReferenceStore
                     var entries = NpcReferenceFormat.ParseIndex(fetch.Content);
                     if (entries.Count > 0)
                     {
-                        _index = new NpcIndex(entries);
+                        _index = new NpcIndex(entries, NpcReferenceFormat.ParseIndexZones(fetch.Content));
                         Write(path, fetch.Content, "search-index.json", fetch.ETag);
                         _refreshedUtc = DateTime.UtcNow;
                         _error = null;
@@ -142,18 +164,81 @@ public sealed class NpcReferenceStore
     /// <summary>The stat block for one listing, fetching its shard the first time it is wanted.</summary>
     public async Task<NpcDetail?> DetailAsync(int id, CancellationToken ct = default)
     {
+        var shard = await ShardAsync(NpcReferenceFormat.ShardOf(id), ct).ConfigureAwait(false);
+        return shard?.GetValueOrDefault(id);
+    }
+
+    /// <summary>
+    /// Every NPC the site lists in a zone, by the zone's map short name.
+    ///
+    /// <para>The shard at each of the zone's client ids is read, and only the
+    /// rows that say they stand in this zone are kept — by the site's short
+    /// name, or by the place's name for a zone with two drawings. That check
+    /// is what makes the id join safe to use: a wrong id costs one fetch and
+    /// an honest "not known", never another zone's roster under this zone's
+    /// heading.</para>
+    /// </summary>
+    public async Task<ZoneRoster> RosterAsync(string shortName, CancellationToken ct = default)
+    {
+        var entry = ZoneTable.Default.EntryFor(shortName);
+        if (!_enabled || entry is null || entry.Ids.Count == 0)
+        {
+            return new ZoneRoster(shortName, entry?.DisplayName, false, []);
+        }
+
+        var placeKey = ZoneTable.Normalize(entry.DisplayName);
+        foreach (var id in entry.Ids)
+        {
+            var shard = await ShardAsync(id, ct).ConfigureAwait(false);
+            if (shard is null)
+            {
+                continue;
+            }
+
+            var here = new List<(NpcDetail Detail, NpcSpawnZone Zone)>();
+            foreach (var detail in shard.Values)
+            {
+                foreach (var zone in detail.Zones)
+                {
+                    if (zone.ShortName.Equals(shortName, StringComparison.OrdinalIgnoreCase) ||
+                        ZoneTable.Normalize(zone.LongName) == placeKey)
+                    {
+                        here.Add((detail, zone));
+                        break;
+                    }
+                }
+            }
+
+            if (here.Count > 0)
+            {
+                var npcs = here
+                    .OrderBy(x => x.Detail.Level ?? int.MaxValue)
+                    .ThenBy(x => x.Detail.Name, StringComparer.OrdinalIgnoreCase)
+                    .Select(x => new ZoneRosterNpc(
+                        x.Detail.Id, x.Detail.Name, x.Detail.Level, x.Detail.MaxLevel,
+                        x.Zone.SpawnPoints, x.Zone.Locations))
+                    .ToArray();
+                return new ZoneRoster(shortName, here[0].Zone.LongName, true, npcs);
+            }
+        }
+
+        return new ZoneRoster(shortName, entry.DisplayName, false, []);
+    }
+
+    /// <summary>One shard, from memory, then disk, then the network; null when it cannot be had.</summary>
+    private async Task<IReadOnlyDictionary<int, NpcDetail>?> ShardAsync(int shard, CancellationToken ct)
+    {
         if (!_enabled)
         {
             return null;
         }
 
-        var shard = NpcReferenceFormat.ShardOf(id);
         await _gate.WaitAsync(ct).ConfigureAwait(false);
         try
         {
             if (_shards.TryGetValue(shard, out var loaded))
             {
-                return loaded.GetValueOrDefault(id);
+                return loaded;
             }
 
             var file = $"npcs-{shard}.json";
@@ -164,13 +249,22 @@ public sealed class NpcReferenceStore
                 if (parsed.Count > 0)
                 {
                     _shards[shard] = parsed;
-                    return parsed.GetValueOrDefault(id);
+                    return parsed;
                 }
             }
 
             var fetch = await _source
-                .GetAsync(NpcReferenceFormat.ShardPath(id), EtagFor(file), ct)
+                .GetAsync(NpcReferenceFormat.ShardPath(shard * 1000), EtagFor(file), ct)
                 .ConfigureAwait(false);
+            if (fetch.Missing)
+            {
+                // No such shard: a zone the site does not cover. Remembered
+                // for the run so a roster is not asked for twice, and not an
+                // error — the site is fine, it just has nothing here.
+                _shards[shard] = new Dictionary<int, NpcDetail>();
+                return _shards[shard];
+            }
+
             if (fetch.Failed)
             {
                 _error = fetch.Error;
@@ -186,7 +280,7 @@ public sealed class NpcReferenceStore
                     Write(path, fetch.Content, file, fetch.ETag);
                 }
 
-                return parsed.GetValueOrDefault(id);
+                return parsed;
             }
 
             return null;

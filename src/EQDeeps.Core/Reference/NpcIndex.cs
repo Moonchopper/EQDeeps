@@ -4,8 +4,9 @@ namespace EQDeeps.Core.Reference;
 public sealed record NpcNameMatch(string Name, IReadOnlyList<NpcIndexEntry> Variants);
 
 /// <summary>
-/// One row of a browse: a name, the span of levels it is listed at, and one
-/// representative listing per level.
+/// One row of a browse: a name, the span of levels it is listed at, one
+/// representative listing per level — and every listing, for anyone who
+/// needs to know where they all are.
 /// </summary>
 public sealed record NpcNameRow(
     string Name,
@@ -13,7 +14,8 @@ public sealed record NpcNameRow(
     int? MaxLevel,
     /// <summary>How many listings the site carries under this name, before collapsing.</summary>
     int Listings,
-    IReadOnlyList<NpcIndexEntry> PerLevel);
+    IReadOnlyList<NpcIndexEntry> PerLevel,
+    IReadOnlyList<NpcIndexEntry> Variants);
 
 /// <summary>
 /// The reference index in memory: every NPC name a site lists, searchable,
@@ -35,9 +37,15 @@ public sealed class NpcIndex
 {
     private readonly Dictionary<string, List<NpcIndexEntry>> _byName = new(StringComparer.OrdinalIgnoreCase);
     private readonly List<string> _names = [];
+    private readonly Dictionary<string, NpcZoneRow> _zones = new(StringComparer.OrdinalIgnoreCase);
 
-    public NpcIndex(IEnumerable<NpcIndexEntry> entries)
+    public NpcIndex(IEnumerable<NpcIndexEntry> entries, IEnumerable<NpcZoneRow>? zones = null)
     {
+        foreach (var zone in zones ?? [])
+        {
+            _zones.TryAdd(zone.ShortName, zone);
+        }
+
         foreach (var entry in entries)
         {
             var key = Normalize(entry.Name);
@@ -63,6 +71,13 @@ public sealed class NpcIndex
     }
 
     public int NameCount => _byName.Count;
+
+    /// <summary>The zones the site itself lists, by its short name for each. Empty for an index without zone rows.</summary>
+    public IReadOnlyCollection<NpcZoneRow> Zones => _zones.Values;
+
+    /// <summary>The site's own row for a zone short name, or null when it lists none.</summary>
+    public NpcZoneRow? Zone(string shortName) =>
+        _zones.TryGetValue(shortName, out var zone) ? zone : null;
 
     public int EntryCount
     {
@@ -207,11 +222,17 @@ public sealed class NpcIndex
         return kept;
     }
 
-    /// <summary>Names matching a query, one row each, collapsed for browsing.</summary>
-    public IReadOnlyList<NpcNameRow> Browse(string query, int limit = 100)
+    /// <summary>
+    /// Names matching a query, one row each, collapsed for browsing —
+    /// optionally only those with a listing inside a level band, which is
+    /// also how the whole index is browsed with no query at all.
+    /// </summary>
+    /// <param name="minLevel">Lowest listed level to keep, inclusive; null for no floor.</param>
+    /// <param name="maxLevel">Highest listed level to keep, inclusive; null for no ceiling.</param>
+    public IReadOnlyList<NpcNameRow> Browse(string query, int limit = 100, int? minLevel = null, int? maxLevel = null)
     {
         var rows = new List<NpcNameRow>();
-        foreach (var match in Search(query, limit))
+        foreach (var match in Search(query, limit, minLevel, maxLevel))
         {
             var levels = match.Variants.Select(v => v.Level).Where(l => l is not null).Select(l => l!.Value).ToArray();
             rows.Add(new NpcNameRow(
@@ -219,7 +240,8 @@ public sealed class NpcIndex
                 levels.Length > 0 ? levels.Min() : null,
                 levels.Length > 0 ? levels.Max() : null,
                 match.Variants.Count,
-                PerLevel(match.Variants)));
+                PerLevel(match.Variants),
+                match.Variants));
         }
 
         return rows;
@@ -231,11 +253,19 @@ public sealed class NpcIndex
     /// band. Substring rather than the fuzzy subsequence the tables use —
     /// nine thousand names make a subsequence match far too generous ("abc"
     /// would find half the list).
+    ///
+    /// <para>A level band narrows the same search to names with at least one
+    /// listing inside it — the level filter is on the mob, not on the name, so
+    /// "a ghoul" (13–24) is in the 20s band by its level-24 listing. With a
+    /// band and no query, every name in the band comes back alphabetically:
+    /// that is what "browse the level 20s" means. With neither, nothing —
+    /// nine thousand names is not an answer to any question.</para>
     /// </summary>
-    public IReadOnlyList<NpcNameMatch> Search(string query, int limit = 100)
+    public IReadOnlyList<NpcNameMatch> Search(string query, int limit = 100, int? minLevel = null, int? maxLevel = null)
     {
         var q = query.Trim();
-        if (q.Length == 0)
+        var banded = minLevel is not null || maxLevel is not null;
+        if (q.Length == 0 && !banded)
         {
             return [];
         }
@@ -245,7 +275,12 @@ public sealed class NpcIndex
         var contains = new List<string>();
         foreach (var name in _names)
         {
-            if (name.Equals(q, StringComparison.OrdinalIgnoreCase))
+            if (banded && !InBand(name, minLevel, maxLevel))
+            {
+                continue;
+            }
+
+            if (q.Length == 0 || name.Equals(q, StringComparison.OrdinalIgnoreCase))
             {
                 exact.Add(name);
             }
@@ -259,6 +294,9 @@ public sealed class NpcIndex
             }
         }
 
+        // With no query the "exact" band is the whole answer, so it is the one
+        // that needs ordering; with one there is at most one exact hit.
+        exact.Sort(StringComparer.OrdinalIgnoreCase);
         prefix.Sort(StringComparer.OrdinalIgnoreCase);
         contains.Sort(StringComparer.OrdinalIgnoreCase);
 
@@ -274,5 +312,27 @@ public sealed class NpcIndex
         }
 
         return results;
+    }
+
+    /// <summary>How many names have a listing inside a band — the count a browse says it is showing part of.</summary>
+    public int CountInBand(int? minLevel, int? maxLevel) =>
+        _names.Count(name => InBand(name, minLevel, maxLevel));
+
+    private bool InBand(string name, int? minLevel, int? maxLevel)
+    {
+        foreach (var variant in Variants(name))
+        {
+            if (variant.Level is not { } level)
+            {
+                continue;
+            }
+
+            if ((minLevel is null || level >= minLevel) && (maxLevel is null || level <= maxLevel))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

@@ -4,6 +4,7 @@ using EQDeeps.Core.Mobs;
 using EQDeeps.Core.Parsing;
 using EQDeeps.Core.Query;
 using EQDeeps.Core.Sessions;
+using EQDeeps.Server.Reference;
 using EQDeeps.Server.Updates;
 
 namespace EQDeeps.Server;
@@ -50,19 +51,46 @@ public sealed record TimelineRequest(QueryScope Scope);
 public sealed record NpcListing(string Name, int? Level, int Id, string Url);
 
 /// <summary>
-/// One name in a browse: the levels it is listed at, and a listing per level.
-/// A site lists the same mob once per zone it stands in, so a name is one row
-/// here however many addresses it has (ADR-020).
+/// One zone a name is listed in, known from the listings' ids alone — no
+/// stat block fetched (ADR-020). <see cref="Name"/> is null for a listing
+/// filed under a zone id this build has no place for.
+/// </summary>
+/// <param name="ShortName">What a roster and a map are opened by; null with <see cref="Name"/>.</param>
+/// <param name="Maps">Every map that draws the place, first-listed first.</param>
+/// <param name="Levels">The levels the name is listed at there.</param>
+/// <param name="Id">One listing there — the one to open for "this mob, in this zone".</param>
+public sealed record NpcPlaceRow(
+    string? Name,
+    string? ShortName,
+    IReadOnlyList<string> Maps,
+    string? Era,
+    IReadOnlyList<int> Levels,
+    int Listings,
+    int Id);
+
+/// <summary>
+/// One name in a browse: the levels it is listed at, a listing per level, and
+/// the zones it stands in. A site lists the same mob once per zone it stands
+/// in, so a name is one row here however many addresses it has (ADR-020).
 /// </summary>
 public sealed record NpcBrowseRow(
     string Name,
     int? MinLevel,
     int? MaxLevel,
     int Listings,
-    IReadOnlyList<NpcListing> Levels);
+    IReadOnlyList<NpcListing> Levels,
+    IReadOnlyList<NpcPlaceRow> Places);
 
-/// <summary>Search over the reference index; <see cref="Error"/> says why it is empty, when it is.</summary>
-public sealed record NpcSearchResult(string Source, IReadOnlyList<NpcBrowseRow> Npcs, string? Error);
+/// <summary>
+/// Search over the reference index; <see cref="Error"/> says why it is empty,
+/// when it is. <see cref="Total"/> is how many names matched before the limit
+/// — a level-band browse shows the first hundred of eight hundred and should
+/// say so.
+/// </summary>
+public sealed record NpcSearchResult(string Source, IReadOnlyList<NpcBrowseRow> Npcs, string? Error, int Total = 0);
+
+/// <summary>Every NPC the site lists in one zone, for the Map view (F30 × F27).</summary>
+public sealed record ZoneRosterResult(string Source, ZoneRoster Roster, string? Error);
 
 /// <summary>One listing's full stat block.</summary>
 public sealed record NpcDetailResult(string Source, string Url, NpcDetail Detail);

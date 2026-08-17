@@ -64,8 +64,52 @@ public sealed class NpcReferenceStoreTests : IDisposable
 
             return Task.FromResult(Bodies.TryGetValue(path, out var body)
                 ? ReferenceFetch.Fetched(body, "\"etag-" + path.GetHashCode() + "\"")
-                : ReferenceFetch.Failure("404"));
+                : ReferenceFetch.NotFound());
         }
+    }
+
+    /// <summary>
+    /// The shard at Neriak Third Gate's client id (42): two of its rows stand
+    /// there, one is filed under it but claims another zone — which the roster
+    /// must not swallow just because the address matched.
+    /// </summary>
+    private const string NeriakShard = """
+        {"42000":{"id":42000,"name":"a ghoul","level":13,"maxLevel":13,"hp":299,
+          "zones":[{"zone":"neriakc","longName":"Neriak - 3rd Gate","spawnPoints":2,"locs":[[-1312,666,-101.7],[-1300,660,-101]]}]},
+         "42001":{"id":42001,"name":"Cleric of Innoruuk","level":50,
+          "zones":[{"zone":"neriakc","longName":"Neriak - 3rd Gate","spawnPoints":1,"locs":[[-100,50,0]]}]},
+         "42002":{"id":42002,"name":"a lost soul","level":9,
+          "zones":[{"zone":"somewhereelse","longName":"Somewhere Else","spawnPoints":1,"locs":[[0,0,0]]}]}}
+        """;
+
+    [Fact]
+    public async Task ARosterIsTheShardAtTheZonesId_KeptOnlyWhereItSaysItStandsThere()
+    {
+        var source = Source();
+        source.Bodies["/data/npcs/42.json"] = NeriakShard;
+        var store = new NpcReferenceStore(source, _dir);
+
+        var roster = await store.RosterAsync("neriakc");
+        Assert.True(roster.Known);
+        Assert.Equal("Neriak - 3rd Gate", roster.ZoneName);
+        Assert.Equal(["a ghoul", "Cleric of Innoruuk"], roster.Npcs.Select(n => n.Name));
+        Assert.Equal(2, roster.Npcs[0].SpawnPoints);
+        Assert.Equal([-1312, 666, -101.7], roster.Npcs[0].Locations[0]);
+        Assert.Equal(["/data/npcs/42.json"], source.Requested);
+
+        // A zone whose shard the site does not have: not known, and not an
+        // error either — the site is up, it just lists nothing there. Asked
+        // twice, fetched once.
+        var missing = await store.RosterAsync("poknowledge");
+        Assert.False(missing.Known);
+        Assert.Empty(missing.Npcs);
+        Assert.Null(store.Status().Error);
+        await store.RosterAsync("poknowledge");
+        Assert.Equal(2, source.Requested.Count);
+
+        // A short name the table has no row for cannot be addressed at all.
+        Assert.False((await store.RosterAsync("nosuchzone")).Known);
+        Assert.Equal(2, source.Requested.Count);
     }
 
     /// <summary>Back-dates a cached file, so the once-a-day revalidation is due.</summary>

@@ -1,3 +1,4 @@
+using EQDeeps.Core.Maps;
 using EQDeeps.Core.Reference;
 using Xunit;
 
@@ -18,6 +19,9 @@ public class NpcReferenceTests
          ["Rusty Dagger","i",5020],
          ["a nameless one","n",1300],
          ["Gate","s",36],
+         ["North Qeynos","z","qeynos2"],
+         ["Blackburrow","z","blackburrow"],
+         ["a zone with no short name","z",""],
          ["broken row"],
          ["a bad id","n","x"]]
         """;
@@ -93,10 +97,26 @@ public class NpcReferenceTests
     }
 
     [Fact]
+    public void IndexCarriesTheSitesOwnZoneRows()
+    {
+        var zones = NpcReferenceFormat.ParseIndexZones(Index);
+        Assert.Equal(2, zones.Count);
+        Assert.Equal(new NpcZoneRow("qeynos2", "North Qeynos"), zones[0]);
+
+        var index = new NpcIndex(NpcReferenceFormat.ParseIndex(Index), zones);
+        Assert.Equal("Blackburrow", index.Zone("blackburrow")!.LongName);
+        Assert.Equal("Blackburrow", index.Zone("BLACKBURROW")!.LongName);
+        Assert.Null(index.Zone("nowhere"));
+        Assert.Empty(new NpcIndex(NpcReferenceFormat.ParseIndex(Index)).Zones);
+    }
+
+    [Fact]
     public void AShapeItDoesNotKnowIsEmpty_NeverAThrow()
     {
         Assert.Empty(NpcReferenceFormat.ParseIndex("{\"not\":\"an array\"}"));
         Assert.Empty(NpcReferenceFormat.ParseIndex("this is not json at all"));
+        Assert.Empty(NpcReferenceFormat.ParseIndexZones("{\"not\":\"an array\"}"));
+        Assert.Empty(NpcReferenceFormat.ParseIndexZones("nor this"));
         Assert.Empty(NpcReferenceFormat.ParseShard("[1,2,3]"));
         Assert.Empty(NpcReferenceFormat.ParseShard(""));
     }
@@ -163,9 +183,91 @@ public class NpcReferenceTests
         Assert.Equal(13, row.MinLevel);
         Assert.Equal(24, row.MaxLevel);
         Assert.Equal(5, row.Listings);
-        // Three levels, not five addresses.
+        // Three levels, not five addresses — but the addresses are still there.
         Assert.Equal([13, 14, 24], row.PerLevel.Select(v => v.Level).ToArray());
         Assert.Equal(20022, row.PerLevel[0].Id);
+        Assert.Equal(5, row.Variants.Count);
+    }
+
+    /// <summary>
+    /// A level band is a filter on the mob, not the name: "a ghoul" is in the
+    /// twenties by its level-24 listing. With a band and no query the whole
+    /// band comes back alphabetically; with neither, nothing.
+    /// </summary>
+    [Fact]
+    public void ALevelBandBrowsesWithoutAQuery()
+    {
+        var index = new NpcIndex(
+        [
+            new NpcIndexEntry("a ghoul", 13, 20022),
+            new NpcIndexEntry("a ghoul", 24, 63011),
+            new NpcIndexEntry("a bat", 1, 1001),
+            new NpcIndexEntry("Fippy Darkpaw", 5, 2119),
+            new NpcIndexEntry("a nameless one", null, 1300),
+        ]);
+
+        Assert.Equal(["a ghoul"], index.Browse("", minLevel: 20, maxLevel: 29).Select(r => r.Name));
+        Assert.Equal(["a bat", "a ghoul", "Fippy Darkpaw"], index.Browse("", minLevel: 1, maxLevel: 19).Select(r => r.Name));
+        Assert.Equal(["a ghoul"], index.Browse("gho", minLevel: 1, maxLevel: 19).Select(r => r.Name));
+        Assert.Empty(index.Browse("bat", minLevel: 20, maxLevel: 29));
+        Assert.Empty(index.Browse(""));
+
+        // A listing with no level is in no band, but is still found by name.
+        Assert.Empty(index.Browse("nameless", minLevel: 1, maxLevel: 99));
+        Assert.Single(index.Browse("nameless"));
+
+        Assert.Equal(3, index.CountInBand(1, 19));
+        Assert.Equal(1, index.CountInBand(20, null));
+    }
+
+    /// <summary>
+    /// A shard is a zone (see <see cref="NpcReferenceFormat"/>), so a name's
+    /// zones fall out of its listing ids and the zone table, with the site's
+    /// own zone rows saying which short name it files each under. An id the
+    /// table has no place for is kept, unnamed, so the listings still add up.
+    /// </summary>
+    [Fact]
+    public void ListingIdsSayWhichZonesANameStandsIn()
+    {
+        var table = ZoneTable.Parse(
+            """
+            kithicor	Kithicor Forest	name	classic	id	20
+            commons	West Commonlands	graph	classic	id	21
+            freportw	West Freeport	curated	classic	id	9,383
+            freeportwest	West Freeport	curated	classic	id	9,383
+            """);
+        var index = new NpcIndex(
+            [
+                new NpcIndexEntry("a ghoul", 13, 20022),
+                new NpcIndexEntry("a ghoul", 14, 20031),
+                new NpcIndexEntry("a ghoul", 13, 21014),
+                new NpcIndexEntry("a ghoul", 24, 63011),
+                new NpcIndexEntry("a ghoul", 20, 9005),
+            ],
+            [new NpcZoneRow("kithicor", "Kithicor Forest"), new NpcZoneRow("freportw", "West Freeport")]);
+
+        var places = NpcPlaces.Of(index.Variants("a ghoul"), table, index);
+
+        Assert.Equal(["Kithicor Forest", "West Commonlands", "West Freeport", null], places.Select(p => p.Name));
+
+        var kithicor = places[0];
+        Assert.Equal(20, kithicor.ZoneId);
+        Assert.Equal("kithicor", kithicor.ShortName);
+        Assert.Equal([13, 14], kithicor.Levels);
+        Assert.Equal([20022, 20031], kithicor.Ids);
+        Assert.Equal("classic", kithicor.Era);
+
+        // The site lists no row for commons; the table still names the place.
+        Assert.Equal("commons", places[1].ShortName);
+
+        // Two drawings of one name: the site's short name for it wins, and
+        // both maps are offered.
+        Assert.Equal("freportw", places[2].ShortName);
+        Assert.Equal(["freportw", "freeportwest"], places[2].Maps);
+
+        // Id 63 is nowhere in this table.
+        Assert.Null(places[3].ShortName);
+        Assert.Equal([63011], places[3].Ids);
     }
 
     [Fact]

@@ -8,13 +8,20 @@ namespace EQDeeps.Server.Reference;
 /// with <see cref="Failed"/> false means the cached copy is still current —
 /// the 304 case, which is the usual one and costs no bytes.
 /// </summary>
-public sealed record ReferenceFetch(bool Modified, string? Content, string? ETag, bool Failed, string? Error = null)
+public sealed record ReferenceFetch(bool Modified, string? Content, string? ETag, bool Failed, string? Error = null, bool Missing = false)
 {
     public static ReferenceFetch NotModified(string? etag) => new(false, null, etag, false);
 
     public static ReferenceFetch Fetched(string content, string? etag) => new(true, content, etag, false);
 
     public static ReferenceFetch Failure(string error) => new(false, null, null, true, error);
+
+    /// <summary>
+    /// The site answered, and has no such file. Not a failure of the site or
+    /// the network: a zone the site does not cover has no shard, and asking
+    /// for one must not read as "the reference is down".
+    /// </summary>
+    public static ReferenceFetch NotFound() => new(false, null, null, false, null, Missing: true);
 }
 
 /// <summary>
@@ -93,6 +100,11 @@ public sealed class EqlBaseSource : IReferenceSource, IDisposable
             if (response.StatusCode == HttpStatusCode.NotModified)
             {
                 return ReferenceFetch.NotModified(etag);
+            }
+
+            if (response.StatusCode == HttpStatusCode.NotFound)
+            {
+                return ReferenceFetch.NotFound();
             }
 
             if (!response.IsSuccessStatusCode)

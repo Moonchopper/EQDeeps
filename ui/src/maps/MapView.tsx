@@ -1,7 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { api, type MapCatalog, type MapCatalogEntry, type ZoneMap } from "../api";
+import { IconMapPin, IconX } from "@tabler/icons-react";
+import {
+  api,
+  type MapCatalog,
+  type MapCatalogEntry,
+  type MobHealthReport,
+  type NpcBrowseRow,
+  type ZoneMap,
+  type ZoneRoster,
+} from "../api";
+import { fmtNum } from "../format";
 import { fuzzyMatch } from "../fuzzy";
-import { MapCanvas } from "./MapCanvas";
+import type { BestiaryTarget, Crumb, MapTarget } from "../trail";
+import { MapCanvas, type MapMarker } from "./MapCanvas";
+import { loadPins, pinColor, pinStandsIn, pinZones, savePins, type PinnedMob } from "./pins";
 import {
   chosenFor,
   eraFor,
@@ -42,9 +54,37 @@ interface Props {
    * it" as opposed to "nobody is playing, draw anything".
    */
   hasLog?: boolean;
+  /** What this server's logs have killed (F25), for "mobs you have killed here". */
+  mobs?: MobHealthReport | null;
+  /** The Settings switch for the reference site; off means no roster and no mob search. */
+  referenceEnabled?: boolean;
+  /** A zone another view asked to open here, with a mob's spawn points to draw; re-fires on `seq`. */
+  target?: MapTarget | null;
+  /** To the Bestiary, on a mob, with this zone left behind as a crumb. */
+  onOpenMob?: (target: Omit<BestiaryTarget, "seq">, from: Crumb) => void;
+  /** Which zone and mode are on screen — the history's idea of this screen. */
+  onScreen?: (zone: { place: string; shortName?: string; mode: "zone" | "world" } | null) => void;
 }
 
-export function MapView({ currentZone, install, hasLog = false }: Props) {
+/** Turns the site's spawn coordinates into the file's — see docs/domain/eq-map-format.md §3. */
+function toMarkers(
+  label: string,
+  points: number[][],
+  style: { color?: string; lit?: boolean; dim?: boolean } = {},
+): MapMarker[] {
+  return points.map(([x, y]) => ({ x: -x, y: -y, label, ...style }));
+}
+
+export function MapView({
+  currentZone,
+  install,
+  hasLog = false,
+  mobs = null,
+  referenceEnabled = true,
+  target = null,
+  onOpenMob,
+  onScreen,
+}: Props) {
   const [catalog, setCatalog] = useState<MapCatalog | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState<"zone" | "world">("zone");
@@ -87,6 +127,81 @@ export function MapView({ currentZone, install, hasLog = false }: Props) {
     setMode("world");
   };
 
+  // ---- mobs (F30 × F27) --------------------------------------------------
+  // The rail's second tab: who stands in the zone on screen, and a search
+  // over every mob for where it stands. Nothing here is fetched until the
+  // tab is opened or a mob is asked for.
+  const [railTab, setRailTab] = useState<"zones" | "mobs">("zones");
+  const [mobQuery, setMobQuery] = useState("");
+  const [mobResults, setMobResults] = useState<NpcBrowseRow[] | null>(null);
+  const [roster, setRoster] = useState<ZoneRoster | null>(null);
+  const [rosterFor, setRosterFor] = useState<string | null>(null);
+  const [rosterLoading, setRosterLoading] = useState(false);
+  const mobDebounce = useRef<number | undefined>(undefined);
+
+  /**
+   * Pinned mobs (pins.ts): drawn as spawn points on the zone and rings on
+   * the world, in one colour each, until unpinned. Persisted, because a
+   * hunting list outlives a session.
+   */
+  const [pins, setPins] = useState<PinnedMob[]>(() => loadPins());
+  useEffect(() => savePins(pins), [pins]);
+  const pinIndex = (name: string) => pins.findIndex((p) => p.name.toLowerCase() === name.toLowerCase());
+  const isPinned = (name: string) => pinIndex(name) >= 0;
+
+  /**
+   * The mob under the pointer in the rail — a roster row, a search result,
+   * or a pin. On the zone its points light and the rest step back; on the
+   * world every zone it stands in lights.
+   */
+  const [hovered, setHovered] = useState<{ name: string; zones: Set<string>; points?: number[][] } | null>(null);
+
+  /** What the world graph lights for the pointed-at mob. */
+  const litZones = hovered && hovered.zones.size > 0 ? hovered.zones : null;
+
+  // A row that unmounts under the pointer — the search cleared, the tab
+  // switched, the zone changed — fires no mouseleave, and a hover that
+  // outlives its row dims the whole map for nothing. Any change of list
+  // clears it.
+  useEffect(() => setHovered(null), [mobQuery, railTab, mode, selected, rosterFor]);
+
+  /** Zone → the pins standing there, for the world's rings. */
+  const pinRings = useMemo(() => {
+    const m = new Map<string, { name: string; color: string }[]>();
+    pins.forEach((pin, i) => {
+      for (const z of pinZones(pin)) {
+        const list = m.get(z) ?? [];
+        list.push({ name: pin.name, color: pinColor(i) });
+        m.set(z, list);
+      }
+    });
+    return m;
+  }, [pins]);
+
+  /**
+   * Pin a mob by name. Its zones come from the browse row (no fetch beyond
+   * the index, which is loaded); its spawn points in the zone on screen can
+   * be seeded by the caller when it has them, and every other zone's are
+   * filled in when that zone is drawn.
+   */
+  const pinMob = async (name: string, seed?: { shortName: string; points: number[][] }) => {
+    if (isPinned(name)) return;
+    const r = await api.searchNpcs(name, { limit: 5 }).catch(() => null);
+    const row = r?.npcs.find((n) => n.name.toLowerCase() === name.trim().toLowerCase()) ?? null;
+    if (!row) return;
+    setPins((ps) =>
+      ps.some((p) => p.name.toLowerCase() === row.name.toLowerCase())
+        ? ps
+        : [...ps, { name: row.name, places: row.places, points: seed && seed.points.length > 0 ? { [seed.shortName]: seed.points } : {} }],
+    );
+  };
+
+  const unpinMob = (name: string) =>
+    setPins((ps) => ps.filter((p) => p.name.toLowerCase() !== name.toLowerCase()));
+
+  const togglePin = (name: string, seed?: { shortName: string; points: number[][] }) =>
+    isPinned(name) ? unpinMob(name) : void pinMob(name, seed);
+
   // The zone the log is in wins once, on arrival. After that the user is
   // steering: auto-following every zone line would yank the map out from under
   // someone reading it.
@@ -97,6 +212,21 @@ export function MapView({ currentZone, install, hasLog = false }: Props) {
   // stay there.
   const followed = useRef(false);
   const [followDone, setFollowDone] = useState(false);
+
+  /**
+   * Another view has asked for a zone. A ref rather than state because the
+   * follow below starts in the same commit as the ask arrives and resolves
+   * asynchronously — by the time it would move the map, this has to already
+   * be true, and a state update would not be visible to it yet.
+   */
+  const asked = useRef(false);
+
+  /**
+   * A zone asked for from outside is still being looked up through the
+   * zone table. Until it lands, whatever the fallback draws is not a screen
+   * anyone was on, and is not reported as one.
+   */
+  const resolving = useRef(false);
 
   /**
    * The user has chosen a zone themselves, so the log must not move the map
@@ -143,7 +273,7 @@ export function MapView({ currentZone, install, hasLog = false }: Props) {
   // table, which is the whole point of recording one — the table is knowingly
   // incomplete and knowingly fallible, and this is the correction.
   useEffect(() => {
-    if (!catalog?.found || !settingsLoaded || followed.current || !currentZone || steered) {
+    if (!catalog?.found || !settingsLoaded || followed.current || !currentZone || steered || asked.current) {
       return;
     }
 
@@ -160,6 +290,13 @@ export function MapView({ currentZone, install, hasLog = false }: Props) {
     api
       .resolveZone(currentZone)
       .then((r) => {
+        // Another view may have asked for a zone while this was in flight;
+        // the ask wins, or the map would land on the log's zone with another
+        // mob's spawn points drawn over it.
+        if (asked.current) {
+          return;
+        }
+
         const hit = r.shortNames.find(known);
         if (hit) {
           setSelected(hit);
@@ -267,15 +404,62 @@ export function MapView({ currentZone, install, hasLog = false }: Props) {
     return [...byKey.values()];
   }, [catalog]);
 
+  /** The chosen era, remembered per install; undefined for the whole world. */
+  const era = eraFor(settings, install);
+  const eraOrdinal = useMemo(() => new Map((catalog?.eras ?? []).map((e, i) => [e.id, i])), [catalog]);
+  const eraLimit = era ? eraOrdinal.get(era) : undefined;
+
+  /**
+   * Whether a map's zone exists in the chosen era: the same rule the world
+   * graph draws by. Unknown era is in — the table could not place it, and
+   * hiding a place the player can walk into is the worse mistake.
+   */
+  const withinEra = (m: MapCatalogEntry) =>
+    eraLimit === undefined || !m.era || (eraOrdinal.get(m.era) ?? -1) <= eraLimit;
+
+  /**
+   * The places the zone list offers under the chosen era: those with a
+   * named drawing that exists in it, so a Classic-only world lists ninety
+   * zones rather than 570 and the list stops asking you to know which is
+   * which. A named zone the table cannot place stays (there is one), on the
+   * graph's rule that hiding a place the player can walk into is the worse
+   * mistake. An <em>unnamed</em> map is a different thing: 313 files with no
+   * table row, no name and so no era — kept, they are three quarters of a
+   * "Classic only" list — so under an era they step out, and the list says
+   * how many. The zone on screen and the log's own zone are always kept.
+   */
+  const inEra = useMemo(() => {
+    if (eraLimit === undefined) {
+      return { places, hiddenUnnamed: 0 };
+    }
+    let hiddenUnnamed = 0;
+    const kept = places.filter((p) => {
+      if (
+        p.maps.some((m) => m.shortName === selected) ||
+        (currentZone !== undefined && zoneKey(p.name) === zoneKey(currentZone))
+      ) {
+        return true;
+      }
+      const named = p.maps.some((m) => m.displayName);
+      if (!named) {
+        hiddenUnnamed++;
+        return false;
+      }
+      return p.maps.some((m) => m.displayName && withinEra(m));
+    });
+    return { places: kept, hiddenUnnamed };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [places, eraLimit, eraOrdinal, selected, currentZone]);
+
   const shown = useMemo(
     () =>
-      places
+      inEra.places
         .map((place) => ({ place, hit: fuzzyMatch(place.name, filter) }))
         .filter((x) => x.hit !== null)
         .sort((a, b) => b.hit!.score - a.hit!.score)
         .slice(0, 300)
         .map((x) => x.place),
-    [places, filter],
+    [inEra, filter],
   );
 
   const place = places.find((p) => p.maps.some((m) => m.shortName === selected));
@@ -285,7 +469,7 @@ export function MapView({ currentZone, install, hasLog = false }: Props) {
   );
 
   /** Opens a place on whichever of its maps the user last chose. */
-  const openPlace = (p: { name: string; maps: MapCatalogEntry[] }) => {
+  const openPlace = (p: { name: string; maps: MapCatalogEntry[] }): string => {
     const override = chosenFor(settings, p.name, install);
     const target =
       override && p.maps.some((m) => m.shortName === override) ? override : p.maps[0].shortName;
@@ -293,7 +477,281 @@ export function MapView({ currentZone, install, hasLog = false }: Props) {
     setSelected(target);
     setSet(undefined);
     setSteered(true);
+    return target;
   };
+
+  /**
+   * The rail's idea of "go to a zone", in either mode. On the Zone view it
+   * draws the zone; on the World view it frames and names it in the graph —
+   * the same list, the same click, the same current zone (so the Mobs tab's
+   * roster follows), and the world stays the world.
+   */
+  const pickPlace = (p: { name: string; maps: MapCatalogEntry[] }) => {
+    const target = openPlace(p);
+    if (mode === "world") {
+      setWorldFocus((f) => ({ zone: target, seq: (f?.seq ?? 0) + 1 }));
+    }
+    // Having chosen a zone, the next question is who is in it — and the
+    // zone list has done its job until the next zone is wanted.
+    if (referenceEnabled) {
+      setRailTab("mobs");
+    }
+  };
+
+  /** The same, by map short name — for a place chip on a mob search result. */
+  const pickShortName = (shortName: string) => {
+    setSelected(shortName);
+    setSet(undefined);
+    setSteered(true);
+    if (mode === "world") {
+      setWorldFocus((f) => ({ zone: shortName, seq: (f?.seq ?? 0) + 1 }));
+    }
+  };
+
+  // Another view asked for a zone (the Bestiary's "show on map", or a crumb
+  // back). By the map short name it named when the catalogue has it; else by
+  // the place's name; else through the zone table — the same road the log's
+  // own zone takes. Waits for the catalogue, since the ask usually arrives
+  // with the view still mounting.
+  useEffect(() => {
+    if (!target || !catalog?.found) {
+      return;
+    }
+
+    asked.current = true;
+    followed.current = true;
+    setFollowDone(true);
+    setMode(target.mode ?? "zone");
+    setSteered(true);
+    setSet(undefined);
+    if (target.mode === "world" && target.shortName) {
+      setWorldFocus((f) => ({ zone: target.shortName!, seq: (f?.seq ?? 0) + 1 }));
+    }
+    // "Show on map" from the Bestiary pins the mob: visible at once, listed
+    // in the header with the other pins, and removable there — rather than
+    // a drawing that nothing on screen accounts for.
+    if (target.spawn) {
+      void pinMob(target.spawn.mob, target.shortName ? { shortName: target.shortName, points: target.spawn.points } : undefined);
+    }
+
+    if (target.shortName && catalog.zones.some((z) => z.shortName === target.shortName)) {
+      setSelected(target.shortName);
+      return;
+    }
+
+    const byName = places.find((p) => zoneKey(p.name) === zoneKey(target.place));
+    if (byName) {
+      const override = chosenFor(settings, byName.name, install);
+      setSelected(
+        override && byName.maps.some((m) => m.shortName === override) ? override : byName.maps[0].shortName,
+      );
+      return;
+    }
+
+    // Only the table can say which map this is, and until it has, whatever
+    // the fallback draws in the meantime is not a screen anyone was on.
+    resolving.current = true;
+    api
+      .resolveZone(target.place)
+      .then((r) => {
+        const hit = r.shortNames.find((s) => catalog.zones.some((z) => z.shortName === s));
+        resolving.current = false;
+        if (hit) setSelected(hit);
+      })
+      .catch(() => (resolving.current = false));
+    // `places` and `settings` are read, not followed: this fires on the ask.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [target?.seq, catalog]);
+
+  // The roster for the zone on screen. Whenever a zone is drawn, not only
+  // when the Mobs tab is open: every listing's spawn points go on the map
+  // by default, so the drawing needs it. One shard per zone, cached by the
+  // server; a zone the site does not cover is a quick "not known" rather
+  // than an error.
+  useEffect(() => {
+    if (!referenceEnabled || !selected || rosterFor === selected) {
+      return;
+    }
+
+    let cancelled = false;
+    setRosterLoading(true);
+    api
+      .zoneRoster(selected)
+      .then((r) => {
+        if (cancelled) return;
+        setRoster(r.roster);
+        setRosterFor(selected);
+      })
+      .catch(() => !cancelled && setRoster(null))
+      .finally(() => !cancelled && setRosterLoading(false));
+    return () => {
+      cancelled = true;
+    };
+  }, [referenceEnabled, selected, rosterFor]);
+
+  // Where does a mob stand: the same search as the Bestiary's, and every row
+  // already carries its zones — that is what the id scheme buys.
+  useEffect(() => {
+    if (!referenceEnabled) return;
+    window.clearTimeout(mobDebounce.current);
+    const q = mobQuery.trim();
+    if (q.length < 2) {
+      setMobResults(null);
+      return;
+    }
+    mobDebounce.current = window.setTimeout(() => {
+      api
+        .searchNpcs(q, { limit: 40 })
+        .then((r) => setMobResults(r.npcs))
+        .catch(() => setMobResults([]));
+    }, 250);
+    return () => window.clearTimeout(mobDebounce.current);
+  }, [mobQuery, referenceEnabled]);
+
+  /** Kills this server's logs recorded in the place on screen, by name. */
+  const killedHere = useMemo(() => {
+    if (!mobs || !place) return new Map<string, number>();
+    const key = zoneKey(place.name);
+    const out = new Map<string, number>();
+    for (const m of mobs.mobs) {
+      if (zoneKey(stripInstance(m.zone)) !== key) continue;
+      const k = m.mob.trim().toLowerCase();
+      out.set(k, (out.get(k) ?? 0) + m.samples);
+    }
+    return out;
+  }, [mobs, place]);
+
+  /**
+   * The roster, one row per name. The site lists a name once per level it
+   * stands at, and the log's kills are per name — so "a shin ghoul knight
+   * ×198" beside four level rows reads as 792. One row, its level span, its
+   * points together, its kills once.
+   */
+  const rosterRows = useMemo(() => {
+    if (!roster || rosterFor !== selected || !roster.known) return [];
+    const byName = new Map<
+      string,
+      { name: string; id: number; minLevel?: number; maxLevel?: number; spawnPoints: number; locations: number[][]; kills: number }
+    >();
+    for (const n of roster.npcs) {
+      const key = n.name.trim().toLowerCase();
+      const row = byName.get(key) ?? {
+        name: n.name,
+        id: n.id,
+        minLevel: n.level,
+        maxLevel: n.maxLevel ?? n.level,
+        spawnPoints: 0,
+        locations: [],
+        kills: killedHere.get(key) ?? 0,
+      };
+      if (n.level !== undefined) {
+        row.minLevel = row.minLevel === undefined ? n.level : Math.min(row.minLevel, n.level);
+        const top = n.maxLevel ?? n.level;
+        row.maxLevel = row.maxLevel === undefined ? top : Math.max(row.maxLevel, top);
+      }
+      row.spawnPoints += n.spawnPoints;
+      row.locations = row.locations.concat(n.locations);
+      byName.set(key, row);
+    }
+    return [...byName.values()].sort(
+      (a, b) => (a.minLevel ?? 999) - (b.minLevel ?? 999) || a.name.localeCompare(b.name),
+    );
+  }, [roster, rosterFor, selected, killedHere]);
+
+  // This screen, for the history: the zone on screen and which way it is
+  // being looked at. Nothing until a zone is chosen — "the map, waiting" is
+  // not a place to come back to.
+  useEffect(() => {
+    if (!selected || resolving.current) return;
+    onScreen?.({ place: place?.name ?? entry?.displayName ?? selected, shortName: selected, mode });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected, mode]);
+
+  /** The crumb this zone leaves behind when a mob is opened from it. */
+  const crumbHere = (): Crumb => ({
+    view: "map",
+    label: place?.name ?? entry?.displayName ?? selected ?? "Map",
+    map: selected ? { place: place?.name ?? selected, shortName: selected } : undefined,
+  });
+
+  /** From a search result's place chip: open that zone, drawing the mob's points there. */
+  const goToPlace = async (row: NpcBrowseRow, shortName: string, maps: string[], id: number) => {
+    // The site's short name may be the other drawing of the place; open on
+    // whichever of the place's maps this install has.
+    const known = maps.find((m) => catalog?.zones.some((z) => z.shortName === m)) ?? shortName;
+    // On the World view the chip frames the zone in the world; on the Zone
+    // view it opens it. Either way the mob is pinned there, so it is drawn.
+    pickShortName(known);
+    const detail = await api.npcDetail(id).catch(() => null);
+    const points = detail?.detail.zones.find((z) => z.shortName === shortName)?.locations ?? [];
+    void pinMob(row.name, { shortName: known, points });
+  };
+
+  // Fill in the pins' spawn points for the zone on screen. From the roster
+  // when it has them (no fetch), else from the pin's listing there (one
+  // cached shard read). Only pins that stand here and are not yet known.
+  useEffect(() => {
+    if (!selected) return;
+    let cancelled = false;
+    for (const pin of pins) {
+      if (pin.points[selected]) continue;
+      const here = pinStandsIn(pin, selected);
+      if (!here) continue;
+      const fromRoster = rosterRows.find((r) => r.name.toLowerCase() === pin.name.toLowerCase());
+      if (fromRoster && fromRoster.locations.length > 0) {
+        setPins((ps) => ps.map((p) => (p.name === pin.name ? { ...p, points: { ...p.points, [selected]: fromRoster.locations } } : p)));
+        continue;
+      }
+      api
+        .npcDetail(here.id)
+        .then((d) => {
+          if (cancelled) return;
+          const points = d?.detail.zones.find((z) => z.shortName === here.shortName || here.maps.includes(z.shortName))?.locations ?? [];
+          setPins((ps) => ps.map((p) => (p.name === pin.name ? { ...p, points: { ...p.points, [selected]: points } } : p)));
+        })
+        .catch(() => undefined);
+    }
+    return () => {
+      cancelled = true;
+    };
+    // rosterRows is read for a free answer, not followed: a roster arriving
+    // later re-runs this through `pins` when the fetch path fills the point.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected, pins]);
+
+  /**
+   * Everything drawn over the zone: the whole roster's spawn points, small
+   * and quiet; the pins in their colours; and the mob under the pointer lit
+   * with the rest stepped back. All of it from what is already in hand —
+   * the roster carries every listing's points, and pins fill theirs in when
+   * a zone is drawn.
+   */
+  const markers = useMemo<MapMarker[]>(() => {
+    if (!selected) return [];
+    const out: MapMarker[] = [];
+    const hot = hovered?.name.toLowerCase();
+    const pinnedNames = new Set(pins.map((p) => p.name.toLowerCase()));
+
+    for (const r of rosterRows) {
+      const key = r.name.toLowerCase();
+      if (pinnedNames.has(key) || key === hot) continue;
+      out.push(...toMarkers(r.name, r.locations, { dim: hot !== undefined }));
+    }
+    pins.forEach((pin, i) => {
+      const pts = pin.points[selected];
+      if (!pts || pin.name.toLowerCase() === hot) return;
+      out.push(...toMarkers(pin.name, pts, { color: pinColor(i), dim: hot !== undefined }));
+    });
+    if (hovered) {
+      const pts =
+        hovered.points ??
+        pins.find((p) => p.name.toLowerCase() === hot)?.points[selected] ??
+        rosterRows.find((r) => r.name.toLowerCase() === hot)?.locations ??
+        [];
+      out.push(...toMarkers(hovered.name, pts, { lit: true }));
+    }
+    return out;
+  }, [selected, rosterRows, pins, hovered]);
 
   /** Binds a zone name to a map, or forgets the binding when null. */
   const bind = (zone: string, shortName: string | null) => {
@@ -453,40 +911,322 @@ export function MapView({ currentZone, install, hasLog = false }: Props) {
           >
             World
           </button>
+          {/* Which expansion the server has reached — beside the lists it
+              narrows, since it narrows the zone list as much as the world.
+              The player's call: the log names only zones already visited,
+              and the map files carry no content gating, so nothing here can
+              guess it (issue #57). Remembered per install. */}
+          <select
+            className="mini-select map-era"
+            value={eraLimit === undefined ? "" : era}
+            onChange={(e) => {
+              rememberEra(e.target.value || null, install)
+                .then(setSettings)
+                .catch(() => undefined);
+            }}
+            title="How far your server has unlocked. Zones from later expansions leave the list and the world; zones whose era is unknown stay. Nothing in the log can say this, so it is yours to set."
+          >
+            <option value="">Any era</option>
+            {catalog.eras.map((e, i) => (
+              <option key={e.id} value={e.id}>
+                {i === 0 ? `${e.short} only` : `through ${e.short}`}
+              </option>
+            ))}
+          </select>
         </div>
 
-        {mode === "zone" && (
-          <>
-            <input
-              className="map-filter"
-              placeholder={`Search ${catalog.zones.length} zones…`}
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-            />
-            <div className="map-zone-list">
-              {shown.map((p) => (
+        {/* The rail is the same in both modes — the same two lists, the same
+            clicks — so the World is not a different app with an empty left
+            edge. On the World a zone click frames rather than draws, and a
+            mob under the pointer lights the zones it stands in. */}
+        <>
+            {/* Two lists share the rail: the zones, and the mobs. The mobs tab
+                is the Bestiary's door into this view — who stands here, and
+                where does that one stand — and it only appears when the
+                reference site is switched on, since it has nothing to say
+                otherwise. */}
+            {referenceEnabled && (
+              <div className="map-rail-tabs" role="tablist">
                 <button
-                  key={p.key}
-                  className={"map-zone" + (place?.key === p.key ? " on" : "")}
-                  onClick={() => openPlace(p)}
-                  title={p.maps.map((m) => m.shortName).join(", ")}
+                  role="tab"
+                  aria-selected={railTab === "zones"}
+                  className={"map-rail-tab" + (railTab === "zones" ? " on" : "")}
+                  onClick={() => setRailTab("zones")}
                 >
-                  <span className="map-zone-name">{p.name}</span>
-                  {/* More than one map claims this name; the header lets you
-                      pick which. Said here so the choice is discoverable
-                      before you land on the zone. */}
-                  {p.maps.length > 1 && (
-                    <span className="map-zone-variants">{p.maps.length} maps</span>
-                  )}
-                  {/* An unnamed map is a file we can draw but cannot name. Say
-                      so rather than showing a short name as if it were a place. */}
-                  {!p.maps[0].displayName && <span className="map-zone-unnamed">unnamed</span>}
+                  Zones
                 </button>
-              ))}
-              {shown.length === 0 && <div className="map-empty-small">No zone matches that.</div>}
-            </div>
-          </>
-        )}
+                <button
+                  role="tab"
+                  aria-selected={railTab === "mobs"}
+                  className={"map-rail-tab" + (railTab === "mobs" ? " on" : "")}
+                  onClick={() => setRailTab("mobs")}
+                  title="Who stands in this zone, and where any mob stands"
+                >
+                  Mobs
+                </button>
+              </div>
+            )}
+
+            {(railTab === "zones" || !referenceEnabled) && (
+              <>
+                <input
+                  className="map-filter"
+                  placeholder={`Search ${inEra.places.length} zones…`}
+                  value={filter}
+                  onChange={(e) => setFilter(e.target.value)}
+                />
+                <div className="map-zone-list">
+                  {shown.map((p) => (
+                    <button
+                      key={p.key}
+                      className={"map-zone" + (place?.key === p.key ? " on" : "")}
+                      onClick={() => pickPlace(p)}
+                      title={
+                        (mode === "world" ? "Frame in the world: " : "") +
+                        p.maps.map((m) => m.shortName).join(", ")
+                      }
+                    >
+                      <span className="map-zone-name">{p.name}</span>
+                      {/* More than one map claims this name; the header lets you
+                          pick which. Said here so the choice is discoverable
+                          before you land on the zone. */}
+                      {p.maps.length > 1 && (
+                        <span className="map-zone-variants">{p.maps.length} maps</span>
+                      )}
+                      {/* An unnamed map is a file we can draw but cannot name. Say
+                          so rather than showing a short name as if it were a place. */}
+                      {!p.maps[0].displayName && <span className="map-zone-unnamed">unnamed</span>}
+                    </button>
+                  ))}
+                  {shown.length === 0 && <div className="map-empty-small">No zone matches that.</div>}
+                  {/* Said, so a map that used to be in the list has not
+                      simply vanished: it is behind the era, and "Any era"
+                      brings it back. */}
+                  {inEra.hiddenUnnamed > 0 && filter.trim().length === 0 && (
+                    <div className="map-empty-small map-era-note">
+                      {inEra.hiddenUnnamed} unnamed maps have no era and are not listed — choose “Any era” to see them.
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+
+            {railTab === "mobs" && referenceEnabled && (
+              <>
+                <input
+                  className="map-filter"
+                  placeholder="Where does a mob stand?"
+                  value={mobQuery}
+                  onChange={(e) => setMobQuery(e.target.value)}
+                />
+                <div className="map-zone-list map-mob-list">
+                  {/* Pinned mobs first, in their colours, in either mode.
+                      Pointing at one lights it wherever it is drawn; the ✕
+                      unpins; the name opens the mob. */}
+                  {pins.length > 0 && mobQuery.trim().length < 2 && (
+                    <>
+                      <div className="map-mob-heading">
+                        Pinned<span className="subtle"> · {pins.length}</span>
+                      </div>
+                      {pins.map((pin, i) => (
+                        <div
+                          key={pin.name}
+                          className={"map-mob map-roster-row pinned" + (hovered?.name === pin.name ? " lit" : "")}
+                          onMouseEnter={() => setHovered({ name: pin.name, zones: new Set(pinZones(pin)) })}
+                          onMouseLeave={() => setHovered((h) => (h?.name === pin.name ? null : h))}
+                        >
+                          <span className="map-pin-swatch" style={{ background: pinColor(i) }} aria-hidden />
+                          <button
+                            className="map-mob-name"
+                            onClick={() => onOpenMob?.({ name: pin.name }, crumbHere())}
+                            title={`Open ${pin.name} in the Bestiary`}
+                          >
+                            <span className="map-mob-text">{pin.name}</span>
+                            <span className="map-mob-kills subtle">
+                              {pin.places.length} zone{pin.places.length === 1 ? "" : "s"}
+                            </span>
+                          </button>
+                          <button className="map-mob-pin on" onClick={() => unpinMob(pin.name)} title="Unpin">
+                            <IconX size={12} stroke={2} aria-hidden />
+                          </button>
+                        </div>
+                      ))}
+                    </>
+                  )}
+
+                  {mobQuery.trim().length >= 2 ? (
+                    <>
+                      {mobResults === null && <div className="map-empty-small">Searching…</div>}
+                      {mobResults !== null && mobResults.length === 0 && (
+                        <div className="map-empty-small">Nothing by that name.</div>
+                      )}
+                      {(mobResults ?? []).map((row) => {
+                        const zones = new Set<string>();
+                        for (const p of row.places) {
+                          for (const m of p.maps) zones.add(m);
+                          if (p.shortName) zones.add(p.shortName);
+                        }
+                        const pinned = isPinned(row.name);
+                        return (
+                          <div
+                            key={row.name}
+                            className={"map-mob" + (hovered?.name === row.name ? " lit" : "") + (pinned ? " pinned" : "")}
+                            onMouseEnter={() => setHovered({ name: row.name, zones })}
+                            onMouseLeave={() => setHovered((h) => (h?.name === row.name ? null : h))}
+                          >
+                            <div className="map-mob-line">
+                              <button
+                                className="map-mob-name"
+                                onClick={() => onOpenMob?.({ name: row.name }, crumbHere())}
+                                title={`Open ${row.name} in the Bestiary`}
+                              >
+                                <span>{row.name}</span>
+                                <span className="map-mob-lvl">
+                                  {row.minLevel !== undefined
+                                    ? `L${row.minLevel}${row.maxLevel !== undefined && row.maxLevel !== row.minLevel ? `–${row.maxLevel}` : ""}`
+                                    : ""}
+                                </span>
+                              </button>
+                              <button
+                                className={"map-mob-pin" + (pinned ? " on" : "")}
+                                onClick={() => togglePin(row.name)}
+                                title={pinned ? "Unpin" : "Pin: draw it on every zone it stands in, and ring those zones on the world"}
+                              >
+                                <IconMapPin size={13} stroke={1.8} aria-hidden />
+                              </button>
+                            </div>
+                            {/* Its zones, each a click to go there with the
+                                mob pinned so it is drawn. A place with no name
+                                is one this build has no map row for. */}
+                            <div className="map-mob-places">
+                              {row.places.map((p) =>
+                                p.shortName ? (
+                                  <button
+                                    key={p.id}
+                                    className={"map-mob-place" + (p.shortName === selected || p.maps.includes(selected ?? "") ? " on" : "")}
+                                    onClick={() => void goToPlace(row, p.shortName!, p.maps, p.id)}
+                                    title={`${p.name} — L${p.levels.join(", ")}${p.era ? ` · ${p.era}` : ""}`}
+                                  >
+                                    {p.name}
+                                  </button>
+                                ) : (
+                                  <span key={p.id} className="map-mob-place none" title="A zone this build has no map for">
+                                    elsewhere
+                                  </span>
+                                ),
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </>
+                  ) : (
+                    <>
+                      {/* The roster of the current zone — the one drawn, or on
+                          the World the one framed. Said in the heading, so a
+                          list of one zone's mobs under a picture of the world
+                          reads as what it is. */}
+                      <div className="map-mob-heading">
+                        {mode === "world" ? "In " : ""}
+                        {place?.name ?? entry?.displayName ?? selected}
+                        {roster && rosterFor === selected && roster.known && (
+                          <span className="subtle"> · {rosterRows.length} names</span>
+                        )}
+                      </div>
+                      {rosterLoading && <div className="map-empty-small">Reading the roster…</div>}
+                      {!rosterLoading && roster && rosterFor === selected && !roster.known && killedHere.size === 0 && (
+                        <div className="map-empty-small">
+                          The reference site lists nothing for this zone, and your logs have killed nothing here.
+                        </div>
+                      )}
+                      {!rosterLoading && roster && rosterFor === selected && roster.known && roster.npcs.length === 0 && (
+                        <div className="map-empty-small">Nothing listed here.</div>
+                      )}
+                      {/* The roster: level, name, and — where the logs have
+                          them — this server's kills. Every row's spawn points
+                          are already on the zone; pointing at a row lights
+                          its own and steps the rest back (on the World, it
+                          lights this zone); the pin keeps it; the name opens
+                          the mob. */}
+                      {rosterRows.map((n) => {
+                        const pinned = isPinned(n.name);
+                        const lvl =
+                          n.minLevel === undefined
+                            ? ""
+                            : n.maxLevel !== undefined && n.maxLevel !== n.minLevel
+                              ? `L${n.minLevel}–${n.maxLevel}`
+                              : `L${n.minLevel}`;
+                        return (
+                          <div
+                            key={n.id}
+                            className={
+                              "map-mob map-roster-row" +
+                              (pinned ? " pinned" : "") +
+                              (n.kills > 0 ? " killed" : "") +
+                              (hovered?.name === n.name ? " lit" : "")
+                            }
+                            onMouseEnter={() =>
+                              setHovered({ name: n.name, zones: new Set(selected ? [selected] : []), points: n.locations })
+                            }
+                            onMouseLeave={() => setHovered((h) => (h?.name === n.name ? null : h))}
+                          >
+                            {pinned && (
+                              <span className="map-pin-swatch" style={{ background: pinColor(pinIndex(n.name)) }} aria-hidden />
+                            )}
+                            <button
+                              className="map-mob-name"
+                              onClick={() => onOpenMob?.({ name: n.name, id: n.id }, crumbHere())}
+                              title={`Open ${n.name} in the Bestiary`}
+                            >
+                              <span className="map-mob-lvl">{lvl}</span>
+                              <span className="map-mob-text">{n.name}</span>
+                              {n.kills > 0 && (
+                                <span className="map-mob-kills" title={`Your logs killed ${n.kills} here`}>
+                                  ×{fmtNum(n.kills)}
+                                </span>
+                              )}
+                            </button>
+                            <button
+                              className={"map-mob-pin" + (pinned ? " on" : "")}
+                              onClick={() => togglePin(n.name, selected ? { shortName: selected, points: n.locations } : undefined)}
+                              title={
+                                pinned
+                                  ? "Unpin"
+                                  : `Pin: keep its ${n.spawnPoints} spawn point${n.spawnPoints === 1 ? "" : "s"} drawn here, draw it wherever else it stands, and ring those zones on the world`
+                              }
+                            >
+                              <IconMapPin size={13} stroke={1.8} aria-hidden />
+                            </button>
+                          </div>
+                        );
+                      })}
+                      {/* Kills the logs have here that the roster does not
+                          list — or everything, when there is no roster. */}
+                      {[...killedHere.entries()]
+                        .filter(([k]) => !rosterRows.some((n) => n.name.trim().toLowerCase() === k))
+                        .sort((a, b) => b[1] - a[1])
+                        .map(([k, kills]) => {
+                          const name = mobs?.mobs.find((m) => m.mob.trim().toLowerCase() === k)?.mob ?? k;
+                          return (
+                            <div key={"killed:" + k} className="map-mob map-roster-row killed">
+                              <button
+                                className="map-mob-name"
+                                onClick={() => onOpenMob?.({ name }, crumbHere())}
+                                title={`Open ${name} in the Bestiary — your logs killed ${kills} here`}
+                              >
+                                <span className="map-mob-lvl subtle">you</span>
+                                <span className="map-mob-text">{name}</span>
+                                <span className="map-mob-kills">×{fmtNum(kills)}</span>
+                              </button>
+                            </div>
+                          );
+                        })}
+                    </>
+                  )}
+                </div>
+              </>
+            )}
+        </>
       </aside>
 
       {mode === "world" ? (
@@ -507,12 +1247,10 @@ export function MapView({ currentZone, install, hasLog = false }: Props) {
           }}
           currentZone={currentZone}
           currentMap={currentZone ? chosenFor(settings, currentZone, install) : undefined}
-          era={eraFor(settings, install)}
-          onEraChange={(era) => {
-            rememberEra(era, install)
-              .then(setSettings)
-              .catch(() => undefined);
-          }}
+          lit={litZones}
+          litLabel={hovered?.name}
+          pins={pinRings}
+          era={era}
         />
       ) : (
         <section className="map-stage">
@@ -538,6 +1276,39 @@ export function MapView({ currentZone, install, hasLog = false }: Props) {
             </div>
 
             <div className="map-controls">
+              {/* The pins, as chips in their colours — the legend for what
+                  is drawn. Pointing at one lights it; the name opens the mob;
+                  the ✕ unpins. Only pins with a place on this zone, so the
+                  legend describes this drawing and not the whole list. */}
+              {pins.map((pin, i) =>
+                selected && pinStandsIn(pin, selected) ? (
+                  <span
+                    key={pin.name}
+                    className="map-spawn-chip"
+                    style={{ borderColor: pinColor(i) }}
+                    onMouseEnter={() => setHovered({ name: pin.name, zones: new Set(pinZones(pin)) })}
+                    onMouseLeave={() => setHovered((h) => (h?.name === pin.name ? null : h))}
+                  >
+                    <span className="map-pin-swatch" style={{ background: pinColor(i) }} aria-hidden />
+                    <button
+                      className="map-spawn-name"
+                      onClick={() => onOpenMob?.({ name: pin.name }, crumbHere())}
+                      title={`Open ${pin.name} in the Bestiary`}
+                    >
+                      {pin.name}
+                    </button>
+                    {pin.points[selected] && (
+                      <span className="subtle">
+                        {pin.points[selected].length} spawn point{pin.points[selected].length === 1 ? "" : "s"}
+                      </span>
+                    )}
+                    <button className="map-spawn-clear" onClick={() => unpinMob(pin.name)} title="Unpin">
+                      <IconX size={12} stroke={2} aria-hidden />
+                    </button>
+                  </span>
+                ) : null,
+              )}
+
               {/* Out to the world, landing on this zone. Right-click on the
                   map does the same; the button is there so it can be found. */}
               {selected && (
@@ -713,6 +1484,7 @@ export function MapView({ currentZone, install, hasLog = false }: Props) {
                 layers={map.layers.map((l) => l.index).filter((i) => !hiddenLayers.includes(i))}
                 trueColors={trueColors}
                 highlight={highlight}
+                markers={markers}
                 onTravel={travel}
               />
             )}

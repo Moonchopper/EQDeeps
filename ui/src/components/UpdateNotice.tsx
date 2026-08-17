@@ -10,9 +10,12 @@ export type UpdateChoice =
   | { kind: "defer"; scope: DeferScope };
 
 /**
- * Compress GitHub's auto-generated release notes ("* Title by @user in URL"
- * under a "## What's Changed" heading) into a short plain-text bullet list;
- * hand-written notes fall back to their first non-heading lines.
+ * The release notes as a short plain-text bullet list: the first bullets of
+ * the CHANGELOG.md section the release shipped with (bold leads and links
+ * flattened, since this is text, not markdown), or — for a release whose
+ * notes fell back to GitHub's generated "* Title by @user in URL" list —
+ * those titles with the attribution trimmed. Hand-written notes with no
+ * bullets fall back to their first non-heading lines.
  */
 export function shortChangelog(notes: string): string[] {
   const lines = notes.split("\n").map((l) => l.trim());
@@ -23,6 +26,7 @@ export function shortChangelog(notes: string): string[] {
         .slice(2)
         .replace(/ by @\S+ in \S+$/, "")
         .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+        .replace(/\*\*/g, "")
         .trim(),
     )
     .filter((l) => l.length > 0 && !l.startsWith("**Full Changelog"));

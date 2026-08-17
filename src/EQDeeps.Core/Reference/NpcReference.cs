@@ -5,6 +5,9 @@ namespace EQDeeps.Core.Reference;
 /// <summary>One NPC in the reference index: a name, the level it is listed at, and the site's id.</summary>
 public sealed record NpcIndexEntry(string Name, int? Level, int Id);
 
+/// <summary>One zone the reference site knows, by the short name it files it under and the name it prints.</summary>
+public sealed record NpcZoneRow(string ShortName, string LongName);
+
 /// <summary>A line of a listed loot table: the item, how often it drops, and its icon.</summary>
 public sealed record NpcLootLine(int ItemId, string Item, double DropPercent, int IconId, string? Damage);
 
@@ -40,10 +43,22 @@ public sealed record NpcDetail(
 /// <list type="bullet">
 /// <item><c>/data/search-index.json</c> — one array of <c>[name, type, id]</c>
 /// for everything the site knows; type <c>"n"</c> is an NPC and its name
-/// carries the level in parentheses, "Fippy Darkpaw (5)".</item>
+/// carries the level in parentheses, "Fippy Darkpaw (5)"; type <c>"z"</c> is
+/// a zone and its "id" is the short name the site files it under.</item>
 /// <item><c>/data/npcs/&lt;id/1000&gt;.json</c> — an object keyed by id, sharded a
 /// thousand ids at a time, holding the stat block and the loot table.</item>
 /// </list>
+///
+/// <para><b>A shard is a zone.</b> The site numbers its NPCs as
+/// <c>zone id × 1000 + n</c>, where the zone id is the client's own — Neriak
+/// Third Gate is 42 and its 107 NPCs are 42000–42116, West Karana is 12 and
+/// its 171 are 12000–12197. Checked on every shard fetched while this was
+/// written (12, 14, 20, 21, 22, 42, 58) and on the site's own zone pages,
+/// which list exactly the shard's rows. So <see cref="ShardOf"/> is also
+/// "which zone", a zone's roster is one file, and the client's zone ids in
+/// <c>zones.tsv</c> are the addresses. It is their convention, not a
+/// contract: everything built on it is checked against the shard's own
+/// <c>zones</c> field before it is shown.</para>
 ///
 /// <para>Pure: text in, records out, so the whole format lives under test
 /// without a network. Tolerant by policy — a row that does not parse is
@@ -102,6 +117,44 @@ public static class NpcReferenceFormat
         }
 
         return entries;
+    }
+
+    /// <summary>The zone rows of the index: the site's short name for each, and the name it prints.</summary>
+    public static IReadOnlyList<NpcZoneRow> ParseIndexZones(string json)
+    {
+        var zones = new List<NpcZoneRow>();
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            if (doc.RootElement.ValueKind != JsonValueKind.Array)
+            {
+                return zones;
+            }
+
+            foreach (var row in doc.RootElement.EnumerateArray())
+            {
+                if (row.ValueKind != JsonValueKind.Array || row.GetArrayLength() < 3)
+                {
+                    continue;
+                }
+
+                // ["Neriak - 3rd Gate", "z", "neriakc"] — the third cell is a
+                // short name here, where an NPC row carries a number.
+                var name = row[0].ValueKind == JsonValueKind.String ? row[0].GetString() : null;
+                var type = row[1].ValueKind == JsonValueKind.String ? row[1].GetString() : null;
+                var shortName = row[2].ValueKind == JsonValueKind.String ? row[2].GetString() : null;
+                if (type == "z" && !string.IsNullOrWhiteSpace(name) && !string.IsNullOrWhiteSpace(shortName))
+                {
+                    zones.Add(new NpcZoneRow(shortName.Trim(), name.Trim()));
+                }
+            }
+        }
+        catch (JsonException)
+        {
+            return [];
+        }
+
+        return zones;
     }
 
     /// <summary>

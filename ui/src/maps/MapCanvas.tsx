@@ -35,6 +35,23 @@ export interface MapView {
   y: number;
 }
 
+/**
+ * A point to draw over the map — a spawn point, in **map** coordinates
+ * (the caller has already turned the game's into the file's).
+ */
+export interface MapMarker {
+  x: number;
+  y: number;
+  /** What stands here; drawn beside the point when there are few enough to read. */
+  label: string;
+  /** A pinned mob's colour. Without one the point is part of the roster: small and quiet. */
+  color?: string;
+  /** Drawn larger and brighter, and named — the one being pointed at. */
+  lit?: boolean;
+  /** Stepped back further still — everything else while something is lit. */
+  dim?: boolean;
+}
+
 interface Props {
   map: ZoneMap;
   /** Layer indices to draw. */
@@ -45,6 +62,8 @@ interface Props {
   zRange?: [number, number] | null;
   /** A label the user is pointing at elsewhere — drawn picked out. */
   highlight?: string | null;
+  /** Points to draw over the map — a mob's spawn points, from the Bestiary. */
+  markers?: MapMarker[];
   /** Clicking an exit label. The argument is the destination as written. */
   onTravel?: (destination: string) => void;
 }
@@ -66,6 +85,7 @@ export function MapCanvas({
   trueColors = false,
   zRange = null,
   highlight = null,
+  markers = [],
   onTravel,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -236,8 +256,72 @@ export function MapCanvas({
       }
     }
 
+    // ---- markers ---------------------------------------------------------
+    // Spawn points, over everything. Three ranks, drawn quiet to loud so the
+    // loud ones land on top: the zone's whole roster as small muted dots
+    // (dimmer still while something else is lit), pinned mobs as filled
+    // discs in their own colour with a dark halo so they read on dense
+    // geometry, and the one being pointed at larger, brighter and named.
+    // Pinned points are named while there are few enough to read; past that
+    // the colour is the answer and the header's chips name the mobs.
+    if (markers.length > 0) {
+      // A mob with a dozen spawn points needs its name once, not twelve times
+      // along the corridor; a handful can each carry it. The colour and the
+      // header's chips do the rest for pins.
+      const perLabel = new Map<string, number>();
+      for (const m of markers) {
+        if (m.lit || m.color) perLabel.set(m.label, (perLabel.get(m.label) ?? 0) + 1);
+      }
+      const named = new Set<string>();
+      const nameOnce = (m: MapMarker) => {
+        if ((perLabel.get(m.label) ?? 0) <= 3) return true;
+        if (named.has(m.label)) return false;
+        named.add(m.label);
+        return true;
+      };
+      const rank = (m: MapMarker) => (m.lit ? 2 : m.color ? 1 : 0);
+      const ordered = [...markers].sort((a, b) => rank(a) - rank(b));
+      for (const m of ordered) {
+        const sx = FLIP_X * m.x * view.scale + view.x;
+        const sy = FLIP_Y * m.y * view.scale + view.y;
+        if (sx < -20 || sy < -20 || sx > size.w + 20 || sy > size.h + 20) {
+          continue;
+        }
+
+        if (!m.lit && !m.color) {
+          ctx.beginPath();
+          ctx.arc(sx, sy, m.dim ? 2 : 2.5, 0, Math.PI * 2);
+          ctx.fillStyle = m.dim ? "rgba(197,189,174,0.22)" : "rgba(197,189,174,0.5)";
+          ctx.fill();
+          continue;
+        }
+
+        const r = m.lit ? 7 : 5;
+        const fill = m.lit ? "#f1ece3" : m.color!;
+        ctx.globalAlpha = m.dim ? 0.35 : 1;
+        ctx.beginPath();
+        ctx.arc(sx, sy, r + 2, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(15,13,11,0.9)";
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(sx, sy, r, 0, Math.PI * 2);
+        ctx.fillStyle = fill;
+        ctx.fill();
+
+        if (!m.dim && nameOnce(m)) {
+          ctx.lineWidth = 3;
+          ctx.strokeStyle = "rgba(15,13,11,0.85)";
+          ctx.strokeText(m.label, sx + r + 4, sy);
+          ctx.lineWidth = 1;
+          ctx.fillStyle = fill;
+          ctx.fillText(m.label, sx + r + 4, sy);
+        }
+        ctx.globalAlpha = 1;
+      }
+    }
+
     placedRef.current = placed;
-  }, [map, layers, trueColors, zRange, highlight, size]);
+  }, [map, layers, trueColors, zRange, highlight, markers, size]);
 
   useEffect(() => {
     cancelAnimationFrame(frameRef.current);

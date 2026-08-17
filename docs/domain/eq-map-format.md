@@ -106,6 +106,18 @@ docks reaching into it, which is where Antonica's western city keeps its harbour
 **Z is a floor**, not decoration: dungeons stack, and a Z window is the only way
 to read a zone like Old Guk without every level drawn on top of the others.
 
+**Game coordinates onto a map file.** A spawn point as a reference site (or
+the game's `/loc`, once its Y-X order is undone) gives it is `[x, y, z]` in the
+game's own frame, and the map files hold the same axes **negated**: a game
+`(x, y)` draws at map `(−x, −y)`. Settled the same way as the orientation
+above, against data rather than folklore — under that transform every one of
+1,265 listed spawn points across six zones (West Karana, South Karana,
+Kithicor, West and East Commonlands, Neriak Third Gate) lands inside its
+map's bounding box; under identity, a swap, or a single-axis flip no zone
+does better than 60% and Neriak Third Gate, whose geometry sits wholly in one
+quadrant, scores zero. This is what the Bestiary's "show on map" uses
+(ADR-020, decision 6).
+
 ## 4. Zone connections
 
 Labels beginning `to ` or `from ` name a way out of the zone. This is the only
@@ -305,11 +317,25 @@ never reads the player's `ZoneNames.txt`, and the derivation can be re-run and
 argued with (`node scripts/derive-zone-eras.mjs --check` says whether the table
 still matches the install it points at).
 
+The same script writes a sixth column, `ids` — every id the client gives the
+row's display name, ascending, comma-separated (`oceanoftears … 69,409,569`).
+The eras only needed the lowest; the Bestiary (F30) needs them all, because
+the reference site files its NPCs a thousand ids per zone id, so an id is the
+address of a zone's roster and a listing's id says which zone it stands in
+(ADR-020, decision 6). Two drawings of one name (`freportw`, `freeportwest`)
+carry the same ids, and which one a site means is settled by content, not by
+the table.
+
 **What an era means.** The *earliest* expansion the place can exist in — a
 lower bound. The World view hides a zone whose era is later than the chosen one
-and routes only through zones that are not hidden. A zone with **no** era is
-shown under every filter: the same bias as the rest of this feature, where a
-smaller truthful graph beats hiding a place the player can walk into.
+and routes only through zones that are not hidden, and the Map's zone list
+drops it too — the chooser sits beside that list, since it narrows both. A
+*named* zone with **no** era is shown under every filter: the same bias as the
+rest of this feature, where a smaller truthful graph beats hiding a place the
+player can walk into. An *unnamed* map (no table row, so no name and no era —
+313 of the 581 files) is the exception in the list only: kept, they are three
+quarters of a "Classic only" list, so under an era they step out and the list
+says how many; "Any era" brings them back.
 
 **One name, several ids.** Revamps and event copies keep the display name:
 "The Ocean of Tears" is 69, 409 and 569; "The Sleeper's Tomb" is 128, 628, 801

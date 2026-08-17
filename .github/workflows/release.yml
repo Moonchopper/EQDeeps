@@ -129,9 +129,13 @@ jobs:
       # Everything the release will contain has to exist BEFORE it is created:
       # this repo has immutable releases enabled, so a published release's
       # assets are frozen and the app cast could never be attached afterwards.
-      # The notes are fetched from the generate-notes API rather than letting
-      # the release action write them, because the app cast embeds them as the
-      # changelog the in-app consent dialog shows.
+      # The notes are written into the app cast as the changelog the in-app
+      # consent dialog shows, so they are decided here rather than by the
+      # release action. They come from CHANGELOG.md — the section for this
+      # version, written for players — and only fall back to the generated
+      # PR list, with a warning, when that section is missing: a release
+      # cannot be retried under the same tag, so missing notes must not sink
+      # it, but they must not pass unnoticed either.
       - name: Build app cast
         shell: pwsh
         env:
@@ -170,14 +174,35 @@ jobs:
 
           dotnet tool install --global NetSparkleUpdater.Tools.AppCastGenerator --version 2.9.0
 
-          # generate-notes produces the same "What's Changed" list the release
-          # UI would, without needing the release to exist yet.
+          # The player-facing notes: the "## vX.Y.Z" section of CHANGELOG.md,
+          # up to the next "## " heading. Failing that, generate-notes gives
+          # the "What's Changed" PR list the release UI would — technical,
+          # and said so in the log — rather than no release at all.
           New-Item -ItemType Directory -Force artifacts/notes | Out-Null
-          $notes = gh api "repos/${{ github.repository }}/releases/generate-notes" `
-            -f tag_name=${{ github.ref_name }} --jq .body
-          if (-not $notes) { throw "could not generate release notes for ${{ github.ref_name }}." }
-          Set-Content -Path "artifacts/notes/${{ steps.version.outputs.version }}.md" `
-            -Value $notes -Encoding utf8
+          $version = "${{ steps.version.outputs.version }}"
+          $notes = $null
+          if (Test-Path CHANGELOG.md) {
+            $lines = Get-Content CHANGELOG.md -Encoding utf8
+            $start = -1
+            for ($i = 0; $i -lt $lines.Count; $i++) {
+              if ($lines[$i] -match "^##\s+v?$([regex]::Escape($version))\b") { $start = $i + 1; break }
+            }
+            if ($start -ge 0) {
+              $end = $lines.Count
+              for ($i = $start; $i -lt $lines.Count; $i++) {
+                if ($lines[$i] -match "^##\s") { $end = $i; break }
+              }
+              $notes = (($lines[$start..($end - 1)] -join "`n").Trim())
+              if (-not $notes) { $notes = $null }
+            }
+          }
+          if (-not $notes) {
+            Write-Host "::warning::CHANGELOG.md has no section for v$version - falling back to the generated PR list. Players will see commit titles."
+            $notes = gh api "repos/${{ github.repository }}/releases/generate-notes" `
+              -f tag_name=${{ github.ref_name }} --jq .body
+            if (-not $notes) { throw "could not generate release notes for ${{ github.ref_name }}." }
+          }
+          Set-Content -Path "artifacts/notes/$version.md" -Value $notes -Encoding utf8
           Set-Content -Path artifacts/release-notes.md -Value $notes -Encoding utf8
 
           netsparkle-generate-appcast `

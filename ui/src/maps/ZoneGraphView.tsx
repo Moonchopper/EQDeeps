@@ -275,7 +275,6 @@ interface Props {
    * and never routed through; zones whose era is unknown stay (issue #57).
    */
   era?: string;
-  onEraChange: (era: string | null) => void;
   /**
    * A zone to frame on arrival — the one the Zone view was showing when the
    * user asked for the world. `focusSeq` changes on every ask, so asking for
@@ -292,17 +291,35 @@ interface Props {
    * here" lands on the drawing they picked when a name has two.
    */
   currentMap?: string;
+  /**
+   * Zones to light from outside — the map short names a mob stands in, while
+   * the rail's mob search is pointing at it. Drawn exactly as search hits are:
+   * lit and named, everything else stepped back. Ignored while a search is
+   * typed, since the search is the more deliberate ask.
+   */
+  lit?: ReadonlySet<string> | null;
+  /** What the lit zones have in common, for the header — a mob's name. */
+  litLabel?: string;
+  /**
+   * Zones with a pinned mob standing in them, by map short name: a ring per
+   * pin in the pin's colour, and the zone keeps its name at any zoom. Unlike
+   * `lit`, nothing else steps back — pins are a standing mark, not a
+   * question being asked right now.
+   */
+  pins?: ReadonlyMap<string, { name: string; color: string }[]> | null;
 }
 
 export function ZoneGraphView({
   onOpenZone,
   era,
-  onEraChange,
   focus,
   focusSeq = 0,
   onBack,
   currentZone,
   currentMap,
+  lit = null,
+  litLabel,
+  pins = null,
 }: Props) {
   const [graph, setGraph] = useState<ZoneGraph | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -461,8 +478,41 @@ export function ZoneGraphView({
     };
   }, [positions, size]);
 
-  // A different world, or a resized frame, invalidates wherever we were.
-  useEffect(() => setView(null), [positions, size.w, size.h]);
+  // A different world invalidates wherever we were.
+  useEffect(() => setView(null), [positions]);
+
+  /**
+   * A resized frame does not: it keeps the same centre at the same zoom,
+   * re-fitted to the new shape.
+   *
+   * <p>This used to reset to the fit as well, and that is what made zooming
+   * "sticky" while a search was typed: the header's summary grows with the
+   * search, the fit button's own label changes width with every wheel notch,
+   * and at the wrap point either one bounces the header by a line — which
+   * resizes the body, which threw the view away and re-fitted it. Several
+   * notches were needed for one to survive. The zoom is remembered as a
+   * factor over the fit rather than as a box, so it means the same thing
+   * after the frame changes shape.</p>
+   */
+  const zoomRef = useRef(1);
+  useEffect(() => {
+    setView((v) => {
+      if (!v || fitted.w <= 0) {
+        return v;
+      }
+      const w = fitted.w / zoomRef.current;
+      const h = w * (fitted.h / fitted.w);
+      return { x: v.x + v.w / 2 - w / 2, y: v.y + v.h / 2 - h / 2, w, h };
+    });
+  }, [fitted]);
+
+  // Recorded when the view changes, against the fit of the same render — not
+  // when the fit changes, or a resize would record the old box against the
+  // new fit and the effect above would read a zoom that never existed.
+  useEffect(() => {
+    zoomRef.current = view ? fitted.w / view.w : 1;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view]);
 
   /**
    * Coming from the Zone view, land on the zone that was open there: framed
@@ -520,8 +570,24 @@ export function ZoneGraphView({
    * else steps back.</p>
    */
   const found = useMemo(() => {
-    if (!drawn || search.trim().length === 0) {
+    if (!drawn) {
       return null;
+    }
+
+    // Lit from outside — a mob's zones — and nothing typed: those are the
+    // hits, with no letters to mark and no neighbours to add. A node is a
+    // place and may carry two drawings, so it matches on any of its maps.
+    if (search.trim().length === 0) {
+      if (!lit || lit.size === 0) {
+        return null;
+      }
+      const hits = new Map<string, FuzzyHit>();
+      for (const z of drawn.graph.zones) {
+        if (z.maps.some((m) => lit.has(m))) {
+          hits.set(z.shortName, { score: 0, positions: [] });
+        }
+      }
+      return { hits, via: new Map<string, string[]>(), external: true };
     }
 
     let hits = new Map<string, FuzzyHit>();
@@ -563,8 +629,8 @@ export function ZoneGraphView({
       }
     }
 
-    return { hits, via };
-  }, [drawn, search, withLinks, names]);
+    return { hits, via, external: false };
+  }, [drawn, search, withLinks, names, lit]);
 
   /**
    * The node the character is standing in, or null. Resolved through the
@@ -679,14 +745,27 @@ export function ZoneGraphView({
       : "";
   };
 
+  /** The pins standing in a zone, by any of the maps that draw it. */
+  const pinsOf = (z: ZoneGraphNode): { name: string; color: string }[] => {
+    if (!pins) return [];
+    const out: { name: string; color: string }[] = [];
+    for (const m of z.maps) {
+      for (const p of pins.get(m) ?? []) {
+        if (!out.some((o) => o.name === p.name)) out.push(p);
+      }
+    }
+    return out;
+  };
+
   /** Whether a zone's name is drawn right now, and if so what it says. Shared by the label and the hit test. */
   const labelOf = (z: ZoneGraphNode): string | null => {
     const near = hover === z.shortName;
     const lit = onRouteNode.has(z.shortName);
     const isHere = z.shortName === here;
+    const pinned = pinsOf(z).length > 0;
     const shown = found
-      ? found.hits.has(z.shortName) || found.via.has(z.shortName) || near || lit || isHere
-      : z.degree >= labelAbove || near || lit || isHere;
+      ? found.hits.has(z.shortName) || found.via.has(z.shortName) || near || lit || isHere || pinned
+      : z.degree >= labelAbove || near || lit || isHere || pinned;
     if (!shown) {
       return null;
     }
@@ -786,9 +865,11 @@ export function ZoneGraphView({
             {drawn.unknown > 0 && ` · ${drawn.unknown} of unknown era kept`}
             {drawn.omitted > 0 &&
               ` · ${drawn.omitted} with no labelled exit${eraLimit === undefined ? "" : " in this era"} not drawn`}
-            {found &&
+            {found && !found.external &&
               ` · ${found.hits.size === 0 ? "nothing matches" : `${found.hits.size} match`} “${search.trim()}”` +
                 (found.via.size > 0 ? ` and ${found.via.size} connected` : "")}
+            {found && found.external &&
+              ` · ${found.hits.size === 0 ? "no drawn zone has" : `${found.hits.size} zone${found.hits.size === 1 ? " has" : "s have"}`} ${litLabel ?? "that mob"}`}
             {/* Said out loud, because a silent marker that never appears reads
                 as a bug. If the era filter is what hid it, that is worth
                 knowing: the character is standing in a zone the filter says
@@ -823,22 +904,8 @@ export function ZoneGraphView({
           >
             connections
           </button>
-          {/* Which expansion the server has reached. The player's call: the
-              log names only zones already visited, and the map files carry no
-              content gating, so nothing here can guess it (issue #57). */}
-          <select
-            className="mini-select"
-            value={eraLimit === undefined ? "" : era}
-            onChange={(e) => onEraChange(e.target.value || null)}
-            title="How far your server has unlocked. Zones from later expansions are hidden and never routed through; zones whose era is unknown stay. Nothing in the log can say this, so it is yours to set."
-          >
-            <option value="">Any era</option>
-            {graph.eras.map((e, i) => (
-              <option key={e.id} value={e.id}>
-                {i === 0 ? `${e.short} only` : `through ${e.short}`} ({e.year})
-              </option>
-            ))}
-          </select>
+          {/* The era chooser lives in the rail beside the zone list now: it
+              narrows both, and one control for one setting. */}
           <select className="mini-select" value={from} onChange={(e) => setFrom(e.target.value)}>
             <option value="">From…</option>
             {sorted.map((z) => (
@@ -867,8 +934,11 @@ export function ZoneGraphView({
               here
             </button>
           )}
+          {/* Fixed width: the label changes with every wheel notch, and a
+              button that grows and shrinks at the header's wrap point
+              bounces the whole frame — see the resize note above. */}
           <button
-            className="mini-btn"
+            className="mini-btn map-fit"
             onClick={() => setView(null)}
             disabled={view === null}
             title="Frame the whole world again"
@@ -1012,7 +1082,9 @@ export function ZoneGraphView({
             const hit = found?.hits.get(z.shortName);
             const via = found?.via.get(z.shortName);
             const isHere = z.shortName === here;
-            const dim = found !== null && hit === undefined && via === undefined && !lit && !isHere;
+            const zonePins = pinsOf(z);
+            const dim =
+              found !== null && hit === undefined && via === undefined && !lit && !isHere && zonePins.length === 0;
             const viaNote = viaNoteOf(z);
 
             // With an era chosen, a zone the table could not place is kept
@@ -1044,12 +1116,27 @@ export function ZoneGraphView({
                 {/* Where the log says you are: a ring around the dot, in the
                     accent, drawn under it so the dot keeps its own colour. */}
                 {isHere && <circle className="here-ring" r={12 * unit} />}
+                {/* One ring per pinned mob standing here, each in its pin's
+                    colour, stepping outward — so a zone with three pins
+                    shows three colours, and the same colours the zone map
+                    draws their spawn points in. */}
+                {zonePins.map((pin, i) => (
+                  <circle
+                    key={pin.name}
+                    className="pin-ring"
+                    r={(9 + i * 3) * unit}
+                    // Screen pixels, not view units: the class sets
+                    // non-scaling-stroke, as the here-ring's does.
+                    style={{ stroke: pin.color, strokeWidth: 1.5 }}
+                  />
+                ))}
                 <circle className="dot" r={Math.min(7, 2.5 + z.degree * 0.4) * unit} />
                 <title>
                   {names.get(z.shortName)} — {z.degree}{" "}
                   {z.degree === 1 ? "connection" : "connections"}
                   {eraNote}
                   {isHere && " · you are here, by the log"}
+                  {zonePins.length > 0 && ` · pinned here: ${zonePins.map((p) => p.name).join(", ")}`}
                   {z.maps.length > 1 && ` · ${z.maps.length} maps: ${z.maps.join(", ")}`}
                   {via && ` · lit because it connects to ${via.map((v) => names.get(v) ?? v).join(", ")}`}
                 </title>

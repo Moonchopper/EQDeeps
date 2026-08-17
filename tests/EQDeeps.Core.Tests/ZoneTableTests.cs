@@ -8,13 +8,13 @@ public class ZoneTableTests
     private static ZoneTable Sample => ZoneTable.Parse(
         """
         # comment
-        unrest	The Estate of Unrest	curated	classic	id
+        unrest	The Estate of Unrest	curated	classic	id	63
         freportw	West Freeport	name
-        freeportwest	West Freeport	curated	classic	id
+        freeportwest	West Freeport	curated	classic	id	9,383
         gukbottom	The Ruins of Old Guk	graph	classic	curated
-        poknowledge	The Plane of Knowledge	curated	pop	id
-        newsebexp	New Sebilis Expedition	curated
-        oddity	Halas	curated	atlantis	id
+        poknowledge	The Plane of Knowledge	curated	pop	id	202
+        newsebexp	New Sebilis Expedition	curated			99
+        oddity	Halas	curated	atlantis	id	29,x,29
 
         """);
 
@@ -90,6 +90,48 @@ public class ZoneTableTests
         Assert.Null(Sample.EntryFor("oddity")!.EraSource);
 
         Assert.Null(Sample.EraFor("nosuchmap"));
+    }
+
+    /// <summary>
+    /// The ids column is the sixth, so an id-only row carries blank era cells;
+    /// a name with several ids keeps them all in order; two drawings of one
+    /// name share its ids and both come back for it. A cell that is not a
+    /// number is dropped, and a repeat is folded, without losing the row.
+    /// </summary>
+    [Fact]
+    public void ReadsTheIdsColumnAndLooksUpByIt()
+    {
+        Assert.Equal(new[] { 63 }, Sample.EntryFor("unrest")!.Ids);
+        Assert.Equal(new[] { 9, 383 }, Sample.EntryFor("freeportwest")!.Ids);
+        Assert.Empty(Sample.EntryFor("freportw")!.Ids);
+
+        Assert.Equal(new[] { 99 }, Sample.EntryFor("newsebexp")!.Ids);
+        Assert.Null(Sample.EraFor("newsebexp"));
+
+        Assert.Equal(new[] { 29 }, Sample.EntryFor("oddity")!.Ids);
+
+        Assert.Equal(new[] { "unrest" }, Sample.ZonesForId(63).Select(e => e.ShortName));
+        Assert.Equal(new[] { "freeportwest" }, Sample.ZonesForId(383).Select(e => e.ShortName));
+        Assert.Empty(Sample.ZonesForId(12345));
+    }
+
+    /// <summary>
+    /// Every shipped row carries the client's ids for its name — the Bestiary
+    /// (F30) addresses a zone's roster by them — and the spot checks are the
+    /// joins ADR-020 was verified against.
+    /// </summary>
+    [Fact]
+    public void ShippedTableCarriesZoneIds()
+    {
+        var table = ZoneTable.Default;
+
+        Assert.All(table.Entries, e => Assert.NotEmpty(e.Ids));
+        Assert.Equal(new[] { 42 }, table.EntryFor("neriakc")!.Ids);
+        Assert.Equal(new[] { 12 }, table.EntryFor("qey2hh1")!.Ids);
+        Assert.Equal(new[] { 58 }, table.EntryFor("crushbone")!.Ids);
+        Assert.Contains(9, table.EntryFor("freportw")!.Ids);
+        Assert.Contains("freportw", table.ZonesForId(9).Select(e => e.ShortName));
+        Assert.Contains("freeportwest", table.ZonesForId(9).Select(e => e.ShortName));
     }
 
     /// <summary>

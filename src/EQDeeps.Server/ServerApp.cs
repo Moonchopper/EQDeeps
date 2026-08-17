@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using EQDeeps.Core.Maps;
 using EQDeeps.Core.Query;
+using EQDeeps.Core.Reference;
 using EQDeeps.Server.Reference;
 using EQDeeps.Server.Updates;
 
@@ -454,11 +455,24 @@ public static class ServerApp
         // here. Every one of these can answer "I don't know" and the app is
         // unaffected: nothing the parser does depends on any of it.
 
-        app.MapGet("/api/reference/status", (NpcReferenceStore reference) =>
-            Results.Ok(reference.Status()));
+        // `warm` loads the index first: opening the Bestiary is the ask that
+        // ADR-020's fetch-on-demand rule waits for, and without it the status
+        // said "unavailable" until the first search — which the view rendered
+        // as a "loading…" that nothing was loading behind.
+        app.MapGet("/api/reference/status", async (bool? warm, NpcReferenceStore reference, CancellationToken ct) =>
+        {
+            if (warm == true)
+            {
+                await reference.IndexAsync(ct);
+            }
 
-        // Browse the whole bestiary by name — the Bestiary view's search box.
-        app.MapGet("/api/reference/npcs", async (string? q, int? limit, NpcReferenceStore reference, CancellationToken ct) =>
+            return Results.Ok(reference.Status());
+        });
+
+        // Browse the bestiary by name, by level band, or both — the Bestiary
+        // view's search box and its landing chips. Each row carries the zones
+        // it stands in, read off the listing ids (NpcPlaces).
+        app.MapGet("/api/reference/npcs", async (string? q, int? limit, int? minLevel, int? maxLevel, NpcReferenceStore reference, CancellationToken ct) =>
         {
             var index = await reference.IndexAsync(ct);
             if (index is null)
@@ -466,15 +480,36 @@ public static class ServerApp
                 return Results.Ok(new NpcSearchResult(reference.SourceName, [], reference.Status().Error));
             }
 
-            var rows = index.Browse(q ?? string.Empty, Math.Clamp(limit ?? 60, 1, 200))
+            var query = q ?? string.Empty;
+            var cap = Math.Clamp(limit ?? 60, 1, 300);
+            var rows = index.Browse(query, cap, minLevel, maxLevel)
                 .Select(r => new NpcBrowseRow(
                     r.Name,
                     r.MinLevel,
                     r.MaxLevel,
                     r.Listings,
-                    r.PerLevel.Select(v => new NpcListing(v.Name, v.Level, v.Id, reference.NpcUrl(v.Id))).ToList()))
+                    r.PerLevel.Select(v => new NpcListing(v.Name, v.Level, v.Id, reference.NpcUrl(v.Id))).ToList(),
+                    NpcPlaces.Of(r.Variants, ZoneTable.Default, index)
+                        .Select(p => new NpcPlaceRow(p.Name, p.ShortName, p.Maps, p.Era, p.Levels, p.Ids.Count, p.Ids[0]))
+                        .ToList()))
                 .ToList();
-            return Results.Ok(new NpcSearchResult(reference.SourceName, rows, null));
+
+            // The total is only worth computing when the cap may have bitten,
+            // which for a plain search it does not: sixty substring hits is
+            // already more than anyone reads.
+            var total = rows.Count < cap
+                ? rows.Count
+                : query.Trim().Length == 0 ? index.CountInBand(minLevel, maxLevel) : index.Search(query, int.MaxValue, minLevel, maxLevel).Count;
+            return Results.Ok(new NpcSearchResult(reference.SourceName, rows, null, total));
+        });
+
+        // Every NPC the site lists in one zone, by map short name — the Map
+        // view's roster. `known` false says the question could not be answered
+        // for this zone, as distinct from an empty answer.
+        app.MapGet("/api/reference/zones/{shortName}/npcs", async (string shortName, NpcReferenceStore reference, CancellationToken ct) =>
+        {
+            var roster = await reference.RosterAsync(shortName, ct);
+            return Results.Ok(new ZoneRosterResult(reference.SourceName, roster, roster.Known ? null : reference.Status().Error));
         });
 
         // One listing's stat block and loot table.

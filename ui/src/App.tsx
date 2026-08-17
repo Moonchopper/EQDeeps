@@ -18,6 +18,8 @@ import { UpdateNotice, type UpdateChoice } from "./components/UpdateNotice";
 import { SettingsDialog } from "./components/SettingsDialog";
 import { LogPicker, LogsDialog } from "./components/LogPicker";
 import { BestiaryPanel } from "./components/BestiaryPanel";
+import { Trail } from "./components/Trail";
+import { screenKey, type BestiaryTarget, type Crumb, type MapTarget, type Screen } from "./trail";
 import { useReferenceEnabled } from "./lookup/lookupSettings";
 import { LookupScope } from "./lookup/LookupScope";
 import { LookupMenuHost } from "./lookup/lookupMenu";
@@ -309,6 +311,149 @@ export default function App() {
     setStdView(id);
     setView("overview");
     localStorage.setItem("eqdeeps.stdView", id);
+  }
+
+  // ---- the Bestiary ↔ Map trail (see trail.ts) --------------------------
+  // The targets are consumed by the view they name and re-fire on `seq`, so
+  // the same mob can be asked for twice; the crumbs are the way back. Both
+  // are cleared when the rail is used — a trail is one train of thought.
+  const [crumbs, setCrumbs] = useState<Crumb[]>([]);
+  const [bestiaryTarget, setBestiaryTarget] = useState<BestiaryTarget | null>(null);
+  const [mapTarget, setMapTarget] = useState<MapTarget | null>(null);
+  const trailSeq = useRef(0);
+
+  function selectFromRail(id: string) {
+    setCrumbs([]);
+    setBestiaryTarget(null);
+    setMapTarget(null);
+    selectStdView(id);
+  }
+
+  /** From a mob page to the zone it stands in, leaving the mob behind as a crumb. */
+  function showOnMap(target: Omit<MapTarget, "seq">, from: Crumb) {
+    setCrumbs((c) => [...c, from]);
+    setMapTarget({ ...target, seq: ++trailSeq.current });
+    selectStdView(MAPS_VIEW);
+  }
+
+  /** From a zone to a mob that stands there, leaving the zone behind as a crumb. */
+  function openMob(target: Omit<BestiaryTarget, "seq">, from: Crumb) {
+    setCrumbs((c) => [...c, from]);
+    setBestiaryTarget({ ...target, seq: ++trailSeq.current });
+    selectStdView(BESTIARY_VIEW);
+  }
+
+  // ---- back / forward over screens (see trail.ts: Screen) ----------------
+  // A browser-style history of where you have been: rail views, the mob
+  // open in the Bestiary, the zone and mode on the Map. Views report their
+  // screen as it settles; a report that matches the current entry is not a
+  // move, and one that arrives while a back/forward is being applied is the
+  // view settling into it, not a new place. Kept in a ref as well as state
+  // so reports and moves read the latest without a render between.
+  const [hist, setHist] = useState<{ items: Screen[]; index: number }>({ items: [], index: -1 });
+  const histRef = useRef(hist);
+  const applying = useRef<Screen | null>(null);
+  const applyTimer = useRef<number | undefined>(undefined);
+
+  function reportScreen(s: Screen) {
+    const h = histRef.current;
+    const cur = h.items[h.index];
+    if (cur && screenKey(cur) === screenKey(s)) return;
+    if (applying.current) {
+      if (screenKey(applying.current) === screenKey(s)) applying.current = null;
+      return;
+    }
+    const items = [...h.items.slice(0, h.index + 1), s].slice(-100);
+    histRef.current = { items, index: items.length - 1 };
+    setHist(histRef.current);
+  }
+
+  const canBack = hist.index > 0;
+  const canForward = hist.index < hist.items.length - 1;
+
+  function goHistory(delta: number) {
+    const h = histRef.current;
+    const next = h.index + delta;
+    const target = h.items[next];
+    if (!target) return;
+    histRef.current = { ...h, index: next };
+    setHist(histRef.current);
+    applying.current = target;
+    // The trail is the hop-and-return affordance; once the history is being
+    // walked it is the way back, and a crumb pointing at the screen you are
+    // now on would only be noise.
+    setCrumbs([]);
+    // A view that never settles on exactly this screen — a mob the index no
+    // longer has — must not leave every later report ignored.
+    window.clearTimeout(applyTimer.current);
+    applyTimer.current = window.setTimeout(() => (applying.current = null), 1500);
+
+    setView(target.view);
+    if (target.view === "overview") {
+      setStdView(target.stdView);
+      localStorage.setItem("eqdeeps.stdView", target.stdView);
+    }
+    if (target.stdView === BESTIARY_VIEW) {
+      setBestiaryTarget({ name: target.mob?.name ?? "", id: target.mob?.id, seq: ++trailSeq.current });
+    }
+    if (target.stdView === MAPS_VIEW && target.zone) {
+      setMapTarget({ ...target.zone, seq: ++trailSeq.current });
+    }
+  }
+  const goBack = () => goHistory(-1);
+  const goForward = () => goHistory(1);
+
+  // The rail views that carry no place inside them report themselves; the
+  // Bestiary and the Map report with their mob or zone from inside.
+  useEffect(() => {
+    if (view === "overview" && (stdView === BESTIARY_VIEW || stdView === MAPS_VIEW)) return;
+    reportScreen({ view, stdView: effectiveStdView });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, effectiveStdView, stdView]);
+
+  // Mouse side buttons and Alt+arrows, as a browser has them. Buttons 3 and
+  // 4 are what every mouse with thumb buttons sends; there is no page
+  // history for the shell to fight over, so this is the only thing they do.
+  useEffect(() => {
+    const onMouse = (e: MouseEvent) => {
+      if (e.button === 3) {
+        e.preventDefault();
+        goBack();
+      } else if (e.button === 4) {
+        e.preventDefault();
+        goForward();
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (!e.altKey || e.ctrlKey || e.metaKey) return;
+      if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        goBack();
+      } else if (e.key === "ArrowRight") {
+        e.preventDefault();
+        goForward();
+      }
+    };
+    window.addEventListener("mouseup", onMouse);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("mouseup", onMouse);
+      window.removeEventListener("keydown", onKey);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /** Back along the trail to a crumb, dropping it and everything after it. */
+  function backTo(index: number) {
+    const crumb = crumbs[index];
+    setCrumbs(crumbs.slice(0, index));
+    if (crumb.view === "map" && crumb.map) {
+      setMapTarget({ ...crumb.map, seq: ++trailSeq.current });
+      selectStdView(MAPS_VIEW);
+    } else if (crumb.view === "bestiary" && crumb.bestiary) {
+      setBestiaryTarget({ ...crumb.bestiary, seq: ++trailSeq.current });
+      selectStdView(BESTIARY_VIEW);
+    }
   }
 
   function updateChartDefaults(next: ChartSettings) {
@@ -614,8 +759,14 @@ export default function App() {
   // nothing to keep current. The fetch on open covers the common case where a
   // player looks once.
   useEffect(() => {
-    // The Bestiary wants the same index for its "what you measured" column.
-    if (!activeId || view !== "overview" || (stdView !== MOBS_VIEW && stdView !== BESTIARY_VIEW)) return;
+    // The Bestiary wants the same index for its "what you measured" column,
+    // and the Map for "mobs you have killed here".
+    if (
+      !activeId ||
+      view !== "overview" ||
+      (stdView !== MOBS_VIEW && stdView !== BESTIARY_VIEW && stdView !== MAPS_VIEW)
+    )
+      return;
     let cancelled = false;
     const load = () =>
       api
@@ -634,8 +785,9 @@ export default function App() {
   // the same way: poll while the tab is open, and not at all off it. The raw
   // feed beside them refreshes on its own faster beat inside the panel — the
   // profiles are an evening's evidence and do not move in fifteen seconds.
+  // The Bestiary reads them too, for what a listed mob actually hit you for.
   useEffect(() => {
-    if (!activeId || view !== "overview" || stdView !== HITS_VIEW) return;
+    if (!activeId || view !== "overview" || (stdView !== HITS_VIEW && stdView !== BESTIARY_VIEW)) return;
     let cancelled = false;
     const load = () =>
       api
@@ -707,6 +859,10 @@ export default function App() {
     setMobs(null);
     setAttacks(null);
     setContext(null);
+    setCrumbs([]); // another character's world; the trail was this one's
+    // The history is deliberately kept: the screens are places in the app,
+    // not in the log, and the first log opens on start-up — resetting here
+    // threw away the screen the app opened on.
     setFrame({ kind: "live", spanSec: chartDefaults.spanSec }); // a new log starts live
     await live.subscribe(id);
     await refreshFights(id);
@@ -893,6 +1049,7 @@ export default function App() {
       )}
       <SessionBar
         sessions={sessions}
+        history={{ canBack, canForward, onBack: goBack, onForward: goForward }}
         colorFor={(key, pool) => entityColors.claim(key, pool)}
         activeId={activeId}
         backfill={backfill}
@@ -962,7 +1119,7 @@ export default function App() {
               dashboards={dashboards}
               view={view}
               activeStdView={effectiveStdView}
-              onSelectStdView={selectStdView}
+              onSelectStdView={selectFromRail}
               onSelectDashboard={setView}
               onRenameDashboard={renameDashboard}
               onAddDashboard={addDashboard}
@@ -983,7 +1140,18 @@ export default function App() {
                 dashboards, so the standard-view lookup resolves them to
                 nothing. */}
             {view === "overview" && stdView === BESTIARY_VIEW ? (
-              <BestiaryPanel sessionId={activeId} mobs={mobs} enabled={referenceEnabled} />
+              <div className="trail-host">
+                <Trail crumbs={crumbs} onBack={backTo} />
+                <BestiaryPanel
+                  sessionId={activeId}
+                  mobs={mobs}
+                  attacks={attacks}
+                  enabled={referenceEnabled}
+                  target={bestiaryTarget}
+                  onShowOnMap={showOnMap}
+                  onScreen={(mob) => reportScreen({ view: "overview", stdView: BESTIARY_VIEW, mob })}
+                />
+              </div>
             ) : view === "overview" && stdView === MOBS_VIEW ? (
               <MobHealthPanel
                 mobs={mobs}
@@ -1001,11 +1169,19 @@ export default function App() {
               // `hasLog` says one is coming: the zone timeline is built after
               // the backfill, so without it the Map view cannot tell "nobody is
               // playing" from "wait a moment" and settles on an unrelated zone.
-              <MapView
-                currentZone={context?.zones?.[context.zones.length - 1]?.label}
-                install={sessions.find((s) => s.id === activeId)?.install}
-                hasLog={Boolean(activeId)}
-              />
+              <div className="trail-host">
+                <Trail crumbs={crumbs} onBack={backTo} />
+                <MapView
+                  currentZone={context?.zones?.[context.zones.length - 1]?.label}
+                  install={sessions.find((s) => s.id === activeId)?.install}
+                  hasLog={Boolean(activeId)}
+                  mobs={mobs}
+                  referenceEnabled={referenceEnabled}
+                  target={mapTarget}
+                  onOpenMob={openMob}
+                  onScreen={(zone) => reportScreen({ view: "overview", stdView: MAPS_VIEW, zone })}
+                />
+              </div>
             ) : view === "overview" && activeStdView ? (
               <DashboardView
                 dashboard={activeStdView}

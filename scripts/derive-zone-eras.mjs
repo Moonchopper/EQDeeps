@@ -1,10 +1,20 @@
-// Derives the `era` and `eraSource` columns of src/EQDeeps.Core/Maps/zones.tsv
-// from the zone ids in an EverQuest client's Resources/ZoneNames.txt (F27,
-// docs/domain/eq-map-format.md §5.3, GitHub issue #57).
+// Derives the `era`, `eraSource` and `ids` columns of
+// src/EQDeeps.Core/Maps/zones.tsv from the zone ids in an EverQuest client's
+// Resources/ZoneNames.txt (F27, docs/domain/eq-map-format.md §5.3, GitHub
+// issue #57).
 //
-//   node scripts/derive-zone-eras.mjs                 rewrite the table's era columns
+//   node scripts/derive-zone-eras.mjs                 rewrite the table's derived columns
 //   node scripts/derive-zone-eras.mjs --check         exit 1 if the table would change
 //   node scripts/derive-zone-eras.mjs --eq "D:\EQ"    read ZoneNames.txt from that install
+//
+// THE IDS COLUMN. Beside the era, every id the client gives the row's display
+// name is written down too, ascending. The Bestiary (F30) needs them: the
+// reference site files its NPCs in blocks of a thousand per zone id, so a zone
+// id is the address of a zone's roster and a listing's id says which zone it
+// stands in — without those, "which zones is this mob in" is a fetch per
+// listing. See ADR-020. A name with several ids (revamps keep the name) lists
+// them all; which one a given site uses is checked against content, never
+// assumed.
 //
 // The install is otherwise taken from EQDEEPS_EQ or the usual Daybreak paths.
 //
@@ -186,7 +196,14 @@ function derive(tableText, ids) {
     }
 
     report.byEra.set(era ?? "(none)", (report.byEra.get(era ?? "(none)") ?? 0) + 1);
-    out.push(era ? `${shortName}\t${display}\t${source}\t${era}\t${eraSource}` : `${shortName}\t${display}\t${source}`);
+
+    // Trailing empty cells are dropped, so a row reads as short as its facts
+    // allow: three columns when nothing is derived, five with an era, six with
+    // ids — and six with blank era cells for an id-only row, since the parser
+    // reads columns by position.
+    const cells = [shortName, display, source, era ?? "", eraSource ?? "", found.join(",")];
+    while (cells.length > 3 && cells[cells.length - 1] === "") cells.pop();
+    out.push(cells.join("\t"));
   }
 
   return { text: out.join("\n"), report };

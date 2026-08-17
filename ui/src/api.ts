@@ -247,6 +247,25 @@ export interface NpcListing {
  * where they stand — so a name is one row here, its level span is stated, and
  * `levels` carries one listing per distinct level (ADR-020).
  */
+/**
+ * One zone a name is listed in, known from the listing ids alone — the site
+ * files NPCs a thousand ids per zone, so no stat block is fetched to say this
+ * (ADR-020). `name` is absent for an id this build has no place for.
+ */
+export interface NpcPlace {
+  name?: string;
+  /** What a roster and a map are opened by; absent with `name`. */
+  shortName?: string;
+  /** Every map that draws the place, first-listed first. */
+  maps: string[];
+  era?: string;
+  /** The levels the name is listed at there. */
+  levels: number[];
+  listings: number;
+  /** One listing there — the one to open for "this mob, in this zone". */
+  id: number;
+}
+
 export interface NpcBrowseRow {
   name: string;
   minLevel?: number;
@@ -254,11 +273,43 @@ export interface NpcBrowseRow {
   /** How many listings the site carries under this name, before collapsing. */
   listings: number;
   levels: NpcListing[];
+  places: NpcPlace[];
 }
 
 export interface NpcSearchResult {
   source: string;
   npcs: NpcBrowseRow[];
+  error?: string;
+  /** How many names matched before the limit — a band browse shows the first hundred of many. */
+  total: number;
+}
+
+/** One NPC of a zone's roster: enough to list it, place it on the map, and open it. */
+export interface ZoneRosterNpc {
+  id: number;
+  name: string;
+  level?: number;
+  maxLevel?: number;
+  spawnPoints: number;
+  /** [x, y, z] as the site gives them — game coordinates; the map negates both axes. */
+  locations: number[][];
+}
+
+/**
+ * Every NPC the site lists in one zone. `known` false means the question could
+ * not be answered — no id for the zone, or the site has no file for it — as
+ * opposed to a zone the site lists nothing in.
+ */
+export interface ZoneRoster {
+  shortName: string;
+  zoneName?: string;
+  known: boolean;
+  npcs: ZoneRosterNpc[];
+}
+
+export interface ZoneRosterResult {
+  source: string;
+  roster: ZoneRoster;
   error?: string;
 }
 
@@ -468,6 +519,8 @@ export interface MapCatalog {
   zones: MapCatalogEntry[];
   /** The folder the user nominated, if they have. */
   userRoot?: string;
+  /** Every expansion in release order — the same list the graph carries. */
+  eras: ZoneEra[];
 }
 
 /**
@@ -734,8 +787,26 @@ export const api = {
   referenceStatus: (): Promise<ReferenceStatus> =>
     fetch("/api/reference/status").then((r) => json(r)),
 
-  searchNpcs: (q: string, limit = 60): Promise<NpcSearchResult> =>
-    fetch(`/api/reference/npcs?q=${encodeURIComponent(q)}&limit=${limit}`).then((r) => json(r)),
+  /** The same, after loading the index — the Bestiary's opening move, since opening it is the ask. */
+  warmReference: (): Promise<ReferenceStatus> =>
+    fetch("/api/reference/status?warm=true").then((r) => json(r)),
+
+  /** By name, by level band, or both; the band alone browses the whole index. */
+  searchNpcs: (
+    q: string,
+    opts: { limit?: number; minLevel?: number; maxLevel?: number } = {},
+  ): Promise<NpcSearchResult> => {
+    const params = new URLSearchParams();
+    if (q) params.set("q", q);
+    params.set("limit", String(opts.limit ?? 60));
+    if (opts.minLevel !== undefined) params.set("minLevel", String(opts.minLevel));
+    if (opts.maxLevel !== undefined) params.set("maxLevel", String(opts.maxLevel));
+    return fetch(`/api/reference/npcs?${params}`).then((r) => json(r));
+  },
+
+  /** Every NPC the site lists in one zone, by map short name. */
+  zoneRoster: (shortName: string): Promise<ZoneRosterResult> =>
+    fetch(`/api/reference/zones/${encodeURIComponent(shortName)}/npcs`).then((r) => json(r)),
 
   npcDetail: async (id: number): Promise<NpcDetailResult | null> => {
     const response = await fetch(`/api/reference/npcs/${id}`);

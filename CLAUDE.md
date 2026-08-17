@@ -376,6 +376,17 @@ Azure Artifact Signing (OIDC, no stored secret), build and sign the Inno Setup
 installer, zip the portable build, generate and Ed25519-sign the NetSparkle app
 cast, and create the GitHub release with everything attached at once.
 
+**Before the tag, write the release's section in `CHANGELOG.md`** — `## vX.Y.Z`
+— for the people who use the app, not for us: what changed for them, in their
+words, leading with what matters most. The workflow reads that section into the
+GitHub release and the app cast, and the in-app update dialog shows its first
+six bullets, so it should read as a product change log and not as commit
+titles. If the section is missing the workflow falls back to GitHub's generated
+PR list with a warning — it will not fail the release, because a failed release
+burns the tag — but that is the technical list the owner has asked never to
+ship again. The `Docs: vX.Y.Z` commit is the natural place for it, beside the
+version bumps in `README.md`, `CLAUDE.md` and `docs/HANDOFF.md`.
+
 Three things will bite you:
 
 1. **Tags are single-use.** GitHub's immutable releases reserve a tag name
@@ -383,8 +394,9 @@ Three things will bite you:
    version number. Run the **Verify signing key** workflow (`workflow_dispatch`)
    before tagging.
 2. **Everything must be attached at creation.** Immutable releases freeze assets,
-   so the app cast cannot be uploaded afterwards. That is why release notes are
-   fetched from the `generate-notes` API mid-workflow.
+   so the app cast cannot be uploaded afterwards. That is why the release notes
+   are settled mid-workflow — from `CHANGELOG.md`, or the `generate-notes` API
+   as the fallback — before the release is created.
 3. **The Ed25519 public key in `Updates/UpdateService.cs` must match the private
    key in secrets.** The workflow reads the public half out of the source rather
    than duplicating it — if those drift, every client rejects every release.

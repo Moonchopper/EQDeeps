@@ -15,7 +15,6 @@ import {
   IconSettings,
   IconShield,
   IconBook,
-  IconSkull,
   IconTargetArrow,
   IconTrendingUp,
   IconUsersGroup,
@@ -27,7 +26,6 @@ import {
   HITS_VIEW,
   MAPS_VIEW,
   BESTIARY_VIEW,
-  MOBS_VIEW,
   STANCES_VIEW_ID,
   SUMMARY_VIEW,
 } from "../dashboards/standardViews";
@@ -80,10 +78,6 @@ function IconFencer({ size = 24, stroke = 2, className }: IconProps) {
  */
 const RAIL_ENTRIES: Record<string, { name: string; title?: string }> = {
   [SUMMARY_VIEW]: { name: "Summary" },
-  [MOBS_VIEW]: {
-    name: "Mobs",
-    title: "What this server's mobs are worth, and what a difficulty tier costs",
-  },
   [HITS_VIEW]: {
     name: "Incoming",
     title: "What is hitting you, in order, and what this server's mobs hit for",
@@ -111,7 +105,6 @@ const RAIL_ICONS: Record<string, Icon> = {
   "preset-experience": IconTrendingUp,
   "preset-faction": IconUsersGroup,
   "preset-loot": IconDiamond,
-  [MOBS_VIEW]: IconSkull,
   [BESTIARY_VIEW]: IconBook,
   [MAPS_VIEW]: IconMap2,
 };

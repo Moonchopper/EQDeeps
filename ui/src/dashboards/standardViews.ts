@@ -42,13 +42,11 @@ const RETIRED_VIEW_IDS = ["preset-raid-dps", "preset-right-now"];
 /** The rail entry that shows the hand-built Summary, not a standard view. */
 export const SUMMARY_VIEW = "summary";
 
-/**
- * Mob health (F25): a rail entry reading a derived
- * index rather than a QuerySpec. It is also the one view that is not about the
- * open log — the index belongs to the server, and every character on it reads
- * the same answers.
- */
-export const MOBS_VIEW = "mobs";
+// The Mobs view (F25, id "mobs") was a rail entry until v0.15.1: the server's
+// learned mob health as one table, and the same mob across its difficulty
+// tiers as a ladder. The Bestiary answers both now, per mob and beside what a
+// reference site lists, so the entry went. A stdView of "mobs" remembered from
+// an earlier build is simply unknown to the rail and resolves to Summary.
 
 /**
  * Incoming damage (F26), the same shape again: a rail entry reading a derived
@@ -61,7 +59,7 @@ export const HITS_VIEW = "incoming";
 
 /**
  * The Bestiary (F30): every mob the game has, searchable, with what this
- * server's logs measured beside what a reference site lists. Like Mobs and
+ * server's logs measured beside what a reference site lists. Like Incoming and
  * Map it reads no QuerySpec — and unlike anything else here, part of what it
  * shows comes from off this machine (ADR-020), which is why it can be
  * switched off entirely.

@@ -9,6 +9,7 @@ version being cut.
 
 ## Unreleased
 
+- **The Mobs tab has folded into the Bestiary.** Everything it showed — what each mob took to kill on your server, at every zone and difficulty tier, with the range and how sure the estimate is — is on the mob's Bestiary page, beside what the world lists for it. One place to read it instead of two.
 - **The update dialog now reads its notes properly.** Bold, code and links in these notes show as such rather than as raw `**` marks.
 
 ## v0.15.0 — 2026-08-16

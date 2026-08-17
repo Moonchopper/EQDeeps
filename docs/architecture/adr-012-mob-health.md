@@ -172,7 +172,13 @@ more than the column is worth.
 ## Consequences
 
 - Mob health has no UI of its own on the live meter. It is analysis, not a
-  status bar: the Mobs tab, a fight-list column, and the tier ladder.
+  status bar: a fight-list column, and the Bestiary's per-mob table of every
+  zone and tier the name was killed at, with band and confidence — which is
+  also where the tier comparison lives. (Until v0.15.1 the index was also
+  its own Mobs tab, one table for the whole server with a tier ladder beside
+  it; the Bestiary (ADR-020) came to answer the same questions per mob and
+  beside a reference listing, and the tab was retired rather than kept as a
+  second place to read one number.)
 - The fight-list column (`damage dealt ÷ learned health`) is left unclamped
   above 100%. The estimate is a median and the killing blow overshoots, so a
   tough pull really did cost more than the typical one; clamping would hide

@@ -3,7 +3,13 @@
 Written for the people who use it. Each release's section here is what the
 update dialog shows (the first six bullets) and what the GitHub release page
 carries in full — so lead with what changed for you, in your words, and keep
-the how for the commits. Newest first.
+the how for the commits. Newest first; a change lands under **Unreleased** with
+its pull request, and the release's Docs commit renames that heading to the
+version being cut.
+
+## Unreleased
+
+- **The update dialog now reads its notes properly.** Bold, code and links in these notes show as such rather than as raw `**` marks.
 
 ## v0.15.0 — 2026-08-16
 

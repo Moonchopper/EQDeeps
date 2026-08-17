@@ -2830,6 +2830,17 @@ textarea:focus-visible,
   font-weight: var(--w-normal);
 }
 
+/* A pinned mob stands here: a ring in the pin's colour (set inline — the
+   colour is the pin's, not the stylesheet's), stepping outward per pin. */
+.zone-node .pin-ring {
+  fill: none;
+  vector-effect: non-scaling-stroke;
+}
+
+.zone-node.dim .pin-ring {
+  opacity: 0.35;
+}
+
 .zone-node.dim {
   opacity: 0.22;
 }
@@ -3877,10 +3888,33 @@ tr:hover .lookup-btn,
   border-style: dashed;
 }
 
-/* A search row the pointer is on: on the World view its zones are lit in
-   the graph, and the row says so by lighting too. */
+/* A row the pointer is on: on the zone its points are lit and the rest
+   stepped back, on the World its zones are lit — and the row says so by
+   lighting too. */
 .map-mob.lit {
   background: var(--hover);
+}
+
+/* A search result's name and pin share a line; the zone chips wrap below. */
+.map-mob-line {
+  display: flex;
+  align-items: stretch;
+}
+
+.map-mob-line .map-mob-name {
+  flex: 1;
+  min-width: 0;
+}
+
+/* A pin's colour, as a swatch beside its name — the same colour its spawn
+   points and its world rings are drawn in. */
+.map-pin-swatch {
+  flex: none;
+  align-self: center;
+  width: 8px;
+  height: 8px;
+  margin-left: 6px;
+  border-radius: 50%;
 }
 
 /* The world's fit button reads "fit" or "fit (2.4×)": a fixed width, so the

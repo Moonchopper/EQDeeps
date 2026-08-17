@@ -622,7 +622,13 @@ Acceptance:
   come from the listing ids alone (ADR-020, decision 6), so "where does it
   stand" costs no fetch. The same rail stands on the World view: a zone
   click frames it in the graph, and a mob under the pointer lights every
-  zone it stands in. *(shipped 2026-08-17)*
+  zone it stands in. A zone map draws every listing's spawn points by
+  default, quietly; pointing at a roster row lights that mob's and steps
+  the rest back. **Pins:** any mob can be pinned from the roster, the
+  search or the Bestiary's "show on map"; a pin draws its spawn points in
+  its own colour on whichever zone is open and rings every zone it stands
+  in on the World, listed in the map header as chips, persisted, until
+  unpinned. *(shipped 2026-08-17)*
 - Loot sorted by chance, with the lines the item registry (F29) has seen
   looted marked. *(shipped 2026-08-17)*
 - Open: item icons (the icon id is already in the data), and using the same

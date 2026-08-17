@@ -301,6 +301,13 @@ interface Props {
   lit?: ReadonlySet<string> | null;
   /** What the lit zones have in common, for the header — a mob's name. */
   litLabel?: string;
+  /**
+   * Zones with a pinned mob standing in them, by map short name: a ring per
+   * pin in the pin's colour, and the zone keeps its name at any zoom. Unlike
+   * `lit`, nothing else steps back — pins are a standing mark, not a
+   * question being asked right now.
+   */
+  pins?: ReadonlyMap<string, { name: string; color: string }[]> | null;
 }
 
 export function ZoneGraphView({
@@ -314,6 +321,7 @@ export function ZoneGraphView({
   currentMap,
   lit = null,
   litLabel,
+  pins = null,
 }: Props) {
   const [graph, setGraph] = useState<ZoneGraph | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -739,14 +747,27 @@ export function ZoneGraphView({
       : "";
   };
 
+  /** The pins standing in a zone, by any of the maps that draw it. */
+  const pinsOf = (z: ZoneGraphNode): { name: string; color: string }[] => {
+    if (!pins) return [];
+    const out: { name: string; color: string }[] = [];
+    for (const m of z.maps) {
+      for (const p of pins.get(m) ?? []) {
+        if (!out.some((o) => o.name === p.name)) out.push(p);
+      }
+    }
+    return out;
+  };
+
   /** Whether a zone's name is drawn right now, and if so what it says. Shared by the label and the hit test. */
   const labelOf = (z: ZoneGraphNode): string | null => {
     const near = hover === z.shortName;
     const lit = onRouteNode.has(z.shortName);
     const isHere = z.shortName === here;
+    const pinned = pinsOf(z).length > 0;
     const shown = found
-      ? found.hits.has(z.shortName) || found.via.has(z.shortName) || near || lit || isHere
-      : z.degree >= labelAbove || near || lit || isHere;
+      ? found.hits.has(z.shortName) || found.via.has(z.shortName) || near || lit || isHere || pinned
+      : z.degree >= labelAbove || near || lit || isHere || pinned;
     if (!shown) {
       return null;
     }
@@ -1077,7 +1098,9 @@ export function ZoneGraphView({
             const hit = found?.hits.get(z.shortName);
             const via = found?.via.get(z.shortName);
             const isHere = z.shortName === here;
-            const dim = found !== null && hit === undefined && via === undefined && !lit && !isHere;
+            const zonePins = pinsOf(z);
+            const dim =
+              found !== null && hit === undefined && via === undefined && !lit && !isHere && zonePins.length === 0;
             const viaNote = viaNoteOf(z);
 
             // With an era chosen, a zone the table could not place is kept
@@ -1109,12 +1132,27 @@ export function ZoneGraphView({
                 {/* Where the log says you are: a ring around the dot, in the
                     accent, drawn under it so the dot keeps its own colour. */}
                 {isHere && <circle className="here-ring" r={12 * unit} />}
+                {/* One ring per pinned mob standing here, each in its pin's
+                    colour, stepping outward — so a zone with three pins
+                    shows three colours, and the same colours the zone map
+                    draws their spawn points in. */}
+                {zonePins.map((pin, i) => (
+                  <circle
+                    key={pin.name}
+                    className="pin-ring"
+                    r={(9 + i * 3) * unit}
+                    // Screen pixels, not view units: the class sets
+                    // non-scaling-stroke, as the here-ring's does.
+                    style={{ stroke: pin.color, strokeWidth: 1.5 }}
+                  />
+                ))}
                 <circle className="dot" r={Math.min(7, 2.5 + z.degree * 0.4) * unit} />
                 <title>
                   {names.get(z.shortName)} — {z.degree}{" "}
                   {z.degree === 1 ? "connection" : "connections"}
                   {eraNote}
                   {isHere && " · you are here, by the log"}
+                  {zonePins.length > 0 && ` · pinned here: ${zonePins.map((p) => p.name).join(", ")}`}
                   {z.maps.length > 1 && ` · ${z.maps.length} maps: ${z.maps.join(", ")}`}
                   {via && ` · lit because it connects to ${via.map((v) => names.get(v) ?? v).join(", ")}`}
                 </title>

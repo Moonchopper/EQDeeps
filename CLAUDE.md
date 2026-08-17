@@ -384,8 +384,10 @@ six bullets, so it should read as a product change log and not as commit
 titles. If the section is missing the workflow falls back to GitHub's generated
 PR list with a warning — it will not fail the release, because a failed release
 burns the tag — but that is the technical list the owner has asked never to
-ship again. The `Docs: vX.Y.Z` commit is the natural place for it, beside the
-version bumps in `README.md`, `CLAUDE.md` and `docs/HANDOFF.md`.
+ship again. Each PR adds its bullet under `## Unreleased` as it lands; the
+`Docs: vX.Y.Z` commit renames that heading to the version and date, beside the
+version bumps in `README.md`, `CLAUDE.md` and `docs/HANDOFF.md`. The dialog
+renders `**bold**`, `` `code` `` and `[links](https://…)`; nothing else.
 
 Three things will bite you:
 

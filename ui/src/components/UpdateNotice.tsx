@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import type { DeferScope, UpdateState } from "../api";
 
 /**
@@ -10,30 +10,63 @@ export type UpdateChoice =
   | { kind: "defer"; scope: DeferScope };
 
 /**
- * The release notes as a short plain-text bullet list: the first bullets of
- * the CHANGELOG.md section the release shipped with (bold leads and links
- * flattened, since this is text, not markdown), or — for a release whose
- * notes fell back to GitHub's generated "* Title by @user in URL" list —
- * those titles with the attribution trimmed. Hand-written notes with no
- * bullets fall back to their first non-heading lines.
+ * The release notes as a short bullet list, markdown kept: the first bullets
+ * of the CHANGELOG.md section the release shipped with, or — for a release
+ * whose notes fell back to GitHub's generated "* Title by @user in URL" list
+ * — those titles with the attribution trimmed. Hand-written notes with no
+ * bullets fall back to their first non-heading lines. Each line is rendered
+ * by {@link inlineMarkdown}, so a bold lead reads as a bold lead.
  */
 export function shortChangelog(notes: string): string[] {
   const lines = notes.split("\n").map((l) => l.trim());
   const bullets = lines
     .filter((l) => l.startsWith("* ") || l.startsWith("- "))
-    .map((l) =>
-      l
-        .slice(2)
-        .replace(/ by @\S+ in \S+$/, "")
-        .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
-        .replace(/\*\*/g, "")
-        .trim(),
-    )
+    .map((l) => l.slice(2).replace(/ by @\S+ in \S+$/, "").trim())
     .filter((l) => l.length > 0 && !l.startsWith("**Full Changelog"));
   const chosen = bullets.length > 0
     ? bullets
     : lines.filter((l) => l.length > 0 && !l.startsWith("#") && !l.startsWith("**Full Changelog"));
   return chosen.slice(0, 6);
+}
+
+/**
+ * The little markdown a changelog line uses — `**bold**`, `` `code` ``,
+ * `[text](url)` — as React nodes. Hand-rolled on purpose: a full markdown
+ * renderer is a dependency and an HTML surface for six lines of text, and
+ * this builds elements rather than HTML, so a note can never inject markup.
+ * A link opens in the default browser, as every other outbound link here
+ * does; only http(s) is honoured, anything else is left as its text.
+ */
+export function inlineMarkdown(text: string): ReactNode[] {
+  const out: ReactNode[] = [];
+  const re = /(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\([^)\s]+\))/g;
+  let last = 0;
+  let key = 0;
+  for (const m of text.matchAll(re)) {
+    const at = m.index ?? 0;
+    if (at > last) out.push(text.slice(last, at));
+    const tok = m[0];
+    if (tok.startsWith("**")) {
+      out.push(<strong key={key++}>{tok.slice(2, -2)}</strong>);
+    } else if (tok.startsWith("`")) {
+      out.push(<code key={key++}>{tok.slice(1, -1)}</code>);
+    } else {
+      const link = /^\[([^\]]+)\]\(([^)\s]+)\)$/.exec(tok);
+      const href = link?.[2] ?? "";
+      if (link && /^https?:\/\//i.test(href)) {
+        out.push(
+          <a key={key++} href={href} target="_blank" rel="noopener noreferrer">
+            {link[1]}
+          </a>,
+        );
+      } else {
+        out.push(link ? link[1] : tok);
+      }
+    }
+    last = at + tok.length;
+  }
+  if (last < text.length) out.push(text.slice(last));
+  return out;
 }
 
 /**
@@ -65,7 +98,7 @@ export function UpdateNotice({
         {items.length > 0 ? (
           <ul className="update-changelog">
             {items.map((line, i) => (
-              <li key={i}>{line}</li>
+              <li key={i}>{inlineMarkdown(line)}</li>
             ))}
           </ul>
         ) : (

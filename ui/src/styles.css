@@ -716,6 +716,23 @@ button.update-pill {
   margin: 3px 0;
 }
 
+/* The little markdown a note carries: a bold lead in the ink, code in the
+   mono face, a link underlined and in the accent. */
+.update-changelog strong {
+  color: var(--ink);
+  font-weight: var(--w-bold);
+}
+
+.update-changelog code {
+  font-family: var(--font-mono);
+  font-size: var(--fs-small);
+}
+
+.update-changelog a {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
 .update-download {
   background: var(--accent);
   color: var(--accent-ink);

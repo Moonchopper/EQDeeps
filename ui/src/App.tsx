@@ -12,7 +12,6 @@ import {
 } from "./api";
 import { createLiveConnection, type BackfillEvent, type TickEvent } from "./live";
 import { IncomingPanel } from "./components/IncomingPanel";
-import { MobHealthPanel } from "./components/MobHealthPanel";
 import { SessionBar } from "./components/SessionBar";
 import { UpdateNotice, type UpdateChoice } from "./components/UpdateNotice";
 import { SettingsDialog } from "./components/SettingsDialog";
@@ -47,7 +46,6 @@ import {
   HITS_VIEW,
   MAPS_VIEW,
   BESTIARY_VIEW,
-  MOBS_VIEW,
   STANCES_VIEW_ID,
   SUMMARY_VIEW,
   cloneForCustomizing,
@@ -239,7 +237,6 @@ export default function App() {
   // rail has to light up what is on screen rather than what was last clicked.
   const effectiveStdView =
     activeStdView ||
-    stdView === MOBS_VIEW ||
     stdView === BESTIARY_VIEW ||
     stdView === HITS_VIEW ||
     stdView === MAPS_VIEW
@@ -759,13 +756,9 @@ export default function App() {
   // nothing to keep current. The fetch on open covers the common case where a
   // player looks once.
   useEffect(() => {
-    // The Bestiary wants the same index for its "what you measured" column,
-    // and the Map for "mobs you have killed here".
-    if (
-      !activeId ||
-      view !== "overview" ||
-      (stdView !== MOBS_VIEW && stdView !== BESTIARY_VIEW && stdView !== MAPS_VIEW)
-    )
+    // The Bestiary reads it for its "what you measured" column, and the Map
+    // for "mobs you have killed here".
+    if (!activeId || view !== "overview" || (stdView !== BESTIARY_VIEW && stdView !== MAPS_VIEW))
       return;
     let cancelled = false;
     const load = () =>
@@ -1093,14 +1086,6 @@ export default function App() {
               onAdoptRange: adoptRange,
               logSpanSeconds,
             };
-            /*
-             * The fight list is a time-frame selector, so it belongs on the
-             * views that report over a time frame — which is all of them
-             * except one. Mobs is what this server's mobs are worth, learned
-             * across every kill ever seen, so a pane whose every click did
-             * nothing to what was on screen would be furniture — it gets the
-             * width instead.
-             */
             // The fight list scopes a parse, so it shows where the time frame
             // applies — which the view's rail group decides (ADR-017). The
             // World views read a server-wide index or a folder on disk, and a
@@ -1135,10 +1120,10 @@ export default function App() {
               onToggleCollapsed={toggleRail}
             />
             {/* Three cases: a standard view, the hand-built Summary that
-                Overview opens on, or one of the user's own dashboards. Mobs
-                and Incoming are checked first — they are rail entries but not
-                dashboards, so the standard-view lookup resolves them to
-                nothing. */}
+                Overview opens on, or one of the user's own dashboards. The
+                Bestiary, Incoming and Map are checked first — they are rail
+                entries but not dashboards, so the standard-view lookup
+                resolves them to nothing. */}
             {view === "overview" && stdView === BESTIARY_VIEW ? (
               <div className="trail-host">
                 <Trail crumbs={crumbs} onBack={backTo} />
@@ -1152,11 +1137,6 @@ export default function App() {
                   onScreen={(mob) => reportScreen({ view: "overview", stdView: BESTIARY_VIEW, mob })}
                 />
               </div>
-            ) : view === "overview" && stdView === MOBS_VIEW ? (
-              <MobHealthPanel
-                mobs={mobs}
-                server={sessions.find((s) => s.id === activeId)?.server ?? ""}
-              />
             ) : view === "overview" && stdView === HITS_VIEW ? (
               <IncomingPanel
                 attacks={attacks}

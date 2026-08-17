@@ -310,7 +310,7 @@ Two corrections make the numbers worth trusting. Fights are keyed by NPC name, s
 
 Learning **persists per game server**, not per character: a mob's health belongs to the world. The estimate for something fought last week is already there on tonight's first pull, which is the whole point of storing it.
 
-It surfaces as analysis, not as a status bar — there is no live health meter, because the interesting questions are asked after the fight. The Mobs tab lists what has been learned; the fight list shows what share of the mob each fight accounted for (the honest read on "did we kill that, or get carried"); and the tier ladder puts one mob's every difficulty side by side, which is the question asked *before* making an instance and which no single row can answer.
+It surfaces as analysis, not as a status bar — there is no live health meter, because the interesting questions are asked after the fight. The Bestiary (F30) shows what has been learned, per mob: every zone and tier it was killed at, with the band and the confidence grade, beside what a reference site lists — which also answers the tier question, since one mob's every difficulty stands in the same table. The fight list shows what share of the mob each fight accounted for (the honest read on "did we kill that, or get carried"). *(The Mobs tab that used to list the whole index as one table, with the tier ladder beside it, was retired in v0.15.1: the Bestiary had come to answer the same questions per mob, and better, and two places to read one number is one too many.)*
 
 - AC: The same mob at two difficulties is two rows with two numbers, never one averaged across both.
 - AC: A mob killed once still appears, labelled Low, rather than being hidden until it is certain.
@@ -533,7 +533,7 @@ Acceptance:
   each opening a browser tab. *(shipped)*
 - The same door beside a mob's name **wherever one is shown** — the fight
   list, the Summary's by-target rows, Incoming's feed and profiles, the death
-  log, the Mobs table, and mobs in player-shaped columns (a death's victim)
+  log, the Bestiary, and mobs in player-shaped columns (a death's victim)
   — so a lookup starts from whatever view is open. **Chart names too**: a
   click on a category-axis label (Hardest hitters, Timeline actors) goes to
   the usual site; right-click on an axis label, legend entry or bar opens the

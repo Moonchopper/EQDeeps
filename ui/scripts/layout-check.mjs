@@ -104,29 +104,9 @@ const FIXTURES = [
     checks: ["noOverflow", "densityBudget", "numericColumnsAlign"],
   },
   {
-    name: "tier-ladder",
-    viewport: { width: 1100, height: 400 },
-    html: `
-      <div class="mob-ladder">
-        ${[["open world", "616", "baseline", "high"],
-           ["1 · Awakened", "708", "×1.15", "high"],
-           ["2 · Adaptive", "790", "×1.28", "medium"],
-           ["3 · Fused", "805", "×1.31", "low"],
-           ["4 · Refined", "1.5K", "×2.42", "medium"]]
-          .map(([t, h, m, c], i) => `
-            <div class="mob-rung" style="${tint("#03a8ba", 40 + i * 12)}">
-              <span class="mob-rung-tier">${t}</span>
-              <span class="mob-rung-health">${h}</span>
-              <span class="mob-rung-mult subtle">${m}</span>
-              <span class="mob-confidence ${c}">${c}</span>
-            </div>`).join("")}
-      </div>`,
-    checks: ["noOverflow", "ladderColumnsAlign", "noClippedLabels"],
-  },
-  {
     name: "two-panels",
-    // The Incoming and Mobs shape: a small pane above or below a table holding
-    // every mob the server has ever been seen to fight.
+    // The Incoming shape: a small pane above or below a table holding every
+    // mob the server has ever been seen to fight.
     viewport: { width: 1100, height: 700 },
     html: `
       <div style="height:680px;display:flex;flex-direction:column;min-height:0">
@@ -273,23 +253,6 @@ const CHECKS = {
       });
       const spread = Math.max(...edges) - Math.min(...edges);
       if (spread > 1) out.push(`numeric column ${c + 1} right edges vary by ${spread}px`);
-    }
-    return out;
-  },
-
-  ladderColumnsAlign: () => {
-    const out = [];
-    for (const ladder of document.querySelectorAll(".mob-ladder")) {
-      for (const cls of ["mob-rung-health", "mob-rung-mult"]) {
-        const edges = [...ladder.querySelectorAll("." + cls)].map((e) =>
-          Math.round(e.getBoundingClientRect().right),
-        );
-        if (edges.length < 2) continue;
-        const spread = Math.max(...edges) - Math.min(...edges);
-        // Each rung is its own grid; a content-sized track makes the columns
-        // walk sideways with whichever word that row happens to carry.
-        if (spread > 1) out.push(`.${cls} right edges vary by ${spread}px down the ladder`);
-      }
     }
     return out;
   },

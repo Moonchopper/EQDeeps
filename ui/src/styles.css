@@ -2332,64 +2332,6 @@ th.num {
   line-height: 1.5;
 }
 
-/* ---- the tier ladder ---- */
-/* Same crush as .hit-feed-panel: the mob table above this carries every mob the
-   server has ever been seen to kill, so proportional flex shrink took the whole
-   overflow out of the ladder and left it 4px tall. The ladder is a handful of
-   rungs — it keeps its content height and the table absorbs the rest. */
-.ladder-panel {
-  flex: 0 0 auto;
-  max-height: 45vh;
-}
-
-.mob-ladder {
-  margin-top: 16px;
-  padding-top: 10px;
-  border-top: 1px solid var(--grid);
-}
-
-.mob-ladder:first-child {
-  border-top: none;
-  margin-top: 4px;
-}
-
-.mob-ladder-head {
-  display: flex;
-  gap: 10px;
-  align-items: baseline;
-  margin-bottom: 4px;
-}
-
-/* Each rung is a bar sized against the biggest in its own ladder, so the
-   shape of the climb reads the same whether the mob is worth 500 or 12,000. */
-.mob-rung {
-  display: grid;
-  /* Every column is fixed, including the confidence one. Each rung is its own
-     grid, so an `auto` track there sized to that ROW's word — "medium" is 42px
-     and "low" is 19px — and the 1fr column absorbed the difference, walking the
-     health and multiplier columns 23px left and right down the ladder. A ladder
-     is a column of numbers to compare; they have to line up. */
-  grid-template-columns: minmax(120px, 1fr) 90px 90px 46px;
-  gap: 10px;
-  align-items: baseline;
-  padding: 3px 8px;
-  border-radius: var(--r-tiny);
-  font-variant-numeric: tabular-nums slashed-zero lining-nums;
-}
-
-.mob-rung-tier {
-  color: var(--ink-2);
-}
-
-.mob-rung-health {
-  color: var(--ink);
-  text-align: right;
-}
-
-.mob-rung-mult {
-  text-align: right;
-}
-
 /* ---- the row meter ----
    Drawn as a pseudo-element on the first cell rather than as the row's own
    background, because a <tr> background cannot be rounded and the fill wants to
@@ -2399,8 +2341,7 @@ th.num {
 
    With --meter-pct unset the width is zero, so untinted rows pay nothing for
    this and no markup has to know whether a meter is coming. */
-tbody td:first-child,
-.mob-rung {
+tbody td:first-child {
   position: relative;
   /* isolation, not decoration: a z-index -1 pseudo-element otherwise paints
      behind the nearest ancestor that has a background — which here is .panel,
@@ -2410,8 +2351,7 @@ tbody td:first-child,
   isolation: isolate;
 }
 
-tbody td:first-child::before,
-.mob-rung::before {
+tbody td:first-child::before {
   content: "";
   position: absolute;
   z-index: -1;

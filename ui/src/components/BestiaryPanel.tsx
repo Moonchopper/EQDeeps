@@ -569,6 +569,12 @@ export function BestiaryPanel({
                       : "Open a log to see what your own fights measured."}
                   </p>
                 )}
+                {/* Every row, since this is now the only place the server's
+                    measured health is read (the Mobs view retired in
+                    v0.15.1): each zone and tier the name was killed at, with
+                    the band and the confidence grade the estimate carries
+                    (F25) — a number pretending to be a measurement is what
+                    the grade guards against. */}
                 {measured.length > 0 && (
                   <table className="mob-table">
                     <thead>
@@ -576,17 +582,25 @@ export function BestiaryPanel({
                         <th>Zone</th>
                         <th>Tier</th>
                         <th className="num">Damage to kill</th>
+                        <th className="num">Range</th>
                         <th className="num">Kills</th>
+                        <th>Confidence</th>
                         <th className="num">vs listed</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {measured.slice(0, ROWS_SHOWN).map((m) => (
+                      {measured.map((m) => (
                         <tr key={`${m.mob}|${m.zone}|${m.difficulty ?? "-"}`}>
                           <td className="subtle">{m.zone}</td>
                           <td className="subtle">{m.tierName ?? "open world"}</td>
                           <td className="num strong">{fmtNum(m.health)}</td>
+                          <td className="num subtle">
+                            {fmtNum(m.floor)}–{fmtNum(m.ceiling)}
+                          </td>
                           <td className="num subtle">{m.samples}</td>
+                          <td>
+                            <span className={`mob-confidence ${m.confidence}`}>{m.confidence}</span>
+                          </td>
                           <td className="num subtle">
                             {detail?.hp ? `×${(m.health / detail.hp).toFixed(2)}` : "—"}
                           </td>
@@ -594,11 +608,6 @@ export function BestiaryPanel({
                       ))}
                     </tbody>
                   </table>
-                )}
-                {measured.length > ROWS_SHOWN && (
-                  <p className="subtle bestiary-more-rows">
-                    and {measured.length - ROWS_SHOWN} more — every row is on the Mobs view.
-                  </p>
                 )}
                 {hits.length > 0 && (
                   <table className="mob-table bestiary-hits">
@@ -773,10 +782,11 @@ export function BestiaryPanel({
 const MET_SHOWN = 60;
 
 /**
- * How many rows the two measured tables show. A well-fought mob has a row per
- * tier and per defender level — a shin ghoul knight is five and seventeen —
- * and this page is the comparison, not the ledger; the Mobs and Incoming
- * views are.
+ * How many rows the hits table shows. A well-fought mob has a row per tier
+ * and per defender level — a shin ghoul knight is seventeen — and this page
+ * is the comparison, not the ledger; the Incoming view is. The health table
+ * beside it is not capped: since the Mobs view retired it is the only place
+ * that ledger is read.
  */
 const ROWS_SHOWN = 8;
 

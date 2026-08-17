@@ -620,7 +620,9 @@ Acceptance:
   Mobs tab lists who stands in the zone on screen — the log's kills marked —
   and searches where any mob stands; each hop leaves a crumb back. The zones
   come from the listing ids alone (ADR-020, decision 6), so "where does it
-  stand" costs no fetch. *(shipped 2026-08-17)*
+  stand" costs no fetch. The same rail stands on the World view: a zone
+  click frames it in the graph, and a mob under the pointer lights every
+  zone it stands in. *(shipped 2026-08-17)*
 - Loot sorted by chance, with the lines the item registry (F29) has seen
   looted marked. *(shipped 2026-08-17)*
 - Open: item icons (the icon id is already in the data), and using the same

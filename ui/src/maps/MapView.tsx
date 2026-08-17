@@ -133,7 +133,20 @@ export function MapView({
   const [spawn, setSpawn] = useState<SpawnOverlay | null>(null);
   /** The roster row under the pointer, drawn lit while it is. */
   const [hoverSpawn, setHoverSpawn] = useState<SpawnOverlay | null>(null);
+  /** The mob-search row under the pointer: on the World view its zones light up. */
+  const [litMob, setLitMob] = useState<NpcBrowseRow | null>(null);
   const mobDebounce = useRef<number | undefined>(undefined);
+
+  /** Every map short name the pointed-at mob stands in, for the world graph to light. */
+  const litZones = useMemo(() => {
+    if (!litMob) return null;
+    const set = new Set<string>();
+    for (const p of litMob.places) {
+      for (const m of p.maps) set.add(m);
+      if (p.shortName) set.add(p.shortName);
+    }
+    return set;
+  }, [litMob]);
 
   // The zone the log is in wins once, on arrival. After that the user is
   // steering: auto-following every zone line would yank the map out from under
@@ -348,7 +361,7 @@ export function MapView({
   );
 
   /** Opens a place on whichever of its maps the user last chose. */
-  const openPlace = (p: { name: string; maps: MapCatalogEntry[] }) => {
+  const openPlace = (p: { name: string; maps: MapCatalogEntry[] }): string => {
     const override = chosenFor(settings, p.name, install);
     const target =
       override && p.maps.some((m) => m.shortName === override) ? override : p.maps[0].shortName;
@@ -356,6 +369,30 @@ export function MapView({
     setSelected(target);
     setSet(undefined);
     setSteered(true);
+    return target;
+  };
+
+  /**
+   * The rail's idea of "go to a zone", in either mode. On the Zone view it
+   * draws the zone; on the World view it frames and names it in the graph —
+   * the same list, the same click, the same current zone (so the Mobs tab's
+   * roster follows), and the world stays the world.
+   */
+  const pickPlace = (p: { name: string; maps: MapCatalogEntry[] }) => {
+    const target = openPlace(p);
+    if (mode === "world") {
+      setWorldFocus((f) => ({ zone: target, seq: (f?.seq ?? 0) + 1 }));
+    }
+  };
+
+  /** The same, by map short name — for a place chip on a mob search result. */
+  const pickShortName = (shortName: string) => {
+    setSelected(shortName);
+    setSet(undefined);
+    setSteered(true);
+    if (mode === "world") {
+      setWorldFocus((f) => ({ zone: shortName, seq: (f?.seq ?? 0) + 1 }));
+    }
   };
 
   // Another view asked for a zone (the Bestiary's "show on map", or a crumb
@@ -508,10 +545,9 @@ export function MapView({
     const known = maps.find((m) => catalog?.zones.some((z) => z.shortName === m)) ?? shortName;
     const detail = await api.npcDetail(id).catch(() => null);
     const points = detail?.detail.zones.find((z) => z.shortName === shortName)?.locations ?? [];
-    setMode("zone");
-    setSteered(true);
-    setSet(undefined);
-    setSelected(known);
+    // On the World view the chip frames the zone in the world; the spawn
+    // points are kept for when the Zone view is opened on it.
+    pickShortName(known);
     setSpawn(points.length > 0 ? { mob: row.name, points } : null);
   };
 
@@ -686,8 +722,11 @@ export function MapView({
           </button>
         </div>
 
-        {mode === "zone" && (
-          <>
+        {/* The rail is the same in both modes — the same two lists, the same
+            clicks — so the World is not a different app with an empty left
+            edge. On the World a zone click frames rather than draws, and a
+            mob under the pointer lights the zones it stands in. */}
+        <>
             {/* Two lists share the rail: the zones, and the mobs. The mobs tab
                 is the Bestiary's door into this view — who stands here, and
                 where does that one stand — and it only appears when the
@@ -728,8 +767,11 @@ export function MapView({
                     <button
                       key={p.key}
                       className={"map-zone" + (place?.key === p.key ? " on" : "")}
-                      onClick={() => openPlace(p)}
-                      title={p.maps.map((m) => m.shortName).join(", ")}
+                      onClick={() => pickPlace(p)}
+                      title={
+                        (mode === "world" ? "Frame in the world: " : "") +
+                        p.maps.map((m) => m.shortName).join(", ")
+                      }
                     >
                       <span className="map-zone-name">{p.name}</span>
                       {/* More than one map claims this name; the header lets you
@@ -764,7 +806,12 @@ export function MapView({
                         <div className="map-empty-small">Nothing by that name.</div>
                       )}
                       {(mobResults ?? []).map((row) => (
-                        <div key={row.name} className="map-mob">
+                        <div
+                          key={row.name}
+                          className={"map-mob" + (litMob?.name === row.name ? " lit" : "")}
+                          onMouseEnter={() => setLitMob(row)}
+                          onMouseLeave={() => setLitMob((m) => (m?.name === row.name ? null : m))}
+                        >
                           <button
                             className="map-mob-name"
                             onClick={() => onOpenMob?.({ name: row.name }, crumbHere())}
@@ -888,8 +935,7 @@ export function MapView({
                 </div>
               </>
             )}
-          </>
-        )}
+        </>
       </aside>
 
       {mode === "world" ? (
@@ -910,6 +956,8 @@ export function MapView({
           }}
           currentZone={currentZone}
           currentMap={currentZone ? chosenFor(settings, currentZone, install) : undefined}
+          lit={litZones}
+          litLabel={litMob?.name}
           era={eraFor(settings, install)}
           onEraChange={(era) => {
             rememberEra(era, install)

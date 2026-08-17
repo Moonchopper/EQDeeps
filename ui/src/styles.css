@@ -3877,6 +3877,21 @@ tr:hover .lookup-btn,
   border-style: dashed;
 }
 
+/* A search row the pointer is on: on the World view its zones are lit in
+   the graph, and the row says so by lighting too. */
+.map-mob.lit {
+  background: var(--hover);
+}
+
+/* The world's fit button reads "fit" or "fit (2.4×)": a fixed width, so the
+   header never reflows under the pointer as the label changes (which used
+   to resize the frame and throw the zoom away). */
+.map-fit {
+  min-width: 68px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
 /* A roster row: the name, and a pin beside it when it has spawn points. */
 .map-roster-row {
   flex-direction: row;

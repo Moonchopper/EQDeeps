@@ -629,6 +629,10 @@ Acceptance:
   its own colour on whichever zone is open and rings every zone it stands
   in on the World, listed in the map header as chips, persisted, until
   unpinned. *(shipped 2026-08-17)*
+- **Back and forward** over screens — rail views, the mob open in the
+  Bestiary, the zone and mode on the Map — from arrows beside the brand,
+  the mouse's thumb buttons, or Alt+←/→; the app's own history, since the
+  shell has none. *(shipped 2026-08-17)*
 - Loot sorted by chance, with the lines the item registry (F29) has seen
   looted marked. *(shipped 2026-08-17)*
 - Open: item icons (the icon id is already in the data), and using the same

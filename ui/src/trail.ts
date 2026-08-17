@@ -28,7 +28,35 @@ export interface MapTarget {
   /** The map short name to open on when the caller knows one; otherwise the place's usual. */
   shortName?: string;
   spawn?: SpawnOverlay;
+  /** Zone drawing or the world graph; the zone when unsaid. */
+  mode?: "zone" | "world";
   seq: number;
+}
+
+/**
+ * One screen, as the back/forward history remembers it: which view, and —
+ * for the two views with a place inside them — which mob or which zone.
+ * Coarser than a URL on purpose: a scroll position or a typed search is not
+ * a place anyone wants to go back *to*.
+ */
+export interface Screen {
+  view: string;
+  stdView: string;
+  /** The Bestiary's open mob; null for its landing. */
+  mob?: { name: string; id?: number } | null;
+  /** The Map's zone and mode. */
+  zone?: { place: string; shortName?: string; mode: "zone" | "world" } | null;
+}
+
+/** The identity of a screen — what makes two of them the same place. */
+export function screenKey(s: Screen): string {
+  return [
+    s.view,
+    s.stdView,
+    s.mob?.name.toLowerCase() ?? "",
+    s.zone?.shortName ?? s.zone?.place ?? "",
+    s.zone?.mode ?? "",
+  ].join("");
 }
 
 /** One step back: the view you were on and what to reopen there. */

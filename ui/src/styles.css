@@ -3340,6 +3340,35 @@ tr:hover .lookup-btn,
    level; a mob page leads with the two numbers that decide a fight — theirs
    beside ours — and every zone on it is a hop to the map. */
 
+/* Back and forward, beside the brand where a browser keeps them. Quiet when
+   there is nowhere to go, so a fresh session shows two dim arrows rather
+   than a control that seems broken. */
+.nav-history {
+  display: inline-flex;
+  gap: 2px;
+  margin-left: -4px;
+}
+
+.nav-history-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--r-chip);
+  color: var(--ink-2);
+}
+
+.nav-history-btn:hover:enabled {
+  background: var(--hover);
+  color: var(--ink);
+}
+
+.nav-history-btn:disabled {
+  color: var(--grid);
+  cursor: default;
+}
+
 .trail-host {
   display: flex;
   flex-direction: column;

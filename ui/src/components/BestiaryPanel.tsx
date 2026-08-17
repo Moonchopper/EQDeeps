@@ -52,6 +52,7 @@ export function BestiaryPanel({
   enabled,
   target,
   onShowOnMap,
+  onScreen,
 }: {
   sessionId: string | null;
   /** What this server's logs measured (F25), for the comparison column. */
@@ -64,6 +65,8 @@ export function BestiaryPanel({
   target: BestiaryTarget | null;
   /** To the Map, on a zone, with this page left behind as a crumb. */
   onShowOnMap: (target: Omit<MapTarget, "seq">, from: Crumb) => void;
+  /** Which mob is open — the history's idea of this screen; null for the landing. */
+  onScreen?: (mob: { name: string; id?: number } | null) => void;
 }) {
   const [query, setQuery] = useState("");
   const [band, setBand] = useState<LevelBand | null>(null);
@@ -217,10 +220,18 @@ export function BestiaryPanel({
     setSelected(pick);
   }
 
-  // Another view asked for a mob (the Map's roster, or a crumb back). The
-  // seq is what makes asking twice work.
+  // Another view asked for a mob (the Map's roster, a crumb back, or the
+  // history). The seq is what makes asking twice work. An empty name is
+  // the landing — history going back to before anything was picked.
   useEffect(() => {
     if (!target || !enabled) return;
+    if (target.name === "") {
+      setQuery("");
+      setBand(null);
+      setSelected(null);
+      setOpenName(null);
+      return;
+    }
     // The search box shows the name too, so the list on the left is the
     // name's row and its neighbours rather than the landing — the page has
     // context, and clearing the box is the way back to the landing.
@@ -229,6 +240,12 @@ export function BestiaryPanel({
     void openByName(target.name, target.id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [target?.seq, enabled]);
+
+  // This screen, for the history: the mob that is open, or the landing.
+  useEffect(() => {
+    onScreen?.(selected ? { name: selected.name, id: selected.id } : null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected?.id, selected?.name]);
 
   /** What this server measured for a name, across every zone and tier it was killed in. */
   const measured = useMemo(() => {

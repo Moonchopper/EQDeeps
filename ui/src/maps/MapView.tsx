@@ -62,6 +62,8 @@ interface Props {
   target?: MapTarget | null;
   /** To the Bestiary, on a mob, with this zone left behind as a crumb. */
   onOpenMob?: (target: Omit<BestiaryTarget, "seq">, from: Crumb) => void;
+  /** Which zone and mode are on screen — the history's idea of this screen. */
+  onScreen?: (zone: { place: string; shortName?: string; mode: "zone" | "world" } | null) => void;
 }
 
 /** Turns the site's spawn coordinates into the file's — see docs/domain/eq-map-format.md §3. */
@@ -81,6 +83,7 @@ export function MapView({
   referenceEnabled = true,
   target = null,
   onOpenMob,
+  onScreen,
 }: Props) {
   const [catalog, setCatalog] = useState<MapCatalog | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -434,6 +437,11 @@ export function MapView({
     if (mode === "world") {
       setWorldFocus((f) => ({ zone: target, seq: (f?.seq ?? 0) + 1 }));
     }
+    // Having chosen a zone, the next question is who is in it — and the
+    // zone list has done its job until the next zone is wanted.
+    if (referenceEnabled) {
+      setRailTab("mobs");
+    }
   };
 
   /** The same, by map short name — for a place chip on a mob search result. */
@@ -459,9 +467,12 @@ export function MapView({
     asked.current = true;
     followed.current = true;
     setFollowDone(true);
-    setMode("zone");
+    setMode(target.mode ?? "zone");
     setSteered(true);
     setSet(undefined);
+    if (target.mode === "world" && target.shortName) {
+      setWorldFocus((f) => ({ zone: target.shortName!, seq: (f?.seq ?? 0) + 1 }));
+    }
     // "Show on map" from the Bestiary pins the mob: visible at once, listed
     // in the header with the other pins, and removable there — rather than
     // a drawing that nothing on screen accounts for.
@@ -588,6 +599,15 @@ export function MapView({
       (a, b) => (a.minLevel ?? 999) - (b.minLevel ?? 999) || a.name.localeCompare(b.name),
     );
   }, [roster, rosterFor, selected, killedHere]);
+
+  // This screen, for the history: the zone on screen and which way it is
+  // being looked at. Nothing until a zone is chosen — "the map, waiting" is
+  // not a place to come back to.
+  useEffect(() => {
+    if (!selected) return;
+    onScreen?.({ place: place?.name ?? entry?.displayName ?? selected, shortName: selected, mode });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected, mode]);
 
   /** The crumb this zone leaves behind when a mob is opened from it. */
   const crumbHere = (): Crumb => ({

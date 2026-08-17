@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import { IconArrowLeft, IconArrowRight } from "@tabler/icons-react";
 import type { DiscoveredLog, FightInfo, SessionInfo, UpdateState } from "../api";
 import type { BackfillEvent } from "../live";
 import { TimeControls, type ChartSettings } from "../timeControls";
@@ -8,6 +9,8 @@ import { SelectionChip } from "./SelectionChip";
 
 interface Props {
   sessions: SessionInfo[];
+  /** Back and forward over the screens you have been on — the app's own history, since the shell has none. */
+  history?: { canBack: boolean; canForward: boolean; onBack: () => void; onForward: () => void };
   /** Colour for the selection chip's swatch — the same registry the panels use. */
   colorFor: (key: string, pool: string) => string;
   activeId: string | null;
@@ -52,6 +55,7 @@ export function describeAge(iso: string): string {
 /** Top bar: open a log by path or pick a detected one, switch characters. */
 export function SessionBar({
   sessions,
+  history,
   colorFor,
   activeId,
   backfill,
@@ -80,6 +84,29 @@ export function SessionBar({
   return (
     <header className="session-bar">
       <span className="brand">EQDeeps</span>
+      {/* Where a browser keeps them, doing what a browser's do — over the
+          app's own screens. The mouse's thumb buttons and Alt+arrows come
+          here too (App.tsx). */}
+      {history && (
+        <span className="nav-history">
+          <button
+            className="nav-history-btn"
+            disabled={!history.canBack}
+            onClick={history.onBack}
+            title="Back to the last screen (Alt+←, or the mouse's back button)"
+          >
+            <IconArrowLeft size={15} stroke={2} aria-hidden />
+          </button>
+          <button
+            className="nav-history-btn"
+            disabled={!history.canForward}
+            onClick={history.onForward}
+            title="Forward again (Alt+→, or the mouse's forward button)"
+          >
+            <IconArrowRight size={15} stroke={2} aria-hidden />
+          </button>
+        </span>
+      )}
       <div className="session-tabs">
         {sessions.map((s) => (
           <span key={s.id} className={"session-tab" + (s.id === activeId ? " on" : "")}>

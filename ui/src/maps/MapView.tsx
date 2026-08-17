@@ -222,6 +222,13 @@ export function MapView({
   const asked = useRef(false);
 
   /**
+   * A zone asked for from outside is still being looked up through the
+   * zone table. Until it lands, whatever the fallback draws is not a screen
+   * anyone was on, and is not reported as one.
+   */
+  const resolving = useRef(false);
+
+  /**
    * The user has chosen a zone themselves, so the log must not move the map
    * again.
    *
@@ -541,13 +548,17 @@ export function MapView({
       return;
     }
 
+    // Only the table can say which map this is, and until it has, whatever
+    // the fallback draws in the meantime is not a screen anyone was on.
+    resolving.current = true;
     api
       .resolveZone(target.place)
       .then((r) => {
         const hit = r.shortNames.find((s) => catalog.zones.some((z) => z.shortName === s));
+        resolving.current = false;
         if (hit) setSelected(hit);
       })
-      .catch(() => undefined);
+      .catch(() => (resolving.current = false));
     // `places` and `settings` are read, not followed: this fires on the ask.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [target?.seq, catalog]);
@@ -651,7 +662,7 @@ export function MapView({
   // being looked at. Nothing until a zone is chosen — "the map, waiting" is
   // not a place to come back to.
   useEffect(() => {
-    if (!selected) return;
+    if (!selected || resolving.current) return;
     onScreen?.({ place: place?.name ?? entry?.displayName ?? selected, shortName: selected, mode });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected, mode]);

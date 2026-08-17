@@ -92,6 +92,15 @@ export function BestiaryPanel({
   const [conLevel, setConLevel] = useState<number | null>(null);
   const debounce = useRef<number | undefined>(undefined);
   const searchRef = useRef<HTMLInputElement | null>(null);
+  /**
+   * A mob asked for from outside is still on its way. While it is, what is
+   * on screen — nothing yet, or the previous mob — is not a screen anyone
+   * was on, and must not be reported as one: opening a mob from the Map
+   * used to leave "the Bestiary landing" in the history between the Map
+   * and the mob, so Back landed there. A ref, because the mount-time report
+   * runs in the same commit as the ask arrives.
+   */
+  const opening = useRef(false);
 
   // Opening the view is the ask. Load the index now, so the header can say
   // how big the world is and a level band has something to browse — and so
@@ -201,23 +210,32 @@ export function BestiaryPanel({
    * listings the one this session's /consider levels point at.
    */
   async function openByName(name: string, id?: number) {
-    const r = await api.searchNpcs(name, { limit: 5 }).catch(() => null);
-    const row =
-      r?.npcs.find((n) => n.name.toLowerCase() === name.trim().toLowerCase()) ?? r?.npcs[0] ?? null;
-    if (row) setOpenName(row);
-    if (id !== undefined) {
-      const level =
-        row?.levels.find((v) => v.id === id)?.level ?? row?.places.find((p) => p.id === id)?.levels[0];
-      setSelected({ id, name: row?.name ?? name, level, url: "" });
-      return;
+    opening.current = true;
+    try {
+      const r = await api.searchNpcs(name, { limit: 5 }).catch(() => null);
+      const row =
+        r?.npcs.find((n) => n.name.toLowerCase() === name.trim().toLowerCase()) ?? r?.npcs[0] ?? null;
+      if (row) setOpenName(row);
+      if (id !== undefined) {
+        const level =
+          row?.levels.find((v) => v.id === id)?.level ?? row?.places.find((p) => p.id === id)?.levels[0];
+        opening.current = false;
+        setSelected({ id, name: row?.name ?? name, level, url: "" });
+        return;
+      }
+      if (!row) return;
+      let pick = row.levels[0] ?? null;
+      if (sessionId) {
+        const l = await api.lookupNpc(sessionId, name).catch(() => null);
+        if (l) pick = row.levels.find((v) => v.level === l.listing.level) ?? l.listing;
+      }
+      opening.current = false;
+      setSelected(pick);
+    } finally {
+      // A name the index no longer has leaves nothing to select; the screen
+      // that is showing is then the screen, and reports resume.
+      opening.current = false;
     }
-    if (!row) return;
-    let pick = row.levels[0] ?? null;
-    if (sessionId) {
-      const l = await api.lookupNpc(sessionId, name).catch(() => null);
-      if (l) pick = row.levels.find((v) => v.level === l.listing.level) ?? l.listing;
-    }
-    setSelected(pick);
   }
 
   // Another view asked for a mob (the Map's roster, a crumb back, or the
@@ -241,8 +259,10 @@ export function BestiaryPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [target?.seq, enabled]);
 
-  // This screen, for the history: the mob that is open, or the landing.
+  // This screen, for the history: the mob that is open, or the landing —
+  // but not while a mob asked for from outside is still on its way.
   useEffect(() => {
+    if (opening.current) return;
     onScreen?.(selected ? { name: selected.name, id: selected.id } : null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected?.id, selected?.name]);

@@ -397,15 +397,62 @@ export function MapView({
     return [...byKey.values()];
   }, [catalog]);
 
+  /** The chosen era, remembered per install; undefined for the whole world. */
+  const era = eraFor(settings, install);
+  const eraOrdinal = useMemo(() => new Map((catalog?.eras ?? []).map((e, i) => [e.id, i])), [catalog]);
+  const eraLimit = era ? eraOrdinal.get(era) : undefined;
+
+  /**
+   * Whether a map's zone exists in the chosen era: the same rule the world
+   * graph draws by. Unknown era is in — the table could not place it, and
+   * hiding a place the player can walk into is the worse mistake.
+   */
+  const withinEra = (m: MapCatalogEntry) =>
+    eraLimit === undefined || !m.era || (eraOrdinal.get(m.era) ?? -1) <= eraLimit;
+
+  /**
+   * The places the zone list offers under the chosen era: those with a
+   * named drawing that exists in it, so a Classic-only world lists ninety
+   * zones rather than 570 and the list stops asking you to know which is
+   * which. A named zone the table cannot place stays (there is one), on the
+   * graph's rule that hiding a place the player can walk into is the worse
+   * mistake. An <em>unnamed</em> map is a different thing: 313 files with no
+   * table row, no name and so no era — kept, they are three quarters of a
+   * "Classic only" list — so under an era they step out, and the list says
+   * how many. The zone on screen and the log's own zone are always kept.
+   */
+  const inEra = useMemo(() => {
+    if (eraLimit === undefined) {
+      return { places, hiddenUnnamed: 0 };
+    }
+    let hiddenUnnamed = 0;
+    const kept = places.filter((p) => {
+      if (
+        p.maps.some((m) => m.shortName === selected) ||
+        (currentZone !== undefined && zoneKey(p.name) === zoneKey(currentZone))
+      ) {
+        return true;
+      }
+      const named = p.maps.some((m) => m.displayName);
+      if (!named) {
+        hiddenUnnamed++;
+        return false;
+      }
+      return p.maps.some((m) => m.displayName && withinEra(m));
+    });
+    return { places: kept, hiddenUnnamed };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [places, eraLimit, eraOrdinal, selected, currentZone]);
+
   const shown = useMemo(
     () =>
-      places
+      inEra.places
         .map((place) => ({ place, hit: fuzzyMatch(place.name, filter) }))
         .filter((x) => x.hit !== null)
         .sort((a, b) => b.hit!.score - a.hit!.score)
         .slice(0, 300)
         .map((x) => x.place),
-    [places, filter],
+    [inEra, filter],
   );
 
   const place = places.find((p) => p.maps.some((m) => m.shortName === selected));
@@ -853,6 +900,28 @@ export function MapView({
           >
             World
           </button>
+          {/* Which expansion the server has reached — beside the lists it
+              narrows, since it narrows the zone list as much as the world.
+              The player's call: the log names only zones already visited,
+              and the map files carry no content gating, so nothing here can
+              guess it (issue #57). Remembered per install. */}
+          <select
+            className="mini-select map-era"
+            value={eraLimit === undefined ? "" : era}
+            onChange={(e) => {
+              rememberEra(e.target.value || null, install)
+                .then(setSettings)
+                .catch(() => undefined);
+            }}
+            title="How far your server has unlocked. Zones from later expansions leave the list and the world; zones whose era is unknown stay. Nothing in the log can say this, so it is yours to set."
+          >
+            <option value="">Any era</option>
+            {catalog.eras.map((e, i) => (
+              <option key={e.id} value={e.id}>
+                {i === 0 ? `${e.short} only` : `through ${e.short}`}
+              </option>
+            ))}
+          </select>
         </div>
 
         {/* The rail is the same in both modes — the same two lists, the same
@@ -891,7 +960,7 @@ export function MapView({
               <>
                 <input
                   className="map-filter"
-                  placeholder={`Search ${catalog.zones.length} zones…`}
+                  placeholder={`Search ${inEra.places.length} zones…`}
                   value={filter}
                   onChange={(e) => setFilter(e.target.value)}
                 />
@@ -919,6 +988,14 @@ export function MapView({
                     </button>
                   ))}
                   {shown.length === 0 && <div className="map-empty-small">No zone matches that.</div>}
+                  {/* Said, so a map that used to be in the list has not
+                      simply vanished: it is behind the era, and "Any era"
+                      brings it back. */}
+                  {inEra.hiddenUnnamed > 0 && filter.trim().length === 0 && (
+                    <div className="map-empty-small map-era-note">
+                      {inEra.hiddenUnnamed} unnamed maps have no era and are not listed — choose “Any era” to see them.
+                    </div>
+                  )}
                 </div>
               </>
             )}
@@ -1162,12 +1239,7 @@ export function MapView({
           lit={litZones}
           litLabel={hovered?.name}
           pins={pinRings}
-          era={eraFor(settings, install)}
-          onEraChange={(era) => {
-            rememberEra(era, install)
-              .then(setSettings)
-              .catch(() => undefined);
-          }}
+          era={era}
         />
       ) : (
         <section className="map-stage">

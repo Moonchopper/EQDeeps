@@ -2523,6 +2523,16 @@ textarea:focus-visible,
 .map-mode {
   display: flex;
   gap: 4px;
+  align-items: center;
+}
+
+/* The era chooser sits after Zone/World and takes what is left of the
+   rail's width; it narrows the list below and the world alike. */
+.map-mode .map-era {
+  flex: 1;
+  min-width: 0;
+  margin-left: auto;
+  max-width: none;
 }
 
 .mini-btn.on {

@@ -275,7 +275,6 @@ interface Props {
    * and never routed through; zones whose era is unknown stay (issue #57).
    */
   era?: string;
-  onEraChange: (era: string | null) => void;
   /**
    * A zone to frame on arrival — the one the Zone view was showing when the
    * user asked for the world. `focusSeq` changes on every ask, so asking for
@@ -313,7 +312,6 @@ interface Props {
 export function ZoneGraphView({
   onOpenZone,
   era,
-  onEraChange,
   focus,
   focusSeq = 0,
   onBack,
@@ -906,22 +904,8 @@ export function ZoneGraphView({
           >
             connections
           </button>
-          {/* Which expansion the server has reached. The player's call: the
-              log names only zones already visited, and the map files carry no
-              content gating, so nothing here can guess it (issue #57). */}
-          <select
-            className="mini-select"
-            value={eraLimit === undefined ? "" : era}
-            onChange={(e) => onEraChange(e.target.value || null)}
-            title="How far your server has unlocked. Zones from later expansions are hidden and never routed through; zones whose era is unknown stay. Nothing in the log can say this, so it is yours to set."
-          >
-            <option value="">Any era</option>
-            {graph.eras.map((e, i) => (
-              <option key={e.id} value={e.id}>
-                {i === 0 ? `${e.short} only` : `through ${e.short}`} ({e.year})
-              </option>
-            ))}
-          </select>
+          {/* The era chooser lives in the rail beside the zone list now: it
+              narrows both, and one control for one setting. */}
           <select className="mini-select" value={from} onChange={(e) => setFrom(e.target.value)}>
             <option value="">From…</option>
             {sorted.map((z) => (

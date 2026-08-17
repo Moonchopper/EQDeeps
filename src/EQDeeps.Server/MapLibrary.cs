@@ -37,11 +37,20 @@ public sealed record MapCatalogEntry(
 /// The folder the user nominated, if any — so the UI can show what it is
 /// currently set to rather than only offering to set it.
 /// </param>
+/// <param name="Eras">
+/// Every expansion in release order — the same list the graph carries — so
+/// the zone list can be narrowed to the chosen era and the era chooser can
+/// live beside it, without a second copy of the list on the client.
+/// </param>
 public sealed record MapCatalog(
     bool Found,
     IReadOnlyList<string> Roots,
     IReadOnlyList<MapCatalogEntry> Zones,
-    string? UserRoot = null);
+    string? UserRoot = null,
+    IReadOnlyList<ZoneEra>? Eras = null)
+{
+    public IReadOnlyList<ZoneEra> Eras { get; init; } = Eras ?? ZoneEras.All;
+}
 
 /// <summary>
 /// The player's own map files, read from their EverQuest install (F27,

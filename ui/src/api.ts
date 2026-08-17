@@ -519,6 +519,8 @@ export interface MapCatalog {
   zones: MapCatalogEntry[];
   /** The folder the user nominated, if they have. */
   userRoot?: string;
+  /** Every expansion in release order — the same list the graph carries. */
+  eras: ZoneEra[];
 }
 
 /**

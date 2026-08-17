@@ -328,9 +328,14 @@ the table.
 
 **What an era means.** The *earliest* expansion the place can exist in — a
 lower bound. The World view hides a zone whose era is later than the chosen one
-and routes only through zones that are not hidden. A zone with **no** era is
-shown under every filter: the same bias as the rest of this feature, where a
-smaller truthful graph beats hiding a place the player can walk into.
+and routes only through zones that are not hidden, and the Map's zone list
+drops it too — the chooser sits beside that list, since it narrows both. A
+*named* zone with **no** era is shown under every filter: the same bias as the
+rest of this feature, where a smaller truthful graph beats hiding a place the
+player can walk into. An *unnamed* map (no table row, so no name and no era —
+313 of the 581 files) is the exception in the list only: kept, they are three
+quarters of a "Classic only" list, so under an era they step out and the list
+says how many; "Any era" brings them back.
 
 **One name, several ids.** Revamps and event copies keep the display name:
 "The Ocean of Tears" is 69, 409 and 569; "The Sleeper's Tomb" is 128, 628, 801

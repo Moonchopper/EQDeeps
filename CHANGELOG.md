@@ -7,6 +7,10 @@ the how for the commits. Newest first; a change lands under **Unreleased** with
 its pull request, and the release's Docs commit renames that heading to the
 version being cut.
 
+## Unreleased
+
+- **The World map opens fast after every launch.** The first open after starting the app used to sit on "Reading every map's exits…" for a couple of seconds, no matter how many times you had opened it before — the app was rediscovering your game install once per zone. Now it is a quarter of a second, and even the very first build on a new install is a third of what it was.
+
 ## v0.15.1 — 2026-08-16
 
 - **The Mobs tab has folded into the Bestiary.** Everything it showed — what each mob took to kill on your server, at every zone and difficulty tier, with the range and how sure the estimate is — is on the mob's Bestiary page, beside what the world lists for it. One place to read it instead of two.

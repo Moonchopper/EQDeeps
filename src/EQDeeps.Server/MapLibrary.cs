@@ -331,6 +331,14 @@ public sealed class MapLibrary
     /// resident memory. And the labels come from <see cref="MapLabelCache"/>
     /// when the file has not changed since they were last read, so on every
     /// launch but the first the pass is a stat per file, not a read.</para>
+    ///
+    /// <para>The map folders are resolved once, up front, and handed to every
+    /// zone. Resolving them is a full install discovery — every process on
+    /// the machine, four registry hives, every drive — and doing it inside
+    /// the per-zone lookup ran it seven hundred times per build, which was
+    /// 2.5 s of the launch-time cost the label cache was supposed to have
+    /// removed (its warm build was still 2.6 s against a 4.4 s cold one).
+    /// <see cref="RootResolutions"/> is the count the test pins.</para>
     /// </summary>
     public ZoneGraph Graph()
     {
@@ -347,6 +355,7 @@ public sealed class MapLibrary
             }
 
             var maps = new List<ZoneMap>();
+            var roots = Roots();
 
             foreach (var entry in Catalog().Zones)
             {
@@ -361,7 +370,7 @@ public sealed class MapLibrary
                 // short way was written down only in the set being ignored.
                 foreach (var set in entry.Sets)
                 {
-                    foreach (var (path, index) in FilesFor(entry.ShortName, set))
+                    foreach (var (path, index) in FilesFor(entry.ShortName, set, roots))
                     {
                         // Labels only: the graph never draws anything, and the
                         // geometry it would otherwise parse and discard is 99%
@@ -460,12 +469,21 @@ public sealed class MapLibrary
     }
 
     /// <summary>
+    /// How many times the map folders have been resolved. Each one is a full
+    /// install discovery when no folder is pinned, so anything that resolves
+    /// them per zone rather than per build shows up here as hundreds rather
+    /// than a handful — which is what the test looks for.
+    /// </summary>
+    internal int RootResolutions { get; private set; }
+
+    /// <summary>
     /// Candidate map folders, best set first. An override replaces discovery
     /// entirely rather than adding to it, so a test cannot accidentally read a
     /// real install.
     /// </summary>
     private List<(string Root, string Set)> Roots()
     {
+        RootResolutions++;
         var roots = new List<(string, string)>();
 
         // --mapRoot beats the user's own setting, so a test can never be
@@ -501,9 +519,15 @@ public sealed class MapLibrary
         return roots;
     }
 
-    private IEnumerable<(string Path, int Index)> FilesFor(string shortName, string set)
+    /// <summary>
+    /// The map files for one zone in one set, from folders already resolved —
+    /// the caller decides how often resolution happens, because it is the
+    /// expensive part (see <see cref="Graph"/>).
+    /// </summary>
+    private static IEnumerable<(string Path, int Index)> FilesFor(
+        string shortName, string set, List<(string Root, string Set)> roots)
     {
-        foreach (var (root, candidate) in Roots())
+        foreach (var (root, candidate) in roots)
         {
             if (!string.Equals(candidate, set, StringComparison.OrdinalIgnoreCase) || !Directory.Exists(root))
             {
@@ -538,7 +562,7 @@ public sealed class MapLibrary
     {
         var layers = new List<MapLayer>();
 
-        foreach (var (path, index) in FilesFor(shortName, set).OrderBy(f => f.Index))
+        foreach (var (path, index) in FilesFor(shortName, set, Roots()).OrderBy(f => f.Index))
         {
             var layer = SafeParse(path, index);
             if (layer is not null)

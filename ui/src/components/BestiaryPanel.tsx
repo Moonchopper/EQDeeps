@@ -15,6 +15,7 @@ import {
 } from "../api";
 import { fmtNum, fmtRate } from "../format";
 import { LookupLink } from "../lookup/LookupLink";
+import { mobKey, sameMob } from "../lookup/mobKey";
 import { conOf, CON_WORD } from "../conColor";
 import type { BestiaryTarget, Crumb, MapTarget } from "../trail";
 
@@ -77,6 +78,14 @@ export function BestiaryPanel({
   const [total, setTotal] = useState(0);
   /** The name whose row is open, and which of its listings is being shown. */
   const [openName, setOpenName] = useState<NpcBrowseRow | null>(null);
+  /**
+   * Set when the open name is one the site does not list at all. The name is
+   * still the subject — the log's own measurements are shown for it, since
+   * this is the only place they are read now — with the site's half marked
+   * absent rather than pretending to load. A click that did nothing was the
+   * previous answer.
+   */
+  const [unlisted, setUnlisted] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [selected, setSelected] = useState<NpcListing | null>(null);
   const [detail, setDetail] = useState<NpcDetail | null>(null);
@@ -185,15 +194,23 @@ export function BestiaryPanel({
       setObserved([]);
       return;
     }
+    if (selected.id !== UNLISTED) {
+      setUnlisted(false);
+    }
     let cancelled = false;
-    api
-      .npcDetail(selected.id)
-      .then((r) => {
-        if (cancelled) return;
-        setDetail(r?.detail ?? null);
-        setDetailUrl(r?.url ?? null);
-      })
-      .catch(() => undefined);
+    if (selected.id === UNLISTED) {
+      setDetail(null);
+      setDetailUrl(null);
+    } else {
+      api
+        .npcDetail(selected.id)
+        .then((r) => {
+          if (cancelled) return;
+          setDetail(r?.detail ?? null);
+          setDetailUrl(r?.url ?? null);
+        })
+        .catch(() => undefined);
+    }
     if (sessionId) {
       api
         .lookupNpc(sessionId, selected.name)
@@ -211,19 +228,28 @@ export function BestiaryPanel({
    */
   async function openByName(name: string, id?: number) {
     opening.current = true;
+    setUnlisted(false);
     try {
       const r = await api.searchNpcs(name, { limit: 5 }).catch(() => null);
-      const row =
-        r?.npcs.find((n) => n.name.toLowerCase() === name.trim().toLowerCase()) ?? r?.npcs[0] ?? null;
+      // The index files "An imp protector" and "imp protector" as one name,
+      // and puts the exact hit first; the article-blind compare here is for
+      // the row's printed name, which may be either.
+      const row = r?.npcs.find((n) => sameMob(n.name, name)) ?? r?.npcs[0] ?? null;
       if (row) setOpenName(row);
-      if (id !== undefined) {
+      if (id !== undefined && id !== UNLISTED) {
         const level =
           row?.levels.find((v) => v.id === id)?.level ?? row?.places.find((p) => p.id === id)?.levels[0];
         opening.current = false;
         setSelected({ id, name: row?.name ?? name, level, url: "" });
         return;
       }
-      if (!row) return;
+      if (!row) {
+        // Not listed — but the log has met it, and that half still shows.
+        opening.current = false;
+        setUnlisted(true);
+        setSelected({ id: UNLISTED, name: name.trim(), url: "" });
+        return;
+      }
       let pick = row.levels[0] ?? null;
       if (sessionId) {
         const l = await api.lookupNpc(sessionId, name).catch(() => null);
@@ -263,15 +289,17 @@ export function BestiaryPanel({
   // but not while a mob asked for from outside is still on its way.
   useEffect(() => {
     if (opening.current) return;
-    onScreen?.(selected ? { name: selected.name, id: selected.id } : null);
+    onScreen?.(
+      selected ? { name: selected.name, id: selected.id === UNLISTED ? undefined : selected.id } : null,
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected?.id, selected?.name]);
 
   /** What this server measured for a name, across every zone and tier it was killed in. */
   const measured = useMemo(() => {
     if (!selected || !mobs) return [];
-    const key = selected.name.trim().toLowerCase();
-    return mobs.mobs.filter((m) => m.mob.trim().toLowerCase() === key);
+    const key = mobKey(selected.name);
+    return mobs.mobs.filter((m) => mobKey(m.mob) === key);
   }, [selected, mobs]);
 
   /**
@@ -282,9 +310,9 @@ export function BestiaryPanel({
    */
   const hits = useMemo(() => {
     if (!selected || !attacks) return [];
-    const key = selected.name.trim().toLowerCase();
+    const key = mobKey(selected.name);
     return attacks.mobs
-      .filter((m) => m.mob.trim().toLowerCase() === key)
+      .filter((m) => mobKey(m.mob) === key)
       .sort(
         (a, b) =>
           Number(a.difficulty !== undefined) - Number(b.difficulty !== undefined) ||
@@ -441,7 +469,7 @@ export function BestiaryPanel({
                     {met.slice(0, MET_SHOWN).map((m) => (
                       <li key={m.name}>
                         <button
-                          className={"bestiary-row" + (selected?.name.toLowerCase() === m.name.toLowerCase() ? " on" : "")}
+                          className={"bestiary-row" + (selected && sameMob(selected.name, m.name) ? " on" : "")}
                           onClick={() => void openByName(m.name)}
                           title={`${m.kills} kill${m.kills === 1 ? "" : "s"} · ${[...m.zones].join(", ")}`}
                         >
@@ -486,7 +514,11 @@ export function BestiaryPanel({
             <div className="panel-title bestiary-head">
               <span className="panel-name">
                 <span className={conClass(conLevel, detail?.level ?? selected.level)}>{selected.name}</span>
-                <LookupLink kind="npc" name={selected.name} />
+                {unlisted ? (
+                  <span className="subtle"> · not listed</span>
+                ) : (
+                  <LookupLink kind="npc" name={selected.name} />
+                )}
               </span>
               <span className="bestiary-head-right">
                 {/* Which level the colours are read against. Editable because
@@ -545,6 +577,12 @@ export function BestiaryPanel({
                 <HitsCard listed={detail} hits={hits} />
               </div>
 
+              {unlisted ? (
+                <p className="subtle bestiary-none">
+                  {source} has no listing under this name. If it spells the mob differently, search
+                  for it; what your own logs measured is below either way.
+                </p>
+              ) : (
               <div className="bestiary-stats">
                 <Stat label="Level" value={levelRange(detail, selected)} />
                 <Stat label="AC" value={detail?.ac ?? "—"} />
@@ -553,6 +591,7 @@ export function BestiaryPanel({
                 <Stat label="Faction" value={detail?.faction ?? "—"} />
                 <Stat label="Respawn" value={respawn(detail)} />
               </div>
+              )}
               {detail?.specials && detail.specials.length > 0 && (
                 <p className="bestiary-specials">{detail.specials.join(" · ")}</p>
               )}
@@ -779,6 +818,12 @@ export function BestiaryPanel({
 }
 
 /** How many killed names the landing lists before it says "and N more". */
+/**
+ * The id a selection carries when the site lists nothing under the name: the
+ * log's own half still shows, and nothing is fetched for it.
+ */
+const UNLISTED = -1;
+
 const MET_SHOWN = 60;
 
 /**

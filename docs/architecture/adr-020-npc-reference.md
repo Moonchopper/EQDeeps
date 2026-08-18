@@ -127,6 +127,24 @@ on a consed level, 60%, with the median ratio moving from ×1.12 to ×1.08 —
 about what overkill alone should cost. So the app shows the match, says what
 backed it, and leaves the reader to judge.
 
+**A name's identity is what follows the article (2026-08-17).** The game
+names its generic mobs with one — "an imp protector" — and the log repeats
+it, but the site drops it when it likes: of the ~3,400 lower-case names
+EQLBase lists, 354 have none (every aqua goblin, aviak, centaur, cinder
+goblin and clockwork among them) and 26 are listed both ways. Keyed
+verbatim, a tenth of the mobs a log can name matched nothing — the click did
+nothing, the Map's roster showed "imp protector" and "An imp protector ×134"
+as two mobs, and no measured table ever met its listing. So `NpcIndex`
+files a name under its article-stripped key on both sides: "An imp
+protector" is an exact hit on "imp protector", the two spellings of "crypt
+mummy" are one row (printed the way the game says it), and a browse sorts by
+the key, so the imps file together under I rather than every "an" under A.
+The UI compares under the same key (`mobKey`) wherever a log name meets a
+site name. A name the site really does not list is still a subject in the
+Bestiary — the log's measured half shows, the site's half says "not listed"
+— because with the Mobs view retired (v0.15.1) this is the only place that
+measurement is read.
+
 ## Decision 6: a shard is a zone, and the client's zone ids are its address (2026-08-17)
 
 The site numbers its NPCs as **zone id × 1000 + n**, where the zone id is

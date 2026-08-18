@@ -9,8 +9,6 @@ version being cut.
 
 ## Unreleased
 
-## Unreleased
-
 - **The World map opens fast after every launch.** The first open after starting the app used to sit on "Reading every map's exits…" for a couple of seconds, no matter how many times you had opened it before — the app was rediscovering your game install once per zone. Now it is a quarter of a second, and even the very first build on a new install is a third of what it was.
 - **The Bestiary now finds the mobs the site spells without their "a" or "an".** "An imp protector", every aqua goblin, aviak, centaur, cinder goblin and clockwork — about one generic mob in ten — did nothing when clicked, because EQLBase lists them without the article your log uses. They open now, and match everywhere a name from your log meets one from the site: the Bestiary and its measured tables, the Map's rosters and pins. A mob the site really does not list opens too, with what your own logs measured and "not listed" for the rest.
 

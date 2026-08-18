@@ -7,6 +7,10 @@ the how for the commits. Newest first; a change lands under **Unreleased** with
 its pull request, and the release's Docs commit renames that heading to the
 version being cut.
 
+## Unreleased
+
+- **The Bestiary now finds the mobs the site spells without their "a" or "an".** "An imp protector", every aqua goblin, aviak, centaur, cinder goblin and clockwork — about one generic mob in ten — did nothing when clicked, because EQLBase lists them without the article your log uses. They open now, and match everywhere a name from your log meets one from the site: the Bestiary and its measured tables, the Map's rosters and pins. A mob the site really does not list opens too, with what your own logs measured and "not listed" for the rest.
+
 ## v0.15.1 — 2026-08-16
 
 - **The Mobs tab has folded into the Bestiary.** Everything it showed — what each mob took to kill on your server, at every zone and difficulty tier, with the range and how sure the estimate is — is on the mob's Bestiary page, beside what the world lists for it. One place to read it instead of two.

@@ -716,10 +716,15 @@ export function ZoneGraphView({
   }
 
   if (!graph || !drawn) {
+    // This shows on every open, for the fetch and the layout — a moment
+    // once the server has the world in memory. It only reads maps on the
+    // first build after a launch, and only reads them *all* the first time
+    // on an install; say so, rather than announcing a read that is not
+    // happening.
     return (
       <div className="map-empty">
-        Reading every map's exits… this takes a few seconds the first time; after
-        that it is remembered, and only a map you have edited is read again.
+        Drawing the world… the first time this reads every map's exits and takes
+        a few seconds; after that they are remembered and this is a moment.
       </div>
     );
   }

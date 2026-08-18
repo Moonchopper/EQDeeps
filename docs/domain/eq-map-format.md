@@ -451,7 +451,10 @@ For anything that has to hold or draw this:
   the difference between smooth panning and a slideshow.
 - Reading every map's labels for the world graph takes ~5 s, almost all of it
   disk. Parsing labels only (skipping `L` records) is worth doing: geometry is
-  99% of the bytes and the graph draws none of it.
+  99% of the bytes and the graph draws none of it. And do not put anything
+  per-launch-expensive inside the per-zone file lookup — install discovery
+  landed there once and cost 2.5 s a launch on ~700 zone-set pairs, more than
+  the cached labels saved (ADR-018 §6).
 
 ## 7. Colour on a dark page
 

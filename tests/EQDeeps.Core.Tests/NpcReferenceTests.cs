@@ -192,7 +192,7 @@ public class NpcReferenceTests
     /// <summary>
     /// A level band is a filter on the mob, not the name: "a ghoul" is in the
     /// twenties by its level-24 listing. With a band and no query the whole
-    /// band comes back alphabetically; with neither, nothing.
+    /// band comes back alphabetically (article aside); with neither, nothing.
     /// </summary>
     [Fact]
     public void ALevelBandBrowsesWithoutAQuery()
@@ -207,7 +207,9 @@ public class NpcReferenceTests
         ]);
 
         Assert.Equal(["a ghoul"], index.Browse("", minLevel: 20, maxLevel: 29).Select(r => r.Name));
-        Assert.Equal(["a bat", "a ghoul", "Fippy Darkpaw"], index.Browse("", minLevel: 1, maxLevel: 19).Select(r => r.Name));
+        // Alphabetical by what follows the article — bat, Fippy, ghoul — not
+        // one long A section of every "a" and "an" in the game.
+        Assert.Equal(["a bat", "Fippy Darkpaw", "a ghoul"], index.Browse("", minLevel: 1, maxLevel: 19).Select(r => r.Name));
         Assert.Equal(["a ghoul"], index.Browse("gho", minLevel: 1, maxLevel: 19).Select(r => r.Name));
         Assert.Empty(index.Browse("bat", minLevel: 20, maxLevel: 29));
         Assert.Empty(index.Browse(""));
@@ -290,4 +292,74 @@ public class NpcReferenceTests
         var variants = new NpcIndex(NpcReferenceFormat.ParseIndex(Index)).Search("rabid");
         Assert.Equal(2, Assert.Single(variants).Variants.Count);
     }
+
+    /// <summary>
+    /// The game names its generic mobs with an article and the log repeats
+    /// it; a site drops it when it likes — 354 of EQLBase's lower-case names
+    /// have none. "An imp protector" in the log must still find the site's
+    /// "imp protector": as an exact search hit, as the name's variants, and
+    /// as the listing the lookup resolves to.
+    /// </summary>
+    [Fact]
+    public void ANameTheSiteListsWithoutItsArticleStillResolves()
+    {
+        var index = new NpcIndex(
+        [
+            new NpcIndexEntry("imp protector", 27, 40010),
+            new NpcIndexEntry("imp protector", 29, 40011),
+            new NpcIndexEntry("an imp warder", 30, 40012),
+            new NpcIndexEntry("Imp Lord", 35, 40013),
+        ]);
+
+        Assert.Equal(2, index.Variants("An imp protector").Count);
+        Assert.Equal(2, index.Variants("an imp protector").Count);
+
+        var hit = Assert.Single(index.Search("An imp protector"));
+        Assert.Equal("imp protector", hit.Name);
+
+        var listing = index.Resolve("An imp protector", [29], out var exact);
+        Assert.Equal(40011, listing?.Id);
+        Assert.True(exact);
+
+        // Both directions: a query with no article is a prefix of a name
+        // that has one — and the imps file together, by what follows the
+        // article, rather than "an imp warder" sorting under A.
+        Assert.Equal(["Imp Lord", "imp protector", "an imp warder"], index.Search("imp").Select(m => m.Name).ToArray());
+        Assert.Equal(["an imp warder"], index.Search("an imp w").Select(m => m.Name).ToArray());
+    }
+
+    /// <summary>
+    /// A site that lists a mob both ways (26 names on EQLBase) has listed one
+    /// mob: one row, every listing under it, printed the way the game says it.
+    /// </summary>
+    [Fact]
+    public void ANameListedWithAndWithoutItsArticleIsOneRow()
+    {
+        var index = new NpcIndex(
+        [
+            new NpcIndexEntry("crypt mummy", 13, 50001),
+            new NpcIndexEntry("a crypt mummy", 13, 50002),
+            new NpcIndexEntry("crypt mummy", 14, 50003),
+        ]);
+
+        Assert.Equal(1, index.NameCount);
+        var row = Assert.Single(index.Browse("crypt"));
+        Assert.Equal("a crypt mummy", row.Name);
+        Assert.Equal(3, row.Listings);
+        Assert.Equal([13, 14], row.PerLevel.Select(v => v.Level).ToArray());
+    }
+
+    [Theory]
+    [InlineData("a bat", "bat")]
+    [InlineData("An imp protector", "imp protector")]
+    [InlineData("THE Cliff Golem", "Cliff Golem")]
+    [InlineData("a   spaced   name", "spaced   name")]
+    [InlineData("Athena", "Athena")]
+    [InlineData("Anvil", "Anvil")]
+    [InlineData("Fippy Darkpaw", "Fippy Darkpaw")]
+    [InlineData("a", "a")]
+    [InlineData("an", "an")]
+    [InlineData("the", "the")]
+    public void OnlyALeadingArticleFollowedByANameIsStripped(string name, string expected) =>
+        Assert.Equal(expected, NpcIndex.StripArticle(name));
 }

@@ -12,6 +12,7 @@ import {
 import { fmtNum } from "../format";
 import { fuzzyMatch } from "../fuzzy";
 import type { BestiaryTarget, Crumb, MapTarget } from "../trail";
+import { mobKey, sameMob } from "../lookup/mobKey";
 import { MapCanvas, type MapMarker } from "./MapCanvas";
 import { loadPins, pinColor, pinStandsIn, pinZones, savePins, type PinnedMob } from "./pins";
 import {
@@ -146,7 +147,7 @@ export function MapView({
    */
   const [pins, setPins] = useState<PinnedMob[]>(() => loadPins());
   useEffect(() => savePins(pins), [pins]);
-  const pinIndex = (name: string) => pins.findIndex((p) => p.name.toLowerCase() === name.toLowerCase());
+  const pinIndex = (name: string) => pins.findIndex((p) => sameMob(p.name, name));
   const isPinned = (name: string) => pinIndex(name) >= 0;
 
   /**
@@ -187,17 +188,17 @@ export function MapView({
   const pinMob = async (name: string, seed?: { shortName: string; points: number[][] }) => {
     if (isPinned(name)) return;
     const r = await api.searchNpcs(name, { limit: 5 }).catch(() => null);
-    const row = r?.npcs.find((n) => n.name.toLowerCase() === name.trim().toLowerCase()) ?? null;
+    const row = r?.npcs.find((n) => sameMob(n.name, name)) ?? null;
     if (!row) return;
     setPins((ps) =>
-      ps.some((p) => p.name.toLowerCase() === row.name.toLowerCase())
+      ps.some((p) => sameMob(p.name, row.name))
         ? ps
         : [...ps, { name: row.name, places: row.places, points: seed && seed.points.length > 0 ? { [seed.shortName]: seed.points } : {} }],
     );
   };
 
   const unpinMob = (name: string) =>
-    setPins((ps) => ps.filter((p) => p.name.toLowerCase() !== name.toLowerCase()));
+    setPins((ps) => ps.filter((p) => !sameMob(p.name, name)));
 
   const togglePin = (name: string, seed?: { shortName: string; points: number[][] }) =>
     isPinned(name) ? unpinMob(name) : void pinMob(name, seed);
@@ -608,14 +609,18 @@ export function MapView({
     return () => window.clearTimeout(mobDebounce.current);
   }, [mobQuery, referenceEnabled]);
 
-  /** Kills this server's logs recorded in the place on screen, by name. */
+  /**
+   * Kills this server's logs recorded in the place on screen, by name — the
+   * article-blind key, so "An imp protector ×134" lands on the roster's
+   * "imp protector" rather than beside it as an unlisted twin.
+   */
   const killedHere = useMemo(() => {
     if (!mobs || !place) return new Map<string, number>();
     const key = zoneKey(place.name);
     const out = new Map<string, number>();
     for (const m of mobs.mobs) {
       if (zoneKey(stripInstance(m.zone)) !== key) continue;
-      const k = m.mob.trim().toLowerCase();
+      const k = mobKey(m.mob);
       out.set(k, (out.get(k) ?? 0) + m.samples);
     }
     return out;
@@ -634,7 +639,7 @@ export function MapView({
       { name: string; id: number; minLevel?: number; maxLevel?: number; spawnPoints: number; locations: number[][]; kills: number }
     >();
     for (const n of roster.npcs) {
-      const key = n.name.trim().toLowerCase();
+      const key = mobKey(n.name);
       const row = byName.get(key) ?? {
         name: n.name,
         id: n.id,
@@ -697,7 +702,7 @@ export function MapView({
       if (pin.points[selected]) continue;
       const here = pinStandsIn(pin, selected);
       if (!here) continue;
-      const fromRoster = rosterRows.find((r) => r.name.toLowerCase() === pin.name.toLowerCase());
+      const fromRoster = rosterRows.find((r) => sameMob(r.name, pin.name));
       if (fromRoster && fromRoster.locations.length > 0) {
         setPins((ps) => ps.map((p) => (p.name === pin.name ? { ...p, points: { ...p.points, [selected]: fromRoster.locations } } : p)));
         continue;
@@ -729,24 +734,24 @@ export function MapView({
   const markers = useMemo<MapMarker[]>(() => {
     if (!selected) return [];
     const out: MapMarker[] = [];
-    const hot = hovered?.name.toLowerCase();
-    const pinnedNames = new Set(pins.map((p) => p.name.toLowerCase()));
+    const hot = hovered ? mobKey(hovered.name) : undefined;
+    const pinnedNames = new Set(pins.map((p) => mobKey(p.name)));
 
     for (const r of rosterRows) {
-      const key = r.name.toLowerCase();
+      const key = mobKey(r.name);
       if (pinnedNames.has(key) || key === hot) continue;
       out.push(...toMarkers(r.name, r.locations, { dim: hot !== undefined }));
     }
     pins.forEach((pin, i) => {
       const pts = pin.points[selected];
-      if (!pts || pin.name.toLowerCase() === hot) return;
+      if (!pts || mobKey(pin.name) === hot) return;
       out.push(...toMarkers(pin.name, pts, { color: pinColor(i), dim: hot !== undefined }));
     });
     if (hovered) {
       const pts =
         hovered.points ??
-        pins.find((p) => p.name.toLowerCase() === hot)?.points[selected] ??
-        rosterRows.find((r) => r.name.toLowerCase() === hot)?.locations ??
+        pins.find((p) => mobKey(p.name) === hot)?.points[selected] ??
+        rosterRows.find((r) => mobKey(r.name) === hot)?.locations ??
         [];
       out.push(...toMarkers(hovered.name, pts, { lit: true }));
     }
@@ -1203,10 +1208,10 @@ export function MapView({
                       {/* Kills the logs have here that the roster does not
                           list — or everything, when there is no roster. */}
                       {[...killedHere.entries()]
-                        .filter(([k]) => !rosterRows.some((n) => n.name.trim().toLowerCase() === k))
+                        .filter(([k]) => !rosterRows.some((n) => mobKey(n.name) === k))
                         .sort((a, b) => b[1] - a[1])
                         .map(([k, kills]) => {
-                          const name = mobs?.mobs.find((m) => m.mob.trim().toLowerCase() === k)?.mob ?? k;
+                          const name = mobs?.mobs.find((m) => mobKey(m.mob) === k)?.mob ?? k;
                           return (
                             <div key={"killed:" + k} className="map-mob map-roster-row killed">
                               <button

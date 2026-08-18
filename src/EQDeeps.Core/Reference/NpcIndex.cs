@@ -36,7 +36,10 @@ public sealed record NpcNameRow(
 public sealed class NpcIndex
 {
     private readonly Dictionary<string, List<NpcIndexEntry>> _byName = new(StringComparer.OrdinalIgnoreCase);
-    private readonly List<string> _names = [];
+    /// <summary>Every name, as the site prints it, with the key it is filed under beside it.</summary>
+    private readonly List<(string Name, string Key)> _names = [];
+    /// <summary>Where each key's name sits in <see cref="_names"/>, so a later listing can replace the printed form.</summary>
+    private readonly Dictionary<string, int> _nameAt = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, NpcZoneRow> _zones = new(StringComparer.OrdinalIgnoreCase);
 
     public NpcIndex(IEnumerable<NpcIndexEntry> entries, IEnumerable<NpcZoneRow>? zones = null)
@@ -58,7 +61,15 @@ public sealed class NpcIndex
             {
                 list = [];
                 _byName[key] = list;
-                _names.Add(entry.Name);
+                _nameAt[key] = _names.Count;
+                _names.Add((entry.Name.Trim(), key));
+            }
+            else if (HasArticle(entry.Name) && !HasArticle(_names[_nameAt[key]].Name))
+            {
+                // Listed both ways ("crypt mummy" and "a crypt mummy" are 26
+                // such names on EQLBase): one row, shown under the form the
+                // game itself uses, whichever the site happened to print first.
+                _names[_nameAt[key]] = (entry.Name.Trim(), key);
             }
 
             list.Add(entry);
@@ -98,8 +109,46 @@ public sealed class NpcIndex
     /// verbatim ("a bandit") and a death normalized ("A bandit"), and a site
     /// lists whichever it likes, so case never decides; a trailing "'s
     /// corpse" is already stripped by the parser and is not handled here.
+    ///
+    /// <para>Nor does the article. The game names its generic mobs with one
+    /// — "an imp protector", "a centaur archer" — and the log repeats it,
+    /// but a site drops it when it feels like it: of the ~3,400 lower-case
+    /// names EQLBase lists, 354 have no article (every aqua goblin, aviak,
+    /// centaur, cinder goblin and clockwork among them) and 26 more are
+    /// listed both ways. Keyed verbatim, a tenth of the mobs a log can name
+    /// resolved to nothing and a click on one did nothing. So a leading
+    /// "a", "an" or "the" is not part of a name's identity here, on either
+    /// side; two site rows that differ only by it are one name.</para>
     /// </summary>
-    public static string Normalize(string name) => name.Trim();
+    public static string Normalize(string name) => StripArticle(name.Trim());
+
+    /// <summary>
+    /// The name without a leading article, or as given when it has none (or
+    /// is nothing but one — "a" is a query, not an article).
+    /// </summary>
+    internal static string StripArticle(string name)
+    {
+        foreach (var article in Articles)
+        {
+            if (name.Length > article.Length &&
+                name.StartsWith(article, StringComparison.OrdinalIgnoreCase) &&
+                char.IsWhiteSpace(name[article.Length]))
+            {
+                var rest = name.AsSpan(article.Length).TrimStart();
+                return rest.Length > 0 ? rest.ToString() : name;
+            }
+        }
+
+        return name;
+    }
+
+    private static readonly string[] Articles = ["an", "a", "the"];
+
+    private static bool HasArticle(string name)
+    {
+        var trimmed = name.Trim();
+        return !ReferenceEquals(StripArticle(trimmed), trimmed);
+    }
 
     /// <summary>Every listing under a name, cheapest question there is.</summary>
     public IReadOnlyList<NpcIndexEntry> Variants(string name) =>
@@ -270,38 +319,50 @@ public sealed class NpcIndex
             return [];
         }
 
-        var exact = new List<string>();
-        var prefix = new List<string>();
-        var contains = new List<string>();
-        foreach (var name in _names)
+        // Exact and prefix are judged with the article off both sides, so
+        // "An imp protector" is an exact hit on a site's "imp protector" and
+        // "imp" is a prefix of "an imp protector"; contains is on the printed
+        // name, where the article is just more letters to match.
+        var sq = StripArticle(q);
+        var exact = new List<(string Name, string Key)>();
+        var prefix = new List<(string Name, string Key)>();
+        var contains = new List<(string Name, string Key)>();
+        foreach (var entry in _names)
         {
+            var (name, key) = entry;
             if (banded && !InBand(name, minLevel, maxLevel))
             {
                 continue;
             }
 
-            if (q.Length == 0 || name.Equals(q, StringComparison.OrdinalIgnoreCase))
+            if (q.Length == 0 || key.Equals(sq, StringComparison.OrdinalIgnoreCase))
             {
-                exact.Add(name);
+                exact.Add(entry);
             }
-            else if (name.StartsWith(q, StringComparison.OrdinalIgnoreCase))
+            else if (name.StartsWith(q, StringComparison.OrdinalIgnoreCase) ||
+                     key.StartsWith(sq, StringComparison.OrdinalIgnoreCase))
             {
-                prefix.Add(name);
+                prefix.Add(entry);
             }
             else if (name.Contains(q, StringComparison.OrdinalIgnoreCase))
             {
-                contains.Add(name);
+                contains.Add(entry);
             }
         }
 
         // With no query the "exact" band is the whole answer, so it is the one
-        // that needs ordering; with one there is at most one exact hit.
-        exact.Sort(StringComparer.OrdinalIgnoreCase);
-        prefix.Sort(StringComparer.OrdinalIgnoreCase);
-        contains.Sort(StringComparer.OrdinalIgnoreCase);
+        // that needs ordering; with one there is at most one exact hit. Ordered
+        // by the key, not the printed name, so a browse of the twenties files
+        // "an aqua goblin" under A-Q-U-A beside "aqua goblin bosun" rather
+        // than under A-N with every other "an".
+        static int ByKey((string Name, string Key) a, (string Name, string Key) b) =>
+            StringComparer.OrdinalIgnoreCase.Compare(a.Key, b.Key);
+        exact.Sort(ByKey);
+        prefix.Sort(ByKey);
+        contains.Sort(ByKey);
 
         var results = new List<NpcNameMatch>(Math.Min(limit, exact.Count + prefix.Count + contains.Count));
-        foreach (var name in exact.Concat(prefix).Concat(contains))
+        foreach (var (name, _) in exact.Concat(prefix).Concat(contains))
         {
             if (results.Count >= limit)
             {
@@ -316,7 +377,7 @@ public sealed class NpcIndex
 
     /// <summary>How many names have a listing inside a band — the count a browse says it is showing part of.</summary>
     public int CountInBand(int? minLevel, int? maxLevel) =>
-        _names.Count(name => InBand(name, minLevel, maxLevel));
+        _names.Count(n => InBand(n.Name, minLevel, maxLevel));
 
     private bool InBand(string name, int? minLevel, int? maxLevel)
     {

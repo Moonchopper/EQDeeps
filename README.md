@@ -130,6 +130,15 @@ auto-update (see `.github/workflows/release.yml`) — that's how
 
 Locked decisions: .NET 8 backend + React/TypeScript SPA, realtime via SignalR, multi-character monitoring from day one, permissive-license dependencies only (attribution in [NOTICE](NOTICE), licence text in [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt)), Windows-first, public release as the end goal.
 
+## Contributing
+
+Bug reports and pull requests are welcome; the most useful thing anyone can send
+is a log line EQDeeps gets wrong, with what it should have meant.
+[CONTRIBUTING.md](CONTRIBUTING.md) covers the setup, the house conventions, and
+the one procedural requirement: commits carry a `Signed-off-by` line certifying
+the [Developer Certificate of Origin](https://developercertificate.org/), which
+`git commit -s` writes for you.
+
 ## License
 
 EQDeeps' own code is [MIT](LICENSE). The components bundled with it keep the
@@ -138,6 +147,10 @@ License for IBM Plex Sans — with every text in
 [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt) and the plain-language
 summary of where each came from in [NOTICE](NOTICE). Both are installed beside
 the app and are in the portable zip, along with the .NET runtime's own licence
-and notices; a redistributed copy needs all of them. EverQuest is a registered
-trademark of Daybreak Game Company LLC; EQDeeps is an unaffiliated fan-made
-tool.
+and notices; a redistributed copy needs all of them.
+
+The MIT grant covers the code and not the name: if you distribute a modified
+build, give it your own name, so that "EQDeeps" keeps meaning one set of
+numbers. [TRADEMARKS.md](TRADEMARKS.md) is the whole policy and it is short.
+EverQuest is a registered trademark of Daybreak Game Company LLC; EQDeeps is an
+unaffiliated fan-made tool.

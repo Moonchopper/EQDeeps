@@ -7,6 +7,11 @@ the how for the commits. Newest first; a change lands under **Unreleased** with
 its pull request, and the release's Docs commit renames that heading to the
 version being cut.
 
+## Unreleased
+
+- **The World map can label every zone with its level.** "Clan Crushbone · L5–14", "The Estate of Unrest · L15–28" — the middle half of the levels the reference site lists for who stands there, so one level-65 named does not make a starter zone read as L1–65. A **levels** button in the World's header turns it on and off (it remembers), and the zone list carries the same tag.
+- **The World's Mobs tab browses the whole world by level.** It used to list the mobs of the one zone you were standing in, under a picture of the entire world. Now it opens on your own level band — 20–29, say — and lists every mob the site files there; point at one and every zone it stands in lights up, click a zone to go there. A zone's own roster is still on the zone.
+
 ## v0.15.2 — 2026-08-17
 
 - **The World map opens fast after every launch.** The first open after starting the app used to sit on "Reading every map's exits…" for a couple of seconds, no matter how many times you had opened it before — the app was rediscovering your game install once per zone. Now it is a quarter of a second, and even the very first build on a new install is a third of what it was.

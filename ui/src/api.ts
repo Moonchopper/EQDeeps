@@ -313,6 +313,28 @@ export interface ZoneRosterResult {
   error?: string;
 }
 
+/**
+ * What level a zone is, read off who stands there: the middle half of the
+ * levels the site lists for the zone's NPCs (F27 × F30). One per zone id,
+ * carrying every map short name that draws the place.
+ */
+export interface ZoneLevelBand {
+  zoneId: number;
+  name?: string;
+  maps: string[];
+  low: number;
+  high: number;
+  listings: number;
+}
+
+export interface ZoneLevelsResult {
+  source: string;
+  /** False when there is no index to read — reference off, never fetched, unreachable. */
+  known: boolean;
+  zones: ZoneLevelBand[];
+  error?: string;
+}
+
 export interface NpcLootLine {
   itemId: number;
   item: string;
@@ -807,6 +829,9 @@ export const api = {
   /** Every NPC the site lists in one zone, by map short name. */
   zoneRoster: (shortName: string): Promise<ZoneRosterResult> =>
     fetch(`/api/reference/zones/${encodeURIComponent(shortName)}/npcs`).then((r) => json(r)),
+
+  /** A level band for every zone the site lists enough of, for the World's labels. */
+  zoneLevels: (): Promise<ZoneLevelsResult> => fetch("/api/reference/zones/levels").then((r) => json(r)),
 
   npcDetail: async (id: number): Promise<NpcDetailResult | null> => {
     const response = await fetch(`/api/reference/npcs/${id}`);

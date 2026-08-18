@@ -194,6 +194,19 @@ now loads when the view opens (`/api/reference/status?warm=true`): the user
 clicked Bestiary, which is exactly the consent Decision 2 waits for, and the
 Settings switch still gates every byte.
 
+**Zone level bands (2026-08-17).** The same join, run the other way: group
+every listing by the shard its id falls in and the zone has a level
+distribution. The World labels each zone with the *interquartile* range of
+it (`ZoneLevels`, `/api/reference/zones/levels`) — never min–max, because
+every zone lists a stray (a level-65 named, a guard) and min–max makes
+Everfrost "L1–65" and Nektulos "L1–72"; the middle half reads like a zone
+guide (Crushbone 5–14, Blackburrow 7–14, Guk 11–24 above and 31–40 below,
+Sol A 24–30, Mistmoore 27–33, Kedge 37–44, the Hole 46–55, Fear 49–52).
+Cities come out high — guards at 40–61 are most of what a city lists —
+which is true of who stands there, and the listing count is carried for
+the reader to weigh. Fewer than five listings is no band. Derived, never
+stored: it costs nothing beyond the index and changes with it.
+
 ## What was considered and not done
 
 - **A log-derived NPC registry** (the original plan). Measured at 24% coverage

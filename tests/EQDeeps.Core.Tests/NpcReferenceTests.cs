@@ -362,4 +362,69 @@ public class NpcReferenceTests
     [InlineData("the", "the")]
     public void OnlyALeadingArticleFollowedByANameIsStripped(string name, string expected) =>
         Assert.Equal(expected, NpcIndex.StripArticle(name));
+
+    /// <summary>
+    /// A zone's level band is the middle half of what stands there, not the
+    /// extremes — the stray level-50 named in a level-8 zone does not make
+    /// it "L1–50" — read per zone id, named through the table, and carried
+    /// on every drawing of the place. Too few listings is no band.
+    /// </summary>
+    [Fact]
+    public void AZoneLevelBandIsTheMiddleHalfOfWhoStandsThere()
+    {
+        var table = ZoneTable.Parse(
+            """
+            crushbone	Clan Crushbone	name	classic	id	58
+            freportw	West Freeport	curated	classic	id	9,383
+            freeportwest	West Freeport	curated	classic	id	9,383
+            """);
+        var index = new NpcIndex(
+        [
+            // Crushbone: eight orcs 5–14 and one Emperor at 50.
+            new NpcIndexEntry("an orc pawn", 5, 58001),
+            new NpcIndexEntry("an orc pawn", 6, 58002),
+            new NpcIndexEntry("an orc centurion", 8, 58003),
+            new NpcIndexEntry("an orc centurion", 9, 58004),
+            new NpcIndexEntry("an orc oracle", 12, 58005),
+            new NpcIndexEntry("an orc legionnaire", 13, 58006),
+            new NpcIndexEntry("Ambassador DVinn", 14, 58007),
+            new NpcIndexEntry("Emperor Crush", 50, 58008),
+            new NpcIndexEntry("a nameless one", null, 58009), // no level: not counted
+            // West Freeport: two ids, one place, five listings under each.
+            new NpcIndexEntry("Guard Alayle", 40, 9001),
+            new NpcIndexEntry("Guard Bree", 40, 9002),
+            new NpcIndexEntry("Guard Cyrus", 41, 9003),
+            new NpcIndexEntry("Guard Dane", 42, 9004),
+            new NpcIndexEntry("Captain Hazran", 61, 9005),
+            new NpcIndexEntry("a beggar", 1, 383001),
+            new NpcIndexEntry("a rat", 2, 383002),
+            new NpcIndexEntry("a large rat", 4, 383003),
+            new NpcIndexEntry("a giant rat", 6, 383004),
+            new NpcIndexEntry("Sir Lucan", 61, 383005),
+            // Somewhere with two listings: no band.
+            new NpcIndexEntry("a bat", 1, 77001),
+            new NpcIndexEntry("a bat", 2, 77002),
+        ]);
+
+        var bands = ZoneLevels.Of(index, table);
+
+        var crushbone = Assert.Single(bands, b => b.ZoneId == 58);
+        Assert.Equal("Clan Crushbone", crushbone.Name);
+        Assert.Equal(["crushbone"], crushbone.Maps);
+        // Sorted 5,6,8,9,12,13,14,50: nearest rank at a quarter and three
+        // quarters of eight is the third and seventh — 8 and 14. The Emperor
+        // is in the count and out of the band.
+        Assert.Equal((8, 14), (crushbone.Low, crushbone.High));
+        Assert.Equal(8, crushbone.Listings);
+
+        // The two Freeport ids are two shards, so two bands, both naming the
+        // place and both carrying every drawing of it.
+        Assert.Equal(2, bands.Count(b => b.Name == "West Freeport"));
+        Assert.All(bands.Where(b => b.Name == "West Freeport"), b => Assert.Equal(["freportw", "freeportwest"], b.Maps));
+
+        Assert.DoesNotContain(bands, b => b.ZoneId == 77);
+        var lenient = Assert.Single(ZoneLevels.Of(index, table, minListings: 2), b => b.ZoneId == 77);
+        Assert.Null(lenient.Name); // an id the table has no row for is kept, unnamed
+        Assert.Empty(lenient.Maps);
+    }
 }

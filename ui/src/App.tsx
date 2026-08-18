@@ -1153,6 +1153,7 @@ export default function App() {
                 <Trail crumbs={crumbs} onBack={backTo} />
                 <MapView
                   currentZone={context?.zones?.[context.zones.length - 1]?.label}
+                  currentLevel={levelOf(context?.levels?.[context.levels.length - 1]?.label)}
                   install={sessions.find((s) => s.id === activeId)?.install}
                   hasLog={Boolean(activeId)}
                   mobs={mobs}
@@ -1314,4 +1315,10 @@ export default function App() {
       <LookupMenuHost />
     </LookupScope>
   );
+}
+
+/** A level span's label ("42") as a number, or undefined for none — the log's last word on the character's level. */
+function levelOf(label: string | undefined): number | undefined {
+  const n = label === undefined ? NaN : Number(label);
+  return Number.isFinite(n) ? n : undefined;
 }

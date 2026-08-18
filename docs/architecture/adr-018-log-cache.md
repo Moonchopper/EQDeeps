@@ -166,6 +166,19 @@ graph the endpoint returns is byte-identical across launches. Not the graph
 itself, on purpose — it is small and cheap to build; what was expensive was
 reading the files.
 
+Those numbers were taken with the maps folder pinned (`--mapRoot`), and that
+turned out to be the one path that hid a second cost. With no folder pinned
+the library *discovers* the install — every process on the machine, four
+registry hives, every drive — and it did so inside the per-zone file lookup,
+so a graph build ran discovery once per zone per map set: 713 times on the
+owner's install, ~3.5 ms each. The label cache made no difference to that,
+which is why a discovered install still saw **4.4 s cold and 2.6 s warm** on
+the first click after every launch (2026-08-17; the release build, measured
+three launches in a row against a fresh cache root). The folders are now
+resolved once per build and handed to every zone — **1.3 s cold, 0.24 s
+warm** — and `MapLibraryTests` pins the resolution count at two per build
+(one for the catalogue, one for the graph) so it cannot creep back in.
+
 ## Measured (Release, this dev machine, synthetic raid logs)
 
 | Log | Cold, before | Cold, now (pool + write) | Warm (restore) | Cache | Resident before → now |

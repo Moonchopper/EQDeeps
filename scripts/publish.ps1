@@ -25,8 +25,10 @@ try {
         -o "artifacts/$Runtime"
     if ($LASTEXITCODE -ne 0) { throw "publish failed" }
 
-    # Attribution ships with every distributed copy (see NOTICE).
-    Copy-Item NOTICE "artifacts/$Runtime/NOTICE.txt" -Force
+    # LICENSE.txt, NOTICE.txt, THIRD-PARTY-NOTICES.txt and the runtime packs'
+    # own licences are laid down by the publish itself (the PublishLicenseNotices
+    # target in src/EQDeeps.Server), so every path that publishes gets them —
+    # this script, the release workflow, and a plain `dotnet publish`.
 
     if ($Installer) {
         Write-Host "== Compiling installer =="

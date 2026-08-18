@@ -122,7 +122,6 @@ jobs:
       - name: Zip portable build
         shell: pwsh
         run: |
-          Copy-Item NOTICE artifacts/win-x64/NOTICE.txt -Force
           Compress-Archive -Path artifacts/win-x64/* `
             -DestinationPath "EQDeeps-${{ steps.version.outputs.version }}-win-x64.zip"
 

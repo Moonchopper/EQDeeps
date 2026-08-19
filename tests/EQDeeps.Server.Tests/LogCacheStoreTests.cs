@@ -207,7 +207,7 @@ public sealed class LogCacheStoreTests : IAsyncLifetime
         Assert.Equal(1, second.GetProperty("fightCount").GetInt32());
 
         var fights = await _http.GetFromJsonAsync<JsonElement>($"/api/sessions/{second.GetProperty("id").GetString()}/fights");
-        var fight = Assert.Single(fights.EnumerateArray());
+        var fight = Assert.Single(fights.GetProperty("fights").EnumerateArray());
         Assert.True(fight.GetProperty("dead").GetBoolean());
         Assert.Equal(200 * 201 / 2, fight.GetProperty("damageTotal").GetInt64());
     }

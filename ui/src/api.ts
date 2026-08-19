@@ -50,6 +50,11 @@ export interface FightInfo {
   characterDamage: number;
 }
 
+export interface FightList {
+  version: number;
+  fights: FightInfo[];
+}
+
 export type MobHealthConfidence = "low" | "medium" | "high";
 
 /**
@@ -782,7 +787,8 @@ export const api = {
   getSession: (id: string): Promise<SessionInfo> =>
     fetch(`/api/sessions/${id}`).then((r) => json(r)),
 
-  getFights: (id: string): Promise<FightInfo[]> =>
+  /** The fight list and the version it is a snapshot of — what a live delta is judged against. */
+  getFights: (id: string): Promise<FightList> =>
     fetch(`/api/sessions/${id}/fights`).then((r) => json(r)),
 
   /**

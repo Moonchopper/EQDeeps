@@ -64,6 +64,13 @@ public sealed class Fight
 
     public int TauntCount { get; internal set; }
 
+    /// <summary>
+    /// The tracker's <see cref="FightTracker.Version"/> as of this fight's
+    /// last change — what a live push is cut against, so a raid's worth of
+    /// closed fights is not re-sent every time the open one takes a hit.
+    /// </summary>
+    public int Version { get; internal set; }
+
     /// <summary>Damage dealt to the NPC, by raw actor name (pet rollup is query-time).</summary>
     public Dictionary<string, ActorTotals> DamageByActor { get; } = new(StringComparer.Ordinal);
 

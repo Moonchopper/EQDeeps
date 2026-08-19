@@ -1208,9 +1208,22 @@ button.update-pill {
 .fight-scroll {
   overflow-y: auto;
   padding: 6px;
+}
+
+/* The list is windowed (FightList.tsx): the window is the full height the
+   list would have, so the scrollbar is honest, and the slice inside it is the
+   handful of rows in view, translated to where they belong. The slice keeps
+   the column-and-gap layout the rows always had; ROW_GAP in the component
+   must match the gap here. */
+.fight-window {
+  position: relative;
+}
+
+.fight-window-slice {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  will-change: transform;
 }
 
 .fight-group {

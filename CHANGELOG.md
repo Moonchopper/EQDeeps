@@ -7,6 +7,10 @@ the how for the commits. Newest first; a change lands under **Unreleased** with
 its pull request, and the release's Docs commit renames that heading to the
 version being cut.
 
+## Unreleased
+
+- **Switching between Combat views is fast again on long logs** — an 8,000-fight log no longer redraws every fight row on each switch.
+
 ## v0.15.2 — 2026-08-17
 
 - **The World map opens fast after every launch.** The first open after starting the app used to sit on "Reading every map's exits…" for a couple of seconds, no matter how many times you had opened it before — the app was rediscovering your game install once per zone. Now it is a quarter of a second, and even the very first build on a new install is a third of what it was.

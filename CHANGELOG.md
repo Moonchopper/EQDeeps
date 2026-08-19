@@ -10,12 +10,9 @@ being cut.
 
 ## Unreleased
 
+- **Long logs are fast again** — switching any view, and every second of a live fight, no longer redraws or re-sends thousands of fights; the Incoming table shows the 200 most recent mobs until you filter or ask for all.
 - **The World map can label each zone with its level range** — turn it on with the **levels** button in the World header.
 - **The World's Mobs tab now browses the whole world by level**, opening on your own band, instead of listing the zone you are standing in.
-
-## Unreleased
-
-- **Long logs are fast again** — switching any view, and every second of a live fight, no longer redraws or re-sends thousands of fights; the Incoming table shows the 200 most recent mobs until you filter or ask for all.
 
 ## v0.15.2 — 2026-08-17
 

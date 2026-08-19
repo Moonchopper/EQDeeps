@@ -83,6 +83,8 @@ public sealed class SessionHost : IAsyncDisposable
     private long _backfillTotal;
     private bool _backfillCompleteSent;
     private int _lastPushedFightVersion = -1;
+    private bool _pushedFightsOnce;
+    private IReadOnlyDictionary<string, MobHealthEstimate>? _lastPushedHealth;
     private DateTime _harvested = DateTime.MinValue;
     private DateTime _attacksHarvested = DateTime.MinValue;
     private DateTime _checkpointed = DateTime.MinValue;
@@ -146,12 +148,13 @@ public sealed class SessionHost : IAsyncDisposable
         }
     }
 
-    public List<FightInfo> Fights()
+    public FightList Fights()
     {
         lock (Session.Gate)
         {
-            return FightInfo.Build(
-                Session.Fights.Fights, Session.Character, Session.Identity, _health);
+            return new FightList(
+                Session.Fights.Version,
+                FightInfo.Build(Session.Fights.Fights, Session.Character, Session.Identity, _health));
         }
     }
 
@@ -430,14 +433,26 @@ public sealed class SessionHost : IAsyncDisposable
                 {
                     if (Session.Fights.Version != _lastPushedFightVersion)
                     {
+                        // A delta unless something a delta cannot carry has
+                        // happened since the last push: nothing pushed yet, a
+                        // fight removed, or the learned-health snapshot
+                        // replaced (every fight's estimate moves with it).
+                        var health = _health;
+                        var full = !_pushedFightsOnce
+                            || Session.Fights.LastRemovalVersion > _lastPushedFightVersion
+                            || !ReferenceEquals(health, _lastPushedHealth);
+                        var baseVersion = _lastPushedFightVersion;
                         _lastPushedFightVersion = Session.Fights.Version;
-                        fightsPayload = new
-                        {
-                            sessionId = Id,
-                            fights = FightInfo.Build(
+                        _lastPushedHealth = health;
+                        _pushedFightsOnce = true;
+                        fightsPayload = new FightsPush(
+                            Id,
+                            Session.Fights.Version,
+                            baseVersion,
+                            full,
+                            FightInfo.Build(
                                 Session.Fights.Fights, Session.Character, Session.Identity,
-                                _health),
-                        };
+                                health, full ? -1 : baseVersion));
                     }
 
                     if (_liveDirty)

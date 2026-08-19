@@ -122,7 +122,7 @@ public sealed class ServerIntegrationTests : IAsyncLifetime
 
         var id = info.GetProperty("id").GetString();
         var fights = await _http.GetFromJsonAsync<JsonElement>($"/api/sessions/{id}/fights");
-        var fight = Assert.Single(fights.EnumerateArray());
+        var fight = Assert.Single(fights.GetProperty("fights").EnumerateArray());
         Assert.Equal("An ice giant", fight.GetProperty("name").GetString());
         Assert.True(fight.GetProperty("dead").GetBoolean());
         Assert.Equal(100, fight.GetProperty("damageTotal").GetInt64());
@@ -150,7 +150,7 @@ public sealed class ServerIntegrationTests : IAsyncLifetime
         var id = info.GetProperty("id").GetString();
 
         var fights = await _http.GetFromJsonAsync<JsonElement>($"/api/sessions/{id}/fights");
-        var fight = Assert.Single(fights.EnumerateArray());
+        var fight = Assert.Single(fights.GetProperty("fights").EnumerateArray());
 
         Assert.Equal(220, fight.GetProperty("damageTotal").GetInt64());
         Assert.Equal(150, fight.GetProperty("characterDamage").GetInt64());
@@ -412,17 +412,48 @@ public sealed class ServerIntegrationTests : IAsyncLifetime
         writer.WriteLine(Line(60, "Raider01 crushes a shadow drake for 500 points of damage."));
 
         // The very first push after subscribing may predate the append (e.g. the
-        // initial empty snapshot) — consume pushes until the new fight shows up.
+        // initial snapshot) — consume pushes until the new fight shows up.
         var deadline = DateTime.UtcNow.AddSeconds(5);
-        var found = false;
-        while (!found && DateTime.UtcNow < deadline &&
+        JsonElement? hit = null;
+        while (hit is null && DateTime.UtcNow < deadline &&
                fightsPushes.TryTake(out var push, TimeSpan.FromSeconds(5)))
         {
-            found = push.GetProperty("fights").EnumerateArray()
-                .Any(f => f.GetProperty("name").GetString() == "A shadow drake");
+            if (push.GetProperty("fights").EnumerateArray()
+                .Any(f => f.GetProperty("name").GetString() == "A shadow drake"))
+            {
+                hit = push;
+            }
         }
 
-        Assert.True(found, "no fights push contained the new fight");
+        Assert.NotNull(hit);
+        // Every push says what it is and what it is cut against; the version it
+        // carries is the tracker's, the same one the REST list reports.
+        Assert.True(hit.Value.GetProperty("version").GetInt32() > hit.Value.GetProperty("baseVersion").GetInt32());
+        var rest = await _http.GetFromJsonAsync<JsonElement>($"/api/sessions/{id}/fights");
+        Assert.True(rest.GetProperty("version").GetInt32() >= hit.Value.GetProperty("version").GetInt32());
+
+        // A second hit on the same fight is a delta: that one fight, not the
+        // list — the ice giant that died at the start is not sent again.
+        writer.WriteLine(Line(61, "Raider01 crushes a shadow drake for 700 points of damage."));
+        JsonElement? delta = null;
+        deadline = DateTime.UtcNow.AddSeconds(5);
+        while (delta is null && DateTime.UtcNow < deadline &&
+               fightsPushes.TryTake(out var push, TimeSpan.FromSeconds(5)))
+        {
+            if (!push.GetProperty("full").GetBoolean())
+            {
+                delta = push;
+            }
+        }
+
+        Assert.NotNull(delta);
+        var only = Assert.Single(delta.Value.GetProperty("fights").EnumerateArray());
+        Assert.Equal("A shadow drake", only.GetProperty("name").GetString());
+        Assert.Equal(1200, only.GetProperty("damageTotal").GetInt64());
+        Assert.True(hit.Value.GetProperty("version").GetInt32() <= delta.Value.GetProperty("baseVersion").GetInt32(),
+            "a delta is cut against a version at or after the last push");
+        // A subscriber who joins after the host's first push sees deltas from
+        // then on — its own GET of the list carries the version they apply to.
     }
 
     /// <summary>

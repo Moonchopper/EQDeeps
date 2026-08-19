@@ -207,4 +207,43 @@ public class FightTrackerTests
         Assert.Equal(2, groups[0].Count);
         Assert.Equal("Doomshade", Assert.Single(groups[1]).Name);
     }
+
+    /// <summary>
+    /// Every change to a fight stamps it with the tracker's version, and only
+    /// that fight — so a live push can send the fights changed since a
+    /// version rather than the whole list. A death closes through the same
+    /// door. Nothing that changes a fight may skip the stamp: the tracker's
+    /// version and the newest fight's must agree after every event.
+    /// </summary>
+    [Fact]
+    public void EachChangeStampsOnlyTheFightItChanged()
+    {
+        Melee(0, "Raider01", "An ice giant", 100);
+        var giant = Assert.Single(_tracker.Fights);
+        Assert.Equal(_tracker.Version, giant.Version);
+
+        // A second fight opens: the giant's stamp does not move.
+        var giantStamp = giant.Version;
+        Melee(1, "Raider01", "A shadow drake", 50);
+        var drake = _tracker.Fights.Single(f => f.Name == "A shadow drake");
+        Assert.Equal(_tracker.Version, drake.Version);
+        Assert.Equal(giantStamp, giant.Version);
+        Assert.True(drake.Version > giant.Version);
+
+        // A hit on the giant moves the giant past the drake.
+        Melee(2, "Raider02", "An ice giant", 25);
+        Assert.Equal(_tracker.Version, giant.Version);
+        Assert.True(giant.Version > drake.Version);
+        Assert.Equal([drake], _tracker.Fights.Where(f => f.Version <= drake.Version));
+
+        // Death closes through the stamp too.
+        _tracker.Process(T0.AddSeconds(3), new DeathEvent("A shadow drake", "Raider01"));
+        Assert.True(drake.Closed);
+        Assert.Equal(_tracker.Version, drake.Version);
+
+        // A taunt is a change like any other.
+        _tracker.Process(T0.AddSeconds(4), new TauntEvent("Raider02", "An ice giant", true));
+        Assert.Equal(_tracker.Version, giant.Version);
+        Assert.Equal(0, _tracker.LastRemovalVersion);
+    }
 }

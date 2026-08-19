@@ -179,6 +179,25 @@ public sealed record MobAttackReport(
     int Landed,
     bool Instanced);
 
+/// <summary>
+/// The fight list as the REST endpoint returns it: the rows, and the tracker
+/// version they are a snapshot of, so a client can tell whether a live delta
+/// applies on top of what it holds.
+/// </summary>
+public sealed record FightList(int Version, List<FightInfo> Fights);
+
+/// <summary>
+/// One live push of fights. <see cref="Full"/> means <see cref="Fights"/> is
+/// the whole list; otherwise it is only the fights changed after
+/// <see cref="BaseVersion"/>, to be merged by id into a list the client
+/// already holds at that version or later — a raid's worth of closed fights
+/// is not re-sent every time the open one takes a hit (measured: 2 MB per
+/// push, once a second in combat, on an 8,000-fight log). Deltas cannot say
+/// a fight is gone, and a learned-health snapshot changing moves every
+/// fight's estimate, so both of those force a full push.
+/// </summary>
+public sealed record FightsPush(string SessionId, int Version, int BaseVersion, bool Full, List<FightInfo> Fights);
+
 public sealed record FightInfo(
     int Id,
     string Name,
@@ -219,11 +238,18 @@ public sealed record FightInfo(
     /// recorded a kill). A missing entry is normal, not an error: a mob nobody
     /// has killed enough of simply has no number yet.
     /// </param>
+    /// <param name="sinceVersion">
+    /// Build only fights changed after this <see cref="Fight.Version"/> — a
+    /// live delta. The pull-chain grouping is still computed over every
+    /// fight, because a fight's group is a fact about its neighbours; only
+    /// the rows are cut down. The default builds them all.
+    /// </param>
     public static List<FightInfo> Build(
         IReadOnlyList<Fight> fights,
         string character,
         IdentityRegistry identity,
-        IReadOnlyDictionary<string, MobHealthEstimate>? health = null)
+        IReadOnlyDictionary<string, MobHealthEstimate>? health = null,
+        int sinceVersion = -1)
     {
         var groupIndex = new Dictionary<int, int>();
         var groups = FightTracker.Group(fights);
@@ -236,6 +262,7 @@ public sealed record FightInfo(
         }
 
         return fights
+            .Where(f => f.Version > sinceVersion)
             .Select(f => new FightInfo(
                 f.Id, f.Name, f.BeginTime, f.LastDamageTime, f.Dead, f.Closed,
                 f.DamageTotal, f.TankingTotal, f.TauntCount, groupIndex[f.Id],

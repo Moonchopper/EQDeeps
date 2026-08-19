@@ -229,15 +229,14 @@ export default function App() {
   const { enabled: referenceEnabled } = useReferenceEnabled();
   const [showSettings, setShowSettings] = useState(false);
   const [showLogs, setShowLogs] = useState(false);
-  // The rail collapses to icons. Two pieces of state because the Map is a
-  // special case: it brings its own left column (the zone list), so on Map
-  // the rail starts collapsed whatever the standing preference, and a toggle
-  // there is an override for this visit rather than a change of preference.
-  // Leaving Map drops the override; the preference is what it was.
-  const [railPref, setRailPref] = useState(
+  // The rail collapses to icons, and stays however it was left, on every
+  // view. It used to start collapsed on the Map regardless (ADR-017 decision
+  // 6, because the Map has its own left column) — which read as the rail
+  // making up its own mind per view, and the Bestiary has a left column too
+  // and never did it. One preference, the user's, everywhere.
+  const [railCollapsed, setRailCollapsed] = useState(
     () => localStorage.getItem("eqdeeps.railCollapsed") === "on",
   );
-  const [railOnMap, setRailOnMap] = useState<boolean | null>(null);
   const [checkNote, setCheckNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [dashboards, setDashboards] = useState<DashboardDef[]>([]);
@@ -279,20 +278,11 @@ export default function App() {
     clearUnlessPinned();
   }, [view, effectiveStdView, activeId, clearUnlessPinned]);
 
-  const onMap = view === "overview" && effectiveStdView === MAPS_VIEW;
-  const railCollapsed = onMap ? (railOnMap ?? true) : railPref;
   function toggleRail() {
-    if (onMap) {
-      setRailOnMap(!railCollapsed);
-      return;
-    }
-    const next = !railPref;
-    setRailPref(next);
+    const next = !railCollapsed;
+    setRailCollapsed(next);
     localStorage.setItem("eqdeeps.railCollapsed", next ? "on" : "off");
   }
-  useEffect(() => {
-    if (!onMap) setRailOnMap(null);
-  }, [onMap]);
 
   // Scrolling needs a live tail AND a log that is still being written; see
   // LIVE_LOG_GRACE_MS.

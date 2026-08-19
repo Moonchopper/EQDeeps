@@ -1213,11 +1213,26 @@ button.update-pill {
   gap: 2px;
 }
 
+/* Rows the scroller is not showing are not laid out or painted. An 8,000-fight
+   log is 8,000 rows and ~70,000 elements. Second-order, and measured as such:
+   the tab-switch cost was React re-rendering the rows' lookup doors
+   (LookupScope), and this on its own changed nothing; on top of that fix it
+   takes the last 50–150 ms tasks a switch still showed to none, and keeps
+   the off-screen rows out of every restyle from then on. `auto` sizes
+   remember their real height once seen; the fallback only guesses for rows
+   never yet scrolled to. Not virtualisation: React still owns every row
+   (memoised, cheap); it is the browser that skips the work. */
+.fight-group,
+.fight-row {
+  content-visibility: auto;
+}
+
 .fight-group {
   color: var(--muted);
   font-size: var(--fs-tiny);
   padding: 6px 4px 2px;
   text-align: left;
+  contain-intrinsic-size: auto 22px;
 }
 
 .fight-group:hover {
@@ -1233,6 +1248,7 @@ button.update-pill {
   padding: 5px 8px;
   border-radius: var(--r-control);
   border: 1px solid transparent;
+  contain-intrinsic-size: auto 44px;
 }
 
 .fight-row:hover {

@@ -9,7 +9,7 @@ version being cut.
 
 ## Unreleased
 
-- **Switching between Combat views is fast again on long logs** — an 8,000-fight log no longer redraws every fight row on each switch.
+- **Long logs are fast again** — switching any view, and every second of a live fight, no longer redraws or re-sends thousands of fights; the Incoming table shows the 200 most recent mobs until you filter or ask for all.
 
 ## v0.15.2 — 2026-08-17
 

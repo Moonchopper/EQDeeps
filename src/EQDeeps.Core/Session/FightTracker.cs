@@ -54,6 +54,14 @@ public sealed class FightTracker
     /// </summary>
     public int Version { get; private set; }
 
+    /// <summary>
+    /// The version at which a fight was last removed outright (a name
+    /// reclassified as a player takes its fights with it). A removal is the
+    /// one change a per-fight stamp cannot carry — the fight is gone — so a
+    /// live push cut against an older version has to be a full one.
+    /// </summary>
+    public int LastRemovalVersion { get; private set; }
+
     public void Process(DateTime timestamp, GameEvent evt)
     {
         ApplyPendingCorrections();
@@ -226,7 +234,7 @@ public sealed class FightTracker
         }
 
         fight.Seconds[timestamp] = second;
-        Version++;
+        Touch(fight);
     }
 
     private void HandleDeath(DateTime timestamp, DeathEvent death)
@@ -259,7 +267,7 @@ public sealed class FightTracker
         {
             fight.LastActivityTime = timestamp;
             fight.TauntCount++;
-            Version++;
+            Touch(fight);
             return;
         }
 
@@ -278,7 +286,7 @@ public sealed class FightTracker
         fight = GetOrCreate(taunt.Target, timestamp);
         fight.LastActivityTime = timestamp;
         fight.TauntCount++;
-        Version++;
+        Touch(fight);
     }
 
     private enum Side
@@ -318,7 +326,7 @@ public sealed class FightTracker
         fight = new Fight(_nextId++, npcName, timestamp, _zone);
         _active[npcName] = fight;
         _fights.Add(fight);
-        Version++;
+        Touch(fight);
         return fight;
     }
 
@@ -326,8 +334,11 @@ public sealed class FightTracker
     {
         fight.Closed = true;
         _active.Remove(fight.Name);
-        Version++;
+        Touch(fight);
     }
+
+    /// <summary>Every change to a fight goes through here, so the fight's stamp and the tracker's version cannot drift apart.</summary>
+    private void Touch(Fight fight) => fight.Version = ++Version;
 
     private void CloseAll()
     {
@@ -343,7 +354,7 @@ public sealed class FightTracker
         var removed = _fights.RemoveAll(f => f.Name == name);
         if (removed > 0)
         {
-            Version++;
+            LastRemovalVersion = ++Version;
         }
     }
 

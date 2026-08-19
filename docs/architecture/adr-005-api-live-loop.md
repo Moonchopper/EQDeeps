@@ -27,12 +27,27 @@ surface, realtime channel, live meter tick.
   fight's 30 s timeout must also fire when the log goes quiet; a 1 Hz timer
   calls `ExpireFights(DateTime.Now)` after backfill (log timestamps are local
   time) and pushes the fight list when anything closed.
+- **`fights` is a delta, not a snapshot (2026-08-17).** The snapshot was the
+  whole list on every version change — on the owner's 8,000-fight log, 2 MB
+  once a second in combat, serialised, sent, parsed and reconciled, for one
+  fight's totals moving. Every `Fight` now carries the tracker version of its
+  last change; a push is `{version, baseVersion, full, fights}` and carries
+  only fights changed after `baseVersion`, which the client merges by id.
+  `full` is sent when a delta cannot say what happened — nothing pushed yet, a
+  fight removed (a name reclassified as a player takes its fights with it),
+  or the learned-health snapshot replaced, which moves every fight's
+  estimate. `GET …/fights` returns `{version, fights}` so the client knows
+  what its list is a snapshot of; a delta applies only if `baseVersion` is at
+  or before that, else the client refetches, and a fetched snapshot never
+  replaces a list already merged past its version. Measured: 2 MB → a few KB
+  per push, and the client's per-push work went with it.
 
 ## Surface
 
 REST: `GET /api/health` · `GET/POST /api/sessions` · `GET/DELETE
-/api/sessions/{id}` · `GET /api/sessions/{id}/fights` (with pull-chain group
-indices) · `POST /api/sessions/{id}/query` (a QuerySpec body → QueryResult).
+/api/sessions/{id}` · `GET /api/sessions/{id}/fights` (`{version, fights}`,
+with pull-chain group indices) · `POST /api/sessions/{id}/query` (a QuerySpec
+body → QueryResult).
 Hub `/hubs/live`: `Subscribe`/`Unsubscribe(sessionId)`; server events
 `backfill`, `fights`, `tick`.
 

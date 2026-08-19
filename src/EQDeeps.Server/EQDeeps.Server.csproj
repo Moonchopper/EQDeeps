@@ -37,4 +37,41 @@
     <Content Remove="wwwroot\**" />
     <None Include="wwwroot\**" CopyToOutputDirectory="Never" />
   </ItemGroup>
+  <!-- Licence text has to ship with the binary, not just sit in the repo.
+       A self-contained publish lays the whole .NET runtime down beside the app
+       and copies none of its licence files, and the MIT/Apache/OFL components
+       bundled into the exe all require their notice to travel with the copy.
+       This lives here rather than in scripts/publish.ps1 because the release
+       workflow calls `dotnet publish` directly — a script-side copy would be
+       correct on a developer's machine and missing from every actual release. -->
+  <Target Name="PublishLicenseNotices" AfterTargets="ComputeResolvedFilesToPublishList">
+    <ItemGroup>
+      <ResolvedFileToPublish Include="$(MSBuildThisFileDirectory)..\..\LICENSE">
+        <RelativePath>LICENSE.txt</RelativePath>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      </ResolvedFileToPublish>
+      <ResolvedFileToPublish Include="$(MSBuildThisFileDirectory)..\..\NOTICE">
+        <RelativePath>NOTICE.txt</RelativePath>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      </ResolvedFileToPublish>
+      <ResolvedFileToPublish Include="$(MSBuildThisFileDirectory)..\..\THIRD-PARTY-NOTICES.txt">
+        <RelativePath>THIRD-PARTY-NOTICES.txt</RelativePath>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      </ResolvedFileToPublish>
+    </ItemGroup>
+    <!-- The runtime packs carry their own licence and third-party notices, and
+         which of the two exists differs per pack (WindowsDesktop ships LICENSE
+         with no notices; AspNetCore ships notices with no LICENSE). Glob what
+         is there out of the pack MSBuild already resolved, rather than hard-code
+         a NuGet path and a version the SDK band will move underneath us. -->
+    <ItemGroup Condition="'$(SelfContained)' == 'true'">
+      <_RuntimePackNotice Include="%(ResolvedRuntimePack.PackageDirectory)\LICENSE*;%(ResolvedRuntimePack.PackageDirectory)\THIRD-PARTY-NOTICES*">
+        <Pack>%(ResolvedRuntimePack.Identity)</Pack>
+      </_RuntimePackNotice>
+      <ResolvedFileToPublish Include="@(_RuntimePackNotice)">
+        <RelativePath>licenses\%(_RuntimePackNotice.Pack)\%(_RuntimePackNotice.Filename)%(_RuntimePackNotice.Extension)</RelativePath>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      </ResolvedFileToPublish>
+    </ItemGroup>
+  </Target>
 </Project>

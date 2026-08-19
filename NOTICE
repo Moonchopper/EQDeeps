@@ -1,54 +1,101 @@
 EQDeeps
 
+EQDeeps' own code is under the MIT Licence (see LICENSE). Everything bundled
+with it keeps the licence it arrived under — MIT does not relicense them — and
+the full text of each is in THIRD-PARTY-NOTICES.txt, which is what those
+licences actually require to travel with a copy. This file is the readable
+summary of where each piece came from and why it is here.
+
+Both files, plus the .NET runtime's own licence and notices, are installed
+beside the application and are in the portable zip.
+
 == Reference data & fixtures ==
 
 Portions of the test fixture data (real EverQuest log lines and their expected
 parse results, under tests/EQDeeps.Core.Tests/Fixtures/) are derived from the
 parser unit tests of EQLogParser (https://github.com/kauffman12/EQLogParser),
-Copyright kauffman12, licensed under the Apache License, Version 2.0.
-Log lines themselves are EverQuest game output.
+Copyright kauffman12, licensed under the Apache License, Version 2.0. The lines
+were extracted and rewritten into this project's JSON fixture format, each
+paired with the parse result EQDeeps expects; the surrounding test code was not
+used. Log lines themselves are EverQuest game output.
 
 No source code from EQLogParser has been ported; EQDeeps is a clean-room
 implementation. Behavior fidelity comes from documented grammars and the
 fixture corpus above.
 
+== Game-derived data ==
+
+Two files carry data that originated with the game rather than with this
+project, and EQDeeps' MIT grant does not extend to them:
+
+- src/EQDeeps.Core/Maps/zones.tsv pairs each zone's short name with its display
+  name, era and client zone ids. The ids and display names are read out of an
+  EverQuest client's ZoneNames.txt (see scripts/derive-zone-eras.mjs); the eras
+  and the curation are this project's own work.
+- The bundled demo log (src/EQDeeps.Server/Assets/sample-log.txt.gz) is two
+  days of the owner's own gameplay, cut down to the system lines the parser
+  recognizes — every chat channel removed — and the monitored character renamed
+  to "Sample". The other characters in those fights are named as the game named
+  them.
+
+Both are facts about the game rather than game assets, and neither contains
+art, audio, or client code. They are included so the app is useful without a
+game install; if Daybreak Game Company would prefer otherwise, remove them.
+
 == Distributed third-party software ==
 
 The published EQDeeps binary embeds or includes the following permissively
-licensed components:
+licensed components. Licence texts for all of them are in
+THIRD-PARTY-NOTICES.txt.
 
 - IBM Plex Sans (https://github.com/IBM/plex) — SIL Open Font License 1.1,
   Copyright 2017 IBM Corp. Designed by Mike Abbink with Bold Monday. The
-  bundled file is the variable-weight Latin subset, redistributed unmodified
-  as ui/public/fonts/ibm-plex-sans-latin-var.woff2. The OFL permits
-  redistribution as part of a larger work; the font is not sold on its own
-  and its name is unchanged.
+  bundled file is IBM's variable-weight Latin build, redistributed unmodified
+  by this project as ui/public/fonts/ibm-plex-sans-latin-var.woff2. The OFL
+  permits redistribution as part of a larger work; the font is not sold on its
+  own and its name is unchanged, which the Reserved Font Name term requires.
 - Apache ECharts (https://echarts.apache.org) — Apache License 2.0,
-  Copyright the Apache Software Foundation.
+  Copyright the Apache Software Foundation. Its zrender dependency is
+  BSD 3-Clause, Copyright Baidu Inc.
 - React and ReactDOM (https://react.dev) — MIT License, Copyright Meta
   Platforms, Inc. and affiliates.
 - @microsoft/signalr (https://github.com/dotnet/aspnetcore) — MIT License,
   Copyright .NET Foundation and Contributors.
 - react-grid-layout (https://github.com/react-grid-layout/react-grid-layout)
-  — MIT License, Copyright Samuel Reed.
+  — MIT License, Copyright Samuel Reed, with react-draggable and
+  react-resizable.
 - Tabler Icons (https://github.com/tabler/tabler-icons), via
   @tabler/icons-react — MIT License, Copyright Paweł Kuna. Only the icons
   the navigation rail uses are bundled.
+- clsx (MIT, Copyright Luke Edwards), fast-equals (MIT, Copyright Tony
+  Quetano) and tslib (0BSD, Copyright Microsoft Corporation), which the above
+  pull in.
 - .NET runtime, ASP.NET Core, and Windows Forms, including
   Microsoft.Extensions.* and Microsoft.Win32.Registry packages
   (https://github.com/dotnet) — MIT License, Copyright .NET Foundation and
-  Contributors.
+  Contributors. A self-contained build ships the whole runtime, so each
+  runtime pack's own LICENSE and THIRD-PARTY-NOTICES are copied into
+  licenses\ beside the application.
 - Microsoft Edge WebView2 SDK
   (https://developer.microsoft.com/microsoft-edge/webview2) — BSD-style
   Microsoft license, Copyright Microsoft Corporation. The WebView2 runtime
   itself is a Windows system component and is not distributed with EQDeeps.
 - NetSparkleUpdater (https://github.com/NetSparkleUpdater/NetSparkle) — MIT
-  License, Copyright 2010–2025 Deadpikle, Dirk Eisenberg. Drives the in-app
-  update check, download, and Ed25519 verification.
+  License, Copyright Deadpikle, Dirk Eisenberg. Drives the in-app update
+  check, download, and Ed25519 verification.
 - NetSparkleUpdater.Chaos.NaCl
   (https://github.com/NetSparkleUpdater/Chaos.NaCl) — MIT License,
   Copyright 2024 Deadpikle, CodesInChaos. Ed25519 implementation used to
   verify releases.
+
+== Not distributed ==
+
+EQDeeps reads the player's own EverQuest install — spell files, map files,
+item data (see docs/domain/eq-client-files.md) — in place. None of it is
+copied into this repository or into a release, and `--no-spells` stops the app
+reading any of it. Mob detail fetched from EQLBase (ADR-020) is cached under
+%AppData% on the machine that asked for it and is never bundled; `--no-reference`
+switches that off.
 
 == Build tooling ==
 
@@ -57,17 +104,6 @@ The Windows installer is produced with Inno Setup
 portions Copyright Martijn Laan, under the Inno Setup License. Inno Setup's
 setup engine is therefore present in the distributed EQDeeps-Setup executable;
 it is not part of the EQDeeps application itself.
-
-== Reference data ==
-
-The Bestiary (feature F30) fetches mob details — levels, health, spawns and
-loot tables — from EQLBase (https://eqlbase.com), a community database for
-EverQuest Legends, at the user's request and onto the user's own machine. No
-part of that data is bundled with EQDeeps or redistributed by it: each user's
-copy is fetched by them, cached locally, and attributed on screen with a link
-back to the page it came from. The feature can be switched off entirely
-(Settings, or --no-reference), and nothing is fetched until it is used. See
-docs/architecture/adr-020-npc-reference.md.
 
 EverQuest is a registered trademark of Daybreak Game Company LLC. EQDeeps is
 an unaffiliated fan-made tool and includes no game assets.

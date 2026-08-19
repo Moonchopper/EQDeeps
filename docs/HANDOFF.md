@@ -149,8 +149,8 @@ the one that carried the meaning.
 
 - Update the domain docs when reality disagrees with them — they are the spec of record.
 - Record significant design choices as short ADRs under `docs/architecture/`.
-- Any dependency added: check license first (MIT/Apache-2.0/BSD only), note it in NOTICE if it ships.
-- Repo: `Moonchopper/EQDeeps` (private for now; public release is the goal — write code and history as if public).
+- Any dependency added: check license first (MIT/Apache-2.0/BSD only); if it ships, add it to NOTICE and its licence text to THIRD-PARTY-NOTICES.txt. Attribution alone does not satisfy those licences — the text has to travel with the binary, which the publish now does for it.
+- Repo: `Moonchopper/EQDeeps`, public and MIT. EQDeeps' own code is what MIT covers; bundled components keep their own licences.
 
 ## Acid test (docs completeness)
 

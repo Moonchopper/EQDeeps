@@ -128,10 +128,16 @@ auto-update (see `.github/workflows/release.yml`) — that's how
 | [docs/architecture/adr-001…010](docs/architecture/) | Decisions per phase: parser, ingestion, session state, query engine, API/live, SPA, dashboards, packaging, windowed shell, auto-update |
 | [docs/release-signing.md](docs/release-signing.md) | Azure Artifact Signing setup for signed releases and auto-update |
 
-Locked decisions: .NET 8 backend + React/TypeScript SPA, realtime via SignalR, multi-character monitoring from day one, permissive-license dependencies only (attribution in [NOTICE](NOTICE)), Windows-first, public release as the end goal.
+Locked decisions: .NET 8 backend + React/TypeScript SPA, realtime via SignalR, multi-character monitoring from day one, permissive-license dependencies only (attribution in [NOTICE](NOTICE), licence text in [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt)), Windows-first, public release as the end goal.
 
 ## License
 
-[MIT](LICENSE). Third-party attributions live in [NOTICE](NOTICE), which must
-accompany any distributed copy. EverQuest is a registered trademark of Daybreak
-Game Company LLC; EQDeeps is an unaffiliated fan-made tool.
+EQDeeps' own code is [MIT](LICENSE). The components bundled with it keep the
+licences they arrived under — MIT, Apache-2.0, BSD, and the SIL Open Font
+License for IBM Plex Sans — with every text in
+[THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt) and the plain-language
+summary of where each came from in [NOTICE](NOTICE). Both are installed beside
+the app and are in the portable zip, along with the .NET runtime's own licence
+and notices; a redistributed copy needs all of them. EverQuest is a registered
+trademark of Daybreak Game Company LLC; EQDeeps is an unaffiliated fan-made
+tool.

@@ -231,8 +231,9 @@ change it on the other in the same commit.
 
 Charting is ECharts; layout is react-grid-layout; icons are Tabler
 (`@tabler/icons-react`, tree-shaken — import each icon by name). **Every
-dependency must be MIT/Apache-2.0/BSD** — check the license before adding one, and add it to
-`NOTICE` if it ships.
+dependency must be MIT/Apache-2.0/BSD** — check the license before adding one, and if it ships,
+add it to `NOTICE` *and* its licence text to `THIRD-PARTY-NOTICES.txt`. Attribution is not the
+obligation; the licence text travelling with the binary is.
 
 ---
 
@@ -266,8 +267,9 @@ and implement it fresh — that is still worth doing, and settled what "bane"
 means as recently as 2026-08-16. Do not port or transcribe its code.
 
 The fixture corpus was harvested from its parser tests (real log lines are game
-output, not creative code) and **that attribution in `NOTICE` is a licence
-obligation** for as long as those fixtures exist. Its `data/*.txt` files could
+output, not creative code) and **that attribution in `NOTICE`, plus the
+Apache-2.0 text and statement of changes in `THIRD-PARTY-NOTICES.txt`, is a
+licence obligation** for as long as those fixtures exist. Its `data/*.txt` files could
 be copied under the same terms but **have not been and should not be**: the
 game client ships its own spell database and the app reads it from the player's
 install (`docs/domain/eq-client-files.md`), which is both better data for this

@@ -2,14 +2,17 @@
 
 Written for the people who use it. Each release's section here is what the
 update dialog shows (the first six bullets) and what the GitHub release page
-carries in full — so lead with what changed for you, in your words, and keep
-the how for the commits. Newest first; a change lands under **Unreleased** with
-its pull request, and the release's Docs commit renames that heading to the
-version being cut.
+carries in full. **One sentence per bullet: a bold lead and what changed for
+you.** No numbers, no reasoning, no before-and-after — that lives in the commit
+and the ADR. Newest first; a change lands under **Unreleased** with its pull
+request, and the release's Docs commit renames that heading to the version
+being cut.
 
 ## Unreleased
 
 - **Long logs are fast again** — switching any view, and every second of a live fight, no longer redraws or re-sends thousands of fights; the Incoming table shows the 200 most recent mobs until you filter or ask for all.
+- **The World map can label each zone with its level range** — turn it on with the **levels** button in the World header.
+- **The World's Mobs tab now browses the whole world by level**, opening on your own band, instead of listing the zone you are standing in.
 
 ## v0.15.2 — 2026-08-17
 

@@ -92,6 +92,15 @@ public sealed record NpcSearchResult(string Source, IReadOnlyList<NpcBrowseRow> 
 /// <summary>Every NPC the site lists in one zone, for the Map view (F30 × F27).</summary>
 public sealed record ZoneRosterResult(string Source, ZoneRoster Roster, string? Error);
 
+/// <summary>
+/// A level band for every zone the site lists enough of, for the World view's
+/// labels (F27 × F30): the middle half of the listed levels of who stands
+/// there (<see cref="ZoneLevels"/>). <see cref="Known"/> is false when there
+/// is no index to read — reference off, never fetched, unreachable — and
+/// <see cref="Error"/> says which.
+/// </summary>
+public sealed record ZoneLevelsResult(string Source, bool Known, IReadOnlyList<ZoneLevelBand> Zones, string? Error);
+
 /// <summary>One listing's full stat block.</summary>
 public sealed record NpcDetailResult(string Source, string Url, NpcDetail Detail);
 

@@ -16,6 +16,7 @@ import {
 import { fmtNum, fmtRate } from "../format";
 import { LookupLink } from "../lookup/LookupLink";
 import { mobKey, sameMob } from "../lookup/mobKey";
+import { LEVEL_BANDS, type LevelBand } from "../lookup/levelBands";
 import { conOf, CON_WORD } from "../conColor";
 import type { BestiaryTarget, Crumb, MapTarget } from "../trail";
 
@@ -834,23 +835,6 @@ const MET_SHOWN = 60;
  * that ledger is read.
  */
 const ROWS_SHOWN = 8;
-
-interface LevelBand {
-  label: string;
-  min: number;
-  max?: number;
-}
-
-/** The bands the index is browsed by. Uneven on purpose: the world is. */
-const LEVEL_BANDS: LevelBand[] = [
-  { label: "1–9", min: 1, max: 9 },
-  { label: "10–19", min: 10, max: 19 },
-  { label: "20–29", min: 20, max: 29 },
-  { label: "30–39", min: 30, max: 39 },
-  { label: "40–49", min: 40, max: 49 },
-  { label: "50–59", min: 50, max: 59 },
-  { label: "60+", min: 60 },
-];
 
 /**
  * The listed health beside the measured damage-to-kill, and a verdict. The

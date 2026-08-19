@@ -629,6 +629,15 @@ Acceptance:
   its own colour on whichever zone is open and rings every zone it stands
   in on the World, listed in the map header as chips, persisted, until
   unpinned. *(shipped 2026-08-17)*
+- **What level a zone is (F27 × F30):** the World labels every zone with the
+  middle half of the levels the site lists for who stands there — "Clan
+  Crushbone · L5–14" — read off the index alone (`ZoneLevels`), interquartile
+  on purpose so one level-65 named does not make Everfrost "L1–65"; a
+  `levels` toggle in the World header, kept across sessions, and the same
+  tag on the World's zone list. On the World the Mobs tab browses the whole
+  world by level band rather than one zone's roster — opening on the
+  character's own band — since under a picture of the world the question is
+  who is at my level and where. *(shipped 2026-08-17)*
 - **Back and forward** over screens — rail views, the mob open in the
   Bestiary, the zone and mode on the Map — from arrows beside the brand,
   the mouse's thumb buttons, or Alt+←/→; the app's own history, since the

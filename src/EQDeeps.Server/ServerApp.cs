@@ -512,6 +512,17 @@ public static class ServerApp
             return Results.Ok(new ZoneRosterResult(reference.SourceName, roster, roster.Known ? null : reference.Status().Error));
         });
 
+        // What level every zone is, read off who stands there — the World
+        // view's labels. Derived from the index alone, so it costs no fetch
+        // beyond the one the index already had.
+        app.MapGet("/api/reference/zones/levels", async (NpcReferenceStore reference, CancellationToken ct) =>
+        {
+            var index = await reference.IndexAsync(ct);
+            return Results.Ok(index is null
+                ? new ZoneLevelsResult(reference.SourceName, false, [], reference.Status().Error)
+                : new ZoneLevelsResult(reference.SourceName, true, ZoneLevels.Of(index, ZoneTable.Default), null));
+        });
+
         // One listing's stat block and loot table.
         app.MapGet("/api/reference/npcs/{id:int}", async (int id, NpcReferenceStore reference, CancellationToken ct) =>
             await reference.DetailAsync(id, ct) is { } detail

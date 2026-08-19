@@ -2,15 +2,16 @@
 
 Written for the people who use it. Each release's section here is what the
 update dialog shows (the first six bullets) and what the GitHub release page
-carries in full — so lead with what changed for you, in your words, and keep
-the how for the commits. Newest first; a change lands under **Unreleased** with
-its pull request, and the release's Docs commit renames that heading to the
-version being cut.
+carries in full. **One sentence per bullet: a bold lead and what changed for
+you.** No numbers, no reasoning, no before-and-after — that lives in the commit
+and the ADR. Newest first; a change lands under **Unreleased** with its pull
+request, and the release's Docs commit renames that heading to the version
+being cut.
 
 ## Unreleased
 
-- **The World map can label every zone with its level.** "Clan Crushbone · L5–14", "The Estate of Unrest · L15–28" — the middle half of the levels the reference site lists for who stands there, so one level-65 named does not make a starter zone read as L1–65. A **levels** button in the World's header turns it on and off (it remembers), and the zone list carries the same tag.
-- **The World's Mobs tab browses the whole world by level.** It used to list the mobs of the one zone you were standing in, under a picture of the entire world. Now it opens on your own level band — 20–29, say — and lists every mob the site files there; point at one and every zone it stands in lights up, click a zone to go there. A zone's own roster is still on the zone.
+- **The World map can label each zone with its level range** — turn it on with the **levels** button in the World header.
+- **The World's Mobs tab now browses the whole world by level**, opening on your own band, instead of listing the zone you are standing in.
 
 ## v0.15.2 — 2026-08-17
 

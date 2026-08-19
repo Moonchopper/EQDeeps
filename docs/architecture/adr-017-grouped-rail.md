@@ -185,6 +185,14 @@ it and the preference stands. Two pieces of state, deliberately: a
 preference and a per-visit override, rather than one bit that the Map would
 have to silently rewrite.
 
+*Reversed 2026-08-17.* In use it read as the rail changing its mind per
+view — open on Loot, closed on Map, open again on Bestiary, which has a
+left column of its own and never did this. The owner called it
+inconsistent, and it was: a preference the app overrides is not a
+preference. One bit now, the user's, honoured on every view; whoever wants
+the Map wide collapses the rail once and it stays collapsed everywhere,
+which is what "preference" means.
+
 ADR-015's open note on Unicode glyphs is *partly* closed by this: the rail's
 are gone. The ones elsewhere — ⚔ and ☠ in the fight list, ✕, ↻, ★, the
 chevrons — remain, and are the same job for a later change now that the set

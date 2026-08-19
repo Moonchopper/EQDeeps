@@ -307,6 +307,15 @@ interface Props {
    * question being asked right now.
    */
   pins?: ReadonlyMap<string, { name: string; color: string }[]> | null;
+  /**
+   * What level each zone is — the middle half of who the reference site
+   * lists standing there — by map short name, for the "· L5–14" a label
+   * carries when `showLevels` is on. Absent while the reference is off or
+   * has not answered; a zone with no band shows none.
+   */
+  levels?: ReadonlyMap<string, { low: number; high: number; listings: number }> | null;
+  showLevels?: boolean;
+  onShowLevelsChange?: (on: boolean) => void;
 }
 
 export function ZoneGraphView({
@@ -320,6 +329,9 @@ export function ZoneGraphView({
   lit = null,
   litLabel,
   pins = null,
+  levels = null,
+  showLevels = false,
+  onShowLevelsChange,
 }: Props) {
   const [graph, setGraph] = useState<ZoneGraph | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -762,6 +774,23 @@ export function ZoneGraphView({
     return out;
   };
 
+  /**
+   * The " · L5–14" a zone's label carries when levels are on: the band of
+   * whichever of its drawings the reference site filed the place under.
+   */
+  const levelNoteOf = (z: ZoneGraphNode): string => {
+    if (!showLevels || !levels) {
+      return "";
+    }
+    for (const m of [z.shortName, ...z.maps]) {
+      const band = levels.get(m);
+      if (band) {
+        return ` · L${band.low}${band.high !== band.low ? `–${band.high}` : ""}`;
+      }
+    }
+    return "";
+  };
+
   /** Whether a zone's name is drawn right now, and if so what it says. Shared by the label and the hit test. */
   const labelOf = (z: ZoneGraphNode): string | null => {
     const near = hover === z.shortName;
@@ -775,7 +804,12 @@ export function ZoneGraphView({
       return null;
     }
     const via = viaNoteOf(z);
-    return (names.get(z.shortName) ?? z.shortName) + (via ? ` · ${via}` : "") + (isHere ? " · you are here" : "");
+    return (
+      (names.get(z.shortName) ?? z.shortName) +
+      (via ? ` · ${via}` : "") +
+      (isHere ? " · you are here" : "") +
+      levelNoteOf(z)
+    );
   };
 
   /**
@@ -909,6 +943,19 @@ export function ZoneGraphView({
           >
             connections
           </button>
+          {/* What level each zone is, on its label — the middle half of who
+              the reference site lists there, so a stray named does not make
+              a level-8 zone read as L1–50. Offered whenever the reference is
+              on; turning it on is what reads the index. */}
+          {onShowLevelsChange && (
+            <button
+              className={"mini-btn" + (showLevels ? " on" : "")}
+              onClick={() => onShowLevelsChange(!showLevels)}
+              title="Label every zone with its level — the middle half of the levels the reference site lists for who stands there"
+            >
+              levels
+            </button>
+          )}
           {/* The era chooser lives in the rail beside the zone list now: it
               narrows both, and one control for one setting. */}
           <select className="mini-select" value={from} onChange={(e) => setFrom(e.target.value)}>
@@ -1159,6 +1206,7 @@ export function ZoneGraphView({
                     {nameRuns(names.get(z.shortName) ?? z.shortName, hit)}
                     {via && <tspan className="via"> · {viaNote}</tspan>}
                     {isHere && <tspan className="here"> · you are here</tspan>}
+                    {levelNoteOf(z) && <tspan className="lvl">{levelNoteOf(z)}</tspan>}
                   </text>
                 )}
               </g>

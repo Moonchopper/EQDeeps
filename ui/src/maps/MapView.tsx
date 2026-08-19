@@ -6,6 +6,7 @@ import {
   type MapCatalogEntry,
   type MobHealthReport,
   type NpcBrowseRow,
+  type ZoneLevelBand,
   type ZoneMap,
   type ZoneRoster,
 } from "../api";
@@ -13,6 +14,7 @@ import { fmtNum } from "../format";
 import { fuzzyMatch } from "../fuzzy";
 import type { BestiaryTarget, Crumb, MapTarget } from "../trail";
 import { mobKey, sameMob } from "../lookup/mobKey";
+import { LEVEL_BANDS, bandOf, levelSpan, type LevelBand } from "../lookup/levelBands";
 import { MapCanvas, type MapMarker } from "./MapCanvas";
 import { loadPins, pinColor, pinStandsIn, pinZones, savePins, type PinnedMob } from "./pins";
 import {
@@ -43,6 +45,13 @@ const ERA_NOTE: Record<string, string> = {
 interface Props {
   /** The zone the log says the character is in, if a log is open. */
   currentZone?: string;
+  /**
+   * The level the log last reported for the character, if a log is open —
+   * the band the World's mob browse opens on. On Legends a character has
+   * three levels and the log names whichever it saw last, which is the one
+   * being played.
+   */
+  currentLevel?: number;
   /**
    * The installation the open log is from — "EverQuest Legends", "EverQuest"
    * — if one is. Which drawing is right and how far the world is unlocked are
@@ -78,6 +87,7 @@ function toMarkers(
 
 export function MapView({
   currentZone,
+  currentLevel,
   install,
   hasLog = false,
   mobs = null,
@@ -138,6 +148,82 @@ export function MapView({
   const [roster, setRoster] = useState<ZoneRoster | null>(null);
   const [rosterFor, setRosterFor] = useState<string | null>(null);
   const [rosterLoading, setRosterLoading] = useState(false);
+
+  // ---- levels (F27 × F30) ------------------------------------------------
+  // What level each zone is, read off who the reference site lists there,
+  // for the World's labels and zone list; and, on the World, the band the
+  // Mobs tab browses — the whole world at a level, not one zone's roster,
+  // which under a picture of the world answered a question nobody had.
+  const [showLevels, setShowLevels] = useState<boolean>(() => loadShowLevels());
+  const [zoneLevels, setZoneLevels] = useState<ReadonlyMap<string, ZoneLevelBand> | null>(null);
+  const [worldBand, setWorldBand] = useState<LevelBand | null>(null);
+  const [worldRows, setWorldRows] = useState<NpcBrowseRow[] | null>(null);
+  const [worldTotal, setWorldTotal] = useState(0);
+  const bandPicked = useRef(false);
+  useEffect(() => saveShowLevels(showLevels), [showLevels]);
+
+  // Fetched only when the World is up with levels on: that is the ask, in
+  // the sense ADR-020 means — the index is not read for a zone map nobody
+  // wanted levels on. Turning the toggle off keeps what was read; it hides.
+  useEffect(() => {
+    if (!referenceEnabled) {
+      setZoneLevels(null);
+      return;
+    }
+    if (mode !== "world" || !showLevels || zoneLevels) {
+      return;
+    }
+    let cancelled = false;
+    api
+      .zoneLevels()
+      .then((r) => {
+        if (cancelled || !r.known) return;
+        // By every drawing of the place, so a label on any of them finds it.
+        const byMap = new Map<string, ZoneLevelBand>();
+        for (const z of r.zones) {
+          for (const m of z.maps) {
+            // Two ids for one place (West Freeport): keep the better-evidenced.
+            const have = byMap.get(m);
+            if (!have || z.listings > have.listings) byMap.set(m, z);
+          }
+        }
+        setZoneLevels(byMap);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [referenceEnabled, mode, showLevels]);
+
+  // The band the World browses opens on the character's own level, and
+  // follows it until the user picks one — a ding while the map is open
+  // moves the browse; a pick is theirs until they clear it.
+  useEffect(() => {
+    if (bandPicked.current) return;
+    setWorldBand(bandOf(currentLevel) ?? null);
+  }, [currentLevel]);
+
+  useEffect(() => {
+    if (!referenceEnabled || mode !== "world" || railTab !== "mobs" || !worldBand) {
+      setWorldRows(null);
+      setWorldTotal(0);
+      return;
+    }
+    let cancelled = false;
+    setWorldRows(null);
+    api
+      .searchNpcs("", { limit: 300, minLevel: worldBand.min, maxLevel: worldBand.max })
+      .then((r) => {
+        if (cancelled) return;
+        setWorldRows(r.npcs);
+        setWorldTotal(r.total);
+      })
+      .catch(() => !cancelled && setWorldRows([]));
+    return () => {
+      cancelled = true;
+    };
+  }, [referenceEnabled, mode, railTab, worldBand]);
   const mobDebounce = useRef<number | undefined>(undefined);
 
   /**
@@ -899,6 +985,72 @@ export function MapView({
     );
   }
 
+  /**
+   * One mob in the rail's world-wide lists — the search and the World's
+   * level browse: name and level open it, the pin keeps it, its zones are
+   * each a click to go there, and pointing at it lights every zone it
+   * stands in.
+   */
+  const renderMobRow = (row: NpcBrowseRow) => {
+    const zones = new Set<string>();
+    for (const p of row.places) {
+      for (const m of p.maps) zones.add(m);
+      if (p.shortName) zones.add(p.shortName);
+    }
+    const pinned = isPinned(row.name);
+    return (
+      <div
+        key={row.name}
+        className={"map-mob" + (hovered?.name === row.name ? " lit" : "") + (pinned ? " pinned" : "")}
+        onMouseEnter={() => setHovered({ name: row.name, zones })}
+        onMouseLeave={() => setHovered((h) => (h?.name === row.name ? null : h))}
+      >
+        <div className="map-mob-line">
+          <button
+            className="map-mob-name"
+            onClick={() => onOpenMob?.({ name: row.name }, crumbHere())}
+            title={`Open ${row.name} in the Bestiary`}
+          >
+            <span>{row.name}</span>
+            <span className="map-mob-lvl">
+              {row.minLevel !== undefined
+                ? `L${row.minLevel}${row.maxLevel !== undefined && row.maxLevel !== row.minLevel ? `–${row.maxLevel}` : ""}`
+                : ""}
+            </span>
+          </button>
+          <button
+            className={"map-mob-pin" + (pinned ? " on" : "")}
+            onClick={() => togglePin(row.name)}
+            title={pinned ? "Unpin" : "Pin: draw it on every zone it stands in, and ring those zones on the world"}
+          >
+            <IconMapPin size={13} stroke={1.8} aria-hidden />
+          </button>
+        </div>
+        {/* Its zones, each a click to go there with the
+            mob pinned so it is drawn. A place with no name
+            is one this build has no map row for. */}
+        <div className="map-mob-places">
+          {row.places.map((p) =>
+            p.shortName ? (
+              <button
+                key={p.id}
+                className={"map-mob-place" + (p.shortName === selected || p.maps.includes(selected ?? "") ? " on" : "")}
+                onClick={() => void goToPlace(row, p.shortName!, p.maps, p.id)}
+                title={`${p.name} — L${p.levels.join(", ")}${p.era ? ` · ${p.era}` : ""}`}
+              >
+                {p.name}
+              </button>
+            ) : (
+              <span key={p.id} className="map-mob-place none" title="A zone this build has no map for">
+                elsewhere
+              </span>
+            ),
+          )}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="map-main">
       <aside className="map-rail">
@@ -992,6 +1144,11 @@ export function MapView({
                       }
                     >
                       <span className="map-zone-name">{p.name}</span>
+                      {/* What level the place is, when the World's levels
+                          toggle is on — the same band its label carries. */}
+                      {mode === "world" && showLevels && zoneLevels && (
+                        <span className="map-zone-lvl">{levelSpan(...bandFor(zoneLevels, p.maps.map((m) => m.shortName)))}</span>
+                      )}
                       {/* More than one map claims this name; the header lets you
                           pick which. Said here so the choice is discoverable
                           before you land on the zone. */}
@@ -1065,74 +1222,59 @@ export function MapView({
                       {mobResults !== null && mobResults.length === 0 && (
                         <div className="map-empty-small">Nothing by that name.</div>
                       )}
-                      {(mobResults ?? []).map((row) => {
-                        const zones = new Set<string>();
-                        for (const p of row.places) {
-                          for (const m of p.maps) zones.add(m);
-                          if (p.shortName) zones.add(p.shortName);
-                        }
-                        const pinned = isPinned(row.name);
-                        return (
-                          <div
-                            key={row.name}
-                            className={"map-mob" + (hovered?.name === row.name ? " lit" : "") + (pinned ? " pinned" : "")}
-                            onMouseEnter={() => setHovered({ name: row.name, zones })}
-                            onMouseLeave={() => setHovered((h) => (h?.name === row.name ? null : h))}
+                      {(mobResults ?? []).map(renderMobRow)}
+                    </>
+                  ) : mode === "world" ? (
+                    <>
+                      {/* Under the world, the question is "who is at my level,
+                          and where" — not one zone's roster, which is a
+                          click away on the zone itself. A band lists every
+                          mob the site files there; pointing at one lights
+                          its zones. Opens on the character's own band. */}
+                      <div className="map-mob-heading">
+                        By level
+                        {worldBand && worldRows && (
+                          <span className="subtle">
+                            {" · "}
+                            {worldTotal > worldRows.length
+                              ? `first ${fmtNum(worldRows.length)} of ${fmtNum(worldTotal)}`
+                              : `${fmtNum(worldRows.length)} names`}
+                          </span>
+                        )}
+                      </div>
+                      <div className="bestiary-bands map-bands" role="group" aria-label="Browse the world by level">
+                        {LEVEL_BANDS.map((b) => (
+                          <button
+                            key={b.label}
+                            className={"bestiary-band" + (worldBand?.label === b.label ? " on" : "")}
+                            onClick={() => {
+                              bandPicked.current = true;
+                              setWorldBand(worldBand?.label === b.label ? null : b);
+                            }}
+                            title={
+                              `Every mob listed at level ${b.label}, and where it stands` +
+                              (bandOf(currentLevel)?.label === b.label ? " — your level" : "")
+                            }
                           >
-                            <div className="map-mob-line">
-                              <button
-                                className="map-mob-name"
-                                onClick={() => onOpenMob?.({ name: row.name }, crumbHere())}
-                                title={`Open ${row.name} in the Bestiary`}
-                              >
-                                <span>{row.name}</span>
-                                <span className="map-mob-lvl">
-                                  {row.minLevel !== undefined
-                                    ? `L${row.minLevel}${row.maxLevel !== undefined && row.maxLevel !== row.minLevel ? `–${row.maxLevel}` : ""}`
-                                    : ""}
-                                </span>
-                              </button>
-                              <button
-                                className={"map-mob-pin" + (pinned ? " on" : "")}
-                                onClick={() => togglePin(row.name)}
-                                title={pinned ? "Unpin" : "Pin: draw it on every zone it stands in, and ring those zones on the world"}
-                              >
-                                <IconMapPin size={13} stroke={1.8} aria-hidden />
-                              </button>
-                            </div>
-                            {/* Its zones, each a click to go there with the
-                                mob pinned so it is drawn. A place with no name
-                                is one this build has no map row for. */}
-                            <div className="map-mob-places">
-                              {row.places.map((p) =>
-                                p.shortName ? (
-                                  <button
-                                    key={p.id}
-                                    className={"map-mob-place" + (p.shortName === selected || p.maps.includes(selected ?? "") ? " on" : "")}
-                                    onClick={() => void goToPlace(row, p.shortName!, p.maps, p.id)}
-                                    title={`${p.name} — L${p.levels.join(", ")}${p.era ? ` · ${p.era}` : ""}`}
-                                  >
-                                    {p.name}
-                                  </button>
-                                ) : (
-                                  <span key={p.id} className="map-mob-place none" title="A zone this build has no map for">
-                                    elsewhere
-                                  </span>
-                                ),
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
+                            {b.label}
+                          </button>
+                        ))}
+                      </div>
+                      {!worldBand && (
+                        <div className="map-empty-small">
+                          Pick a level to see who stands where. Point at a mob and its zones light up on the world.
+                        </div>
+                      )}
+                      {worldBand && worldRows === null && <div className="map-empty-small">Reading the world…</div>}
+                      {worldBand && worldRows !== null && worldRows.length === 0 && (
+                        <div className="map-empty-small">Nothing listed at that level.</div>
+                      )}
+                      {(worldRows ?? []).map(renderMobRow)}
                     </>
                   ) : (
                     <>
-                      {/* The roster of the current zone — the one drawn, or on
-                          the World the one framed. Said in the heading, so a
-                          list of one zone's mobs under a picture of the world
-                          reads as what it is. */}
+                      {/* The roster of the zone drawn: level, name, kills. */}
                       <div className="map-mob-heading">
-                        {mode === "world" ? "In " : ""}
                         {place?.name ?? entry?.displayName ?? selected}
                         {roster && rosterFor === selected && roster.known && (
                           <span className="subtle"> · {rosterRows.length} names</span>
@@ -1150,9 +1292,8 @@ export function MapView({
                       {/* The roster: level, name, and — where the logs have
                           them — this server's kills. Every row's spawn points
                           are already on the zone; pointing at a row lights
-                          its own and steps the rest back (on the World, it
-                          lights this zone); the pin keeps it; the name opens
-                          the mob. */}
+                          its own and steps the rest back; the pin keeps it;
+                          the name opens the mob. */}
                       {rosterRows.map((n) => {
                         const pinned = isPinned(n.name);
                         const lvl =
@@ -1256,6 +1397,9 @@ export function MapView({
           litLabel={hovered?.name}
           pins={pinRings}
           era={era}
+          levels={zoneLevels}
+          showLevels={showLevels}
+          onShowLevelsChange={referenceEnabled ? setShowLevels : undefined}
         />
       ) : (
         <section className="map-stage">
@@ -1522,4 +1666,36 @@ export function MapView({
       )}
     </div>
   );
+}
+
+/** Whether the World labels zones with their level — a display choice, kept across sessions like the pins. */
+const SHOW_LEVELS_KEY = "eqdeeps.map.showLevels";
+
+function loadShowLevels(): boolean {
+  try {
+    const raw = localStorage.getItem(SHOW_LEVELS_KEY);
+    return raw === null ? true : raw === "1";
+  } catch {
+    return true;
+  }
+}
+
+function saveShowLevels(on: boolean): void {
+  try {
+    localStorage.setItem(SHOW_LEVELS_KEY, on ? "1" : "0");
+  } catch {
+    // Storage full or denied: the toggle still works for this session.
+  }
+}
+
+/** The band for a place, from whichever of its drawings the site filed it under. */
+function bandFor(
+  levels: ReadonlyMap<string, ZoneLevelBand>,
+  maps: string[],
+): [number | undefined, number | undefined] {
+  for (const m of maps) {
+    const b = levels.get(m);
+    if (b) return [b.low, b.high];
+  }
+  return [undefined, undefined];
 }

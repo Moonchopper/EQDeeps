@@ -90,6 +90,9 @@ public sealed class NpcIndex
     public NpcZoneRow? Zone(string shortName) =>
         _zones.TryGetValue(shortName, out var zone) ? zone : null;
 
+    /// <summary>Every listing, in no particular order — for the derivations that walk the whole index (<see cref="ZoneLevels"/>).</summary>
+    public IEnumerable<NpcIndexEntry> Entries => _byName.Values.SelectMany(list => list);
+
     public int EntryCount
     {
         get

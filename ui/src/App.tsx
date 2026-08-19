@@ -92,6 +92,31 @@ const UPDATE_PROMPT_RECHECK_MS = 15_000;
  * hit landed long enough ago that "between pulls" is a fair reading. An
  * empty list is quiet — no log, or a log with no fights, is not a fight.
  */
+/**
+ * A live delta merged into the list: changed fights replace their row, new
+ * ones go on the end. Rows the delta does not name keep their identity, so
+ * a memoised fight row that did not change does not re-render. The server
+ * lists fights in creation order and ids only grow, so appending keeps the
+ * order; a removal never arrives as a delta (the server sends a full list).
+ */
+function mergeFights(prev: FightInfo[], changed: FightInfo[]): FightInfo[] {
+  if (changed.length === 0) return prev;
+  const byId = new Map(changed.map((f) => [f.id, f]));
+  const out: FightInfo[] = new Array(prev.length);
+  for (let i = 0; i < prev.length; i++) {
+    const f = prev[i];
+    const next = byId.get(f.id);
+    if (next) {
+      out[i] = next;
+      byId.delete(f.id);
+    } else {
+      out[i] = f;
+    }
+  }
+  for (const f of byId.values()) out.push(f);
+  return out;
+}
+
 function combatQuiet(fights: FightInfo[], nowMs: number): boolean {
   let last = 0;
   for (const f of fights) {
@@ -110,6 +135,11 @@ export default function App() {
   const [sessions, setSessions] = useState<SessionInfo[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [fights, setFights] = useState<FightInfo[]>([]);
+  // The tracker version the fights on hand are a snapshot of. A live delta
+  // is cut against a base version; it applies only if this is at or past
+  // that base — otherwise something was missed and the list is refetched.
+  // A ref, not state: it is read inside the hub callbacks and never drawn.
+  const fightsVersionRef = useRef(-1);
   // Learned mob health for the active session's SERVER (F25). Null until the
   // first fetch lands, which the panel distinguishes from "nothing learned".
   const [mobs, setMobs] = useState<MobHealthReport | null>(null);
@@ -648,10 +678,21 @@ export default function App() {
           }
         },
         onFights: (e) => {
-          if (e.sessionId === activeIdRef.current) {
+          if (e.sessionId !== activeIdRef.current) return;
+          if (e.full) {
+            fightsVersionRef.current = e.version;
             setFights(e.fights);
-            bumpRefreshThrottled();
+          } else if (e.baseVersion <= fightsVersionRef.current) {
+            fightsVersionRef.current = e.version;
+            setFights((prev) => mergeFights(prev, e.fights));
+          } else {
+            // A delta against a version this list never held — a push was
+            // missed, or the list came from a snapshot older than the
+            // delta's base. Nothing can be merged; ask for the whole list.
+            void refreshFights(e.sessionId);
+            return;
           }
+          bumpRefreshThrottled();
         },
         // A live frame needs no nudging: its scope is the trailing window of
         // the record stream, so new records move it on the server side.
@@ -827,7 +868,12 @@ export default function App() {
 
   async function refreshFights(id: string) {
     try {
-      const list = await api.getFights(id);
+      const { version, fights: list } = await api.getFights(id);
+      // Never step backwards: a delta newer than this snapshot may already
+      // have been merged while the request was in flight, and the list it
+      // made is complete at its version — this snapshot would lose it.
+      if (version < fightsVersionRef.current) return;
+      fightsVersionRef.current = version;
       setFights(list);
       setRefreshKey((k) => k + 1);
     } catch (e) {
@@ -847,6 +893,9 @@ export default function App() {
     // not in the log, and the first log opens on start-up — resetting here
     // threw away the screen the app opened on.
     setFrame({ kind: "live", spanSec: chartDefaults.spanSec }); // a new log starts live
+    // Another session's versions are another counter: forget this one's, or
+    // a smaller-numbered log's list would read as older than what it replaces.
+    fightsVersionRef.current = -1;
     await live.subscribe(id);
     await refreshFights(id);
     api.getMobs(id).then(setMobs).catch(() => undefined);
@@ -884,6 +933,7 @@ export default function App() {
     if (activeId === id) {
       setActiveId(null);
       setFights([]);
+      fightsVersionRef.current = -1;
       setMobs(null);
       setAttacks(null);
       setFrame(DEFAULT_FRAME);
@@ -1143,6 +1193,7 @@ export default function App() {
                 <Trail crumbs={crumbs} onBack={backTo} />
                 <MapView
                   currentZone={context?.zones?.[context.zones.length - 1]?.label}
+                  currentLevel={levelOf(context?.levels?.[context.levels.length - 1]?.label)}
                   install={sessions.find((s) => s.id === activeId)?.install}
                   hasLog={Boolean(activeId)}
                   mobs={mobs}
@@ -1304,4 +1355,10 @@ export default function App() {
       <LookupMenuHost />
     </LookupScope>
   );
+}
+
+/** A level span's label ("42") as a number, or undefined for none — the log's last word on the character's level. */
+function levelOf(label: string | undefined): number | undefined {
+  const n = label === undefined ? NaN : Number(label);
+  return Number.isFinite(n) ? n : undefined;
 }

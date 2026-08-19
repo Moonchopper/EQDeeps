@@ -5,6 +5,9 @@ import { TableSearch } from "../dashboards/tableTools";
 import { frameScope, type TimeFrame } from "../timeFrame";
 import { LookupLink } from "../lookup/LookupLink";
 
+/** Mob rows rendered before the table asks you to filter or show all. */
+const MOB_ROWS_SHOWN = 200;
+
 interface Props {
   /** Null until the first fetch lands. */
   attacks: MobAttackReport | null;
@@ -52,6 +55,12 @@ export function IncomingPanel({ attacks, sessionId, frame, server }: Props) {
   const [search, setSearch] = useState("");
   /** A level to narrow to, or "" for all of them. See {@link levelChoices}. */
   const [onlyLevel, setOnlyLevel] = useState<string>("");
+  // The table is capped and says so. A server's worth of mobs is thousands
+  // of rows — 2,645 on the owner's log, 55,000 elements — and rendering them
+  // all made this view a two-second switch for a list nobody scrolls to the
+  // bottom of; the rows come newest-first, so the cap keeps what is hitting
+  // you now, and the filter or "show all" gets to the rest.
+  const [showAll, setShowAll] = useState(false);
   const [open, setOpen] = useState<string | null>(null);
 
   const scope = useMemo(() => frameScope(frame), [frame]);
@@ -287,7 +296,7 @@ export function IncomingPanel({ attacks, sessionId, frame, server }: Props) {
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((m) => {
+                  {(showAll ? rows : rows.slice(0, MOB_ROWS_SHOWN)).map((m) => {
                     const key = keyOf(m);
                     const expanded = open === key;
                     return (
@@ -335,6 +344,17 @@ export function IncomingPanel({ attacks, sessionId, frame, server }: Props) {
                     <tr>
                       <td colSpan={columnCount(attacks.instanced)} className="empty">
                         Nothing matches.
+                      </td>
+                    </tr>
+                  )}
+                  {!showAll && rows.length > MOB_ROWS_SHOWN && (
+                    <tr>
+                      <td colSpan={columnCount(attacks.instanced)} className="empty">
+                        The {fmtNum(MOB_ROWS_SHOWN)} most recently fought of {fmtNum(rows.length)} — filter to
+                        narrow, or{" "}
+                        <button className="mini-btn" onClick={() => setShowAll(true)}>
+                          show all {fmtNum(rows.length)}
+                        </button>
                       </td>
                     </tr>
                   )}

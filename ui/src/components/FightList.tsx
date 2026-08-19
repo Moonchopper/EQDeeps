@@ -1,7 +1,15 @@
-import { Fragment, memo, useCallback, useRef } from "react";
+import { memo, useCallback, useLayoutEffect, useRef, useState } from "react";
 import type { FightInfo } from "../api";
 import { fmtClock, fmtDuration, fmtNum } from "../format";
 import { LookupLink } from "../lookup/LookupLink";
+
+/** One entry of the list as displayed: a pull-chain divider or a fight. */
+type Item = { kind: "group"; groupIndex: number } | { kind: "fight"; fight: FightInfo };
+
+/** The `.fight-window-slice` column gap, part of every row's stride. */
+const ROW_GAP = 2;
+/** Rows rendered beyond each edge of the viewport, in pixels, so a wheel notch never shows a blank. */
+const OVERSCAN_PX = 400;
 
 interface Props {
   fights: FightInfo[];
@@ -78,31 +86,86 @@ export function FightList({
     onSelect(group.map((f) => f.id));
   };
 
-  const rows: JSX.Element[] = [];
+  // What the list would show, newest first, dividers included — as a flat
+  // list of items rather than elements, because only the ones in view are
+  // turned into elements (see below).
+  const items: Item[] = [];
   let lastGroup = -1;
-  for (const fight of [...fights].reverse()) {
+  for (let i = fights.length - 1; i >= 0; i--) {
+    const fight = fights[i];
     if (fight.groupIndex !== lastGroup) {
       lastGroup = fight.groupIndex;
-      rows.push(
-        <button
-          key={`g${fight.groupIndex}`}
-          className="fight-group"
-          onClick={() => selectGroup(fight.groupIndex)}
-          title="Frame the whole pull chain"
-        >
-          — pull chain {fight.groupIndex + 1} —
-        </button>,
-      );
+      items.push({ kind: "group", groupIndex: fight.groupIndex });
     }
-    rows.push(
-      <FightRow
-        key={fight.id}
-        fight={fight}
-        selected={selectedSet.has(fight.id)}
-        onPick={pick}
-      />,
-    );
+    items.push({ kind: "fight", fight });
   }
+
+  // ---- windowing --------------------------------------------------------
+  // Only the rows in view (plus a margin) exist as elements. On an
+  // 8,000-fight log the list was 75,000 elements — 99% of the page — which
+  // made every mount of it a second of DOM work (coming back from a view
+  // that hides it), and every restyle of the page a walk over the lot.
+  // Heights are measured off the rendered rows rather than assumed, so a
+  // font or padding change cannot skew the offsets; until measured, the
+  // defaults are close enough that the first frame lands within a row.
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const [scrollTop, setScrollTop] = useState(0);
+  const [viewport, setViewport] = useState(600);
+  const [heights, setHeights] = useState({ fight: 45, group: 22 });
+
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(() => setViewport(el.clientHeight));
+    observer.observe(el);
+    setViewport(el.clientHeight);
+    return () => observer.disconnect();
+  }, [collapsed]);
+
+  const stride = (kind: Item["kind"]) => heights[kind] + ROW_GAP;
+  let totalHeight = 0;
+  for (const it of items) totalHeight += stride(it.kind);
+  let start = 0;
+  let offset = 0;
+  while (start < items.length && offset + stride(items[start].kind) < scrollTop - OVERSCAN_PX) {
+    offset += stride(items[start].kind);
+    start++;
+  }
+  let end = start;
+  let span = 0;
+  while (end < items.length && span < viewport + 2 * OVERSCAN_PX) {
+    span += stride(items[end].kind);
+    end++;
+  }
+  const visible = items.slice(start, end);
+
+  // Measure once something is rendered; correct only when off, so this
+  // cannot loop.
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const fight = el.querySelector<HTMLElement>(".fight-row")?.offsetHeight;
+    const group = el.querySelector<HTMLElement>(".fight-group")?.offsetHeight;
+    setHeights((h) => {
+      const next = { fight: fight || h.fight, group: group || h.group };
+      return next.fight === h.fight && next.group === h.group ? h : next;
+    });
+  }, [visible.length, collapsed]);
+
+  const rows = visible.map((it) =>
+    it.kind === "group" ? (
+      <button
+        key={`g${it.groupIndex}`}
+        className="fight-group"
+        onClick={() => selectGroup(it.groupIndex)}
+        title="Frame the whole pull chain"
+      >
+        — pull chain {it.groupIndex + 1} —
+      </button>
+    ) : (
+      <FightRow key={it.fight.id} fight={it.fight} selected={selectedSet.has(it.fight.id)} onPick={pick} />
+    ),
+  );
 
   // Collapsed, the pane is a spine you click to get back — the frame it set
   // is still in force, so it has to stay visible rather than disappear.
@@ -149,14 +212,22 @@ export function FightList({
           </button>
         </span>
       </div>
-      <div className="fight-scroll">
-        {rows.length > 0 ? (
-          <Fragment>{rows}</Fragment>
+      <div
+        className="fight-scroll"
+        ref={scrollRef}
+        onScroll={(e) => setScrollTop((e.target as HTMLDivElement).scrollTop)}
+      >
+        {items.length > 0 ? (
+          <div className="fight-window" style={{ height: totalHeight }}>
+            <div className="fight-window-slice" style={{ transform: `translateY(${offset}px)` }}>
+              {rows}
+            </div>
+          </div>
         ) : (
           <div className="empty">No fights yet</div>
         )}
       </div>
-      {rows.length > 0 && (
+      {items.length > 0 && (
         <div className="fight-hint subtle">click to frame · shift-click for a range</div>
       )}
     </div>

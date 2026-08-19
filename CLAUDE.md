@@ -381,7 +381,10 @@ cast, and create the GitHub release with everything attached at once.
 words, leading with what matters most. The workflow reads that section into the
 GitHub release and the app cast, and the in-app update dialog shows its first
 six bullets, so it should read as a product change log and not as commit
-titles. If the section is missing the workflow falls back to GitHub's generated
+titles. **And keep it short: one sentence per bullet, a bold lead, what
+changed — no measurements, no reasoning, no "it used to…" history.** All of
+that belongs in the commit body and the ADR; the owner asked for this after
+v0.15.2's notes ran to a paragraph each (2026-08-17). If the section is missing the workflow falls back to GitHub's generated
 PR list with a warning — it will not fail the release, because a failed release
 burns the tag — but that is the technical list the owner has asked never to
 ship again. Each PR adds its bullet under `## Unreleased` as it lands; the

@@ -160,7 +160,7 @@ public sealed class MobHealthEndpointTests : IAsyncLifetime
         await WaitForMobsAsync(id);
 
         var fights = await _http.GetFromJsonAsync<JsonElement>($"/api/sessions/{id}/fights");
-        var fight = fights.EnumerateArray().Last();
+        var fight = fights.GetProperty("fights").EnumerateArray().Last();
         Assert.Equal(4, fight.GetProperty("difficulty").GetInt32());
         Assert.Equal(1800, fight.GetProperty("estimatedHealth").GetInt64());
         Assert.Equal(1800, fight.GetProperty("damageTotal").GetInt64());

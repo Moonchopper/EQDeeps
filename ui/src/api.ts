@@ -50,6 +50,11 @@ export interface FightInfo {
   characterDamage: number;
 }
 
+export interface FightList {
+  version: number;
+  fights: FightInfo[];
+}
+
 export type MobHealthConfidence = "low" | "medium" | "high";
 
 /**
@@ -310,6 +315,28 @@ export interface ZoneRoster {
 export interface ZoneRosterResult {
   source: string;
   roster: ZoneRoster;
+  error?: string;
+}
+
+/**
+ * What level a zone is, read off who stands there: the middle half of the
+ * levels the site lists for the zone's NPCs (F27 × F30). One per zone id,
+ * carrying every map short name that draws the place.
+ */
+export interface ZoneLevelBand {
+  zoneId: number;
+  name?: string;
+  maps: string[];
+  low: number;
+  high: number;
+  listings: number;
+}
+
+export interface ZoneLevelsResult {
+  source: string;
+  /** False when there is no index to read — reference off, never fetched, unreachable. */
+  known: boolean;
+  zones: ZoneLevelBand[];
   error?: string;
 }
 
@@ -760,7 +787,8 @@ export const api = {
   getSession: (id: string): Promise<SessionInfo> =>
     fetch(`/api/sessions/${id}`).then((r) => json(r)),
 
-  getFights: (id: string): Promise<FightInfo[]> =>
+  /** The fight list and the version it is a snapshot of — what a live delta is judged against. */
+  getFights: (id: string): Promise<FightList> =>
     fetch(`/api/sessions/${id}/fights`).then((r) => json(r)),
 
   /**
@@ -807,6 +835,9 @@ export const api = {
   /** Every NPC the site lists in one zone, by map short name. */
   zoneRoster: (shortName: string): Promise<ZoneRosterResult> =>
     fetch(`/api/reference/zones/${encodeURIComponent(shortName)}/npcs`).then((r) => json(r)),
+
+  /** A level band for every zone the site lists enough of, for the World's labels. */
+  zoneLevels: (): Promise<ZoneLevelsResult> => fetch("/api/reference/zones/levels").then((r) => json(r)),
 
   npcDetail: async (id: number): Promise<NpcDetailResult | null> => {
     const response = await fetch(`/api/reference/npcs/${id}`);

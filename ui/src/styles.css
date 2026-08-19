@@ -1208,9 +1208,22 @@ button.update-pill {
 .fight-scroll {
   overflow-y: auto;
   padding: 6px;
+}
+
+/* The list is windowed (FightList.tsx): the window is the full height the
+   list would have, so the scrollbar is honest, and the slice inside it is the
+   handful of rows in view, translated to where they belong. The slice keeps
+   the column-and-gap layout the rows always had; ROW_GAP in the component
+   must match the gap here. */
+.fight-window {
+  position: relative;
+}
+
+.fight-window-slice {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  will-change: transform;
 }
 
 .fight-group {
@@ -2797,6 +2810,14 @@ textarea:focus-visible,
   font-weight: var(--w-normal);
 }
 
+/* The zone's level band, when the levels toggle is on: quieter than the name,
+   tabular so "L5–14" and "L46–55" line up when two labels sit close. */
+.zone-node text .lvl {
+  fill: var(--muted);
+  font-weight: var(--w-normal);
+  font-variant-numeric: tabular-nums;
+}
+
 /* A pinned mob stands here: a ring in the pin's colour (set inline — the
    colour is the pin's, not the stylesheet's), stepping outward per pin. */
 .zone-node .pin-ring {
@@ -3838,6 +3859,21 @@ tr:hover .lookup-btn,
   color: var(--muted-raised);
   font-size: var(--fs-micro);
   font-variant-numeric: tabular-nums;
+}
+
+/* The zone list's level tag on the World — the same band the label carries,
+   in the same quiet voice as the "2 maps" note beside it. */
+.map-zone-lvl {
+  flex: none;
+  margin-left: auto;
+  color: var(--muted);
+  font-size: var(--fs-micro);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The World's level-band chips: the Bestiary's pills, under the Mobs tab. */
+.map-bands {
+  padding: 2px 8px 6px;
 }
 
 .map-mob-text {

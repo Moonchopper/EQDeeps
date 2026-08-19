@@ -66,7 +66,7 @@
 > opens the mob, with a trail of crumbs back — which rests on the reference
 > site numbering NPCs by client zone id, so `zones.tsv` now carries those ids
 > (ADR-020 decision 6, map format doc §3).
-> Currently at **v0.15.2**. See `docs/product/features.md` for per-feature
+> Currently at **v0.16.0**. See `docs/product/features.md` for per-feature
 > status. The main open items: the release-gate invariants (CLAUDE.md §8 —
 > defined, not yet written), class detection from the client's spell files
 > (the emote and duration halves shipped as F10a/F10b), identity-registry disk

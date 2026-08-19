@@ -8,7 +8,7 @@ and the ADR. Newest first; a change lands under **Unreleased** with its pull
 request, and the release's Docs commit renames that heading to the version
 being cut.
 
-## Unreleased
+## v0.16.0 — 2026-08-17
 
 - **Long logs are fast again** — switching any view, and every second of a live fight, no longer redraws or re-sends thousands of fights; the Incoming table shows the 200 most recent mobs until you filter or ask for all.
 - **The World map can label each zone with its level range** — turn it on with the **levels** button in the World header.

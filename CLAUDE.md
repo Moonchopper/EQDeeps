@@ -257,6 +257,12 @@ by the owner first, per §9.
 **Branch → PR → merge.** Branches are `feat/…`, `fix/…`, `chore/…`, `docs/…`.
 Work lands on `main` through a PR; CI must be green.
 
+**Every commit needs `Signed-off-by`** — `git commit -s`, or `git commit -s -F
+message.txt` for the long ones. It certifies the Developer Certificate of Origin
+(`CONTRIBUTING.md`), a workflow checks it on every PR, and the check wants the
+sign-off email to match the commit author's. A branch that predates the habit is
+fixed with `git rebase --signoff main`.
+
 **Write everything as if the repo is public** — it is MIT and public release is
 the goal.
 

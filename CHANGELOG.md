@@ -8,16 +8,16 @@ and the ADR. Newest first; a change lands under **Unreleased** with its pull
 request, and the release's Docs commit renames that heading to the version
 being cut.
 
+## Unreleased
+
+- **Every copy now carries the licences it is meant to.** The installer and the portable zip put EQDeeps' own MIT licence, the full licence text for everything bundled into the app, and the .NET runtime's own notices beside the program. Before this only a short attribution file shipped, and the portable zip carried no licence at all.
+
 ## v0.16.0 — 2026-08-17
 
 - **Long logs are fast again** — switching any view, and every second of a live fight, no longer redraws or re-sends thousands of fights; the Incoming table shows the 200 most recent mobs until you filter or ask for all.
 - **The World map can label each zone with its level range** — turn it on with the **levels** button in the World header.
 - **The World's Mobs tab now browses the whole world by level**, opening on your own band, instead of listing the zone you are standing in.
 - **The left rail now stays how you left it on every view** — the Map no longer collapses it on its own.
-
-## Unreleased
-
-- **Every copy now carries the licences it is meant to.** The installer and the portable zip put EQDeeps' own MIT licence, the full licence text for everything bundled into the app, and the .NET runtime's own notices beside the program. Before this only a short attribution file shipped, and the portable zip carried no licence at all.
 
 ## v0.15.2 — 2026-08-17
 

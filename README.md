@@ -10,7 +10,12 @@ A modern, real-time EverQuest combat-log analytics app — a clean-room successo
 
 Every shot below is the bundled sample log — two days of sanitized real play
 that ships inside the app — framed on one evening of it. The app offers it on
-first run, so none of this needs EverQuest installed to reproduce.
+first run, so none of this needs EverQuest installed to reproduce, apart from
+the Map and World, which draw the maps an install already has. One footnote:
+the demo is deliberately kept out of the learned mob indexes, so on the sample
+itself the Bestiary's measured tables and Incoming's lower half stay empty until
+you open a log of your own — the shots open a copy of the sample as an ordinary
+log to show them filled.
 
 | | |
 |---|---|
@@ -18,6 +23,10 @@ first run, so none of this needs EverQuest installed to reproduce.
 | **Healing** — rankings carrying overheal and crit alongside the raw total, who received it, and which spells did the work. | **Tanking** — damage taken with the defensive rates beside it, the mobs that hit hardest, and every death in the frame. |
 | [<img src="docs/media/loot.png" alt="Loot view">](docs/media/loot.png) | [<img src="docs/media/experience.png" alt="Experience view">](docs/media/experience.png) |
 | **Loot** — what dropped and what it sold for, joined to mob deaths so "per kill" is an answer rather than an estimate. | **Experience** — XP and AA over time with the rate per hour, measured against time actually played rather than the calendar. |
+| [<img src="docs/media/incoming.png" alt="Incoming view">](docs/media/incoming.png) | [<img src="docs/media/bestiary.png" alt="Bestiary view">](docs/media/bestiary.png) |
+| **Incoming** — the swings you took, in the order they landed, above what this server's mobs hit for — learned per zone, per difficulty tier and per your level, because how hard something hits is a fact about the pairing. | **Bestiary** — every mob in the game, opening on the ones you have killed; a mob's page puts what EQLBase lists beside what your own logs measured for it at each difficulty tier, with a plain reading of how they compare. |
+| [<img src="docs/media/map.png" alt="Map view">](docs/media/map.png) | [<img src="docs/media/world.png" alt="World view">](docs/media/world.png) |
+| **Map** — the zone you are standing in, drawn from the map files your own install already has: exits clickable, the Mobs tab naming who stands there, and a right-click away from the world. | **World** — every zone and how they join up, built from the maps' own connection labels; search it, route across it, trim it to your server's era, and label each zone with the levels it is for. |
 | [<img src="docs/media/dashboard.png" alt="A custom dashboard">](docs/media/dashboard.png) | [<img src="docs/media/query-builder.png" alt="The panel query builder">](docs/media/query-builder.png) |
 | **Custom dashboards** — clone a standard view or start from nothing; drag panels, resize them, export one as a file and import it somewhere else. | **Query builder** — every panel is a query: source, scope, trim, grouping, columns, exclusions. The standard views are the same thing, written in code. |
 

@@ -1,16 +1,171 @@
 # EQDeeps
 
-A modern, real-time EverQuest combat-log analytics app — a clean-room successor to [EQLogParser](https://github.com/kauffman12/EQLogParser) built around composable queries and dashboards instead of fixed views.
+EQDeeps reads the log file EverQuest writes and shows you what happened in
+it — damage, healing, tanking, deaths, loot, experience — live while you play
+and for everything the log remembers. It runs on your own machine, every table
+and chart is a query you can edit, and nothing is bundled that your install
+already has. It is a clean-room successor to
+[EQLogParser](https://github.com/kauffman12/EQLogParser), built around
+composable queries and dashboards instead of fixed views.
+
+Built and used day to day on **EverQuest Legends**. The log is the same format
+every EverQuest server writes, so other servers' logs open too; the Bestiary's
+listings, level bands and expansion list are Legends'.
 
 ![EQDeeps Summary view on the bundled sample log](docs/media/overview.png)
 
-**Status: v0.16.0 released.** Parser core, ingestion (≈1 GB/s backfill, sub-250 ms live latency) that parses a log once — the records are cached on disk and the next open resumes where the last one stopped, ~3× faster, with half the memory — fight/session state, the composable query engine, a localhost REST + SignalR backend, one app-wide time frame — a live tail that follows the wall clock through quiet time, a range picked off the fight list, a window typed in (`-6h`, `500m`) or set absolutely, or one promoted straight off a chart you zoomed into — the Summary view (fight list, damage/healing/tanking trends, live meter, ability breakdowns, deaths, event timeline) with fight bands behind every chart, a strip above them naming the zone the character was in and the level they were, and timeline marks sized by what each cast landed, read-only standard views for healing, tanking, stances, experience, faction and loot — loot answering drop rates per kill by joining it to mob deaths, stances answering what switching cost you per second held across damage, healing and damage taken alike — tables you can fuzzy-search and sort with heat-ramped breakdown meters, one entity lit up everywhere at once when you point at any reading of it — and kept lit when you click it, or pinned across every view — learned mob health, measured from what it takes to kill one — keyed by instance difficulty, because the same froglok is a different fight at tier 1 and tier 4, and reported as a band with a confidence grade rather than a number pretending to be a measurement, read per mob on the Bestiary — an Incoming tab answering what is hitting you, pairing the swings you took in the order they landed (the one view here that is deliberately not a query, because the sequence is the information and every aggregation destroys it) with what this server's mobs hit for, learned per zone, per difficulty *and per your level*, since how hard something hits is a fact about the pairing rather than about the mob — a Map tab reading the zone maps EverQuest already put on your disk, so nothing is bundled and the drawings are the ones you have customized, opening on the zone you are standing in, with the exits clickable and the whole world laid out as a zoomable graph you can route across, built from the maps' own connection labels because that is the only place an EverQuest install writes down how zones join up, and trimmed to the expansion your server has actually reached once you say which, since nothing on the disk can, searchable by name with what a zone connects to lit beside it, labelled with every zone's level range when you ask, its mob list browsing the whole world by level from the band you are at, marked with where the log says you are standing, and a right-click away from any zone's own map — and correctable where the shipped zone table is wrong or silent, since it is knowingly incomplete and the person who can see both the map and the game gets the last word — an arrow beside every item and mob name — in the fight list, the tables, the feeds, the death log, and on the names down the side of a chart — that opens the community site which knows that name for the world the log is from, one click to the site you starred and a right-click for the rest, with items numbered from your own loot-filter file so the id-addressed sites land on the exact page, and an Item feed listing everything looted, sold, bought or named in chat as it happens, each a click from its page — a Bestiary holding every mob the game has, searchable, its listed level, health, spawns and loot fetched on demand from a community database and cached on your own machine (never bundled, never fetched until you ask, switchable off) and shown beside what your own logs measured for the same mob at each difficulty tier, which is the comparison no site can make for you — opening on the mobs you have actually killed, joined to the maps both ways (a mob's zones open the map with its spawn points drawn, a zone's roster opens the mob, pins keep a hunting list drawn on both), with back and forward over every screen — the per-spell emotes a buff prints when it lands or fades resolved against your own game install's spell files, so 94,000 lines of a real log that used to go past unrecognized are now events, with a spell named only when the text belongs to one, and the durations read from those same files so the timeline draws buffs nobody watched being cast and ends your own when the spell says it would — custom dashboards with a full query-builder UI, all of it reached from a rail grouped by the question a view answers (Combat, Character, World, Dashboards) that collapses to icons, with a Settings dialog and a Logs dialog at its foot, log autodetection, a WebView2 windowed shell, and signed CI releases shipping a per-user installer plus a portable zip, with consent-driven auto-updating that asks between fights, never during one — durations and rates measured against time actually played rather than against the calendar the log file spans — a choice on a framed range, where "plat per hour" over a window that slept through half of it is two different questions, and validated through day-to-day use on real logs. Remaining before public v1: the release-gate consistency checks (per-player damage summing to the fight total, every record landing in exactly one fight or none, lines-read accounting), class detection from the client's own spell files, identity persistence to disk, and the P1/P2 backlog — see [features.md](docs/product/features.md).
+**Status:** v0.16.0 — pre-1.0, used daily on real logs. Left before a public
+v1: the release-gate consistency checks (per-player damage summing to the fight
+total, every record landing in exactly one fight or none, lines-read
+accounting), class detection from the client's own spell files, identity
+persistence to disk, and the P1/P2 backlog — see
+[features.md](docs/product/features.md).
+
+## Get started
+
+**1. Install** — from the [latest release](https://github.com/Moonchopper/EQDeeps/releases/latest).
+
+- **Installer** (recommended): run `EQDeeps-Setup-x.y.z.exe`. It installs for
+  you only, under `%LocalAppData%\Programs\EQDeeps`, with no administrator
+  rights needed — the wizard still lets you pick any folder, or install for all
+  users. Installed copies **keep themselves up to date**; see
+  [Updates](#updates).
+- **Portable zip**: unzip anywhere and run `EQDeeps.Server.exe`. Deleting the
+  folder removes the app. Portable copies tell you when a new release exists
+  but can't install it for you.
+
+Either way you need 64-bit Windows 10 or 11 and nothing else: the window is
+WebView2, the browser engine built into Windows, and no .NET install is
+required. Your dashboards, settings and caches live in `%AppData%\EQDeeps`
+whichever way you install.
+
+> **First run:** releases are signed, but Windows SmartScreen builds reputation
+> per file hash, so a brand-new release can still show "Windows protected your
+> PC" until enough people have run it. Click **More info → Run anyway**; the
+> prompt stops appearing as a release circulates.
+
+**2. Open a log.** EQDeeps lists every log it can see — the one EverQuest is
+writing right now, the ones in your installs, the ones you opened before — and
+offers the bundled **sample**, two days of sanitized real play, so you can look
+around before pointing it at your own. Logging has to be on in game
+(`/log on`); the file is `Logs\eqlog_<Character>_<server>.txt` inside your
+EverQuest folder, and if it isn't found you can paste the path. A log opens
+fast the first time and faster after — what was parsed is cached, so reopening
+resumes where you left off. **+** in the header opens another character beside
+the first; **Logs** at the foot of the rail is the same picker later.
+
+**3. Read it.** You land on **Summary**: the fight list down the right, the
+damage, healing and tanking charts, the live meter, ability breakdowns, deaths
+and an event timeline. Everything on screen reports over one **time frame** —
+live by default (the last 15 minutes, following the clock through quiet time),
+or click a fight to frame it, shift-click for a range, type a window (`-6h`,
+`500m`) or set one absolutely, or zoom a chart and promote the zoom; **back to
+live** is the way back. The rail on the left is grouped by the question a view
+answers — **Combat**, **Character**, **World**, **Dashboards** — and collapses
+to icons; **Logs** and **Settings** sit at its foot.
+
+Closing the window exits the app, reopening resumes from the cache, and
+launching the exe again focuses the already-open window. On machines without
+the WebView2 runtime it falls back to your default browser, where deliberately
+closing the last tab shuts the app down a few seconds later — backgrounded or
+slept tabs do **not** stop it.
+
+## What it does
+
+**Combat**
+
+- **Summary** — fight list, damage/healing/tanking over time, the live meter,
+  ability breakdowns, deaths, event timeline. Fight bands sit behind every
+  chart, a strip above them names the zone you were in and the level you were,
+  and timeline marks are sized by what each cast landed.
+- **Healing** and **Tanking** — the standard parses: rankings carrying overheal
+  and crit beside the raw total, who received it and which spells did the work;
+  damage taken with the defensive rates beside it, the hardest hitters, every
+  death in the frame.
+- **Stances** (when the log has them) — what switching cost you per second
+  held, across damage, healing and damage taken alike.
+- **Incoming** — the swings you took in the order they landed (deliberately not
+  an aggregation: the sequence is the information, and every aggregation
+  destroys it) beside what this server's mobs hit for, learned per zone, per
+  instance difficulty *and per your level*, because how hard something hits is
+  a fact about the pairing rather than about the mob.
+
+**Character**
+
+- **Experience** — XP and AA over time and per hour, measured against time
+  actually played rather than the calendar the log spans.
+- **Faction** — standing changes over time, per faction, across the whole log,
+  since faction moves at kills and quest turn-ins alike.
+- **Loot** — what dropped and what it sold for, joined to mob deaths so "per
+  kill" is an answer rather than an estimate; plus an **Item feed** of
+  everything looted, sold, bought or named in chat as it happens.
+
+**World**
+
+- **Bestiary** — every mob the game has, searchable and browsable by level. A
+  mob's listed level, health, spawns and loot are fetched on demand from
+  EQLBase and cached on your machine — never bundled, never fetched until you
+  ask, switchable off — and shown beside what your own logs measured for the
+  same mob at each difficulty tier, which is the comparison no site can make
+  for you. Measured health comes from what it took to kill one, keyed by
+  instance difficulty because the same froglok is a different fight at tier 1
+  and tier 4, and reported as a band with a confidence grade rather than a
+  number pretending to be a measurement. It opens on the mobs you have actually
+  killed; pins keep a hunting list drawn on the maps; and it is joined to the
+  Map both ways.
+- **Map** — the zone maps EverQuest already put on your disk, so nothing is
+  bundled and the drawings are the ones you have customized. Opens on the zone
+  you are standing in, exits clickable, the listed mobs' spawn points drawn.
+  Where the shipped zone table is wrong or silent you can correct it: the
+  person who can see both the map and the game gets the last word.
+- **World** — every zone and how they join up, as a zoomable graph built from
+  the maps' own connection labels, the only place an install writes that down.
+  Trim it to the expansion your server has reached once you say which; search
+  by name, route across it, label each zone with the levels it is for, browse
+  the world's mobs by level, and right-click any zone into its own map.
+
+**Everywhere**
+
+- **Lookup arrows** beside every item and mob name — in the fight list, the
+  tables, the feeds, the death log, on the names down the side of a chart —
+  open the community site that knows that name for the world your log is from:
+  one click to the site you starred, right-click for the rest. Items are
+  numbered from your own loot-filter file, so the id-addressed sites land on
+  the exact page.
+- **Linked highlight** — point at one reading of a player or mob and it lights
+  up everywhere; click to keep it lit on this view, pin to keep it on every
+  view and across restarts. Tables fuzzy-search and sort, with heat-ramped
+  meters.
+- **Spells from your own install** — the per-spell emotes a buff prints when
+  it lands or fades are resolved against your game's spell files, so they
+  become events instead of unrecognized lines, and the timeline draws buffs
+  nobody watched being cast, with durations read from the same files.
+- **Back and forward** over every screen — the arrows beside the name, the
+  mouse's thumb buttons, or Alt+←/→.
+- **Several characters at once**, each a tab in the header.
+- **Custom dashboards** — clone a standard view or start from nothing; drag and
+  resize panels; export a dashboard as a file and import it elsewhere. Every
+  panel is a query — source, scope, trim, grouping, columns, exclusions — and
+  the standard views are the same thing, written in code.
+
+**Under the hood** — a .NET 8 server on `127.0.0.1` serving a React app:
+≈1 GB/s backfill, a log parsed once and cached so the next open resumes ~3×
+faster with half the memory, and under 250 ms from a line hitting the file to
+it being on screen. Durations and rates are measured against time actually
+played, not the calendar the log file spans — "plat per hour" over a window
+that slept through half of it is two different questions, and the framed
+range decides which.
 
 ## What it looks like
 
 Every shot below is the bundled sample log — two days of sanitized real play
 that ships inside the app — framed on one evening of it. The app offers it on
-first run, so none of this needs EverQuest installed to reproduce.
+first run, so none of this needs EverQuest installed to reproduce, apart from
+the Map and World, which draw the maps an install already has. One footnote:
+the demo is deliberately kept out of the learned mob indexes, so on the sample
+itself the Bestiary's measured tables and Incoming's lower half stay empty until
+you open a log of your own — the shots open a copy of the sample as an ordinary
+log to show them filled.
 
 | | |
 |---|---|
@@ -18,38 +173,33 @@ first run, so none of this needs EverQuest installed to reproduce.
 | **Healing** — rankings carrying overheal and crit alongside the raw total, who received it, and which spells did the work. | **Tanking** — damage taken with the defensive rates beside it, the mobs that hit hardest, and every death in the frame. |
 | [<img src="docs/media/loot.png" alt="Loot view">](docs/media/loot.png) | [<img src="docs/media/experience.png" alt="Experience view">](docs/media/experience.png) |
 | **Loot** — what dropped and what it sold for, joined to mob deaths so "per kill" is an answer rather than an estimate. | **Experience** — XP and AA over time with the rate per hour, measured against time actually played rather than the calendar. |
+| [<img src="docs/media/incoming.png" alt="Incoming view">](docs/media/incoming.png) | [<img src="docs/media/bestiary.png" alt="Bestiary view">](docs/media/bestiary.png) |
+| **Incoming** — the swings you took, in the order they landed, above what this server's mobs hit for — learned per zone, per difficulty tier and per your level, because how hard something hits is a fact about the pairing. | **Bestiary** — every mob in the game, opening on the ones you have killed; a mob's page puts what EQLBase lists beside what your own logs measured for it at each difficulty tier, with a plain reading of how they compare. |
+| [<img src="docs/media/map.png" alt="Map view">](docs/media/map.png) | [<img src="docs/media/world.png" alt="World view">](docs/media/world.png) |
+| **Map** — the zone you are standing in, drawn from the map files your own install already has: exits clickable, the Mobs tab naming who stands there, and a right-click away from the world. | **World** — every zone and how they join up, built from the maps' own connection labels; search it, route across it, trim it to your server's era, and label each zone with the levels it is for. |
 | [<img src="docs/media/dashboard.png" alt="A custom dashboard">](docs/media/dashboard.png) | [<img src="docs/media/query-builder.png" alt="The panel query builder">](docs/media/query-builder.png) |
 | **Custom dashboards** — clone a standard view or start from nothing; drag panels, resize them, export one as a file and import it somewhere else. | **Query builder** — every panel is a query: source, scope, trim, grouping, columns, exclusions. The standard views are the same thing, written in code. |
 
-## Run it
+## What it touches
 
-**Installer** (recommended, [latest release](https://github.com/Moonchopper/EQDeeps/releases/latest)):
-run `EQDeeps-Setup-x.y.z.exe`. It installs for you only, under
-`%LocalAppData%\Programs\EQDeeps`, with no administrator rights needed — the
-wizard still lets you pick any folder, or install for all users if you'd rather.
-Installed copies **keep themselves up to date**: see [Updates](#updates) below.
+EQDeeps runs entirely on your machine: no account, no telemetry, and the
+server listens only on `127.0.0.1`.
 
-**Portable zip** (same release): unzip and run `EQDeeps.Server.exe` — nothing is
-written outside the folder and deleting it removes the app. Portable copies
-tell you when a new release exists but can't install it for you.
+- **Reads:** your log files, and from your EverQuest install the zone maps,
+  the spell files and your loot-filter file (`userdata\LF_*.ini`, for item
+  ids). Nothing in the install is ever written to.
+- **Writes:** `%AppData%\EQDeeps` — dashboards, settings, the learned mob
+  indexes, and the log cache.
+- **Network:** two things, both optional. The update check against GitHub
+  (`--no-update-check`, or "never check" in Settings), and the Bestiary's
+  lookups from EQLBase, fetched only when you open something that needs one
+  and cached after (`--no-reference`). Add `--no-spells`, which stops it
+  reading the spell files, and it touches nothing but the log.
 
-Either way the app opens in its own
-window (WebView2, the browser engine built into Windows 10/11). No
-.NET required. Closing the window exits the app (reopening resumes from a
-cache of what was already parsed, so nothing is lost and little is redone),
-and launching the exe again focuses the already-open window. On machines without the WebView2 runtime it falls back to your default
-browser, where deliberately closing the last tab shuts the app down a few
-seconds later — backgrounded or slept tabs do **not** stop it. Flags:
-`--browser` (use your default browser instead of the app window),
-`--no-browser` (headless, no UI), `--no-update-check`, `--stay-alive` (keep
-parsing with no UI open), `--no-reference` (the Bestiary fetches nothing),
-`--no-spells` (don't read the spell files in your EverQuest install),
+Flags, for when you want them: `--browser` (your default browser instead of
+the app window), `--no-browser` (headless, no UI), `--stay-alive` (keep
+parsing with no UI open), `--no-update-check`, `--no-reference`, `--no-spells`,
 `--urls http://127.0.0.1:PORT`.
-
-> **First run:** releases are signed, but Windows SmartScreen builds reputation
-> per file hash, so a brand-new release can still show "Windows protected your
-> PC" until enough people have run it. Click **More info → Run anyway**; the
-> prompt stops appearing as a release circulates.
 
 ## Updates
 
@@ -65,29 +215,24 @@ per release** before doing anything. The prompt offers:
 | **Don't ask again for vX.Y.Z** | Silent until you're running a different version |
 | **Update automatically from now on** | Stops asking; every release installs itself |
 
-By default updates are **never applied mid-session** — a download is staged
-quietly and the swap happens after you close the app, so a raid parse is never
+Updates are **never applied mid-session** — a download is staged quietly and
+the swap happens after you close the app, so a raid parse is never
 interrupted. The pill beside the version number shows what's happening and
-offers **restart to update** if you want it sooner. Nothing is executed until it
-passes both an Ed25519 signature check against a key built into the app and a
-Windows Authenticode check.
+offers **restart to update** if you want it sooner. Nothing is executed until
+it passes both an Ed25519 signature check against a key built into the app and
+a Windows Authenticode check.
 
 Beside the version number, **⚙** opens update preferences (ask each time /
 automatic / never check) and **⟳** checks on demand. A manual check overrides
-every standing "no", including automatic mode — it always asks before installing,
-so it's the way back if you've chosen "don't ask again". EQDeeps also re-checks
-every few minutes on its own, so you never have to restart to find out a release
-exists. That won't nag: declining a release is remembered, so a shorter interval
-only changes how quickly an update is noticed.
+every standing "no", including automatic mode — it always asks before
+installing, so it's the way back if you've chosen "don't ask again". EQDeeps
+also re-checks every few minutes on its own, so you never have to restart to
+find out a release exists; declining a release is remembered, so that won't
+nag.
 
-Prefer no network calls at all? `--no-update-check` disables the whole thing for
-a run, and the in-app setting has a "never check" mode. The only other thing
-that ever leaves your machine is a Bestiary lookup — nothing is fetched until
-you open a page that needs it, and `--no-reference` switches it off entirely.
-Add `--no-spells`, which stops the app reading the spell files in your
-EverQuest install, and it touches nothing but the log.
+## For developers
 
-**From source**:
+**From source:**
 
 ```
 cd ui && npm install && npm run build && cd ..   # build the SPA into the backend
@@ -104,25 +249,23 @@ dotnet run -c Release --project tools/EQDeeps.Bench -- gen %TEMP%\eqlog_Test_ser
 Tests: `dotnet test` · Benchmarks: `dotnet run -c Release --project tools/EQDeeps.Bench -- all` ·
 UI dev loop: `dotnet run --project src/EQDeeps.Server` + `cd ui && npm run dev`.
 
-## Package & share
-
-`powershell -File scripts/publish.ps1` produces a self-contained
-`artifacts/win-x64/` folder: `EQDeeps.Server.exe` (SPA embedded) with its
-runtime, plus `LICENSE.txt`, `NOTICE.txt`, `THIRD-PARTY-NOTICES.txt` and a
-`licenses\` folder holding the .NET runtime's own — all of which must accompany
-any copy you distribute. Zip the folder and it runs on any 64-bit Windows
-machine. Add `-Installer` to also
-compile `artifacts/installer/EQDeeps-Setup-x.y.z.exe` — that needs
+**Package & share:** `powershell -File scripts/publish.ps1` produces a
+self-contained `artifacts/win-x64/` folder: `EQDeeps.Server.exe` (SPA
+embedded) with its runtime, plus `LICENSE.txt`, `NOTICE.txt`,
+`THIRD-PARTY-NOTICES.txt` and a `licenses\` folder holding the .NET runtime's
+own — all of which must accompany any copy you distribute. Zip the folder and
+it runs on any 64-bit Windows machine. Add `-Installer` to also compile
+`artifacts/installer/EQDeeps-Setup-x.y.z.exe` — that needs
 [Inno Setup 6](https://jrsoftware.org/isdl.php)
 (`winget install JRSoftware.InnoSetup`).
 
-Releases ship by pushing a git tag: `git tag v0.x.y && git push origin v0.x.y`
-makes CI test, publish, sign, build the installer, and create a GitHub release
-with the installer, the portable zip, and the signed app cast that drives
-auto-update (see `.github/workflows/release.yml`) — that's how
-[v0.1.0](https://github.com/Moonchopper/EQDeeps/releases/tag/v0.1.0) was built.
+**Releases** ship by pushing a git tag: `git tag v0.x.y && git push origin
+v0.x.y` makes CI test, publish, sign, build the installer, and create a GitHub
+release with the installer, the portable zip, and the signed app cast that
+drives auto-update (see `.github/workflows/release.yml`). The release notes
+come from [CHANGELOG.md](CHANGELOG.md).
 
-## Documentation
+### Documentation
 
 | Doc | Purpose |
 |---|---|
@@ -140,7 +283,11 @@ auto-update (see `.github/workflows/release.yml`) — that's how
 | [docs/architecture/adr-020-npc-reference.md](docs/architecture/adr-020-npc-reference.md) | Where the Bestiary's data comes from, its measured coverage and licence, and why it is fetched on demand rather than bundled |
 | [docs/release-signing.md](docs/release-signing.md) | Azure Artifact Signing setup for signed releases and auto-update |
 
-Locked decisions: .NET 8 backend + React/TypeScript SPA, realtime via SignalR, multi-character monitoring from day one, permissive-license dependencies only (attribution in [NOTICE](NOTICE), licence text in [THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt)), Windows-first, public release as the end goal.
+Locked decisions: .NET 8 backend + React/TypeScript SPA, realtime via SignalR,
+multi-character monitoring from day one, permissive-license dependencies only
+(attribution in [NOTICE](NOTICE), licence text in
+[THIRD-PARTY-NOTICES.txt](THIRD-PARTY-NOTICES.txt)), Windows-first, public
+release as the end goal.
 
 ## Contributing
 

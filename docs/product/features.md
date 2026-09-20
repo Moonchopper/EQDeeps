@@ -647,6 +647,49 @@ Acceptance:
 - Open: item icons (the icon id is already in the data), and using the same
   index to seed F21's level-normalized DPS.
 
+### F35. Slayer — what is left to kill, and where to go and kill it — **in progress** ([ADR-023](../architecture/adr-023-slayer-planner.md))
+
+(F31–F34 are the companion-features programme, PR #98.)
+
+The Slayer achievements count kills by creature type — 100 kobolds, then
+1,000, then 5,000 — and finishing them means knowing, for each type still
+open, a zone where it stands thick, at a level worth fighting, that does not
+cost a faction the player is building, and is not a city. Owner request,
+2026-09-20: that is an evening of wiki tabs per achievement, and the app
+already holds every input.
+
+- **The count is the game's.** `/outputfile achievements` writes every
+  achievement and its `have/need` to the install; the app reads it, shows its
+  age, and names the command that refreshes it. The app never counts a kill
+  toward an achievement itself — the log does not say what race a corpse was.
+- **Where to hunt** comes from the F30 reference: race, spawn points,
+  respawn and faction hits per listing, per zone. Ranked by respawn supply,
+  shown with the facts behind the rank.
+- **Faction is a cost, against the factions the export names** — its unlock
+  achievements list the forty standings the player is working on. A zone that
+  loses one is shown, never recommended.
+- **Never a city.** `zones.tsv` says which zones are.
+- **The plan** walks everything still open, greedily: a kill is worth most
+  to the achievement it nearly finishes, and a zone that feeds six creature
+  types at once beats six camps.
+
+Acceptance, by slice:
+
+1. **Tracker** — with an export in the install, the Slayer view lists every
+   kill achievement with its progress, nearest to done first, and the
+   meta-achievements above them; with none, it says which command writes
+   one. Re-exporting in game updates the view without a restart. Works with
+   `--no-reference`.
+2. **Where to hunt** — picking an open achievement ranks its zones; no city
+   appears; a zone costing a protected faction is marked and unranked; a
+   listing with no primary faction contributes no faction cost; a creature
+   type that joins to no race says so.
+3. **The plan** — the next ten stops across everything open, each saying
+   what it finishes, what else it feeds and what it costs; the walk matches a
+   hand-computed toy world.
+4. **Real standings** (`/outputfile faction`) and 5. **since-the-export
+   estimate** from the log — planned, not designed.
+
 ## P2 — Later
 
 - **F15. Chat archive & search** — persist chat by channel/player with full-text search and date ranges.

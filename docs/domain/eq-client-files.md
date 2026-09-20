@@ -29,6 +29,9 @@ what is here is what *any* Daybreak client of the same vintage carries.
 | NPC locations on the map | Yes, community data — the Brewall pack is installed with the client | `maps\brewalls\<zone>_1.txt` `P` labels: `Name_(Roam)`, `Willaen_(Banker)`, `GS:_Item_Name` (ground spawns) |
 | NPC lore blurbs | 306 famous ones (Overseer agent cards) | `dbstr_us.txt` types 52/53/61 |
 | Faction id → name | Yes, complete, 2,048 rows | `dbstr_us.txt` type 45; ripple table in `Resources\Faction\FactionAssociations.txt` |
+| The player's **achievement progress**, with kill counts | Yes, when the player asks the game for it | `<Char>_<server>-Achievements.txt` (`/outputfile achievements`) — grammar below. The client's own `Resources\Achievements\*` defines the achievements but carries neither progress nor the counts required |
+| The player's **faction standings** | Presumably — the command exists, no sample has been read yet | `/outputfile faction` (`eqstr` 3487 lists it beside `achievements` and `inventory`) |
+| Race id → name, singular and plural | Yes, 997 of each | `dbstr_us.txt` types 11 and 12 (`39^11^Gnoll`, `39^12^Gnolls`) |
 | Spell **durations** | Yes — `spells_us.txt` **column 107 = duration formula, column 108 = cap in ticks** (1 tick = 6 s). Identified, not guessed: see below | same file |
 | Spell database | **Yes, complete**: 73,963 spells, 173 columns; cast messages; descriptions | `spells_us.txt`, `spells_us_str.txt` (headed: `#SPELLINDEX^CASTERMETXT^CASTEROTHERTXT^CASTEDMETXT^CASTEDOTHERTXT^SPELLGONE^`), `dbstr_us.txt` type 6 |
 | Every system/combat message template | Yes — 7,120 format strings with `%N` slots | `eqstr_us.txt` |
@@ -140,6 +143,66 @@ too, for what is worn and banked. Both are per character and per server.
 +2`, `Mesh Gauntlets +1`), exalted ones a tag (`Guise of the Deceiver
 (Exaltation)`). Reference sites list the base name; strip ` +N` and
 ` (Exaltation)` before asking one.
+
+### The achievements export — `<Char>_<server>-Achievements.txt`
+
+Written to the install's root by `/outputfile achievements`, beside the
+inventory dump and named the same way. It is the **only place a kill count
+toward an achievement exists outside the game**: the log never says what race
+a corpse was, and the client's achievement tables carry no progress and no
+required counts. F35 (ADR-023) reads it. Measured on the reference install
+(2026-09-20): 1,842 lines, 64 KB, pure ASCII, CRLF, no header, no trailer.
+
+Four line shapes and nothing else — every line in the file is one of these:
+
+```
+Slayer: Conquest                                  category      Group: Subgroup, no leading tab
+I⇥Puttin' On The Dog                              achievement   state ⇥ title
+I⇥⇥Kobolds⇥570/5000                               component     state ⇥ ⇥ text ⇥ have/need
+C⇥⇥Skeletons                                      component     …a finished one drops its count
+```
+
+`state` is `C` (complete) or `I` (incomplete), on achievements and components
+alike. 26 categories, 494 achievements, 1,322 components, 107 of them counted.
+
+What is true of it, each checked against the whole file:
+
+- **A completed component never carries a count** — not one in the file
+  keeps it — and no open kill component lacks one. So "how many did that
+  take" is unknowable for anything finished, and a required count can only
+  be read off a component that is still open.
+- **An achievement can have many counted components** — *I'm a People
+  Person!* is fifteen races at ten kills each — so progress is per component,
+  and an achievement's own state is the game's verdict, not a sum to recompute.
+- **The same creature list recurs at several sizes.** `Kobolds` is a component
+  of *World Warrens Three* (Skill, 100), *Kobolded Killer* (Special, 1,000)
+  and *Puttin' On The Dog* (Conquest, 5,000), and the counts move together
+  (570 in both open ones). A kill is one kill to all of them.
+- **The creature list is prose, not data**: `Alligators, Basilisks, and
+  Crocodiles.` — comma-separated, an Oxford `and`, a trailing period,
+  sometimes a `Clockwork: ` lead-in, sometimes a whole phrase (`The playable
+  races.`, `The avatar of a deity.`, `True Dragons`). 225 distinct terms
+  across the 118 kill achievements. The client's plural table (`dbstr` 12)
+  knows 182 of them; what each one *counts* is a race id the export never
+  states.
+- **Meta-achievements point at others by title, unreliably.** `Complete the
+  achievement "We are the dead!"` names an achievement titled `We Are the
+  Dead!`. Of 179 such references, 93 match a title verbatim, 27 more match
+  once case and trailing punctuation are ignored (`Catnipped in the bud.` →
+  `Catnipped In the Bud`), and **59 match nothing** — achievements for
+  creatures this game does not have yet (`Natives of Luclin`), most marked
+  `(Optional)`, and at least one rename (`Dark Elf Antonican, Please!` is
+  complete, and is the achievement the list calls `Love Will Teir Them
+  Apart`). The reference line **carries its own `C`/`I`**, so its state never
+  depends on resolving it; resolution is for linking only, and an unresolved
+  reference is still a row.
+- **A title is not a key.** Four titles occur more than once; identity is
+  category + title + position.
+- `(Optional) ` prefixes a component that the parent does not require.
+
+Like every file here it is the player's own, read from their install and
+never copied; like every input it is hostile until parsed — bounded size,
+no throw on a malformed line, unknown shapes counted and skipped.
 
 ### `maps\`
 

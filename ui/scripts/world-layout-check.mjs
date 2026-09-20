@@ -15,10 +15,11 @@
 // catch a drifting formula" reasoning CLAUDE.md §8 gives for the query-engine
 // tests. What actually has to hold survives a retune: a hinted edge ends up
 // near its bearing, two runs of the same graph agree, nothing lands on top
-// of anything else, and a hub's spokes ignore their own bearings. Those are
-// the five checks below.
+// of anything else, a hub's spokes ignore their own bearings, and a hub does
+// not fold the real geography it touches onto itself. Those are the six
+// checks below.
 //
-// None of the five pins the *value* of a constant, and invariant 1 in
+// None of the six pins the *value* of a constant, and invariant 1 in
 // particular is weaker than it looks: on the small tree below, the seed walk
 // alone (bearings baked into the starting positions) or the orientation
 // force alone (400 iterations to correct a bad start) is already enough to
@@ -31,6 +32,10 @@
 // ORIENTATION_STRENGTH is tuned well. The constant's value is validated
 // separately, against the real classic-world corpus (68% of sides within
 // 45°, 0 edge crossings) — see the ADR and domain doc, not a unit check.
+// Invariant 6 is the newest and the odd one out: unlike 1–5 it *does* fail
+// against the module as it stood after Decision 6's first cut (masked hub
+// bearings, but a hub still seeded the walk and pulled at full spring) — see
+// its own comment below for the reproduction and the reading.
 import { layout, packedLayout } from "../src/maps/worldLayout.ts";
 
 const angleBetween = (ax, ay, bx, by) => {
@@ -192,6 +197,78 @@ const report = (name, failures) => {
   ];
   const pos = packedLayout(graph(zones, edges));
   report("a graph with no bearings at all still lays out (finite, separated)", noTwoCloserThan10(pos));
+}
+
+// 6. A portal hub must not fold the geography it touches. Fourteen zones in
+// a straight west-to-east chain, every chain edge bearing (1, 0); one hub
+// of degree 14 (over HUB_DEGREE, no bearings of its own) that touches four
+// of the chain's zones — 1, 5, 9 and 12, spread out and away from both
+// ends — plus ten zones it reaches by nothing but its own portal stones,
+// to clear its degree without any more of the chain than that. This is the
+// Lake Rathetear shape: South Karana has a real, oriented edge to Lake
+// Rathetear *and* a book to Plane of Knowledge; it is not that every zone
+// for a hundred miles shares a stone with the same room.
+//
+// A hub touching *every* zone of a chain this short — tried first, closer
+// to a literal reading — turned out to be a harder case than the fix
+// promises to solve: even run against the reference prototype's own
+// {seedHubLast, hubSpring: .1} this repo's fix was ported from, that
+// version still bowed the chain into an arc (5 of 13 edges 45–71° off),
+// because fourteen tenth-strength springs converging on one point still
+// outpull a chain this short once summed. The real world never does that —
+// Plane of Knowledge's 37 exits scatter across the whole map, not into one
+// contiguous stretch of it — so this fixture asks the question the fix
+// actually answers instead.
+{
+  const chainLength = 14;
+  const hubTouches = [1, 5, 9, 12];
+  const hubDegree = 14;
+  const stoneCount = hubDegree - hubTouches.length;
+  const chain = Array.from({ length: chainLength }, (_, i) => {
+    const chainDegree = (i === 0 || i === chainLength - 1 ? 1 : 2) + (hubTouches.includes(i) ? 1 : 0);
+    return zone(`chain${String(i).padStart(2, "0")}`, chainDegree);
+  });
+  // Reached only by their own portal stone, not by the chain: padding for
+  // the hub's degree that carries no bearing and touches no chain zone, so
+  // it cannot itself steer the chain's shape — only the four real touches
+  // above can.
+  const stones = Array.from({ length: stoneCount }, (_, i) => zone(`stone${String(i).padStart(2, "0")}`, 1));
+  const hub = zone("hub", hubDegree);
+  const chainEdges = [];
+  for (let i = 0; i < chainLength - 1; i++) {
+    chainEdges.push({ from: chain[i].shortName, to: chain[i + 1].shortName, dx: 1, dy: 0 });
+  }
+  const hubEdges = [
+    ...hubTouches.map((i) => ({ from: "hub", to: chain[i].shortName })),
+    ...stones.map((z) => ({ from: "hub", to: z.shortName })),
+  ];
+  const pos = layout(graph([hub, ...chain, ...stones], [...chainEdges, ...hubEdges]), 400);
+
+  const failures = [];
+  for (const e of chainEdges) {
+    const a = pos.get(e.from);
+    const b = pos.get(e.to);
+    const ang = angleBetween(b.x - a.x, b.y - a.y, e.dx, e.dy);
+    if (ang > 45) {
+      failures.push(`${e.from}->${e.to} ended up ${ang.toFixed(1)}° off east`);
+    }
+  }
+
+  // "Rolled up around the hub" reads as a short chain in x: the ends land
+  // close together instead of the eight-edge span a straight walk gives it.
+  const lengths = chainEdges
+    .map((e) => Math.hypot(pos.get(e.to).x - pos.get(e.from).x, pos.get(e.to).y - pos.get(e.from).y))
+    .sort((p, q) => p - q);
+  const median = lengths[Math.floor(lengths.length / 2)];
+  const spanX = Math.abs(pos.get(chain[chainLength - 1].shortName).x - pos.get(chain[0].shortName).x);
+  if (spanX < 8 * median) {
+    failures.push(
+      `chain ends are only ${spanX.toFixed(1)} apart in x — ${(spanX / median).toFixed(1)}x the median ` +
+        `chain-edge length (${median.toFixed(1)}), not the 8x a straight chain gives — rolled up around the hub`,
+    );
+  }
+
+  report("a portal hub does not fold the geography", failures);
 }
 
 console.log(failed ? `\n${failed} world-layout failure(s)` : "\nall world-layout checks passed");

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { api, type ZoneGraph, type ZoneGraphNode, type ZoneRouteStep } from "../api";
 import { fuzzyMatch, type FuzzyHit } from "../fuzzy";
 import { zoneKey } from "./mapSettings";
-import { packedLayout, type Point } from "./worldLayout";
+import { HUB_DEGREE, packedLayout, type Point } from "./worldLayout";
 
 interface Box {
   x: number;
@@ -253,6 +253,25 @@ export function ZoneGraphView({
     () => (drawn ? packedLayout(drawn.graph) : new Map<string, Point>()),
     [drawn],
   );
+
+  /**
+   * Zones at or above `HUB_DEGREE` in the drawn graph — portal rooms whose
+   * bearings the layout ignores (worldLayout.ts's hub rule). Built once per
+   * `drawn` rather than compared inline per edge, since every edge touching
+   * one needs the same answer and degree does not change between renders of
+   * the same graph.
+   */
+  const hubs = useMemo(() => {
+    const set = new Set<string>();
+    if (drawn) {
+      for (const z of drawn.graph.zones) {
+        if (z.degree >= HUB_DEGREE) {
+          set.add(z.shortName);
+        }
+      }
+    }
+    return set;
+  }, [drawn]);
 
   /**
    * The whole world, framed to the container's shape.
@@ -902,6 +921,13 @@ export function ZoneGraphView({
             // lit regardless: it was asked for too.
             const link = found !== null && (found.hits.has(e.from) || found.hits.has(e.to));
             const dim = found !== null && !lit && !link;
+            // A portal edge runs long and stays faint on purpose — a hub sits
+            // at the middle of everything it reaches, so at full strength it
+            // would bury the geography it crosses on the way. Off unless the
+            // edge is already carrying its own paint (a route step or a
+            // search link), which matters more than the fact that one end is
+            // a hub.
+            const portal = !lit && !link && (hubs.has(e.from) || hubs.has(e.to));
 
             return (
               <line
@@ -911,7 +937,11 @@ export function ZoneGraphView({
                 x2={b.x}
                 y2={b.y}
                 className={
-                  "zone-edge" + (lit ? " on" : "") + (link && !lit ? " link" : "") + (dim ? " dim" : "")
+                  "zone-edge" +
+                  (lit ? " on" : "") +
+                  (link && !lit ? " link" : "") +
+                  (portal ? " portal" : "") +
+                  (dim ? " dim" : "")
                 }
                 // Inline, not the strokeWidth attribute: a CSS rule beats a
                 // presentation attribute, so the stylesheet's width would win
@@ -988,6 +1018,7 @@ export function ZoneGraphView({
                   {zonePins.length > 0 && ` · pinned here: ${zonePins.map((p) => p.name).join(", ")}`}
                   {z.maps.length > 1 && ` · ${z.maps.length} maps: ${z.maps.join(", ")}`}
                   {via && ` · lit because it connects to ${via.map((v) => names.get(v) ?? v).join(", ")}`}
+                  {z.degree >= HUB_DEGREE && " · portal hub: its exits do not steer the layout"}
                 </title>
                 {/* While searching, only hits and their connections are named
                     — a dimmed label is clutter over what you are looking for —

@@ -56,11 +56,35 @@ const GRAVITY_MULTIPLIER = 0.25;
  * the room's convenience, not the world's. An edge touching a hub — either
  * end at or above this degree, in the drawn graph — contributes no bearing,
  * in the seed walk or the orientation force. Honouring hub bearings raised
- * full-world edge crossings 307 → 676; ignoring them (this rule) brings it
- * to ~430. The classic world has no zone over 8 exits, so the rule never
- * fires there.
+ * full-world edge crossings 307 → 676; masking them (this rule) alone
+ * brings it to ~430 — but masking the bearing left a hub's *physics*
+ * untouched, which is its own problem: the seed walk still started at
+ * Plane of Knowledge (the best-connected zone in any era) and fanned 37
+ * zones into a ring before the rest of the world existed, and every edge to
+ * it still pulled at full spring strength, folding the Karanas over each
+ * other. The two rules below fix that: a hub neither starts nor steers the
+ * seed walk (it is placed last, one portal at a time), and its edges pull
+ * at a tenth strength (`HUB_SPRING`) once the simulation starts. The
+ * classic world has no zone over 8 exits, so none of this ever fires there.
  */
-const HUB_DEGREE = 12;
+export const HUB_DEGREE = 12;
+
+/**
+ * The spring force on an edge touching a hub is multiplied by this before it
+ * pulls two zones together. A hub sits at the middle of everything it
+ * reaches, so at full strength it draws every zone with a book to it toward
+ * one point regardless of where that zone's real neighbours are — this is
+ * what folded the Karanas together, not the bearing. Swept on the any-era
+ * world with the portals-last seed already in place (confident non-hub
+ * edges within 45° of their own bearing, edges worse than 90° off, edge
+ * crossings among walkable edges): shipped (spring 1, name-order seed) 59%
+ * / 48 / 208; 0.25 → 72% / 25 / 116; **0.1 → 75% / 18 / 89**; 0.03 → 77% /
+ * 19 / 97, but the longest edge grows 461 → 520; 0 lets a hub drift off
+ * entirely (longest edge 1147) because nothing holds it once it also
+ * contributes no bearing. 0.1 is the strength that still tames Lake
+ * Rathetear and the Karanas without giving up an edge to get there.
+ */
+const HUB_SPRING = 0.1;
 
 /**
  * The angle (radians) successive un-bearinged siblings fan out by when
@@ -73,6 +97,7 @@ const GOLDEN_ANGLE = 2.399963;
 interface IndexedEdge {
   a: number;
   b: number;
+  hub: boolean;
   dx?: number;
   dy?: number;
 }
@@ -81,12 +106,14 @@ interface IndexedEdge {
 interface RawEdge {
   a: number | undefined;
   b: number | undefined;
+  hub: boolean;
   dx?: number;
   dy?: number;
 }
 
 interface Neighbour {
   to: number;
+  hub: boolean;
   dx?: number;
   dy?: number;
 }
@@ -97,9 +124,9 @@ interface Neighbour {
  * the way its own map's exit label says it should.
  *
  * <p>Deterministic on purpose — positions start from a breadth-first walk
- * in a fixed order (best-connected zone first, ties and neighbour order
- * broken by shortName) rather than at random or reshuffled per visit, so
- * the same world produces the same picture every time. A layout that
+ * in a fixed order (best-connected non-hub zone first, ties and neighbour
+ * order broken by shortName) rather than at random or reshuffled per visit,
+ * so the same world produces the same picture every time. A layout that
  * reshuffled on each visit would make the map harder to learn, and learning
  * the shape is the point of drawing it.</p>
  *
@@ -107,6 +134,17 @@ interface Neighbour {
  * for a tree, that <em>is</em> the layout the bearings ask for, so the
  * simulation below only has to settle cycles and collisions rather than
  * discover orientation from scratch.</p>
+ *
+ * <p>Portals are crossed last. A hub (`HUB_DEGREE`) never starts a
+ * component and is never walked to while any real exit is still unplaced —
+ * once a walk's frontier runs out, it crosses exactly one hub edge and
+ * resumes walking from what that reaches, one portal at a time. Without
+ * this, the walk starts at whichever zone is best-connected overall, which
+ * in any era is the Plane of Knowledge, and fans 37 zones into a ring
+ * before the geography around them exists. Once the simulation starts, a
+ * hub edge also pulls at a tenth strength (`HUB_SPRING`) rather than full —
+ * masking a hub's bearing alone still let its edges yank every neighbour
+ * toward one point, which is what folded the Karanas over each other.</p>
  */
 export function layout(graph: ZoneGraph, iterations = 400): Map<string, Point> {
   const nodes = graph.zones.map((z) => z.shortName);
@@ -125,12 +163,16 @@ export function layout(graph: ZoneGraph, iterations = 400): Map<string, Point> {
   // A hub's bearings are dropped once, here, before either the seed walk or
   // the orientation force below sees them — masking it in one place is what
   // keeps both honouring the same rule (HUB_DEGREE) without repeating it.
+  // `hub` itself travels with the edge so the seed walk can also give it its
+  // own two rules below (crossed last, one at a time) without recomputing
+  // degree a second time.
   const edges = graph.edges
     .map((e): RawEdge => {
       const hub = (degree.get(e.from) ?? 0) >= HUB_DEGREE || (degree.get(e.to) ?? 0) >= HUB_DEGREE;
       return {
         a: index.get(e.from),
         b: index.get(e.to),
+        hub,
         dx: hub ? undefined : e.dx,
         dy: hub ? undefined : e.dy,
       };
@@ -144,16 +186,19 @@ export function layout(graph: ZoneGraph, iterations = 400): Map<string, Point> {
   // bearing — an edge pointing east from a to b points west from b to a.
   const nb: Neighbour[][] = nodes.map(() => []);
   for (const e of edges) {
-    nb[e.a].push({ to: e.b, dx: e.dx, dy: e.dy });
+    nb[e.a].push({ to: e.b, hub: e.hub, dx: e.dx, dy: e.dy });
     nb[e.b].push({
       to: e.a,
+      hub: e.hub,
       dx: e.dx === undefined ? undefined : -e.dx,
       dy: e.dy === undefined ? undefined : -e.dy,
     });
   }
 
   // Each component starts at its best-connected zone (ties by shortName),
-  // so a hub anchors its own neighbourhood rather than an arbitrary leaf.
+  // so a hub anchors its own neighbourhood rather than an arbitrary leaf —
+  // except a hub itself never starts one (see `startOrder` below): the
+  // "neighbourhood" a portal room anchors is the whole world, not a place.
   const order = nodes
     .map((_, i) => i)
     .sort(
@@ -161,39 +206,88 @@ export function layout(graph: ZoneGraph, iterations = 400): Map<string, Point> {
         (degree.get(nodes[q]) ?? 0) - (degree.get(nodes[p]) ?? 0) || nodes[p].localeCompare(nodes[q]),
     );
 
-  for (const start of order) {
+  const isHub = (i: number) => (degree.get(nodes[i]) ?? 0) >= HUB_DEGREE;
+
+  // Places `l.to` one `k` from `at`: along its bearing if it has a usable
+  // one, otherwise fanned out by the golden angle (see GOLDEN_ANGLE).
+  // Shared by the walk below and by the one-hub-edge crossing it makes
+  // between a component's non-hub frontier and the next one, so both place
+  // a zone by the same rule.
+  const place = (at: number, l: Neighbour, fan: number) => {
+    const len = l.dx === undefined || l.dy === undefined ? 0 : Math.hypot(l.dx, l.dy);
+    let ux: number;
+    let uy: number;
+    if (len > 0.05) {
+      // len > 0.05 only when dx/dy above were both defined.
+      ux = l.dx! / len;
+      uy = l.dy! / len;
+    } else {
+      // No usable bearing: fan out by the golden angle so unhinted
+      // siblings spread evenly around their parent instead of landing
+      // on top of each other.
+      const ang = GOLDEN_ANGLE * (fan + at);
+      ux = Math.cos(ang);
+      uy = Math.sin(ang);
+    }
+    pos[l.to] = { x: pos[at]!.x + ux * k, y: pos[at]!.y + uy * k };
+  };
+
+  // Hubs move to the back of the start order, so a component is only ever
+  // seeded from one if it has nothing else in it (a hub connected to
+  // nothing but other hubs — the classic world has none).
+  const startOrder = [...order.filter((i) => !isHub(i)), ...order.filter(isHub)];
+
+  for (const start of startOrder) {
     if (pos[start]) {
       continue;
     }
     pos[start] = { x: 0, y: 0 };
     const queue = [start];
-    while (queue.length) {
-      const at = queue.shift()!;
-      // Neighbours visited in shortName order, so two runs place the same
-      // zone the same way even when its neighbours tie on distance.
-      const list = nb[at].slice().sort((p, q) => nodes[p.to].localeCompare(nodes[q.to]));
-      let fan = 0;
-      for (const l of list) {
-        if (pos[l.to]) {
-          continue;
+    // Every zone this walk has placed, in placement order — wider than the
+    // BFS frontier (`queue`), because the portal crossing below resumes
+    // from whichever placed zone reaches one, not necessarily the newest.
+    const visited: number[] = [start];
+    for (;;) {
+      while (queue.length) {
+        const at = queue.shift()!;
+        // Neighbours visited in shortName order, so two runs place the same
+        // zone the same way even when its neighbours tie on distance.
+        const list = nb[at].slice().sort((p, q) => nodes[p.to].localeCompare(nodes[q.to]));
+        let fan = 0;
+        for (const l of list) {
+          // A hub edge is left for the crossing below — walking it here
+          // would let a hub steer this frontier the same way it always did.
+          if (pos[l.to] || l.hub) {
+            continue;
+          }
+          const hinted = l.dx !== undefined && l.dy !== undefined && Math.hypot(l.dx, l.dy) > 0.05;
+          place(at, l, hinted ? 0 : fan++);
+          queue.push(l.to);
+          visited.push(l.to);
         }
-        const len = l.dx === undefined || l.dy === undefined ? 0 : Math.hypot(l.dx, l.dy);
-        let ux: number;
-        let uy: number;
-        if (len > 0.05) {
-          // len > 0.05 only when dx/dy above were both defined.
-          ux = l.dx! / len;
-          uy = l.dy! / len;
-        } else {
-          // No usable bearing: fan out by the golden angle so unhinted
-          // siblings spread evenly around their parent instead of landing
-          // on top of each other.
-          const ang = GOLDEN_ANGLE * (fan++ + at);
-          ux = Math.cos(ang);
-          uy = Math.sin(ang);
+      }
+      // The walkable (non-hub) frontier is exhausted: cross exactly one
+      // portal edge — the first placed zone, in placement order, that still
+      // has an unplaced neighbour across a hub edge, breaking ties on the
+      // neighbour's shortName — then resume walking from what it reaches.
+      // One crossing at a time is what stops a hub from fanning its whole
+      // roster into a ring in a single step; a second hub edge waits until
+      // this frontier runs out again.
+      let crossed = false;
+      for (const at of visited) {
+        const list = nb[at]
+          .filter((l) => l.hub && !pos[l.to])
+          .sort((p, q) => nodes[p.to].localeCompare(nodes[q.to]));
+        if (list.length) {
+          place(at, list[0], 0);
+          queue.push(list[0].to);
+          visited.push(list[0].to);
+          crossed = true;
+          break;
         }
-        pos[l.to] = { x: pos[at]!.x + ux * k, y: pos[at]!.y + uy * k };
-        queue.push(l.to);
+      }
+      if (!crossed) {
+        break;
       }
     }
   }
@@ -249,7 +343,9 @@ export function layout(graph: ZoneGraph, iterations = 400): Map<string, Point> {
       const dx = placed[e.a].x - placed[e.b].x;
       const dy = placed[e.a].y - placed[e.b].y;
       const d = Math.sqrt(dx * dx + dy * dy) || 0.01;
-      const force = (d * d) / k;
+      // A hub edge pulls at a tenth strength (HUB_SPRING) — see the constant's
+      // comment for the sweep this came from.
+      const force = ((d * d) / k) * (e.hub ? HUB_SPRING : 1);
       const fx = (dx / d) * force;
       const fy = (dy / d) * force;
 

@@ -2833,6 +2833,17 @@ textarea:focus-visible,
   opacity: 0.22;
 }
 
+/* Portal edges (worldLayout.ts's hub rule) run long — a hub sits at the
+   middle of everything it reaches — and at full strength thirty-seven of
+   them bury the geography they cross. Faint by default rather than hidden,
+   so the connection is still there to find. Declared before .dim so a
+   dimmed portal edge (both classes present while searching) lands on the
+   dimmer of the two, the state that answers "what am I looking for" rather
+   than "what usually reaches everywhere". */
+.zone-edge.portal {
+  opacity: 0.35;
+}
+
 .zone-edge.dim {
   opacity: 0.25;
 }

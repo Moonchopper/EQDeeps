@@ -265,13 +265,64 @@ same classic-world figures (149 sides, 102 within 45° — 68% — 18 worse than
 90°, 0 crossings): the prototype's layout measurement, confirmed by the
 module that ships.
 
-**What this deliberately does not solve.** With every era shown together,
-the world is still a hub-and-spoke ball around the Plane of Knowledge — the
-hub rule stops a handful of portal rooms from bending the whole picture, it
-does not give the any-era view a shape a plain force layout wouldn't also
-produce. And where two interiors' own maps disagree about which way a shared
-door lies — the same akanon↔steamfont, gukbottom↔guktop cases the map format
-doc's §4.1 measures — `ZoneGraph.Bearing` cancels them toward zero by
-construction rather than picking a winner, so that edge simply falls back on
-the plain spring, undecided, instead of the layout guessing which side is
-right.
+**The hub rule had a second half missing, and the owner found it.** Reported
+2026-09-20: with the era selector on Any era, the World drew Lake Rathetear
+*north* of The Southern Plains of Karana, although South Karana's own map
+puts `to_Lake_Rathetear` on its south edge at 0.93 confidence — the layout
+drew it 133° off. Masking a hub's *bearing* said nothing about a hub's
+*physics*, and both were still wrong:
+
+1. The seed walk starts from the best-connected zone, which in any era is
+   Plane of Knowledge (37 exits). With its bearings masked but nothing else
+   changed, the walk began by fanning 37 of Norrath's zones into a
+   golden-angle ring around it, crumpling Antonica before the simulation had
+   run a single step.
+2. Hub edges still pulled as full-strength springs, so every zone with a
+   book to Plane of Knowledge was yanked toward one point, which folded the
+   Karanas over each other once the simulation ran.
+
+The rule is now three parts, not one: a hub edge contributes no bearing (as
+before); the seed walk crosses portals **last** — each component starts at
+its best-connected *non-hub* zone and walks real, bearing-carrying edges
+first, breadth-first, and only crosses a hub edge one at a time once that
+walkable frontier is exhausted, then resumes walking from what it reaches;
+and a hub edge's spring pulls at a **tenth strength** (`HUB_SPRING`) once
+the simulation starts, rather than full. Swept on the any-era world
+(confident non-hub edges within 45° of their own bearing, edges worse than
+90° off, edge crossings among walkable edges, with the portals-last seed
+already in place): shipped (spring 1, name-order seed) 59% / 48 / 208; 0.25
+→ 72% / 25 / 116; **0.1 → 75% / 18 / 89**; 0.03 → 77% / 19 / 97 but the
+longest edge grows 461 → 520; 0 lets a hub drift off entirely (longest edge
+1147) because nothing holds it once it also carries no bearing. 0.1 is the
+strength that still tames Lake Rathetear and the Karanas without giving up
+an edge to get there.
+
+Per-era effect (confident non-hub edges within 45°, before → after this
+fix; crossings among walkable edges, before → after — the architect's
+measurements of the shipped module over the owner's install, 2026-09-20):
+
+| Era | Within 45° | Crossings |
+|---|---|---|
+| Classic | 79% → 79% | 0 → 0 |
+| Kunark | 75% → 82% | 11 → 5 |
+| Velious | 74% → 84% | 34 → 5 |
+| Luclin | 78% → 86% | 34 → 5 |
+| Planes of Power | 60% → 78% | 84 → 17 |
+| Any era | 59% → 75% | 208 → 89 |
+
+Classic sees no change — it has no zone over 8 exits, so the hub rule never
+fires there either way — and every later era, once it has a hub to fire on,
+gets both fewer wrong-way edges and dramatically fewer crossings.
+
+**What this deliberately does not solve.** The any-era world now keeps its
+geography — Lake Rathetear sits south of South Karana, and a hub no longer
+folds the region it touches over itself — but two things remain unfixed.
+Label crowding where many zones meet is unchanged; the layout says nothing
+about text, only position. And a small city's own interior cycles can still
+settle flipped where two of its own zones' maps disagree about which way a
+shared door lies — the Qeynos trio, Erudin ↔ Toxxulia are the measured
+cases (also the akanon↔steamfont, gukbottom↔guktop pair the map format
+doc's §4.1 measures): `ZoneGraph.Bearing` cancels a contradiction toward
+zero by construction rather than picking a winner, so that edge falls back
+on the plain spring, undecided, instead of the layout guessing which side
+is right.

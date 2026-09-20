@@ -49,6 +49,15 @@ public static class MetricCatalog
     public static readonly IReadOnlyList<string> StanceMetrics =
         ["stanceSeconds", "stanceDps", "stanceUptime"];
 
+    /// <summary>
+    /// The one metric that needs the experience/death pairing wound at all
+    /// (ADR-022 Decision 3). Kept out of <see cref="DeathDefaults"/> for the
+    /// same reason <see cref="StanceMetrics"/> are kept out of every source's
+    /// defaults: a deaths query that never asks about credit should never pay
+    /// for building it.
+    /// </summary>
+    public static readonly IReadOnlyList<string> CreditMetrics = ["credited"];
+
     public static IReadOnlyList<string> DefaultsFor(QuerySource source) => source switch
     {
         QuerySource.Healing => HealingDefaults,
@@ -133,6 +142,21 @@ public static class MetricCatalog
             "invulnerable" => bag.Invulnerable,
             "hotHits" => bag.HotHits,
             "deaths" => bag.Deaths,
+            "credited" => bag.Credited,
+            // The row's first and last record, to the log's own one-second
+            // resolution — free of any extra bookkeeping, because
+            // ActiveTime's merged segments already begin and end exactly
+            // there for every source (SealActiveTime runs unconditionally).
+            // Encoded as seconds since the Unix epoch with the log's WALL
+            // CLOCK read as if it were UTC (ADR-022 Decision 5, ruled by the
+            // architect 2026-09-20) — not a real UTC instant; see
+            // metrics-and-aggregation.md §5 for why an offset would be a
+            // claim the log never made, and why DateTime subtraction being
+            // Kind-blind is exactly what makes this pure, exact tick
+            // arithmetic. An empty bag (no records in scope) reads 0, which
+            // the UI must render as "no data", never as an epoch date.
+            "firstAt" => bag.ActiveTime.Segments.Count > 0 ? ToEpochSeconds(bag.ActiveTime.Segments[0].Begin) : 0,
+            "lastAt" => bag.ActiveTime.Segments.Count > 0 ? ToEpochSeconds(bag.ActiveTime.Segments[^1].End) : 0,
             "casts" => bag.CastBegins,
             "interrupts" => bag.CastInterrupts,
             "fizzles" => bag.CastFizzles,
@@ -159,4 +183,14 @@ public static class MetricCatalog
 
     private static double Percent(double numerator, double denominator) =>
         denominator > 0 ? numerator / denominator * 100 : 0;
+
+    /// <summary>
+    /// Seconds since the Unix epoch, treating <paramref name="timestamp"/>'s
+    /// wall-clock digits as if they were UTC. <see cref="DateTime"/>
+    /// subtraction ignores <see cref="DateTime.Kind"/> entirely, so this is
+    /// pure tick arithmetic — exact, and reversible to the second by
+    /// <c>DateTime.UnixEpoch.AddSeconds(value)</c> in C# or
+    /// <c>new Date(value * 1000)</c> in TypeScript.
+    /// </summary>
+    private static double ToEpochSeconds(DateTime timestamp) => (timestamp - DateTime.UnixEpoch).TotalSeconds;
 }

@@ -1,4 +1,5 @@
 using EQDeeps.Core.Events;
+using EQDeeps.Core.Parsing;
 using EQDeeps.Core.Sessions;
 
 namespace EQDeeps.Core.Query;
@@ -37,6 +38,16 @@ public sealed class QueryEngine
     private int _stancesVersion = -1;
     private PresenceTimeline? _presence;
     private int _presenceVersion = -1;
+    private ZoneTimeline? _zones;
+    private int _zonesVersion = -1;
+    private HashSet<int>? _creditedDeaths;
+    private int _creditedDeathsVersion = -1;
+
+    /// <summary>C4 test hook: how many times the zone timeline has actually been built.</summary>
+    internal int ZoneBuildCount { get; private set; }
+
+    /// <summary>C4 test hook: how many times the credited-deaths pairing has actually been built.</summary>
+    internal int CreditedBuildCount { get; private set; }
 
     public QueryEngine(RecordStore records, FightTracker fights, IdentityRegistry identity, string character)
     {
@@ -284,6 +295,113 @@ public sealed class QueryEngine
         return false;
     }
 
+    // ---- zones ---------------------------------------------------------
+
+    /// <summary>Rebuilt only when records have been appended since the last build.</summary>
+    private ZoneTimeline Zones()
+    {
+        if (_zones is null || _zonesVersion != _records.Version)
+        {
+            _zones = ZoneTimeline.Build(_records);
+            _zonesVersion = _records.Version;
+            ZoneBuildCount++;
+        }
+
+        return _zones;
+    }
+
+    /// <summary>
+    /// Whether this query needs the zone structure resolved at all — see
+    /// <see cref="UsesStances"/>, the pattern this mirrors. No metric reads the
+    /// zone structure today, only grouping and filtering.
+    /// </summary>
+    private static bool UsesZones(QuerySpec spec)
+    {
+        if (spec.GroupBy.Contains(Dimension.Zone) || spec.GroupBy.Contains(Dimension.Difficulty))
+        {
+            return true;
+        }
+
+        foreach (var filter in spec.Filters)
+        {
+            if (filter.Dim is Dimension.Zone or Dimension.Difficulty)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    // ---- experience/death credit (ADR-022 Decision 3) -----------------------
+
+    /// <summary>Rebuilt only when records have been appended since the last build.</summary>
+    private HashSet<int> CreditedDeaths()
+    {
+        if (_creditedDeaths is null || _creditedDeathsVersion != _records.Version)
+        {
+            _creditedDeaths = BuildCreditedDeaths(_records);
+            _creditedDeathsVersion = _records.Version;
+            CreditedBuildCount++;
+        }
+
+        return _creditedDeaths;
+    }
+
+    /// <summary>
+    /// A death's credit is a property of the whole record stream in order,
+    /// not of the query's scope or filters — the log either credited it or it
+    /// did not (ADR-022 Decision 3). Walking in order: an
+    /// <see cref="ExperienceEvent"/> is pending until the next
+    /// <see cref="DeathEvent"/> claims it, within two seconds; one experience
+    /// line credits at most one death, so once a pending line is consumed —
+    /// or found too old to count — it is dropped rather than carried forward
+    /// to some later kill.
+    /// </summary>
+    private static HashSet<int> BuildCreditedDeaths(RecordStore records)
+    {
+        var credited = new HashSet<int>();
+        DateTime? pendingAt = null;
+        for (var i = 0; i < records.Count; i++)
+        {
+            var (timestamp, evt) = records[i];
+            switch (evt)
+            {
+                case ExperienceEvent:
+                    pendingAt = timestamp;
+                    break;
+                case DeathEvent when pendingAt is { } p:
+                    if ((timestamp - p).TotalSeconds <= 2)
+                    {
+                        credited.Add(i);
+                    }
+
+                    pendingAt = null; // spent either way: consumed, or too old to ever match anything later
+                    break;
+            }
+        }
+
+        return credited;
+    }
+
+    /// <summary>
+    /// Whether this query needs the credit pairing wound at all — the
+    /// stance-metric gating pattern (<see cref="MetricCatalog.StanceMetrics"/>),
+    /// applied to <see cref="MetricCatalog.CreditMetrics"/>.
+    /// </summary>
+    private static bool UsesCredited(QuerySpec spec)
+    {
+        foreach (var metric in spec.Metrics)
+        {
+            if (MetricCatalog.CreditMetrics.Contains(metric))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /// <summary>
     /// Clips the stance spans against each scope unit, laid out unit by unit so
     /// the record loop can walk them with a cursor instead of searching.
@@ -358,6 +476,10 @@ public sealed class QueryEngine
         List<StanceInterval>? intervals =
             timeline is null ? null : BuildStanceIntervals(timeline, Presence(), units, unitFirst);
 
+        // Neither is built unless the spec actually asks: C4 (ADR-022).
+        var zones = UsesZones(spec) ? Zones() : null;
+        var creditedDeaths = UsesCredited(spec) ? CreditedDeaths() : null;
+
         for (var unitIndex = 0; unitIndex < units.Count; unitIndex++)
         {
             var unit = units[unitIndex];
@@ -387,7 +509,15 @@ public sealed class QueryEngine
                     }
                 }
 
-                Accumulate(spec, root, unit, unitIndex, record, intervals, stanceIndex);
+                // Zone resolution is a fresh binary search per record rather
+                // than a precomputed-per-unit cursor (contrast the stance
+                // cursor above): scope units are NOT guaranteed to arrive in
+                // ascending record-index order (an explicit TimeRanges scope
+                // can list them in any order the caller likes), so a cursor
+                // carried across units would need resetting per unit anyway.
+                // With ~800 zone lines in a 198 MB log, log n per record that
+                // asks for it is nothing (Recon, ADR-022).
+                Accumulate(spec, root, unit, unitIndex, record, i, intervals, stanceIndex, zones, creditedDeaths);
             }
         }
 
@@ -410,8 +540,11 @@ public sealed class QueryEngine
         ScopeUnit unit,
         int unitIndex,
         TimedRecord record,
+        int recordIndex,
         List<StanceInterval>? intervals,
-        int stanceIndex)
+        int stanceIndex,
+        ZoneTimeline? zones,
+        HashSet<int>? creditedDeaths)
     {
         // Route the record: does it belong to this source, and who is the row actor?
         string? actor;
@@ -536,9 +669,23 @@ public sealed class QueryEngine
             }
         }
 
+        // Same rule as stance: the zone is a property of the moment, resolved
+        // once here (after the source switch, so a query over a source other
+        // than the one that just skipped this record never pays for the
+        // lookup) — see the record loop's comment on why this is a fresh
+        // binary search rather than a precomputed cursor.
+        InstanceZone? zone = zones?.ZoneAt(recordIndex);
+
+        // Likewise credit: only meaningful for a DeathEvent, and only
+        // resolved when the query actually asked for it (creditedDeaths is
+        // null otherwise).
+        var credited = creditedDeaths is not null &&
+            record.Event is DeathEvent &&
+            creditedDeaths.Contains(recordIndex);
+
         foreach (var filter in spec.Filters)
         {
-            if (!PassesFilter(filter, record.Event, actor, stance, spec))
+            if (!PassesFilter(filter, record.Event, actor, stance, zone, spec))
             {
                 return;
             }
@@ -548,13 +695,13 @@ public sealed class QueryEngine
         // Pet rollup inserts an implicit actor level under merged player rows:
         // merged node carries the combined totals, actor nodes carry the split,
         // and deeper dimensions nest under the actors.
-        AddToNode(root, record, damage, heal, unitIndex, stanceSpan, spec.BucketSeconds);
+        AddToNode(root, record, damage, heal, unitIndex, stanceSpan, spec.BucketSeconds, credited);
 
         var node = root;
         for (var level = 0; level < spec.GroupBy.Count; level++)
         {
             var dimension = spec.GroupBy[level];
-            var key = DimensionKey(dimension, record.Event, actor, stance);
+            var key = DimensionKey(dimension, record.Event, actor, stance, zone);
             var rollup = dimension == Dimension.Player && spec.PetRollup;
             var actorName = key;
             if (rollup && _identity.OwnerOf(key) is { } owner)
@@ -568,7 +715,7 @@ public sealed class QueryEngine
                 node.Children[key] = child = new Node();
             }
 
-            AddToNode(child, record, damage, heal, unitIndex, stanceSpan, spec.BucketSeconds);
+            AddToNode(child, record, damage, heal, unitIndex, stanceSpan, spec.BucketSeconds, credited);
             node = child;
 
             if (rollup)
@@ -579,7 +726,7 @@ public sealed class QueryEngine
                     child.Actors[actorName] = actorNode = new Node();
                 }
 
-                AddToNode(actorNode, record, damage, heal, unitIndex, stanceSpan, spec.BucketSeconds);
+                AddToNode(actorNode, record, damage, heal, unitIndex, stanceSpan, spec.BucketSeconds, credited);
                 node = actorNode;
             }
         }
@@ -592,7 +739,8 @@ public sealed class QueryEngine
         HealEvent? heal,
         int unitIndex,
         int stanceSpan,
-        int? bucketSeconds)
+        int? bucketSeconds,
+        bool credited)
     {
         // The interval, not the record's instant: a stance held for a minute
         // counts the whole minute the moment anything happens inside it.
@@ -627,6 +775,10 @@ public sealed class QueryEngine
         else if (record.Event is DeathEvent)
         {
             node.Bag.Deaths++;
+            if (credited)
+            {
+                node.Bag.Credited++;
+            }
         }
         else if (record.Event is ExperienceEvent xp)
         {
@@ -729,13 +881,15 @@ public sealed class QueryEngine
     private bool IsNpcSide(string? name) =>
         name is not null && !_identity.IsPlayerSide(name) && _identity.IsDefinitelyNpc(name);
 
-    private string DimensionKey(Dimension dimension, GameEvent evt, string actor, string? stance)
+    private string DimensionKey(Dimension dimension, GameEvent evt, string actor, string? stance, InstanceZone? zone)
     {
         return dimension switch
         {
             Dimension.Player => actor,
             Dimension.Character => _character,
             Dimension.Stance => stance ?? StanceTimeline.Unknown,
+            Dimension.Zone => zone?.BaseName ?? ZoneTimeline.Unknown,
+            Dimension.Difficulty => zone?.DifficultyLabel ?? ZoneTimeline.Unknown,
             Dimension.Target => evt switch
             {
                 DamageEvent d => d.Defender == actor ? d.Attacker ?? "Unknown" : d.Defender,
@@ -772,7 +926,8 @@ public sealed class QueryEngine
         _ => kind.ToString(),
     };
 
-    private bool PassesFilter(QueryFilter filter, GameEvent evt, string actor, string? stance, QuerySpec spec)
+    private bool PassesFilter(
+        QueryFilter filter, GameEvent evt, string actor, string? stance, InstanceZone? zone, QuerySpec spec)
     {
         bool matches;
         if (filter.Flag is { } flag)
@@ -781,7 +936,7 @@ public sealed class QueryEngine
         }
         else if (filter.Dim is { } dim && filter.Values is { Count: > 0 })
         {
-            var key = DimensionKey(dim, evt, actor, stance);
+            var key = DimensionKey(dim, evt, actor, stance, zone);
 
             // With pet rollup on, a player filter means the owner AND their
             // pets — matching raw actor names would silently drop pet damage.

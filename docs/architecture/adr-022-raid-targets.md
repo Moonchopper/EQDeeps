@@ -30,12 +30,26 @@ difficulty. F25 and F26 both key on them, but each through its own index.
 
 ## Decision 1: zone and difficulty become query dimensions
 
-`Dimension.Zone` and `Dimension.Difficulty`, available to every source, read
-from the zone spans `ContextTimeline` already builds and split with
-`InstanceZone`. `Dimension.Stance` is the precedent and the pattern: a
-step function over time, resolved per record with a cursor, and **not wound at
-all unless a spec groups or filters by it** (`UsesStances`), so the queries
-that never mention a zone pay nothing.
+`Dimension.Zone` and `Dimension.Difficulty`, available to every source, split
+with `InstanceZone`. `Dimension.Stance` is the precedent for the part that
+matters most: **nothing is built unless a spec groups or filters by it**
+(`UsesStances`), so the queries that never mention a zone pay nothing — a test
+asserts the build counters stay at zero for one that does not.
+
+**Resolved by record order, not by time (as built, 2026-09-20).** This ADR
+first said the dimensions would read the zone spans `ContextTimeline` already
+builds. They do not, for three reasons found on the way in. Those spans are
+clipped to presence, which is right for a strip drawn behind a chart and
+meaningless for a record — a record that exists was witnessed. They drop a
+span of zero length, so a zone entered and left inside one second vanishes.
+And the log's resolution is one second, so a lookup by time cannot order a
+zone line against a record stamped the same second — which is routine, since
+a zone's first lines land beside its "You have entered". `ZoneTimeline` is
+keyed by **record-store index** instead: the log's own total order, in which
+there is never a tie. A record's zone is whatever the last `ZoneEvent` before
+it established, found by binary search because a query's scope units are not
+guaranteed to arrive in ascending order (a `TimeRanges` scope can list them
+any way round; a test pins that).
 
 - **Zone** is the place: `InstanceZone.BaseName`. "The Estate of Unrest" is
   one row whether it was entered at tier 0 or tier 4.
@@ -122,6 +136,17 @@ take their own. This is a **query-time reading, never stored**, like every
 other validity decision in this app: a new metric on the deaths source,
 `credited`, beside the `deaths` count that exists.
 
+**One pending line at a time (as built, 2026-09-20).** A second experience
+line arriving before any death replaces the first rather than queueing behind
+it, so a death is credited by the *nearest* experience line inside two seconds.
+What the game writes is interleaved — experience, slain, experience, slain —
+and that is what is tested; experience-experience-slain-slain has never been
+observed, and a quest hand-in's experience line followed by a kill's is the
+case the single slot gets right and a queue would get wrong. `credited` is
+also deliberately absent from the deaths source's default columns: the pairing
+is only walked for a query that asks for it, which is what keeps it free for
+everything else, so a view that wants it names it.
+
 Known blind spot, stated rather than hidden: a character who gains no
 experience (dead at the moment of the kill) is never credited. The roster
 therefore shows both numbers — seen and credited — and nothing in F31 rests
@@ -157,9 +182,18 @@ so a target with no rows is drawn as not yet defeated. That is the shape the
 Bestiary already has: someone's list, our measurements, joined on screen.
 
 A row needs to say *when*: first and last kill. `QueryRow.Metrics` is numbers
-only, so the deaths source gains `firstAt` and `lastAt`. How an instant is
-best carried in that bag is the implementer's to propose and the PM's to
-accept; it must round-trip to the second, which is the log's resolution.
+only, so the deaths source gains `firstAt` and `lastAt`.
+
+**How an instant rides in a bag of numbers (ruled 2026-09-20).** A log
+timestamp is local wall-clock time with no zone. `firstAt` and `lastAt` carry
+it as seconds since the Unix epoch *with the wall clock read as though it were
+UTC*; the UI reverses that into the same zone-less ISO string a fight's begin
+time already arrives as, and hands it to the house formatter (`fmtWhen`: a
+time today, a date and time this year, a date alone beyond). It round-trips to
+the second in both directions, tested on both sides of the wire. **It is a
+wall-clock value, not a real instant** — nobody should ever "fix" it with a
+timezone conversion — and the raw number is never shown; zero renders as a
+dash. The metrics doc says the same.
 
 Per target the view shows the name, where it lives, kills seen and credited,
 first and last kill, and a ladder of difficulty tiers with the defeated ones

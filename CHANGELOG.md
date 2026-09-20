@@ -12,6 +12,7 @@ being cut.
 
 - **Maps open for solo and group raid instances.** A fight in somewhere like "The Plane of Fear - Group" now finds the Plane of Fear's map instead of asking you to pick one.
 - **Every copy now carries the licences it is meant to.** The installer and the portable zip put EQDeeps' own MIT licence, the full licence text for everything bundled into the app, and the .NET runtime's own notices beside the program. Before this only a short attribution file shipped, and the portable zip carried no licence at all.
+- **Any table or chart can now be grouped by zone or by difficulty.** The query builder also offers "credited", "first", and "last" as columns wherever deaths are tracked.
 
 ## v0.16.0 — 2026-08-17
 

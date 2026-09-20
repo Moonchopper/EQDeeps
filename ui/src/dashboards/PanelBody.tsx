@@ -8,7 +8,7 @@ import {
   type QueryResult,
   type QueryRow,
 } from "../api";
-import { CHART_SERIES_LIMIT, fmtNum, fmtRate, fmtSpan, OTHER_COLOR, SERIES_COLORS } from "../format";
+import { CHART_SERIES_LIMIT, fmtNum, fmtRate, fmtSpan, fmtWhen, OTHER_COLOR, SERIES_COLORS } from "../format";
 import { MapPanel } from "../maps/MapPanel";
 import { ItemFeedPanel } from "./ItemFeedPanel";
 import {
@@ -92,7 +92,8 @@ function fmtMetric(metric: string, value: number): string {
       metric === "xpGains" || metric === "aaPoints" ||
       metric === "factionNet" || metric === "factionUps" ||
       metric === "factionDowns" || metric === "factionCapped" ||
-      metric === "loots" || metric === "considers" || metric === "conLevel") {
+      metric === "loots" || metric === "considers" || metric === "conLevel" ||
+      metric === "credited") {
     return String(Math.round(value));
   }
   // Durations, not counts: "1.2K" seconds is not something anyone reads as a
@@ -103,6 +104,15 @@ function fmtMetric(metric: string, value: number): string {
   if (metric === "xpPercent" || metric === "xpPerHour") {
     // Level-progress points, not a ratio: show two decimals (gains are tiny).
     return value.toFixed(2);
+  }
+  if (metric === "firstAt" || metric === "lastAt") {
+    // Seconds since the Unix epoch, with the log's own wall clock read as if
+    // it were UTC (ADR-022 Decision 5) — never a real UTC instant, so this
+    // rebuilds the zone-less ISO string the same way the log wrote it rather
+    // than converting anything. A row with no records in scope reads 0,
+    // which must never render as "1 Jan 1970".
+    if (value <= 0) return "—";
+    return fmtWhen(new Date(value * 1000).toISOString().slice(0, 19));
   }
   return fmtNum(value);
 }

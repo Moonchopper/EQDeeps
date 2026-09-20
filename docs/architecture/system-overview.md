@@ -52,7 +52,8 @@ A **QuerySpec** is a serializable description of an aggregation:
   "scope":  { "sessions": ["A"], "fights": [123, 124] | "selection" | "live" ,
               "trim": { "skipFirstSec": 0, "maxSec": null } },
   "groupBy": ["player"] ,          // dimensions: player, spell, target, character,
-                                    // class, damageType, modifier, second-bucket...
+                                    // class, damageType, modifier, second-bucket,
+                                    // stance, zone, difficulty...
   "metrics": ["total", "sdps", "critRate"],   // from the metric catalog
   "filters": [ { "dim": "class", "in": ["Necromancer"] },
                { "flag": "baneDamage", "exclude": true } ],

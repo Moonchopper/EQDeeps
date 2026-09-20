@@ -59,6 +59,14 @@ public sealed class CounterBag
 
     public long HotHits;
     public long Deaths;
+
+    /// <summary>
+    /// Deaths an experience line claimed (ADR-022 Decision 3) — a subset of
+    /// <see cref="Deaths"/>, never built unless a query asks for the
+    /// `credited` metric (see <c>MetricCatalog.CreditMetrics</c>).
+    /// </summary>
+    public long Credited;
+
     public long CastBegins;
     public long CastInterrupts;
     public long CastFizzles;

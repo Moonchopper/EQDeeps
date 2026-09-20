@@ -119,19 +119,56 @@ public readonly record struct InstanceZone(
     public string KeyName => Mode is { Length: > 0 } mode ? $"{BaseName} - {mode}" : BaseName;
 
     /// <summary>
+    /// No suffix was logged at all — the open world, or (the same bucket, see
+    /// the class doc) a tier-0 instance. One definition, shared by
+    /// <see cref="DifficultyLabel"/>, the query engine's Difficulty dimension,
+    /// and the tests, per ADR-022 Decision 1.
+    /// </summary>
+    public const string OpenWorld = "Open world";
+
+    /// <summary>
+    /// Everything the log printed after the place, verbatim — the value the
+    /// Difficulty dimension groups and filters by (ADR-022 Decision 1):
+    /// "1 (Awakened)", "Solo", "Group 3 (Fused)", or <see cref="OpenWorld"/>
+    /// when nothing followed the name. Mirrors <see cref="Display"/>'s own
+    /// condition for when a tier counts (<c>Difficulty is {} n &amp;&amp;
+    /// TierName is {Length: > 0}</c>) so a struct built by hand with a tier
+    /// number and no tier word cannot disagree between the two.
+    /// </summary>
+    public string DifficultyLabel
+    {
+        get
+        {
+            var tierSuffix = Difficulty is { } n && TierName is { Length: > 0 } tier ? $"{n} ({tier})" : null;
+            return Mode switch
+            {
+                { Length: > 0 } mode => tierSuffix is null ? mode : $"{mode} {tierSuffix}",
+                _ => tierSuffix ?? OpenWorld,
+            };
+        }
+    }
+
+    /// <summary>
     /// How to say this zone in one line — the logged form, rebuilt. Display
     /// goes through here rather than through the raw logged string so a name
     /// assembled from stored parts reads identically to one straight off a log
-    /// line.
+    /// line. Built from <see cref="BaseName"/> and <see cref="DifficultyLabel"/>
+    /// rather than duplicating the format: the separator is a mode marker's
+    /// " - " when a mode was logged (matching <see cref="KeyName"/>), else a
+    /// plain space for a bare tier suffix, else nothing for the open world.
     /// </summary>
     public string Display
     {
         get
         {
-            var withMode = KeyName;
-            return Difficulty is { } n && TierName is { Length: > 0 } tier
-                ? $"{withMode} {n} ({tier})"
-                : withMode;
+            var label = DifficultyLabel;
+            if (label == OpenWorld)
+            {
+                return BaseName;
+            }
+
+            var separator = Mode is { Length: > 0 } ? " - " : " ";
+            return $"{BaseName}{separator}{label}";
         }
     }
 }

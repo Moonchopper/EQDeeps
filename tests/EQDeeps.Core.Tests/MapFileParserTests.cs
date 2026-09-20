@@ -137,8 +137,11 @@ public class MapFileParserTests
         Assert.Equal("to Butcherblock Mountains", Assert.Single(layer.Labels).Text);
         Assert.Equal(0, layer.Malformed);
 
-        // Bounds still cover the labels, which is all that was read.
-        Assert.Equal(10, layer.Bounds.MinX);
+        // Bounds still cover the L records' endpoints even though no MapLine
+        // is kept for them — "skip the geometry" means don't keep it, not
+        // don't measure it (ZoneGraph.Bearing needs the true drawn extent).
+        // The lowest X here is an L endpoint (1), not the label (10).
+        Assert.Equal(1, layer.Bounds.MinX);
         Assert.Equal(10, layer.Bounds.MaxX);
     }
 
@@ -153,5 +156,52 @@ public class MapFileParserTests
         var layer = MapFileParser.Parse("L 0, 0, 0, 1, 1, 1, -20, 300, 128.9");
 
         Assert.Equal(new MapColor(0, 255, 128), Assert.Single(layer.Lines).Color);
+    }
+
+    /// <summary>
+    /// A labels-only layer's <c>Bounds</c> has to mean the same thing a full
+    /// parse's does, even where the geometry reaches further than any label —
+    /// Brewall's <c>blackburrow_2.txt</c> draws a legend hundreds of units past
+    /// the zone's own labels, and <see cref="EQDeeps.Core.Maps.ZoneGraph"/>'s
+    /// bearing frame comes from this box, not from where the labels happen to
+    /// sit. Only the geometry is skipped; measuring it is not optional.
+    /// </summary>
+    [Fact]
+    public void LabelsOnlyBoundsMatchAFullParseWhenGeometryReachesFurtherThanAnyLabel()
+    {
+        const string text = """
+            L -500, -500, 0, 500, 500, 0, 64, 64, 64
+            P 10, 20, 0, 0, 0, 240, 3, to_Somewhere
+            """;
+
+        var full = MapFileParser.Parse(text);
+        var labelsOnly = MapFileParser.Parse(text, labelsOnly: true);
+
+        Assert.Equal(full.Bounds, labelsOnly.Bounds);
+        Assert.Empty(labelsOnly.Lines);
+        Assert.Single(labelsOnly.Labels);
+    }
+
+    /// <summary>
+    /// A labels-only read only looks at an L record's first six fields — the
+    /// endpoints — far enough to widen the bounds and no further, so it never
+    /// learns whether the rest of the record (or the record as a whole) is
+    /// well-formed. Calling that malformed would flag files a full parse
+    /// would have accepted, so it is skipped silently, the same as a
+    /// well-formed L in this mode already is.
+    /// </summary>
+    [Fact]
+    public void AGarbageLineInLabelsOnlyModeIsNotMalformed()
+    {
+        var layer = MapFileParser.Parse(
+            """
+            L not, a, number
+            P 1, 2, 3, 4, 5, 6, 7, fine
+            """,
+            labelsOnly: true);
+
+        Assert.Empty(layer.Lines);
+        Assert.Single(layer.Labels);
+        Assert.Equal(0, layer.Malformed);
     }
 }

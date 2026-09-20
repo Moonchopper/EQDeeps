@@ -81,6 +81,14 @@ jobs:
       - name: Layout checks
         run: npm --prefix ui run test:layout
 
+      # Invariant checks for the World view's bearing-led node layout — pure
+      # arithmetic, no browser, run directly against hand-built fixture
+      # graphs under bare Node's type stripping. See
+      # ui/scripts/world-layout-check.mjs for why it asserts invariants
+      # rather than golden positions.
+      - name: World layout checks
+        run: npm --prefix ui run test:world
+
       - name: Build
         run: dotnet build -c Release --no-restore
 

@@ -77,8 +77,11 @@ public sealed class MapLabelCache
     /// size and last-write time still match, otherwise parsed afresh and
     /// remembered. Null when the file cannot be read at all — vanished or
     /// locked, which in a folder the player edits is a layer lost, not an
-    /// error. Bounds are the labels' own, exactly as a labels-only parse
-    /// would have computed them.
+    /// error. <c>Bounds</c> is the whole file's drawn extent, exactly as a
+    /// labels-only parse would have computed it — not just the labels' own,
+    /// because <see cref="ZoneGraph.Bearing(string, string)"/> measures a
+    /// connection against the drawing's true size, and a served layer must
+    /// answer that the same way a freshly parsed one would.
     /// </summary>
     public MapLayer? LabelsFor(string path, int index)
     {
@@ -201,25 +204,29 @@ public sealed class MapLabelCache
 
     private sealed record Document(Guid CoreVersion, Dictionary<string, Entry> Files);
 
-    private sealed record Entry(long Size, long Modified, int Malformed, List<Label> Labels)
+    private sealed record Entry(long Size, long Modified, int Malformed, List<Label> Labels, Extent? Bounds = null)
     {
         public static Entry From(MapLayer layer, long size, long modified) => new(
             size,
             modified,
             layer.Malformed,
             layer.Labels.Select(l => new Label(
-                l.At.X, l.At.Y, l.At.Z, l.Color.R, l.Color.G, l.Color.B, l.Size, l.Text)).ToList());
+                l.At.X, l.At.Y, l.At.Z, l.Color.R, l.Color.G, l.Color.B, l.Size, l.Text)).ToList(),
+            layer.Bounds.IsEmpty ? null : new Extent(
+                layer.Bounds.MinX, layer.Bounds.MinY, layer.Bounds.MinZ,
+                layer.Bounds.MaxX, layer.Bounds.MaxY, layer.Bounds.MaxZ));
 
         public MapLayer ToLayer(int index)
         {
             var labels = new List<MapLabel>(Labels.Count);
-            var bounds = MapBounds.Empty;
             foreach (var l in Labels)
             {
-                var label = new MapLabel(new MapPoint(l.X, l.Y, l.Z), new MapColor(l.R, l.G, l.B), l.S, l.T);
-                labels.Add(label);
-                bounds = bounds.Add(label.At);
+                labels.Add(new MapLabel(new MapPoint(l.X, l.Y, l.Z), new MapColor(l.R, l.G, l.B), l.S, l.T));
             }
+
+            var bounds = Bounds is { } b
+                ? new MapBounds(b.MinX, b.MinY, b.MinZ, b.MaxX, b.MaxY, b.MaxZ)
+                : MapBounds.Empty;
 
             return new MapLayer(index, Array.Empty<MapLine>(), labels, bounds, Malformed);
         }
@@ -227,4 +234,19 @@ public sealed class MapLabelCache
 
     /// <summary>Short property names on purpose: there are ~36,000 of these.</summary>
     private sealed record Label(float X, float Y, float Z, byte R, byte G, byte B, int S, string T);
+
+    /// <summary>
+    /// A layer's whole drawn extent — not just its labels' — so a served
+    /// layer's <c>Bounds</c> matches what a full parse would have produced.
+    /// Null on <see cref="Entry"/> when the layer had nothing drawable at all
+    /// (<see cref="MapBounds.IsEmpty"/>); recomputing it from the labels, as
+    /// this used to, silently shrank it back down to their extent alone.
+    ///
+    /// <para>No migration needed for adding this field: the cache file is
+    /// stamped with the Core build that wrote it (see the class doc), so this
+    /// change — like any change to Core — moves the assembly's MVID and every
+    /// existing cache is read as foreign and re-parsed once, the same
+    /// self-healing path a corrupt or missing file already takes.</para>
+    /// </summary>
+    private sealed record Extent(float MinX, float MinY, float MinZ, float MaxX, float MaxY, float MaxZ);
 }

@@ -226,9 +226,23 @@ The trailing `<n> (<Word>)` is the **difficulty tier**. The number and the word 
 
 This matters because difficulty rescales the mobs. Measured over a real log, the same mob's health climbs about ×1.15 / ×1.30 / ×1.50 at tiers 1–3 and roughly ×2.4 at tier 4 — so anything aggregating per mob has to key on (name, zone, difficulty). See [ADR-012](../architecture/adr-012-mob-health.md).
 
-**Tier 0 is indistinguishable from the open world.** A tier-0 instance prints the bare zone name, exactly as the open world does. This costs nothing, because d0 *is* the open world's numbers — but it is why the parsed difficulty is null rather than 0 with no suffix: "no instance line was seen" is what was observed.
+**Tier 0 is indistinguishable from the open world — for an ordinary instance.** A tier-0 instance prints the bare zone name, exactly as the open world does. This costs nothing, because d0 *is* the open world's numbers — but it is why the parsed difficulty is null rather than 0 with no suffix: "no instance line was seen" is what was observed. (The client does write `<Player> creating instance <Zone> <id>.` when one is made, which would prove a bare name was an instance; nothing reads it yet.)
 
-**The other two settings are never logged.** Respawning vs non-respawning, and solo vs multiplayer, appear nowhere in the client's output — only in players arguing about them in chat. Neither can be recovered, so neither can key anything. See ADR-012 for the evidence that they do not appear to scale health, and for why the estimates report a band rather than a bare number regardless.
+**Some instances carry a `- Solo` / `- Group` marker (found 2026-09-20).** On five zones — Nagafen's Lair, the Permafrost Caverns, the Plane of Fear, the Plane of Hate, the Ruins of Old Paineel — an entry sometimes has a marker between the name and the tier:
+
+```
+You have entered The Plane of Fear - Group 3 (Fused).
+You have entered The Permafrost Caverns - Solo 1 (Awakened).
+You have entered Nagafen's Lair - Solo.                (marker, no tier)
+You have entered Nagafen's Lair 1 (Awakened).          (same zone, no marker)
+You have entered Nagafen's Lair.                       (same zone, bare)
+```
+
+Measured on the owner's log (798 zone entries, 2026-07-29 to 2026-09-20): 32 marked entries, 17 of them tiered; no other zone carries the marker; all five hold raid targets; and the marked, unmarked-tiered and bare forms of the same zone interleave across the same weeks, so it is not a format change. **What the marker means is not established from the log** — the likeliest reading is the raid instance of a zone that also has an ordinary one, scaled for one player or for a group. Two things follow regardless: a marked entry with no tier *is* a tier-0 instance that can be told from the open world, and for these instances solo-versus-group **is** logged.
+
+**The parser does not read the marker yet.** `InstanceZone.Parse` takes "The Plane of Fear - Group 3 (Fused)" as a place named "The Plane of Fear - Group" at tier 3. F25/F26 therefore key a raid instance apart from the ordinary one by the accident of its name — probably the right separation, reached the wrong way — and a raid instance's map resolves to nothing ([map format](eq-map-format.md) §5.1). [ADR-022](../architecture/adr-022-raid-targets.md) Decision 2 gives `InstanceZone` a third part for it.
+
+**Otherwise the other two settings are never logged.** Respawning vs non-respawning appears nowhere in the client's output, and solo vs multiplayer appears only as the marker above — for an ordinary instance, only in players arguing about it in chat. Neither can be recovered there, so neither can key anything. See ADR-012 for the evidence that they do not appear to scale health, and for why the estimates report a band rather than a bare number regardless.
 
 ### 3.13 Presence — when the player was actually here
 

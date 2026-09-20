@@ -53,10 +53,20 @@ Users compose pages of panels — each panel is a query + a visualization (table
 
 ## Non-goals (v1)
 
-- **No in-game overlay windows.** No always-on-top meters over the EQ client.
 - **No triggers/audio system.** No GINA-style pattern alerts, TTS, or timers (a future version may revisit; the architecture shouldn't preclude it).
 - **No cross-machine or hosted service.** Local, single-user app. (Clean separation of backend/frontend keeps the door open.)
-- **Not a chat client, damage simulator, or gear planner.**
+- **Not a chat client or damage simulator.**
+
+**Two non-goals were lifted on 2026-09-20**, at the owner's request
+([ADR-021](../architecture/adr-021-companion-features.md)): this list used to
+say "no in-game overlay windows" and "not a gear planner". Overlays are now
+planned as F34, behind a spike that has to show they are possible in this
+shell. Gear is planned as F33, as an item browser plus a comparison against
+the player's own inventory file — a hand-kept record that says how old it is,
+never shown beside a measured number, which is the only form
+[ADR-011](../architecture/adr-011-gear-snapshots.md) left open when it
+withdrew the first attempt. A gear *planner* in the sense of stat weights and
+best-in-slot advice is still not this app.
 
 ## Success criteria for the first working pass
 

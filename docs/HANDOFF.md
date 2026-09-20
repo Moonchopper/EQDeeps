@@ -70,7 +70,13 @@
 > status. The main open items: the release-gate invariants (CLAUDE.md §8 —
 > defined, not yet written), class detection from the client's spell files
 > (the emote and duration halves shipped as F10a/F10b), identity-registry disk
-> persistence, and the P1/P2 backlog.
+> persistence, and the P1/P2 backlog. **Planned next (2026-09-20):** four
+> features the owner asked for after using a neighbouring app — raid targets
+> (F31, designed in ADR-022 and first up), a Plane of Sky tracker (F32), gear
+> (F33) and overlays (F34, behind a spike). ADR-021 is the record of what that
+> app does, why none of its code or data can be used, and where each
+> feature's data comes from instead; it also lifts two of vision.md's
+> non-goals.
 >
 > **Releasing:** tags are single-use (GitHub immutable releases reserve a tag
 > name permanently, even after its release is deleted), so run the

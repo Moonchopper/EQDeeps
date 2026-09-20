@@ -1,6 +1,14 @@
 namespace EQDeeps.Core.Maps;
 
 /// <summary>
+/// Which way something lies, in map space (+X east, +Y south — the same frame
+/// <see cref="MapPoint"/> uses, per the map doc §3). Length 0..1 is confidence,
+/// not distance: a unit vector means "right on the edge of the drawing", and a
+/// short one means "not far enough from the middle to be sure".
+/// </summary>
+public readonly record struct MapBearing(float X, float Y);
+
+/// <summary>
 /// One way out of a zone, as a mapmaker wrote it down.
 /// </summary>
 /// <param name="FromShortName">
@@ -18,12 +26,21 @@ namespace EQDeeps.Core.Maps;
 /// statement of *how* the connection is used.
 /// </param>
 /// <param name="At">Where the exit is, so the map can point at it.</param>
+/// <param name="Bearing">
+/// Which way this exit lies from the middle of its own drawing's base layer —
+/// see <see cref="ZoneGraph.BaseFrame"/> for why base layer and
+/// <see cref="ZoneGraph.BearingFrom"/> for the geometry. Null when that
+/// drawing has no usable extent to measure against. This is one mapmaker's
+/// opinion, from one end of the connection; <see cref="ZoneGraph.Bearing(string, string)"/>
+/// is what combines both ends.
+/// </param>
 public sealed record ZoneConnection(
     string FromShortName,
     string ToShortName,
     string ToDisplayName,
     string Label,
-    MapPoint At);
+    MapPoint At,
+    MapBearing? Bearing = null);
 
 /// <summary>
 /// The world as a graph: places for nodes, the maps' own <c>to_&lt;Zone&gt;</c>
@@ -107,6 +124,72 @@ public sealed class ZoneGraph
     /// <summary>Places reachable in one step, in either written direction.</summary>
     public IReadOnlyCollection<string> Neighbours(string shortName) =>
         _adjacency.TryGetValue(Canonical(shortName), out var set) ? set : Array.Empty<string>();
+
+    /// <summary>
+    /// The combined bearing pointing from one place to another: each side's
+    /// own connections average to that side's opinion (<c>hFrom</c>,
+    /// <c>hTo</c>), and the result is <c>(hFrom − hTo) / sidesPresent</c>, a
+    /// missing side treated as zero. Null when neither side has a usable
+    /// bearing at all.
+    ///
+    /// <para>Most connections are drawn from one end only, so most of the
+    /// time this is just that one mapmaker's opinion. When both ends are
+    /// labelled and agree — the doorway drawn on the +X edge of one zone and
+    /// the −X edge of the other — the difference reinforces into a confident
+    /// vector. When they contradict, which happens exactly where the map doc
+    /// (§3) says it will: "a door between two interiors says nothing about
+    /// which is north of which" (akanon↔steamfont, gukbottom↔guktop,
+    /// cazicthule↔feerrott in the real corpus) — the two nearly cancel. That
+    /// is not a bug to fix by picking a winner; a near-zero bearing is the
+    /// honest answer, and the caller (the World layout) falls back on plain
+    /// springs for that edge, by construction. See ADR-016.</para>
+    ///
+    /// <para><paramref name="from"/> and <paramref name="to"/> may name either
+    /// drawing of a place with two, resolved through <see cref="Canonical"/>
+    /// like every other lookup here. <c>Bearing(b, a)</c> is always the exact
+    /// negation of <c>Bearing(a, b)</c> — swapping the arguments swaps which
+    /// side is <c>hFrom</c> and which is <c>hTo</c>.</para>
+    /// </summary>
+    public MapBearing? Bearing(string from, string to)
+    {
+        var fromPlace = Canonical(from);
+        var toPlace = Canonical(to);
+
+        var hFrom = MeanBearing(From(from).Where(c => string.Equals(c.ToShortName, toPlace, StringComparison.OrdinalIgnoreCase)));
+        var hTo = MeanBearing(From(to).Where(c => string.Equals(c.ToShortName, fromPlace, StringComparison.OrdinalIgnoreCase)));
+
+        if (hFrom is null && hTo is null)
+        {
+            return null;
+        }
+
+        var sidesPresent = (hFrom is null ? 0 : 1) + (hTo is null ? 0 : 1);
+        return new MapBearing(
+            ((hFrom?.X ?? 0f) - (hTo?.X ?? 0f)) / sidesPresent,
+            ((hFrom?.Y ?? 0f) - (hTo?.Y ?? 0f)) / sidesPresent);
+    }
+
+    /// <summary>The mean of the connections' non-null bearings, or null when none of them has one.</summary>
+    private static MapBearing? MeanBearing(IEnumerable<ZoneConnection> connections)
+    {
+        var sumX = 0f;
+        var sumY = 0f;
+        var n = 0;
+
+        foreach (var connection in connections)
+        {
+            if (connection.Bearing is not { } bearing)
+            {
+                continue;
+            }
+
+            sumX += bearing.X;
+            sumY += bearing.Y;
+            n++;
+        }
+
+        return n == 0 ? null : new MapBearing(sumX / n, sumY / n);
+    }
 
     /// <summary>
     /// The fewest-zones route from one short name to another, inclusive of
@@ -250,8 +333,14 @@ public sealed class ZoneGraph
             var here = placeOf[map.ShortName];
             Adjacent(here);
 
+            // Once per map, not once per connection: every label on every
+            // layer of this drawing is measured against the same box.
+            var frame = BaseFrame(map);
+
             foreach (var label in map.Layers.SelectMany(l => l.Labels))
             {
+                var bearing = BearingFrom(frame, label.At);
+
                 foreach (var destination in Destinations(label.Text))
                 {
                     // Every drawing of the destination lands on the same place,
@@ -281,7 +370,8 @@ public sealed class ZoneGraph
                             target,
                             table.DisplayFor(target) ?? destination,
                             label.Text,
-                            label.At));
+                            label.At,
+                            bearing));
 
                         Adjacent(here).Add(target);
                         Adjacent(target).Add(here);
@@ -291,6 +381,85 @@ public sealed class ZoneGraph
         }
 
         return new ZoneGraph(outgoing, adjacency, placeMaps, placeOf);
+    }
+
+    /// <summary>
+    /// The box a connection's bearing is measured against: the union of the
+    /// map's own base-layer (index 0) bounds, falling back to every layer's
+    /// bounds when the base layer alone is empty.
+    ///
+    /// <para>Base layer only, not the whole file, because an annotation layer
+    /// can draw far outside the zone it annotates. Brewall's
+    /// <c>blackburrow_2.txt</c> (layer index 2) carries a legend out to
+    /// X=2030 while the zone itself ends at X=397; a box built from every
+    /// layer would put the "centre" outside the drawing entirely.</para>
+    ///
+    /// <para>What motivated the rule: the architect's prototype, run over the
+    /// same corpus before this was implemented, found that with all-layer
+    /// boxes the two ends of a connection labelled from both sides agreed
+    /// within 90° in only 105 of 210 pairs — a coin flip — against 163 of 229
+    /// with base-layer boxes (2026-09-20). That was a simplified parser
+    /// averaging each side's labels together, not this code, so treat it as
+    /// the reason for the rule rather than a measurement of it.</para>
+    ///
+    /// <para>The shipped graph's own agreement is measured separately, on the
+    /// owner's install and both map sets, by
+    /// <c>ZoneGraphCorpusTests.ReportsHowOftenBothEndsOfADoublyLabelledConnectionAgree</c>
+    /// — printed by that test rather than pinned here, so it cannot go stale.
+    /// As of this change: 249 doubly-labelled pairs, 168 within 90°, 103
+    /// within 45°. The remaining disagreements are interiors (akanon↔steamfont,
+    /// gukbottom↔guktop, cazicthule↔feerrott…), exactly what the map doc §3
+    /// predicts a door between two interiors cannot say.</para>
+    /// </summary>
+    private static MapBounds BaseFrame(ZoneMap map)
+    {
+        var frame = map.Layers
+            .Where(l => l.Index == 0 && !l.Bounds.IsEmpty)
+            .Aggregate(MapBounds.Empty, (acc, l) => acc.Union(l.Bounds));
+
+        return frame.IsEmpty
+            ? map.Layers.Where(l => !l.Bounds.IsEmpty).Aggregate(MapBounds.Empty, (acc, l) => acc.Union(l.Bounds))
+            : frame;
+    }
+
+    /// <summary>
+    /// Which way <paramref name="at"/> lies from the middle of
+    /// <paramref name="frame"/>, in map space. Null when the frame has no
+    /// usable extent (empty, or zero width or height) or the point sits
+    /// exactly at the centre — "no direction" is a real answer here, not a
+    /// failure, and <see cref="Bearing(string, string)"/> treats it as a
+    /// missing side rather than a vote for the origin.
+    ///
+    /// <para>Confidence is Chebyshev — the larger of how far off-centre the
+    /// point is on each axis, as a fraction of that axis's half-extent — so
+    /// an exit drawn on the edge of a long, narrow zone is still a confident
+    /// bearing even though it barely moved on the short axis, while one near
+    /// the middle of a small zone says little either way.</para>
+    /// </summary>
+    private static MapBearing? BearingFrom(MapBounds frame, MapPoint at)
+    {
+        if (frame.IsEmpty)
+        {
+            return null;
+        }
+
+        var width = frame.MaxX - frame.MinX;
+        var height = frame.MaxY - frame.MinY;
+        if (width <= 0 || height <= 0)
+        {
+            return null;
+        }
+
+        var dx = at.X - ((frame.MinX + frame.MaxX) / 2f);
+        var dy = at.Y - ((frame.MinY + frame.MaxY) / 2f);
+        var length = MathF.Sqrt((dx * dx) + (dy * dy));
+        if (length == 0f)
+        {
+            return null;
+        }
+
+        var confidence = Math.Min(1f, Math.Max(MathF.Abs(dx) / (width / 2f), MathF.Abs(dy) / (height / 2f)));
+        return new MapBearing(dx / length * confidence, dy / length * confidence);
     }
 
     /// <summary>

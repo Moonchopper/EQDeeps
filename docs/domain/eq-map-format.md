@@ -95,13 +95,19 @@ On real borders it is not close:
 | West Commonlands | East Commonlands | east |
 | West Freeport | East Freeport | east |
 | East Freeport | West Freeport | west |
-| Qeynos Hills | South Qeynos | west |
 | South Qeynos | North Qeynos | north |
 | North Qeynos | South Qeynos | south |
 
-Five of five east-west and both halves of the Qeynos pair agree, each confirming
+Four of four east-west and both halves of the Qeynos pair agree, each confirming
 the other. Rendered this way South Qeynos has the ocean to the west with its
 docks reaching into it, which is where Antonica's western city keeps its harbour.
+
+**2026-09-20:** this table used to also list "Qeynos Hills → South Qeynos:
+west". No label in either map set, on any layer, joins Qeynos Hills to South
+Qeynos, so that row is withdrawn — it was prose nobody had checked. The table
+is now enforced by the opt-in corpus test
+`ZoneGraphCorpusTests.BearingsAgreeWithTheHandStatedCompassDirections`, which
+is how the error was found.
 
 **Z is a floor**, not decoration: dungeons stack, and a Z window is the only way
 to read a zone like Old Guk without every level drawn on top of the others.
@@ -165,6 +171,47 @@ Coverage is partial and lopsided: 94 of the 196 client maps carry any `to`
 label, against 528 of Brewall's 1708. Anything building a world graph should read
 **both sets** — which map a zone is *drawn* from is a matter of taste, but which
 exits exist is not.
+
+### 4.1 Which way an exit lies
+
+An exit's bearing is which way its label sits from the middle of its own
+drawing, using the axes §3 already defines. It is a direction with a
+confidence, not a distance — a length of 0 means "no direction", 1 means
+"right on the edge of the drawing", and something in between means the exit
+sits closer to the centre than the edge.
+
+**The "middle of its own drawing" is the base layer (file index 0), not the
+whole file.** An annotation layer can draw far outside the zone it is
+annotating: Brewall's `blackburrow_2.txt` (layer 2) carries a legend out to
+X=2030 while the zone itself ends at X=397, so a box built from every layer
+would put the centre outside the drawing entirely. Blackburrow's base layer
+is X −489…397, Y −349…254; `to_Everfrost_Peaks` sits at (343, −91), east of
+that centre; `to_Qeynos_Hills` sits at (−26, 163), south of it. That is what
+the owner's own screenshot showed, and the whole reason this work exists —
+the World view used to draw Everfrost Peaks south of Blackburrow.
+
+**How often both ends of a labelled connection agree.** Measured on the
+owner's install, both map sets, by
+`ZoneGraphCorpusTests.ReportsHowOftenBothEndsOfADoublyLabelledConnectionAgree`:
+it walks every place's outgoing connections, keeps only the ones carrying
+their own per-connection bearing (not `ZoneGraph.Bearing`, which is defined
+even when only one side is labelled), dedupes by unordered pair, and for
+each pair picks one representative connection back the other way — not a
+mean — comparing the outgoing bearing against that one negated, because a
+doorway drawn from either side points at the *other* zone's middle, so
+agreeing drawings produce roughly opposite vectors. Of 249 such pairs, 168
+agree within 90° and 103 within 45°. The remaining disagreements are
+interiors — akanon↔steamfont, gukbottom↔guktop, cazicthule↔feerrott — which
+is exactly the interiors gap §3 describes.
+
+The base-layer rule itself was motivated by a smaller measurement, not the
+one above: the architect's prototype, run over the same corpus with a
+simplified label parser that averaged each side's labels together rather
+than keeping one per connection, found all-layer boxes agreeing within 90°
+in 105 of 210 pairs — a coin flip — against 163 of 229 (106 of those within
+45°) once boxes were built from the base layer alone. That prototype figure
+is not a measurement of the shipped parser above; it is the reason the
+base-layer rule exists.
 
 ## 5. The name join
 

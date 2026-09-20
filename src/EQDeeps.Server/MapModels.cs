@@ -120,7 +120,17 @@ public sealed record ZoneGraphNode(
 /// An undirected connection, written once with the ends in a stable order so
 /// the client never has to dedupe A→B against B→A.
 /// </summary>
-public sealed record ZoneGraphEdge(string From, string To);
+/// <param name="Dx">
+/// The combined bearing pointing <paramref name="From"/> → <paramref name="To"/>
+/// (<see cref="EQDeeps.Core.Maps.ZoneGraph.Bearing(string, string)"/>), in map
+/// space: +X east, +Y south, length 0..1 confidence, rounded to 3 decimals.
+/// Omitted together with <paramref name="Dy"/> (null-dropped by
+/// <c>ConfigureJson</c>) when no map places the exit — an edge that exists
+/// because a label resolved, but whose drawing(s) had nothing to measure a
+/// direction against.
+/// </param>
+/// <param name="Dy">The same bearing's south component; see <paramref name="Dx"/>.</param>
+public sealed record ZoneGraphEdge(string From, string To, float? Dx = null, float? Dy = null);
 
 /// <param name="Eras">
 /// Every expansion in release order, so the client can order the nodes' era

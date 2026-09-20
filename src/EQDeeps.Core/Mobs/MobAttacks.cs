@@ -12,6 +12,11 @@ namespace EQDeeps.Core.Mobs;
 /// index needs to recognize one it has already counted; a fight's start instant
 /// is the only thing about it that is stable across replays.
 /// </param>
+/// <param name="Zone">
+/// <see cref="Parsing.InstanceZone.KeyName"/>, not <c>BaseName</c> — see the
+/// same parameter on <see cref="KillSample"/>, F26's key is the same
+/// no-migration contract as F25's.
+/// </param>
 /// <param name="DefenderLevel">
 /// The defender's level when this happened, or null when the log never said.
 /// See <see cref="DefenderLevels"/> for where it comes from and why unknown is
@@ -446,7 +451,7 @@ public sealed class MobAttackIndex
                 }
 
                 samples.Add(new AttackSample(
-                    fight.Name, zone.BaseName, zone.Difficulty, zone.TierName,
+                    fight.Name, zone.KeyName, zone.Difficulty, zone.TierName,
                     levels.LevelOf(defender, fight.BeginTime), defender,
                     fight.BeginTime, fight.LastDamageTime, bySkill));
             }

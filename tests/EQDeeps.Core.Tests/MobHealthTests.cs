@@ -70,6 +70,131 @@ public class InstanceZoneTests
         Assert.Equal(logged, zone.BaseName);
         Assert.Null(zone.Difficulty);
     }
+
+    /// <summary>
+    /// C2 (F31, ADR-022 Decision 2): all five logged shapes the marker can take,
+    /// with and without a tier, with and without a marker at all. Display must
+    /// rebuild the exact logged string in every case.
+    /// </summary>
+    [Theory]
+    [InlineData("The Plane of Fear - Group 3 (Fused)", "The Plane of Fear", "Group", 3, "Fused")]
+    [InlineData("The Permafrost Caverns - Solo 1 (Awakened)", "The Permafrost Caverns", "Solo", 1, "Awakened")]
+    [InlineData("Nagafen's Lair - Solo", "Nagafen's Lair", "Solo", null, null)]
+    [InlineData("Nagafen's Lair 1 (Awakened)", "Nagafen's Lair", null, 1, "Awakened")]
+    [InlineData("Nagafen's Lair", "Nagafen's Lair", null, null, null)]
+    public void ReadsTheModeMarkerC2(
+        string logged, string expectedBase, string? expectedMode, int? expectedDifficulty, string? expectedTier)
+    {
+        var zone = InstanceZone.Parse(logged);
+
+        Assert.Equal(expectedBase, zone.BaseName);
+        Assert.Equal(expectedMode, zone.Mode);
+        Assert.Equal(expectedDifficulty, zone.Difficulty);
+        Assert.Equal(expectedTier, zone.TierName);
+        Assert.Equal(logged, zone.Display);
+    }
+
+    /// <summary>
+    /// Gotcha 1: real zone names contain " - " on their own account (four of
+    /// them, per <c>zones.tsv</c>), so a general "split on the last ' - '"
+    /// rule would cut them in half. Matching "Solo"/"Group" literally must
+    /// leave every one of these bare names untouched.
+    /// </summary>
+    [Theory]
+    [InlineData("Neriak - Foreign Quarter")]
+    [InlineData("Neriak - Commons")]
+    [InlineData("Neriak - Third Gate")]
+    [InlineData("Neriak - Fourth Gate")]
+    public void BareNeriakNamesKeepTheirHyphenGotcha1(string logged)
+    {
+        var zone = InstanceZone.Parse(logged);
+
+        Assert.Equal(logged, zone.BaseName);
+        Assert.Null(zone.Mode);
+        Assert.Equal(logged, zone.Display);
+    }
+
+    /// <summary>Same as above, with a tier suffix riding along.</summary>
+    [Theory]
+    [InlineData("Neriak - Foreign Quarter 2 (Adaptive)", "Neriak - Foreign Quarter")]
+    [InlineData("Neriak - Commons 2 (Adaptive)", "Neriak - Commons")]
+    [InlineData("Neriak - Third Gate 2 (Adaptive)", "Neriak - Third Gate")]
+    [InlineData("Neriak - Fourth Gate 2 (Adaptive)", "Neriak - Fourth Gate")]
+    public void TieredNeriakNamesKeepTheirHyphenGotcha1(string logged, string expectedBase)
+    {
+        var zone = InstanceZone.Parse(logged);
+
+        Assert.Equal(expectedBase, zone.BaseName);
+        Assert.Null(zone.Mode);
+        Assert.Equal(2, zone.Difficulty);
+        Assert.Equal("Adaptive", zone.TierName);
+        Assert.Equal(logged, zone.Display);
+    }
+
+    /// <summary>
+    /// Hostile shapes, none of which may throw. There is no contract pinning
+    /// what these parse to beyond "does not throw, does not lose the string"
+    /// (the brief for this change says so explicitly) — this pins down what
+    /// the implementation actually does, so a future change to either regex
+    /// notices if the reading moves.
+    ///
+    /// <para>" - Solo" and "- Group" have no place before the marker, and the
+    /// mode regex's base capture requires at least one character, so neither
+    /// matches at all — both come back untouched, mode null. "X - Solo -
+    /// Group" has two markers; the lazy base capture backs off only as far as
+    /// it has to, so the regex finds the match ending at the string's own end
+    /// first, which means the trailing "- Group" wins and "- Solo" is folded
+    /// into the base instead of being read as a mode of its own.</para>
+    /// </summary>
+    [Fact]
+    public void HostileShapesDoNotThrow()
+    {
+        Assert.Equal(new InstanceZone(" - Solo", null, null), InstanceZone.Parse(" - Solo"));
+        Assert.Equal(new InstanceZone("- Group", null, null), InstanceZone.Parse("- Group"));
+        Assert.Equal(
+            new InstanceZone("X - Solo", null, null, "Group"),
+            InstanceZone.Parse("X - Solo - Group"));
+    }
+
+    [Theory]
+    [InlineData(" - Solo")]
+    [InlineData("- Group")]
+    [InlineData("X - Solo - Group")]
+    public void HostileShapesKeepTheWholeStringInDisplay(string logged)
+    {
+        Assert.Equal(logged, InstanceZone.Parse(logged).Display);
+    }
+
+    [Fact]
+    public void A300CharacterNameDoesNotThrowAndKeepsTheWholeStringInDisplay()
+    {
+        var logged = new string('Z', 300);
+        var zone = InstanceZone.Parse(logged);
+
+        Assert.Equal(logged, zone.BaseName);
+        Assert.Null(zone.Mode);
+        Assert.Equal(logged, zone.Display);
+    }
+
+    /// <summary>
+    /// C4, the no-migration proof. These five expected strings are exactly
+    /// what the pre-F31 <c>BaseName</c> returned for the same five logged
+    /// forms the C2 test above covers — the value F25/F26 already wrote under
+    /// every key on disk. They are hard-coded rather than derived from
+    /// <see cref="InstanceZone"/> itself: computing them from the code under
+    /// test would only prove the code agrees with itself, not that it still
+    /// agrees with what shipped before this change.
+    /// </summary>
+    [Theory]
+    [InlineData("The Plane of Fear - Group 3 (Fused)", "The Plane of Fear - Group")]
+    [InlineData("The Permafrost Caverns - Solo 1 (Awakened)", "The Permafrost Caverns - Solo")]
+    [InlineData("Nagafen's Lair - Solo", "Nagafen's Lair - Solo")]
+    [InlineData("Nagafen's Lair 1 (Awakened)", "Nagafen's Lair")]
+    [InlineData("Nagafen's Lair", "Nagafen's Lair")]
+    public void KeyNameMatchesWhatBaseNameUsedToReturnC4(string logged, string expectedKey)
+    {
+        Assert.Equal(expectedKey, InstanceZone.Parse(logged).KeyName);
+    }
 }
 
 public class MobHealthIndexTests

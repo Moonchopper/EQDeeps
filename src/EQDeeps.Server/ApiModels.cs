@@ -289,8 +289,11 @@ public sealed record FightInfo(
             return null;
         }
 
+        // KeyName, not BaseName: F25's store keys a marked instance by the
+        // place plus its mode, so the health this fight just banked is the
+        // one it looks back up here. See InstanceZone.KeyName.
         return health.TryGetValue(
-            MobHealthStore.KeyOf(fight.Name, zone.BaseName, zone.Difficulty), out var estimate)
+            MobHealthStore.KeyOf(fight.Name, zone.KeyName, zone.Difficulty), out var estimate)
             ? estimate.Health
             : null;
     }

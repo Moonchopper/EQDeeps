@@ -160,6 +160,23 @@ public class ZoneTableTests
         Assert.Null(table.EraFor("newsebexp"));
     }
 
+    /// <summary>
+    /// C5 (F31, ADR-022 Decision 2): a raid instance marked " - Solo" or
+    /// " - Group" is the same geometry as its ordinary zone, so it must
+    /// resolve to the same map entry the bare name does, not to nothing —
+    /// which is what happened before <c>InstanceZone</c> learned to read the
+    /// marker instead of treating it as part of the place name.
+    /// </summary>
+    [Fact]
+    public void MapLookupStripsTheModeMarkerTooC5()
+    {
+        var table = ZoneTable.Default;
+
+        var bare = table.MapsFor("The Plane of Hate");
+        Assert.NotEmpty(bare);
+        Assert.Equal(bare, table.MapsFor("The Plane of Hate - Group 2 (Adaptive)"));
+    }
+
     [Fact]
     public void ShippedTableLoadsAndIsNotTrivial()
     {

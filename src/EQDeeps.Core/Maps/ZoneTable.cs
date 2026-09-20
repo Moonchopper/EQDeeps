@@ -146,7 +146,12 @@ public sealed class ZoneTable
     /// <para>The argument may carry an instance suffix — "The Estate of Unrest
     /// 4 (Refined)" — because that is what the log line says. An instance is
     /// the same geometry as its open-world zone, so the suffix is stripped
-    /// rather than looked up.</para>
+    /// rather than looked up. That now includes the " - Solo" / " - Group"
+    /// mode marker some raid instances carry (F31): "The Plane of Hate - Group
+    /// 2 (Adaptive)" resolves to the same map as "The Plane of Hate", because
+    /// <see cref="InstanceZone.BaseName"/> is the bare place with both the
+    /// marker and the tier removed — see <c>InstanceZone.KeyName</c> for where
+    /// the marker is kept instead.</para>
     /// </summary>
     public IReadOnlyList<string> MapsFor(string zoneName)
     {

@@ -297,15 +297,18 @@ The Legends half of that example turned out to be something else
 (2026-09-20): `- Group` and `- Solo` are a marker the zone line carries on
 some instances, not part of a second zone's name — see
 [log format](eq-log-format.md) §3.9b. Stripping it with the rest of the
-instance suffix is part of F31 (ADR-022 Decision 2), after which those
-entries resolve to the ordinary map with no table change. The renamed
-event copies ("Reinforced Clan Crushbone") remain the real case.
+instance suffix was F31's first slice (ADR-022 Decision 2): those entries now
+resolve to the ordinary map with no table change. The renamed event copies
+("Reinforced Clan Crushbone") remain the real case.
 
 ### 5.2 Instances
 
 The log names an instance with its difficulty attached: `The Estate of Unrest 4
-(Refined)`. An instance is the same geometry as its open-world zone, so strip
-the suffix (`InstanceZone.Parse`) before looking a map up.
+(Refined)`, and some instances also carry the `- Solo` / `- Group` mode marker
+ahead of it: `The Plane of Fear - Group 3 (Fused)` (§3.9b of the log-format
+doc). An instance is the same geometry as its open-world zone, so strip both
+the marker and the tier suffix (`InstanceZone.Parse`'s `BaseName`) before
+looking a map up.
 
 ### 5.3 Eras: which expansion a zone is from
 

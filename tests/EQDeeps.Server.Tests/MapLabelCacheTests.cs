@@ -137,6 +137,41 @@ public sealed class MapLabelCacheTests : IDisposable
         Assert.Equal(0, healed.Parsed);
     }
 
+    /// <summary>
+    /// The cache used to recompute a served layer's <c>Bounds</c> from its
+    /// labels, which quietly shrank it to whatever the labels happened to
+    /// cover. A file whose geometry reaches further than any label — the
+    /// normal case, since a zone's walls are usually bigger than its exits —
+    /// is what would have caught that: a served layer must carry the same
+    /// box a fresh parse would, because <see cref="EQDeeps.Core.Maps.ZoneGraph.Bearing(string, string)"/>
+    /// measures against it.
+    /// </summary>
+    [Fact]
+    public void AServedLayersBoundsEqualTheParsedLayersWhenGeometryReachesFurtherThanAnyLabel()
+    {
+        const string text =
+            """
+            L -500, -500, 0, 500, 500, 0, 64, 64, 64
+            P 10, 20, 0, 0, 0, 240, 3, to_Somewhere
+            """;
+        var path = Map("wide.txt", text);
+
+        var parsed = MapFileParser.Parse(text, labelsOnly: true);
+
+        var writer = new MapLabelCache(_dir);
+        var firstServe = writer.LabelsFor(path, 0)!;
+        Assert.Equal(parsed.Bounds, firstServe.Bounds);
+
+        // From a fresh cache instance too, so this is the persisted value
+        // round-tripping through the file rather than a value still held in
+        // memory from the parse that just happened.
+        writer.Save();
+        var reader = new MapLabelCache(_dir);
+        var served = reader.LabelsFor(path, 0)!;
+        Assert.Equal(0, reader.Parsed);
+        Assert.Equal(parsed.Bounds, served.Bounds);
+    }
+
     [Fact]
     public void AMissingFileIsNullNotAnError()
     {

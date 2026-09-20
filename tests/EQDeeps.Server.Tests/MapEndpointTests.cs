@@ -313,6 +313,51 @@ public sealed class MapEndpointTests : IAsyncLifetime
     }
 
     /// <summary>
+    /// Hand-computed against the fixture's own geometry (CLAUDE.md §8: query
+    /// tests check hand-computed values, never the engine's own output).
+    /// gfaydark's base layer is a 0..200 x 0..100 box; its "to Butcherblock
+    /// Mountains" label sits at (10, 20), well off toward -X/-Y, so gfaydark's
+    /// own opinion of the doorway points north-west. Butcher's own exit back
+    /// ("to The Greater Faydark") sits exactly on its drawing's centre — zero
+    /// offset, so it carries no bearing — leaving gfaydark's side, negated, as
+    /// the whole answer: south-east from butcher, i.e. positive on both axes.
+    /// </summary>
+    [Fact]
+    public async Task GraphEdgesCarryTheRightSignedBearing()
+    {
+        var edges = (await Get("/api/maps/graph")).GetProperty("edges").EnumerateArray()
+            .ToDictionary(e => e.GetProperty("from").GetString() + "->" + e.GetProperty("to").GetString());
+
+        var butcherToGfaydark = edges["butcher->gfaydark"];
+        var dx = butcherToGfaydark.GetProperty("dx").GetSingle();
+        var dy = butcherToGfaydark.GetProperty("dy").GetSingle();
+
+        Assert.True(dx > 0, $"Expected butcher->gfaydark to point east (dx > 0), got {dx}.");
+        Assert.True(dy > 0, $"Expected butcher->gfaydark to point south (dy > 0), got {dy}.");
+        Assert.Equal(0.854f, dx, 3);
+        Assert.Equal(0.285f, dy, 3);
+    }
+
+    /// <summary>
+    /// cauldron.txt draws no lines at all — a single labelled point is a
+    /// zero-area frame, so cauldron's own "to The Estate of Unrest" carries no
+    /// bearing; unrest draws no exit back. Neither side can say which way the
+    /// door lies, so the combined bearing — and therefore both properties,
+    /// which travel together — is absent from the wire (<c>ConfigureJson</c>
+    /// drops nulls), not merely zero.
+    /// </summary>
+    [Fact]
+    public async Task GraphOmitsTheBearingWhenNoMapPlacesTheExit()
+    {
+        var edges = (await Get("/api/maps/graph")).GetProperty("edges").EnumerateArray()
+            .ToDictionary(e => e.GetProperty("from").GetString() + "->" + e.GetProperty("to").GetString());
+
+        var cauldronToUnrest = edges["cauldron->unrest"];
+        Assert.False(cauldronToUnrest.TryGetProperty("dx", out _), "Expected no dx on cauldron->unrest.");
+        Assert.False(cauldronToUnrest.TryGetProperty("dy", out _), "Expected no dy on cauldron->unrest.");
+    }
+
+    /// <summary>
     /// A place with two drawings is one node that lists both, so the client
     /// can open whichever the user prefers and never shows a zone twice.
     /// </summary>

@@ -298,13 +298,21 @@ public static class ServerApp
                 foreach (var neighbour in graph.Neighbours(zone))
                 {
                     // One edge per pair: order the ends so A→B and B→A collide.
+                    // Bearing measured for that same ordered pair, so dx/dy
+                    // always point From→To and never flip depending on which
+                    // end the graph happened to visit first.
                     var (a, b) = string.CompareOrdinal(zone, neighbour) <= 0
                         ? (zone, neighbour)
                         : (neighbour, zone);
 
                     if (seen.Add(a + " " + b))
                     {
-                        edges.Add(new ZoneGraphEdge(a, b));
+                        var bearing = graph.Bearing(a, b);
+                        edges.Add(new ZoneGraphEdge(
+                            a,
+                            b,
+                            bearing?.X is { } dx ? MathF.Round(dx, 3) : null,
+                            bearing?.Y is { } dy ? MathF.Round(dy, 3) : null));
                     }
                 }
             }

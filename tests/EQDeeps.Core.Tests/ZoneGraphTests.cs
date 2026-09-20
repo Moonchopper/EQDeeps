@@ -14,6 +14,8 @@ public class ZoneGraphTests
         oceanoftears	The Ocean of Tears	name
         felwithea	Northern Felwithe	curated
         cauldron	Dagnor's Cauldron	curated
+        zonea	Zone A	curated
+        zoneb	Zone B	curated
         """);
 
     private static ZoneMap Map(string shortName, params string[] labels) =>
@@ -24,6 +26,25 @@ public class ZoneGraphTests
                 Array.Empty<MapLine>(),
                 labels.Select(t => new MapLabel(new MapPoint(1, 2, 3), new MapColor(0, 0, 0), 3, t)).ToArray(),
                 MapBounds.Empty,
+                0),
+        });
+
+    /// <summary>
+    /// A map whose base layer (index 0) has real bounds, for the bearing
+    /// tests — <see cref="Map"/>'s fixtures use <see cref="MapBounds.Empty"/>
+    /// on purpose, because most of this file is testing destination
+    /// resolution, not geometry.
+    /// </summary>
+    private static ZoneMap MapWithBounds(
+        string shortName, float minX, float minY, float maxX, float maxY,
+        params (string Label, MapPoint At)[] labels) =>
+        ZoneMap.FromLayers(shortName, new[]
+        {
+            new MapLayer(
+                0,
+                Array.Empty<MapLine>(),
+                labels.Select(l => new MapLabel(l.At, new MapColor(0, 0, 0), 3, l.Label)).ToArray(),
+                new MapBounds(minX, minY, 0, maxX, maxY, 0),
                 0),
         });
 
@@ -277,5 +298,138 @@ public class ZoneGraphTests
         // finish, either.
         Assert.Null(graph.Route("crushbone", "felwithea", z => z != "felwithea"));
         Assert.Null(graph.Route("crushbone", "oot", z => z != "oot"));
+    }
+
+    [Fact]
+    public void AConnectionOnTheEastEdgeOfASquareBoxPointsEast()
+    {
+        var graph = ZoneGraph.Build(
+            new[]
+            {
+                MapWithBounds("zonea", -100, -100, 100, 100, ("to Zone B", new MapPoint(100, 0, 0))),
+                MapWithBounds("zoneb", -10, -10, 10, 10),
+            },
+            Table);
+
+        var exit = Assert.Single(graph.From("zonea"));
+        Assert.Equal(new MapBearing(1f, 0f), exit.Bearing);
+    }
+
+    [Fact]
+    public void AConnectionOnTheSouthEdgeOfARectangularBoxPointsSouth()
+    {
+        // -100..100 x -50..50: the exit sits dead centre on X but all the way
+        // out on the short (Y) axis, and Chebyshev confidence still reads it
+        // as fully confident.
+        var graph = ZoneGraph.Build(
+            new[]
+            {
+                MapWithBounds("zonea", -100, -50, 100, 50, ("to Zone B", new MapPoint(0, 50, 0))),
+                MapWithBounds("zoneb", -10, -10, 10, 10),
+            },
+            Table);
+
+        var exit = Assert.Single(graph.From("zonea"));
+        Assert.Equal(new MapBearing(0f, 1f), exit.Bearing);
+    }
+
+    /// <summary>
+    /// Brewall's blackburrow_2.txt (an annotation layer, index 2) draws a
+    /// legend out to X=2030 while the zone itself ends at X=397 — a box built
+    /// from every layer would put the "centre" outside the drawing entirely.
+    /// The label lives on the annotation layer here too, to prove the frame
+    /// still comes from the base layer regardless of which layer carried it.
+    /// </summary>
+    [Fact]
+    public void BaseLayerWinsOverAWiderAnnotationLayer()
+    {
+        var annotated = ZoneMap.FromLayers("zonea", new[]
+        {
+            new MapLayer(0, Array.Empty<MapLine>(), Array.Empty<MapLabel>(),
+                new MapBounds(-100, -100, 0, 100, 100, 0), 0),
+            new MapLayer(1, Array.Empty<MapLine>(),
+                new[] { new MapLabel(new MapPoint(100, 0, 0), new MapColor(0, 0, 0), 3, "to Zone B") },
+                new MapBounds(-1000, -1000, 0, 1000, 1000, 0), 0),
+        });
+
+        var graph = ZoneGraph.Build(new[] { annotated, MapWithBounds("zoneb", -10, -10, 10, 10) }, Table);
+
+        var exit = Assert.Single(graph.From("zonea"));
+
+        // Had the wide annotation layer won, the same point (100, 0) would
+        // sit only a tenth of the way to the edge of a -1000..1000 box —
+        // confidence 0.1, not 1 — and the vector below would not match.
+        Assert.Equal(new MapBearing(1f, 0f), exit.Bearing);
+    }
+
+    /// <summary>
+    /// The fixtures the rest of this file uses build layers with
+    /// <see cref="MapBounds.Empty"/>, because they exist to test destination
+    /// resolution, not geometry. A graph built from them still hands out
+    /// connections — it just cannot say which way they point.
+    /// </summary>
+    [Fact]
+    public void BearingIsNullWhenTheDrawingHasNoExtent()
+    {
+        var graph = ZoneGraph.Build(
+            new[] { Map("gfaydark", "to Butcherblock Mountains"), Map("butcher") },
+            Table);
+
+        Assert.Null(Assert.Single(graph.From("gfaydark")).Bearing);
+    }
+
+    [Fact]
+    public void CombinedBearingReinforcesWhenBothSidesAgree()
+    {
+        // Zone A draws its own doorway on its east edge; Zone B, standing on
+        // the other side of the same doorway, draws it on its west edge —
+        // two mapmakers' opinions that agree about which way the other zone
+        // lies.
+        var a = MapWithBounds("zonea", -100, -100, 100, 100, ("to Zone B", new MapPoint(100, 0, 0)));
+        var b = MapWithBounds("zoneb", -100, -100, 100, 100, ("to Zone A", new MapPoint(-100, 0, 0)));
+        var graph = ZoneGraph.Build(new[] { a, b }, Table);
+
+        var ab = graph.Bearing("zonea", "zoneb");
+        Assert.Equal(new MapBearing(1f, 0f), ab);
+
+        // Bearing(b, a) is the exact negation, not merely "the same direction
+        // the other way round" — same magnitude, opposite sign on both axes.
+        var ba = graph.Bearing("zoneb", "zonea");
+        Assert.NotNull(ba);
+        Assert.Equal(-ab!.Value.X, ba!.Value.X, 3);
+        Assert.Equal(-ab.Value.Y, ba.Value.Y, 3);
+    }
+
+    [Fact]
+    public void CombinedBearingUsesWhicheverSideIsLabelledWhenOnlyOneIs()
+    {
+        var a = MapWithBounds("zonea", -100, -100, 100, 100, ("to Zone B", new MapPoint(100, 0, 0)));
+        var b = MapWithBounds("zoneb", -100, -100, 100, 100); // no exit drawn back
+
+        var graph = ZoneGraph.Build(new[] { a, b }, Table);
+
+        Assert.Equal(new MapBearing(1f, 0f), graph.Bearing("zonea", "zoneb"));
+    }
+
+    /// <summary>
+    /// Both mapmakers drew their own exit pointing toward +X — a door between
+    /// two interiors telling two different stories about which way the other
+    /// zone lies (map doc §3: "a door between two interiors says nothing
+    /// about which is north of which"). The combined bearing cancels rather
+    /// than picking a winner; that is the intended behaviour, not a bug the
+    /// layout has to work around (see ADR-016's addendum).
+    /// </summary>
+    [Fact]
+    public void CombinedBearingCancelsWhenTheTwoSidesContradict()
+    {
+        var a = MapWithBounds("zonea", -100, -100, 100, 100, ("to Zone B", new MapPoint(100, 0, 0)));
+        var b = MapWithBounds("zoneb", -100, -100, 100, 100, ("to Zone A", new MapPoint(100, 0, 0)));
+
+        var graph = ZoneGraph.Build(new[] { a, b }, Table);
+
+        var bearing = graph.Bearing("zonea", "zoneb");
+        Assert.NotNull(bearing);
+        Assert.Equal(0f, bearing!.Value.X, 3);
+        Assert.Equal(0f, bearing.Value.Y, 3);
     }
 }

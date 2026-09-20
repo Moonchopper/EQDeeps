@@ -328,7 +328,11 @@ public sealed class MapLibrary
     ///
     /// <para>Only the labels are kept — the geometry is discarded as it goes,
     /// so this costs a pass over the files rather than 3.2 million segments of
-    /// resident memory. And the labels come from <see cref="MapLabelCache"/>
+    /// resident memory. Its extent is not discarded, though: each layer's
+    /// <see cref="MapBounds"/> is measured from the geometry on the way past
+    /// (see the labels-only comment below), because <see cref="ZoneGraph.Bearing(string, string)"/>
+    /// needs to know how big a drawing is even though nothing of it is kept.
+    /// And the labels come from <see cref="MapLabelCache"/>
     /// when the file has not changed since they were last read, so on every
     /// launch but the first the pass is a stat per file, not a read.</para>
     ///
@@ -374,7 +378,12 @@ public sealed class MapLibrary
                     {
                         // Labels only: the graph never draws anything, and the
                         // geometry it would otherwise parse and discard is 99%
-                        // of the bytes.
+                        // of the bytes. Geometry is still discarded — its
+                        // extent is measured on the way past (MapFileParser
+                        // widens Bounds from an L record's two endpoints even
+                        // in labels-only mode), because ZoneGraph.Bearing needs
+                        // to know how big the drawing is, not just where its
+                        // labels happen to sit.
                         var layer = _labels.LabelsFor(path, index);
                         if (layer is not null)
                         {

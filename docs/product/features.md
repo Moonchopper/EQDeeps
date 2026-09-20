@@ -683,21 +683,28 @@ Acceptance:
   (F30). The view sits in the rail's World group and obeys the app-wide time
   frame, reading the whole log by default.
 - Metric values are tested against hand-computed numbers.
-- *Later slice, blocked on the owner:* the weekly loot lockout, per target
-  per difficulty — once the reset day and hour, and whether solo and group
-  share one, have been confirmed in game.
-- Not included: portraits, sounds, celebrations, respawn timers.
+- The difficulty a kill is filed under includes the `Solo` / `Group` mode
+  where the log printed one, since the mode rescales the instance as a tier
+  does: a solo kill and a group kill at the same tier are two rungs.
+- Not included: portraits, sounds, celebrations, respawn timers — and **the
+  weekly loot lockout**, left out at the owner's call (2026-09-20) to be
+  revisited only if its absence proves a problem. The time frame already
+  answers "what have I killed since Tuesday".
 
 ### F32. Plane of Sky tracker — **planned**
 
 Every class's Tests in the Plane of Sky, what each wants, what you hold
-toward it, and which are ready to hand in. Its ADR is written when F31 ships;
-what is already settled (ADR-021):
+toward it, and which are ready to hand in. Its ADR is written when F31 ships.
+**One thing is deliberately not settled** — where the quest table comes from:
 
-- The quest table — giver, items wanted, reward — is **hand-authored and
-  checked in**, like `zones.tsv`. No site publishes it in a form this app may
-  take, and the one reference site that lists the steps marks its own as
-  unconfirmed for Legends.
+- The quest table — giver, items wanted, reward. ADR-021 *recommends*
+  hand-authoring it as checked-in data, like `zones.tsv`: no site publishes
+  it in a form this app may take, and the one reference site that lists the
+  steps marks its own as unconfirmed for Legends. **The owner has left the
+  choice until F32 starts** (2026-09-20); nothing before then depends on it.
+
+What is settled (ADR-021):
+
 - What you hold is reconciled from four witnesses: loot lines, the
   `/outputfile inventory` dump, item turn-ins, and items destroyed. **Turn-ins
   and destroys are new grammars** — `You offered N <item> to <npc>.` closed by

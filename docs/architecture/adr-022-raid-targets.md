@@ -39,9 +39,12 @@ that never mention a zone pay nothing.
 
 - **Zone** is the place: `InstanceZone.BaseName`. "The Estate of Unrest" is
   one row whether it was entered at tier 0 or tier 4.
-- **Difficulty** is the tier as the log printed it — `1 (Awakened)` — carried
-  through verbatim, the rule `InstanceZone` and stances already follow, so a
-  tier the server adds shows up as itself. No suffix is `Open world`.
+- **Difficulty** is everything after the place, as the log printed it —
+  `1 (Awakened)`, `Solo`, `Group 3 (Fused)` — carried through verbatim, the
+  rule `InstanceZone` and stances already follow, so a tier the server adds
+  shows up as itself. No suffix is `Open world`. The mode is in the label
+  because it is part of the difficulty (Decision 2): a solo kill and a group
+  kill at the same tier are two rows, not one.
 - A record in a load screen, or before the log's first zone line, belongs to
   no zone. It keys to `(unknown)`, exactly as a record outside every stance
   keys to `StanceTimeline.Unknown`. It is never guessed from the zone either
@@ -69,10 +72,12 @@ You have entered Nagafen's Lair - Solo.
 Thirty-two such entries, no other zone in the log carries one, and every one
 of the five holds a raid target. The same five are *also* entered bare and
 tiered-without-a-marker, across the same weeks, so it is not a patch that
-changed the format. **What the marker means is not established from the log
-alone** — the likeliest reading is that it marks the raid instance of a zone
-that also has an ordinary one, scaled for one player or a group — and the
-owner can settle it from play.
+changed the format. The log could not say what the marker means; **the owner
+settled it from play (2026-09-20)**: `Solo` is an instance entered alone, its
+difficulty adjusted for one player; `Group` is one entered at group
+difficulty, into which others can be invited. It is the solo-versus-group
+setting the log-format doc had down as never logged. Why only these five
+zones print it is still not known.
 
 What is established is what the parser does with it today: `InstanceZone`
 reads "The Plane of Fear - Group 3 (Fused)" as a place called "The Plane of
@@ -84,10 +89,11 @@ and a zone dimension would show Fear as three places.
 verbatim like the tier word. `BaseName` becomes the place alone.
 
 **F25 and F26 must not change what they measure.** Mob health and attack
-profiles are keyed on zone and difficulty, and today a raid instance is keyed
-apart from the ordinary one by the accident of its name. That separation is
-probably right — a solo-scaled boss is not the same fight — and nothing here
-shows it is wrong, so **the mode stays part of those keys**. The slice that
+profiles are keyed on zone and difficulty, and today a marked instance is
+keyed apart from the unmarked one by the accident of its name. That
+separation is right, and now for a stated reason: the mode rescales the
+instance, so a solo-scaled boss and a group-scaled one are different fights
+in exactly the way two tiers are. **The mode stays part of those keys.** The slice that
 changes `InstanceZone` has to say, with evidence, what happens to samples
 already learned under the old names: they are not to be counted twice and not
 to be silently stranded.
@@ -118,8 +124,8 @@ other validity decision in this app: a new metric on the deaths source,
 
 Known blind spot, stated rather than hidden: a character who gains no
 experience (dead at the moment of the kill) is never credited. The roster
-therefore shows both numbers — seen and credited — and only the lockout
-(Decision 6) depends on credit.
+therefore shows both numbers — seen and credited — and nothing in F31 rests
+on credit alone. (A lockout would; see Decision 6.)
 
 ## Decision 4: the roster is data we write, matched on the whole name
 
@@ -166,16 +172,21 @@ frame narrows it like any other view.
 No portraits (ADR-021 Decision 4). No sound, no celebration (triggers and
 audio remain out of scope).
 
-## Decision 6: the weekly lockout waits for a fact only the owner can get
+## Decision 6: the weekly lockout is left out
 
 The companion models a loot lockout per target per difficulty, resetting
 weekly — and marks its own reset moment "VERIFY IN GAME". A lockout view that
 is wrong by a day tells someone they can loot when they cannot, which is
-worse than no lockout view. So it is its own slice, and it does not start
-until the owner has confirmed **the reset day and hour, and whether solo and
-group share a lockout**. Everything it needs from the engine — credited
-kills, by difficulty, inside a time window — is already delivered by
-Decisions 1 and 3; the slice is a date calculation and a toggle.
+worse than no lockout view, and building one needs the reset day and hour
+and whether solo and group share a lockout, none of which the log says.
+
+**Owner's call (2026-09-20): leave it alone, and come back to it if its
+absence turns out to be a problem.** F31 ships without it. Nothing is lost by
+waiting: everything a lockout needs from the engine — credited kills, by
+difficulty, inside a time window — is delivered by Decisions 1 and 3, and the
+app-wide time frame already answers "what have I killed since Tuesday" for
+anyone who types the window. If it is picked up, it is a date calculation and
+a toggle, plus those facts confirmed in game.
 
 ## Slices
 
@@ -188,7 +199,8 @@ Decisions 1 and 3; the slice is a date calculation and a toggle.
    two deaths in one second and a death with no experience line. Core.
 3. **The roster, the endpoint, the view.** Roster reviewed by the owner.
    Core + Server + UI; `api.ts` changes with the DTO in the same commit.
-4. **Lockout week.** Blocked on the owner's in-game check.
+
+There is no fourth slice; the lockout (Decision 6) is deferred, not planned.
 
 Slices 1 and 2 change Core, so every log cache re-parses once on the next
 open (ADR-018) — by design.
@@ -198,8 +210,10 @@ open (ADR-018) — by design.
 - **A dedicated raid-kills index**, F25-style, persisted per server. Nothing
   here is expensive enough to need remembering, and a second copy of what the
   log says is a second thing to keep right.
-- **`Mode` as a third dimension.** Nobody has asked to group by it, and the
-  roster does not need it. It is on `InstanceZone` for the keys that do.
+- **`Mode` as a third dimension of its own.** It rides in the difficulty
+  label instead, which is where a reader looks for "how hard was this".
+  Splitting it out is one more enum member if anyone ever wants every solo
+  run against every group run regardless of tier.
 - **Proving a bare zone name was a tier-0 instance** from the
   `… creating instance <Zone> <id>.` lines (128 in the owner's log), as the
   companion does. Worth having; not needed for raid targets, whose instances

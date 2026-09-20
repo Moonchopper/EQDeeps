@@ -74,7 +74,7 @@ that has to be solved differently here.
 |---|---|---|
 | Which mobs are raid targets | **Hand-authored**, checked in as data | Thirty-odd names and their zones are facts about the game, not anyone's compilation. The companion's list is hand-typed too. |
 | Boss portraits | **None** | They are another wiki's images. An initial in a tile costs nothing and owes nobody. |
-| Which items each Sky test wants, and what it gives | **Hand-authored**, checked in as data, like `zones.tsv` | The one reference site we may fetch from publishes quest steps as HTML only, and labels its own Sky steps "classic-script, not yet confirmed in Legends", with item ids it cannot name. Scraping a page is what [ADR-019](adr-019-reference-lookup.md) already declined. The facts can be checked against the owner's own turn-in lines and against the item data's `questHandins`. |
+| Which items each Sky test wants, and what it gives | **Not decided — the owner's to settle when F32 starts.** Recommended: hand-authored, checked in as data, like `zones.tsv` | The one reference site we may fetch from publishes quest steps as HTML only, and labels its own Sky steps "classic-script, not yet confirmed in Legends", with item ids it cannot name. Scraping a page is what [ADR-019](adr-019-reference-lookup.md) already declined. Hand-authored facts can be checked against the owner's own turn-in lines and against the item data's `questHandins`. The alternative is asking a site's author for permission to take theirs. |
 | Item stats, drop sources, quest uses | **Fetched from EQLBase, cached, attributed, never bundled** — ADR-020 extended to items | The site publishes items exactly as it publishes mobs: `/data/items/<id÷1000>.json`, static, sharded. Each item carries its stats, slot/class/race masks, `drops` (mob, zone, chance), `questHandins` and `questRewards`. The index this app already downloads lists 13,813 of them; today only its mob and zone rows are read. |
 | What the character holds | The log's loot, turn-in and destroy lines, and the `/outputfile inventory` dump | `InventoryDump` already parses the dump with per-item counts (it survived F24's removal as a feeder for the item registry, ADR-019). |
 | What the character wears | The `/outputfile inventory` dump, and nothing else | Still the only source there is — see Decision 5. |
@@ -161,10 +161,13 @@ valuable thing in its repository:
 - **Taking the companion's data with attribution**, as was done with
   EQLogParser's fixtures. Those were Apache-2.0; this is not, and its data is
   a third party's besides.
-- **Scraping the EQ Legends wiki ourselves.** It would reproduce the
-  companion's approach exactly, including its failure: a wiki restructure in
-  August 2026 renamed every class heading and their scraper overwrote 95
-  quests with an empty file.
+- **Scraping the EQ Legends wiki ourselves** — argued against here, though
+  the Sky table's source is formally open until F32 (Decision 4). It would
+  reproduce the companion's approach exactly, including its failure: a wiki
+  restructure in August 2026 renamed every class heading and their scraper
+  overwrote 95 quests with an empty file. It also needs about 250 lines of
+  hand corrections on top, so it does not escape hand-authoring; it adds a
+  scraper to it.
 - **A general quest tracker.** The companion's is bespoke to Sky and that is
   the right size. The quest table's *shape* is general (giver, items wanted,
   reward) so a second quest line is more rows, not a new design — but nothing

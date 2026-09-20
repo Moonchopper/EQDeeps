@@ -11,6 +11,7 @@ being cut.
 ## Unreleased
 
 - **Every copy now carries the licences it is meant to.** The installer and the portable zip put EQDeeps' own MIT licence, the full licence text for everything bundled into the app, and the .NET runtime's own notices beside the program. Before this only a short attribution file shipped, and the portable zip carried no licence at all.
+- **The World map now lays zones out the way their exits point** — if a zone's map shows the way to Everfrost Peaks on its east side, Everfrost Peaks sits to its east in the World.
 
 ## v0.16.0 — 2026-08-17
 

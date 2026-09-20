@@ -65,7 +65,10 @@
 > a mob's zones open the map with its spawn points drawn, a zone's roster
 > opens the mob, with a trail of crumbs back — which rests on the reference
 > site numbering NPCs by client zone id, so `zones.tsv` now carries those ids
-> (ADR-020 decision 6, map format doc §3).
+> (ADR-020 decision 6, map format doc §3); and the World view now lays zones
+> out the way their own maps' exits point rather than an arbitrary circle,
+> so Blackburrow's neighbours sit where its own map draws them (ADR-016
+> decision 6, feature F27).
 > Currently at **v0.16.0**. See `docs/product/features.md` for per-feature
 > status. The main open items: the release-gate invariants (CLAUDE.md §8 —
 > defined, not yet written), class detection from the client's spell files

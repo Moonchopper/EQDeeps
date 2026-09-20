@@ -39,7 +39,15 @@ public static class MapFileParser
     private const int MaxRecordLength = 512;
 
     /// <param name="labelsOnly">
-    /// Skip the geometry and read only the labelled points.
+    /// Don't keep the geometry, but do measure it: an <c>L</c> record still
+    /// widens <see cref="MapLayer.Bounds"/> from its two endpoints, just
+    /// without allocating the <see cref="MapLine"/> or reading its colour. So
+    /// <see cref="MapLayer.Bounds"/> means "the extent of everything the file
+    /// draws" in both modes — a labels-only layer's box is exactly what a full
+    /// parse would have produced, which is what lets <see cref="ZoneGraph"/>
+    /// measure a connection's bearing against a zone it never actually drew.
+    /// An <c>L</c> record that fails even this reduced read is skipped
+    /// silently, the same as a well-formed one — see the switch case below.
     ///
     /// <para>For the world graph, which needs a zone's exits and nothing it
     /// draws. Segments are 99% of the corpus — 3,244,827 of them against 35,719
@@ -65,8 +73,15 @@ public static class MapFileParser
             switch (record[0])
             {
                 // Skipped by request is not the same as unparseable, so this
-                // must not reach the malformed count.
+                // must not reach the malformed count — even when the reduced
+                // read below fails, because a labels-only pass never looks
+                // closely enough at the rest of the record to call it broken.
                 case 'L' when labelsOnly:
+                    if (TryParseLineExtent(record, out var from, out var to))
+                    {
+                        bounds = bounds.Add(from).Add(to);
+                    }
+
                     break;
 
                 case 'L' when TryParseLine(record, out var line):
@@ -147,6 +162,30 @@ public static class MapFileParser
             new MapPoint(f[0], f[1], f[2]),
             new MapPoint(f[3], f[4], f[5]),
             new MapColor(Channel(f[6]), Channel(f[7]), Channel(f[8])));
+        return true;
+    }
+
+    /// <summary>
+    /// Reads only an <c>L</c> record's two endpoints — the first six of its
+    /// nine fields — so labels-only mode can widen <see cref="MapLayer.Bounds"/>
+    /// without paying for the colour or keeping a <see cref="MapLine"/>.
+    /// <see cref="TryParseFields"/> tolerates the three trailing colour fields
+    /// it never asks for, the same way it already tolerates a label's text
+    /// running past a <c>P</c> record's seventh comma.
+    /// </summary>
+    private static bool TryParseLineExtent(string record, out MapPoint from, out MapPoint to)
+    {
+        from = default;
+        to = default;
+
+        Span<float> f = stackalloc float[6];
+        if (!TryParseFields(record.AsSpan(1), f, out _))
+        {
+            return false;
+        }
+
+        from = new MapPoint(f[0], f[1], f[2]);
+        to = new MapPoint(f[3], f[4], f[5]);
         return true;
     }
 

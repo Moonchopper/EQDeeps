@@ -392,7 +392,7 @@ it and whether the defender's level was known at all.
   the profile table shows the instant it is sorted on, dated well enough that
   two rows from different days cannot read as out of order.
 
-### F27. Zone maps — **shipped (2026-08-15)**
+### F27. Zone maps — **shipped (2026-08-15)**; World laid out by exit bearing (2026-09-20)
 
 Explore the zones and how they join up, in the app. See
 [ADR-016](../architecture/adr-016-zone-maps.md) and

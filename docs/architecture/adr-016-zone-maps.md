@@ -199,3 +199,130 @@ are added.
   are `64,64,64` — and this app is dark-only (ADR-015). Lifting them is a
   rendering concern, handled at draw time, and the file's colour is never
   rewritten.
+- Measuring bearings costs something on the cold path: `MapFileParser`'s
+  labels-only mode now parses six floats per `L` record to widen
+  `MapLayer.Bounds`, rather than skipping the record outright. Measured on
+  the owner's maps, fresh cache each run: cold `MapLibrary.Graph()` moved
+  from a median 1639 ms to 2013 ms, about 1.23×. Graph shape is unchanged —
+  256 zones, 990 connections — so the cost is parsing, not new data kept; a
+  warm build still reads the label cache and pays none of it.
+
+## Decision 6 (2026-09-20): the World layout follows the maps' own bearings
+
+The World view laid zones out with a plain force simulation seeded on a
+circle in name order, so orientation was arbitrary. The owner's report was
+concrete: Blackburrow's own map draws Everfrost Peaks on its *east* side, but
+the World view drew Everfrost Peaks *south* of Blackburrow. The maps already
+say which way their own exits lie (map format doc §4.1); the layout was
+simply not reading it.
+
+It now is. `ZoneGraph` measures a **bearing** for every labelled connection —
+which way the exit lies from the middle of its own drawing's base layer, per
+Decision 4's box and the map format doc's §4.1 — and combines both ends of a
+connection into `ZoneGraph.Bearing(from, to)`, negating and averaging so two
+agreeing drawings reinforce into a confident vector and two contradicting
+ones cancel toward zero rather than one side winning by luck of which was
+asked first. `ui/src/maps/worldLayout.ts` (F27's World layout, moved out of
+`ZoneGraphView.tsx` into its own pure module so it can be checked without a
+browser) turns those bearings into a picture with three changes to the
+simulation:
+
+- **A bearing-led seed.** Instead of a name-order circle, the layout walks
+  the graph breadth-first from its best-connected zone and places each newly
+  met zone one simulation-step along the edge's bearing; an edge with no
+  usable bearing fans its neighbours out by the golden angle instead, so they
+  spread evenly rather than stacking on one ray. For a tree — which most of
+  the World is, once cycles are set aside — that walk alone *is* the layout
+  the bearings ask for; the simulation below only has to settle cycles and
+  collisions.
+- **An orientation force**, applied per hinted edge, that turns the edge
+  toward its bearing without stretching it — a plain spring already decides
+  how long the edge is, and this only decides which way it points.
+- **Range-limited repulsion.** Zones farther apart than three simulation-steps
+  no longer repel at all, fading to nothing as they approach that reach
+  rather than pushing forever. Unbounded repulsion is what was defeating the
+  bearings at the fringe of the world: it shoves leaf chains radially
+  outward regardless of which way their one edge points, undoing the
+  orientation force faster than the iteration budget could win it back.
+  Gravity is quartered to match — components are now packed separately, so
+  it no longer has to hold a whole scattered world together on its own, and
+  at full strength it squeezed a world whose repulsion is now local.
+
+**The hub rule.** An edge touching a zone of degree 12 or higher, in the
+drawn graph, contributes no bearing to either the seed or the orientation
+force. Plane of Knowledge (37 exits) and Plane of Tranquility (15) place
+their portal stones for the room's convenience, not the world's, and
+honouring their bearings raised full-world edge crossings from 307 to 676;
+ignoring them (this rule) brings it to about 430. The classic world has no
+zone over 8 exits, so the rule never touches it.
+
+This rests on the same prototype cited in Decision 4's box-choice finding —
+`layout.mjs`, run by the architect over the real corpus before any of this
+was implemented. On the classic world it took exits within 45° of their own
+map's bearing from 17% to 68%, more-than-90°-off exits from 83 to 18 of 149,
+and edge crossings from 4 to 0. The shipped `worldLayout.ts` reproduces those
+same classic-world figures (149 sides, 102 within 45° — 68% — 18 worse than
+90°, 0 crossings): the prototype's layout measurement, confirmed by the
+module that ships.
+
+**The hub rule had a second half missing, and the owner found it.** Reported
+2026-09-20: with the era selector on Any era, the World drew Lake Rathetear
+*north* of The Southern Plains of Karana, although South Karana's own map
+puts `to_Lake_Rathetear` on its south edge at 0.93 confidence — the layout
+drew it 133° off. Masking a hub's *bearing* said nothing about a hub's
+*physics*, and both were still wrong:
+
+1. The seed walk starts from the best-connected zone, which in any era is
+   Plane of Knowledge (37 exits). With its bearings masked but nothing else
+   changed, the walk began by fanning 37 of Norrath's zones into a
+   golden-angle ring around it, crumpling Antonica before the simulation had
+   run a single step.
+2. Hub edges still pulled as full-strength springs, so every zone with a
+   book to Plane of Knowledge was yanked toward one point, which folded the
+   Karanas over each other once the simulation ran.
+
+The rule is now three parts, not one: a hub edge contributes no bearing (as
+before); the seed walk crosses portals **last** — each component starts at
+its best-connected *non-hub* zone and walks real, bearing-carrying edges
+first, breadth-first, and only crosses a hub edge one at a time once that
+walkable frontier is exhausted, then resumes walking from what it reaches;
+and a hub edge's spring pulls at a **tenth strength** (`HUB_SPRING`) once
+the simulation starts, rather than full. Swept on the any-era world
+(confident non-hub edges within 45° of their own bearing, edges worse than
+90° off, edge crossings among walkable edges, with the portals-last seed
+already in place): shipped (spring 1, name-order seed) 59% / 48 / 208; 0.25
+→ 72% / 25 / 116; **0.1 → 75% / 18 / 89**; 0.03 → 77% / 19 / 97 but the
+longest edge grows 461 → 520; 0 lets a hub drift off entirely (longest edge
+1147) because nothing holds it once it also carries no bearing. 0.1 is the
+strength that still tames Lake Rathetear and the Karanas without giving up
+an edge to get there.
+
+Per-era effect (confident non-hub edges within 45°, before → after this
+fix; crossings among walkable edges, before → after — the architect's
+measurements of the shipped module over the owner's install, 2026-09-20):
+
+| Era | Within 45° | Crossings |
+|---|---|---|
+| Classic | 79% → 79% | 0 → 0 |
+| Kunark | 75% → 82% | 11 → 5 |
+| Velious | 74% → 84% | 34 → 5 |
+| Luclin | 78% → 86% | 34 → 5 |
+| Planes of Power | 60% → 78% | 84 → 17 |
+| Any era | 59% → 75% | 208 → 89 |
+
+Classic sees no change — it has no zone over 8 exits, so the hub rule never
+fires there either way — and every later era, once it has a hub to fire on,
+gets both fewer wrong-way edges and dramatically fewer crossings.
+
+**What this deliberately does not solve.** The any-era world now keeps its
+geography — Lake Rathetear sits south of South Karana, and a hub no longer
+folds the region it touches over itself — but two things remain unfixed.
+Label crowding where many zones meet is unchanged; the layout says nothing
+about text, only position. And a small city's own interior cycles can still
+settle flipped where two of its own zones' maps disagree about which way a
+shared door lies — the Qeynos trio, Erudin ↔ Toxxulia are the measured
+cases (also the akanon↔steamfont, gukbottom↔guktop pair the map format
+doc's §4.1 measures): `ZoneGraph.Bearing` cancels a contradiction toward
+zero by construction rather than picking a winner, so that edge falls back
+on the plain spring, undecided, instead of the layout guessing which side
+is right.

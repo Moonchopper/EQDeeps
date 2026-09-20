@@ -2,211 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { api, type ZoneGraph, type ZoneGraphNode, type ZoneRouteStep } from "../api";
 import { fuzzyMatch, type FuzzyHit } from "../fuzzy";
 import { zoneKey } from "./mapSettings";
-
-interface Point {
-  x: number;
-  y: number;
-}
-
-/**
- * Lays the world out with a small force simulation: edges pull, everything
- * pushes apart.
- *
- * <p>Deterministic on purpose — positions start on a circle in name order
- * rather than at random, so the same world produces the same picture every
- * time. A layout that reshuffled on each visit would make the map harder to
- * learn, and learning the shape is the point of drawing it.</p>
- */
-function layout(graph: ZoneGraph, iterations = 400): Map<string, Point> {
-  const nodes = graph.zones.map((z) => z.shortName);
-  const degree = new Map(graph.zones.map((z) => [z.shortName, z.degree]));
-  const index = new Map(nodes.map((n, i) => [n, i]));
-  const n = nodes.length;
-  const pos: Point[] = [];
-
-  // The starting circle scales with the node count so that the *spacing*
-  // between zones comes out the same in every component. A fixed radius gives
-  // a five-zone pocket the same area as a two-hundred-zone continent, and once
-  // those are packed side by side the pocket takes half the frame.
-  const radius = Math.max(60, 34 * Math.sqrt(n));
-  for (let i = 0; i < n; i++) {
-    const a = (i / Math.max(1, n)) * Math.PI * 2;
-    pos.push({ x: Math.cos(a) * radius, y: Math.sin(a) * radius });
-  }
-
-  const edges = graph.edges
-    .map((e) => [index.get(e.from), index.get(e.to)] as [number | undefined, number | undefined])
-    .filter((e): e is [number, number] => e[0] !== undefined && e[1] !== undefined);
-
-  const area = radius * radius * 4;
-  const k = Math.sqrt(area / Math.max(1, n));
-  let temp = radius / 4;
-
-  const disp: Point[] = pos.map(() => ({ x: 0, y: 0 }));
-
-  for (let step = 0; step < iterations; step++) {
-    for (let i = 0; i < n; i++) {
-      disp[i].x = 0;
-      disp[i].y = 0;
-    }
-
-    // Repulsion. O(n²), which at 264 zones is 70k pairs per step — small
-    // enough that a quadtree would cost more to read than it saves.
-    for (let i = 0; i < n; i++) {
-      for (let j = i + 1; j < n; j++) {
-        let dx = pos[i].x - pos[j].x;
-        let dy = pos[i].y - pos[j].y;
-        let d2 = dx * dx + dy * dy;
-
-        if (d2 < 0.01) {
-          // Two zones exactly on top of each other have no direction to
-          // separate along; nudge them by index so it stays deterministic.
-          dx = ((i % 7) - 3) * 0.1;
-          dy = ((j % 7) - 3) * 0.1;
-          d2 = dx * dx + dy * dy || 0.01;
-        }
-
-        const d = Math.sqrt(d2);
-        const force = (k * k) / d;
-        const fx = (dx / d) * force;
-        const fy = (dy / d) * force;
-
-        disp[i].x += fx;
-        disp[i].y += fy;
-        disp[j].x -= fx;
-        disp[j].y -= fy;
-      }
-    }
-
-    for (const [a, b] of edges) {
-      const dx = pos[a].x - pos[b].x;
-      const dy = pos[a].y - pos[b].y;
-      const d = Math.sqrt(dx * dx + dy * dy) || 0.01;
-      const force = (d * d) / k;
-      const fx = (dx / d) * force;
-      const fy = (dy / d) * force;
-
-      disp[a].x -= fx;
-      disp[a].y -= fy;
-      disp[b].x += fx;
-      disp[b].y += fy;
-    }
-
-    // Gravity. Without it nothing bounds repulsion, and a zone with few
-    // connections drifts until it is off in a corner on its own — which then
-    // sets the viewBox and squashes the entire world into a speck in the
-    // middle. Edges alone cannot hold a sparse graph together.
-    for (let i = 0; i < n; i++) {
-      const pull = 0.06 * (1 + Math.min(4, degree.get(nodes[i]) ?? 0));
-      disp[i].x -= pos[i].x * pull;
-      disp[i].y -= pos[i].y * pull;
-    }
-
-    for (let i = 0; i < n; i++) {
-      const d = Math.sqrt(disp[i].x * disp[i].x + disp[i].y * disp[i].y) || 0.01;
-      const limit = Math.min(d, temp);
-      pos[i].x += (disp[i].x / d) * limit;
-      pos[i].y += (disp[i].y / d) * limit;
-    }
-
-    temp *= 0.98;
-  }
-
-  return new Map(nodes.map((name, i) => [name, pos[i]]));
-}
-
-/**
- * Splits the graph into connected components, lays each out on its own, and
- * packs them into rows.
- *
- * <p>The world is not one piece. Beyond the mainland there are pockets of two
- * or three zones that connect to each other and to nothing else, and running
- * one simulation over the lot pushes those pockets to the far corners — where
- * they set the viewBox and squash the mainland into the middle third. Laying
- * them out separately and placing them costs a little code and buys back most
- * of the frame.</p>
- */
-function packedLayout(graph: ZoneGraph): Map<string, Point> {
-  const adjacency = new Map<string, string[]>();
-  for (const z of graph.zones) {
-    adjacency.set(z.shortName, []);
-  }
-  for (const e of graph.edges) {
-    adjacency.get(e.from)?.push(e.to);
-    adjacency.get(e.to)?.push(e.from);
-  }
-
-  const seen = new Set<string>();
-  const components: string[][] = [];
-
-  for (const z of graph.zones) {
-    if (seen.has(z.shortName)) {
-      continue;
-    }
-
-    const members: string[] = [];
-    const queue = [z.shortName];
-    seen.add(z.shortName);
-
-    while (queue.length) {
-      const at = queue.pop()!;
-      members.push(at);
-      for (const next of adjacency.get(at) ?? []) {
-        if (!seen.has(next)) {
-          seen.add(next);
-          queue.push(next);
-        }
-      }
-    }
-
-    components.push(members);
-  }
-
-  components.sort((a, b) => b.length - a.length);
-
-  const out = new Map<string, Point>();
-  let cursorX = 0;
-  let cursorY = 0;
-  let rowHeight = 0;
-  let rowWidth = 0;
-  const maxRowWidth = Math.max(600, Math.sqrt(graph.zones.length) * 90);
-
-  for (const members of components) {
-    const keep = new Set(members);
-    const sub: ZoneGraph = {
-      zones: graph.zones.filter((z) => keep.has(z.shortName)),
-      edges: graph.edges.filter((e) => keep.has(e.from) && keep.has(e.to)),
-      eras: graph.eras,
-    };
-
-    // A pair or a triple does not need 400 iterations to find its shape.
-    const placed = layout(sub, members.length > 8 ? 400 : 80);
-    const pts = [...placed.values()];
-    const minX = Math.min(...pts.map((p) => p.x));
-    const maxX = Math.max(...pts.map((p) => p.x));
-    const minY = Math.min(...pts.map((p) => p.y));
-    const maxY = Math.max(...pts.map((p) => p.y));
-    const w = maxX - minX + 70;
-    const h = maxY - minY + 70;
-
-    if (rowWidth > 0 && rowWidth + w > maxRowWidth) {
-      cursorX = 0;
-      cursorY += rowHeight;
-      rowHeight = 0;
-      rowWidth = 0;
-    }
-
-    for (const [name, p] of placed) {
-      out.set(name, { x: p.x - minX + cursorX, y: p.y - minY + cursorY });
-    }
-
-    cursorX += w;
-    rowWidth += w;
-    rowHeight = Math.max(rowHeight, h);
-  }
-
-  return out;
-}
+import { HUB_DEGREE, packedLayout, type Point } from "./worldLayout";
 
 interface Box {
   x: number;
@@ -261,8 +57,9 @@ function nameRuns(text: string, hit: FuzzyHit | undefined): JSX.Element[] | stri
 
 /**
  * Deep enough to read a crowded corner, not so deep you end up in the gap
- * between two zones with nothing on screen. The world is ~5000 units across
- * and 40× put the viewport inside a single edge.
+ * between two zones with nothing on screen. The bearing-led layout packs the
+ * world into roughly 1,200–2,000 units across, tighter than the old
+ * circle-seeded one — the constant is unchanged pending a visual recheck.
  */
 const MAX_ZOOM = 12;
 const MIN_ZOOM = 0.6;
@@ -456,6 +253,25 @@ export function ZoneGraphView({
     () => (drawn ? packedLayout(drawn.graph) : new Map<string, Point>()),
     [drawn],
   );
+
+  /**
+   * Zones at or above `HUB_DEGREE` in the drawn graph — portal rooms whose
+   * bearings the layout ignores (worldLayout.ts's hub rule). Built once per
+   * `drawn` rather than compared inline per edge, since every edge touching
+   * one needs the same answer and degree does not change between renders of
+   * the same graph.
+   */
+  const hubs = useMemo(() => {
+    const set = new Set<string>();
+    if (drawn) {
+      for (const z of drawn.graph.zones) {
+        if (z.degree >= HUB_DEGREE) {
+          set.add(z.shortName);
+        }
+      }
+    }
+    return set;
+  }, [drawn]);
 
   /**
    * The whole world, framed to the container's shape.
@@ -1105,6 +921,13 @@ export function ZoneGraphView({
             // lit regardless: it was asked for too.
             const link = found !== null && (found.hits.has(e.from) || found.hits.has(e.to));
             const dim = found !== null && !lit && !link;
+            // A portal edge runs long and stays faint on purpose — a hub sits
+            // at the middle of everything it reaches, so at full strength it
+            // would bury the geography it crosses on the way. Off unless the
+            // edge is already carrying its own paint (a route step or a
+            // search link), which matters more than the fact that one end is
+            // a hub.
+            const portal = !lit && !link && (hubs.has(e.from) || hubs.has(e.to));
 
             return (
               <line
@@ -1114,7 +937,11 @@ export function ZoneGraphView({
                 x2={b.x}
                 y2={b.y}
                 className={
-                  "zone-edge" + (lit ? " on" : "") + (link && !lit ? " link" : "") + (dim ? " dim" : "")
+                  "zone-edge" +
+                  (lit ? " on" : "") +
+                  (link && !lit ? " link" : "") +
+                  (portal ? " portal" : "") +
+                  (dim ? " dim" : "")
                 }
                 // Inline, not the strokeWidth attribute: a CSS rule beats a
                 // presentation attribute, so the stylesheet's width would win
@@ -1191,6 +1018,7 @@ export function ZoneGraphView({
                   {zonePins.length > 0 && ` · pinned here: ${zonePins.map((p) => p.name).join(", ")}`}
                   {z.maps.length > 1 && ` · ${z.maps.length} maps: ${z.maps.join(", ")}`}
                   {via && ` · lit because it connects to ${via.map((v) => names.get(v) ?? v).join(", ")}`}
+                  {z.degree >= HUB_DEGREE && " · portal hub: its exits do not steer the layout"}
                 </title>
                 {/* While searching, only hits and their connections are named
                     — a dimmed label is clutter over what you are looking for —

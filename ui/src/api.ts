@@ -618,6 +618,15 @@ export interface ZoneGraphNode {
 export interface ZoneGraphEdge {
   from: string;
   to: string;
+  /**
+   * Which way `to` lies from `from`, in map space (+X east/right, +Y
+   * south/down — the same axes the SVG uses, so no sign flip anywhere).
+   * Length 0..1 is confidence. Absent (not null, not zero) when no map
+   * places the exit — the server drops nulls, so `dx === undefined` is the
+   * "no bearing" test.
+   */
+  dx?: number;
+  dy?: number;
 }
 
 export interface ZoneGraph {

@@ -72,7 +72,7 @@
 > `/outputfile achievements` export — every kill achievement with its
 > progress, nearest to done first — as the first slice of a planner that will
 > say where to hunt each creature type without costing a faction or sending
-> anyone into a city (ADR-023, feature F35: slice 1 of 5 built; the race
+> anyone into a city (ADR-023, feature F35: slice 1 of 4 built; the race
 > table, the zone atlas, the faction rule and the plan are designed and not
 > yet written).
 > Currently at **v0.16.0**. See `docs/product/features.md` for per-feature

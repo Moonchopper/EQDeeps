@@ -84,6 +84,26 @@ is not used at runtime: it knows 182 of the 225 terms, would make the join
 depend on reading the install, and still would not say that a Sporali is a
 Fungusman. It is a fine authoring aid and nothing more.
 
+Written against the whole reference (2026-09-20, all 79 shards): it has
+**111 race labels**, and the table has 109 rows — 87 where the term is simply
+a label's plural and 22 written by hand; the other hundred-odd terms have no
+location in this game. Three
+things the authoring turned up, all recorded in the table's own header:
+
+- **A lead-in belongs to every term after it.** `Clockwork: Beetles, Boars,
+  Dragons…` is clockwork beetles, not beetles. Strip the lead-in and the
+  planner sends someone to kill ordinary beetles for an achievement they
+  will never move. So terms carry it (`Clockwork Beetles`), and only
+  `Clockwork Gnomeworks` has anywhere to go.
+- **The Conquest tier names loosely what the Skill tier names exactly** —
+  `Cubes` / `Gelatinous Cubes`, `Eyes` / `Evil Eyes`, `Apes` / `Gorillas`.
+- **The labels are the site's, and some are wrong.** Every panda is filed
+  under `Ulthork`, werebats under `Kobold`, mummies under `Zombie`,
+  nightmares under `Unicorn`. The atlas is grouped by what the file says, so
+  the table maps to the label, mistake included — and the view names the
+  mobs, so a player sees "a panda cub" and not a race they have never heard
+  of.
+
 **The table is a claim, so it is shown as one.** Each achievement says which
 races the app took its words to mean. A term that joins to nothing says "no
 known location" rather than vanishing — for most of them (Shissar, Vah Shir,
@@ -112,9 +132,10 @@ Level is the player's control, not the app's guess: a "mobs up to level N"
 cap, defaulting to the character's level where the session knows it. Legends
 gives one character three levels ([loadouts](../domain/eq-legends-loadouts.md)),
 and which one they are hunting on tonight is theirs to say. **There is no
-lower bound by default**, on the assumption that a trivial kill counts —
-true of live EverQuest, *not yet confirmed on Legends*. If it turns out
-otherwise the control grows a floor; nothing else changes.
+lower bound**: a trivial kill counts toward a Slayer achievement on Legends
+(the owner, 2026-09-20), so the thickest spawn the player can reach is the
+best one however grey it cons, and a starter zone is a perfectly good answer
+for a level-50 character short of a hundred snakes.
 
 ## Decision 5: faction is a cost on the zone, measured against the factions the export names
 
@@ -142,23 +163,66 @@ is the single most alarming number in the data, and read literally it would
 have struck every snake in Kithicor off the list. The rule is the null
 check, not the signature, so it survives them changing the placeholder.
 
-Deliberately not solved yet: the player's *actual* standings.
-`/outputfile faction` exists (the client's usage string lists it) and would
-let the planner tell "already maxed, a −5 is nothing" from "one kill from
-kill-on-sight" — a later slice, waiting on a sample file to write the
-grammar from. Nor the log's own faction lines after a kill, which are the
-measured counterpart to these listed hits and belong beside them one day.
+**Where a loss would leave the player comes from a second export**
+(amended 2026-09-20, once the owner had written one). `/outputfile faction`
+writes every standing the character has ([grammar](../domain/eq-client-files.md)),
+and the two files turned out to answer *different* questions, which is why
+the planner reads both:
+
+| | the achievements export | the faction export |
+|---|---|---|
+| says | whether a loss can still cost an unlock | where a loss would leave the standing |
+| Kazon Stormhammer | `C` — complete | **0** |
+| Knights of Truth | `C` — complete | **1,919** of 2,000 |
+| Storm Guard | `C` — complete | **620** |
+
+A completed `Get maximum faction with X.` does **not** mean X is at maximum:
+the owner's Dwarf unlock auto-completed at character creation with Kaladim's
+factions at zero, and a component earned by standing stays earned after the
+standing falls. Six of the forty protected factions disagree this way on the
+owner's files. So each faction effect carries both facts — whether its unlock
+is already earned, and the standing now beside the standing **projected**
+after the kills the achievement still needs (`standing + hit × remaining`,
+clamped to the file's ±2,000). "−10 a kill" is abstract; "you are at 620 and
+the hundred barbarians you need would leave you at −380" is the decision.
+
+The rule stays the simple one the owner agreed to — a zone that loses *any*
+protected faction is listed, never recommended — and the unlock's state is
+shown, not used to soften it. If that proves too strict for someone whose
+unlocks are all earned, relaxing it is a one-line change with the evidence
+already on screen.
+
+The three sources spell factions three ways (`Coalition of Tradesfolk` /
+`Coalition of Tradefolk` / `Coalition of TradeFolk III`; `Da Bashers` /
+`DaBashers`; `Freeport Militia` / `The Freeport Militia`), so they are joined
+on a key — case, apostrophes, backticks, whitespace and a leading "The"
+ignored — plus two aliases no rule would find. Measured: 36 of the 40
+protected names reach the faction file on the key alone, 40 of 40 with the
+aliases; 127 of the reference's 142 hit factions reach it, and the rest are
+the reference's own bookkeeping (`KOS_animal`, `Beta Neutral`).
+
+The faction export is **per class loadout** — the file is
+`<Char>_<server>-<CLASS>-Factions.txt` — so the app reads the most recently
+written one and says which class it was. Still not solved: the log's own
+faction lines after a kill, which are the measured counterpart to these
+listed hits and belong beside them one day.
 
 ## Decision 6: a city is never recommended, and the zone table says which zones are cities
 
 `zones.tsv` gains a `city` column, hand-authored like the rest of it. A
 flagged zone contributes nothing to any supply and appears in no ranking;
 the view says how many were left out so the omission is legible. The flag
-means *a player city* — Qeynos, Freeport, Neriak, Halas, Rivervale, Kaladim,
-Felwithe, Ak'Anon, Erudin, Paineel, Grobb, Oggok, Cabilis, Surefall Glade
-and their like — and not "anywhere with guards": Highpass Hold and the
-Kelethin half of Greater Faydark are hunting zones with a town in them, and
-it is Decision 5, not this one, that keeps a player off their guards.
+means *a player city* and not "anywhere with guards". The list, agreed with
+the owner on 2026-09-20 — every city among the 79 zones the reference
+covers: South and North Qeynos, Surefall Glade, North, East and West
+Freeport, Rivervale, Erudin and Erudin Palace, Halas, the three Neriaks,
+Oggok, Grobb, Ak'Anon, North and South Kaladim, both Felwithes, and Paineel
+(23 rows of the table, Freeport's two spellings included). **Deliberately
+not flagged:** Highpass Hold, High Keep, Kerra Isle and the Kelethin half of
+Greater Faydark are hunting zones with a town in them — Kerra Isle is where
+the Kerran achievements get done at all — and it is Decision 5, not this
+one, that keeps a player off their guards. A city that opens with a later
+expansion (Cabilis, Shar Vahl, Thurgadin) gets its flag when its zone does.
 
 The measurement says this rule is not decoration: cities are where the
 playable races stand thickest, the people-race achievements (*Barbarous*,
@@ -189,8 +253,11 @@ The atlas itself — race → zone → supply and cost — is **derived, never
 stored**, like `ZoneLevels`: it costs one pass over files already on disk
 and cannot go stale against them.
 
-The bulk read is the one thing here worth the site author's blessing, and it
-joins the ask ADR-021 already owes them for items.
+The owner's decision (2026-09-20): **"yes, let's try it out for now"** — so
+it ships, and "for now" is the operative phrase. The bulk read is still the
+one thing here worth the site author's blessing, it joins the ask ADR-021
+already owes them for items, and if the answer is no this decision is the
+one that changes.
 
 ## Decision 8: the plan is greedy, explainable, and says what it ignores
 
@@ -241,11 +308,12 @@ a door everywhere it is named.
    kill achievement with its progress, nearest-to-done first, the export's
    age and the command that refreshes it. No network, no reference data.
 2. **Where to hunt.** `slayer-races.tsv`, the `city` column, the atlas, the
-   faction rule: pick an achievement, see its zones ranked with the facts
-   and the costs.
+   faction rule **and the player's real standings** (`/outputfile faction` —
+   it was to be a slice of its own, but the owner wrote a sample the same
+   day and a faction cost without a standing beside it is half an answer):
+   pick an achievement, see its zones ranked with the facts and the costs.
 3. **The plan.** Decision 8, across everything open; stops open the Map.
-4. **Real standings** — `/outputfile faction`. Waits on a sample file.
-5. **Since the export** — the log's kills joined to races, shown beside the
+4. **Since the export** — the log's kills joined to races, shown beside the
    game's count; doubles as the check on `slayer-races.tsv`.
 
 ## What was considered and not done
@@ -280,6 +348,8 @@ a door everywhere it is named.
   `spawnChance`); that is a Core change, so every log cache re-parses once,
   as ADR-018 intends. If the site objects, Decision 7 is the only one that
   has to change, and slice 1 is unaffected.
-- Two in-game facts are still assumptions: that trivial kills count, and
-  what `/outputfile faction` writes. Both are the owner's to settle, and
-  neither blocks slices 1–3.
+- The two in-game facts this was written on as assumptions were settled by
+  the owner the same day: trivial kills count (Decision 4), and
+  `/outputfile faction` writes what Decision 5 now describes.
+- A third player-written file is read from the install, and it is per class
+  loadout — the first input in the app that is.

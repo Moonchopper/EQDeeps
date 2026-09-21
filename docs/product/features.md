@@ -647,7 +647,7 @@ Acceptance:
 - Open: item icons (the icon id is already in the data), and using the same
   index to seed F21's level-normalized DPS.
 
-### F35. Slayer — what is left to kill, and where to go and kill it — **slice 1 of 5 built (2026-09-20)** ([ADR-023](../architecture/adr-023-slayer-planner.md))
+### F35. Slayer — what is left to kill, and where to go and kill it — **slice 1 of 4 built (2026-09-20)** ([ADR-023](../architecture/adr-023-slayer-planner.md))
 
 (F31–F34 are the companion-features programme, PR #98.)
 
@@ -685,12 +685,16 @@ Acceptance, by slice:
 2. **Where to hunt** — picking an open achievement ranks its zones; no city
    appears; a zone costing a protected faction is marked and unranked; a
    listing with no primary faction contributes no faction cost; a creature
-   type that joins to no race says so.
+   type that joins to no race says so. With a `/outputfile faction` export in
+   the install, every faction effect shows the standing now and the standing
+   the remaining kills would leave; without one it shows the hit per kill
+   and names the command. The zone data is read once, one file at a time,
+   with progress on screen, only after the player opens it, and not at all
+   with `--no-reference`.
 3. **The plan** — the next ten stops across everything open, each saying
    what it finishes, what else it feeds and what it costs; the walk matches a
    hand-computed toy world.
-4. **Real standings** (`/outputfile faction`) and 5. **since-the-export
-   estimate** from the log — planned, not designed.
+4. **Since-the-export estimate** from the log — planned, not designed.
 
 ## P2 — Later
 

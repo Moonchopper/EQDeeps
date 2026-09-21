@@ -39,6 +39,15 @@ Nagafen's Lair (114), wolves → Kithicor, and barbarians → *nowhere good*,
 every candidate costing Wolves of the North — which is the honest answer and
 exactly the evening of wiki tabs, done in a second.
 
+(With all 79 shards, as built: **bears lead with Nektulos Forest** — 177
+spawn points of black bears and young kodiaks, up to ~996 an hour — and
+West Karana is second; the spike simply had not read Nektulos. Barbarians
+came out less bleak than the spike said, too: twelve clean zones exist, all
+thin — West Commonlands' 27 an hour is the best of them — and every *rich*
+one (Lake Rathetear at 150, West Karana at 118) costs a faction the owner is
+building. A later reader should not take the spike's order for the expected
+one.)
+
 ## Decision 1: the export is the count — the app never keeps its own
 
 Progress shown is what the export says, stamped with the export's age, and
@@ -253,6 +262,29 @@ The atlas itself — race → zone → supply and cost — is **derived, never
 stored**, like `ZoneLevels`: it costs one pass over files already on disk
 and cannot go stale against them.
 
+**As built (2026-09-21), and two things building it turned up:**
+
+- *A cached shard used to be kept forever.* Only the index revalidated; a
+  zone fetched in August was August's data until the cache was deleted. The
+  weekly rule above is therefore new behaviour for every reader of a shard,
+  the Bestiary included: younger than seven days, no request at all; older,
+  one conditional GET with the stored ETag; a `304` keeps the file and
+  freshens it; **any failure keeps the cached copy**, because ADR-020
+  Decision 3 says this data is never load-bearing and a site having a bad
+  day must not empty a view that worked yesterday.
+- *The "Look mobs up online" switch is enforced in the UI and nowhere
+  else.* It lives in `ui-settings.json` and never reaches the server, so a
+  new view that simply called the atlas endpoint would have read the site
+  with the switch off. **Every view that reads the reference must honour
+  `useReferenceEnabled()` itself**; the hunting panel does, and its check is
+  two-sided — zero reference requests with the switch off, exactly one
+  `POST /api/reference/atlas/start` with it on — because "off is silent"
+  alone cannot tell a correct panel from one that never fetches.
+  `--no-reference` remains the server-side switch and is honoured there.
+- The walk runs once per run of the app, from that one POST and nothing
+  else. With every shard already on disk and fresh it completes in about two
+  seconds and sends nothing.
+
 The owner's decision (2026-09-20): **"yes, let's try it out for now"** — so
 it ships, and "for now" is the operative phrase. The bulk read is still the
 one thing here worth the site author's blessing, it joins the ask ADR-021
@@ -300,7 +332,12 @@ race — and it should be built as one when it comes.
 
 Every zone named in the view opens the Map; every mob opens the Bestiary.
 Those doors already exist and the owner's standing rule is that an entity is
-a door everywhere it is named.
+a door everywhere it is named. As built they are the same App-owned
+callbacks the Bestiary and the Map hand each other, **without a crumb back**:
+the trail's `Crumb` type is closed over those two views, and an inert or
+mislabelled chip is worse than none. The app's own back arrow returns to the
+Slayer view. Widening `Crumb` is a small change that belongs with slice 3,
+when plan stops become doors too.
 
 ## Slices
 

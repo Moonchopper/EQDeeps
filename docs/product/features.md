@@ -647,7 +647,7 @@ Acceptance:
 - Open: item icons (the icon id is already in the data), and using the same
   index to seed F21's level-normalized DPS.
 
-### F35. Slayer — what is left to kill, and where to go and kill it — **slice 1 of 4 built (2026-09-20)** ([ADR-023](../architecture/adr-023-slayer-planner.md))
+### F35. Slayer — what is left to kill, and where to go and kill it — **slices 1 and 2 of 4 built (2026-09-21)** ([ADR-023](../architecture/adr-023-slayer-planner.md))
 
 (F31–F34 are the companion-features programme, PR #98.)
 
@@ -690,7 +690,12 @@ Acceptance, by slice:
    the remaining kills would leave; without one it shows the hit per kill
    and names the command. The zone data is read once, one file at a time,
    with progress on screen, only after the player opens it, and not at all
-   with `--no-reference`.
+   with `--no-reference` or with "Look mobs up online" switched off.
+   *(built 2026-09-21: on the owner's files, bears lead with Nektulos Forest
+   at 177 spawn points and nothing lost; barbarians have twelve clean zones,
+   all thin, and every rich one is shown under the divider with where it
+   would leave Halas's or Qeynos's standing; five cities are counted out and
+   Halas never appears; no placeholder faction row reaches the screen.)*
 3. **The plan** — the next ten stops across everything open, each saying
    what it finishes, what else it feeds and what it costs; the walk matches a
    hand-computed toy world.

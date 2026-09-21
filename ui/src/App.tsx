@@ -1211,7 +1211,41 @@ export default function App() {
               // zone or a mob — so unlike the Bestiary and the Map it takes no
               // onScreen, and the effect that records every place-less rail
               // entry in the history covers it.
-              <SlayerPanel sessionId={activeId} />
+              //
+              // Its "Where to hunt" doors open the Map/Bestiary directly
+              // rather than through the shared crumb trail: trail.ts's Crumb
+              // is closed over "bestiary" | "map", so there is no way to
+              // spell "back to a hunt panel" in it — a crumb built for one
+              // would either sit inert or mislabel itself as a Bestiary/Map
+              // page. Landing with no trail chip is honest; a chip that lies
+              // about where it goes back to is not. Back (the arrows, Alt+←)
+              // is the way home from either (F35, ADR-023 Decision 9).
+              <SlayerPanel
+                sessionId={activeId}
+                referenceEnabled={referenceEnabled}
+                onShowOnMap={(target) => {
+                  // A trail left by an earlier Bestiary⇄Map hop would
+                  // otherwise reappear above a Map it has nothing to do with.
+                  setCrumbs([]);
+                  setMapTarget({ ...target, seq: ++trailSeq.current });
+                  selectStdView(MAPS_VIEW);
+                  // Recorded here rather than left to the Map: it skips its
+                  // own report while it resolves a target it was opened on,
+                  // so the history never learned the Map had been visited and
+                  // Back from it stepped clean over the Slayer view to
+                  // whatever came before. The Map's own later report carries
+                  // the same key and is dropped as a repeat.
+                  reportScreen({
+                    view: "overview",
+                    stdView: MAPS_VIEW,
+                    zone: { place: target.place, shortName: target.shortName, mode: target.mode ?? "zone" },
+                  });
+                }}
+                onOpenMob={(target) => {
+                  setBestiaryTarget({ ...target, seq: ++trailSeq.current });
+                  selectStdView(BESTIARY_VIEW);
+                }}
+              />
             ) : view === "overview" && activeStdView ? (
               <DashboardView
                 dashboard={activeStdView}

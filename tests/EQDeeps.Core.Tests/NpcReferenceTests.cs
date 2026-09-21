@@ -29,12 +29,24 @@ public class NpcReferenceTests
     private const string Shard = """
         {"2119":{"id":2119,"name":"Fippy Darkpaw","level":5,"maxLevel":5,"hp":75,"ac":19,
           "race":"Gnoll","className":"Warrior","faction":"Sabertooths of Blackburrow","respawn":640,
-          "minDmg":1,"maxDmg":14,"specials":["Summon"],
+          "minDmg":1,"maxDmg":14,"specials":["Summon"],"spawnChance":100,
+          "factionHits":[["Sabertooths of Blackburrow",-250]],
           "loot":[[5020,"Rusty Battle Axe",8.25,569,"6/42"],[13025,"Patch of Gnoll Fur",55,556,""]],
           "zones":[{"zone":"qeynos2","longName":"North Qeynos","spawnPoints":1,"locs":[[481.2,1210.8,3.1]]}]},
          "2120":{"id":2120,"name":"a gnoll pup","hp":12},
          "2121":{"name":"no id at all","hp":5},
          "2122":"not an object"}
+        """;
+
+    // The real shape ADR-023 Decision 5 is built on: a level-1 sewer rat and a level-65 named alike
+    // carry the identical placeholder triple whenever the site has no primary faction for them.
+    private const string FactionlessShard = """
+        {"12011":{"id":12011,"name":"Gindlin Toxfodder","level":40,"race":"Human","className":"Shopkeeper",
+          "respawn":640,"faction":null,"factionId":null,"spawnChance":100,
+          "factionHits":[["Deepwater Knights",-1000],["Gate Callers",1000],["Heretics",-1000]]},
+         "12012":{"id":12012,"name":"a sewer rat","level":1,"faction":"KOS_animal","spawnChance":100,
+          "factionHits":[["KOS_animal",-250],[1,2],["",5],["Gate Callers","not a number"],["Only One Cell"],
+           "not an array",["Real Faction",-10]]}}
         """;
 
     [Fact]
@@ -80,6 +92,8 @@ public class NpcReferenceTests
         Assert.Equal("Sabertooths of Blackburrow", fippy.Faction);
         Assert.Equal(640, fippy.RespawnSeconds);
         Assert.Equal(["Summon"], fippy.Specials);
+        Assert.Equal(100, fippy.SpawnChance);
+        Assert.Equal([new NpcFactionHit("Sabertooths of Blackburrow", -250)], fippy.FactionHits);
 
         Assert.Equal(2, fippy.Loot.Count);
         Assert.Equal(new NpcLootLine(5020, "Rusty Battle Axe", 8.25, 569, "6/42"), fippy.Loot[0]);
@@ -94,6 +108,39 @@ public class NpcReferenceTests
         // Everything but id and name may be missing.
         Assert.Null(byId[2120].Level);
         Assert.Empty(byId[2120].Loot);
+        Assert.Null(byId[2120].SpawnChance);
+        Assert.Empty(byId[2120].FactionHits);
+    }
+
+    /// <summary>
+    /// ADR-023 Decision 5: a listing whose "faction" is null carries the site's placeholder
+    /// factionHits triple, not real data — measured on 299 of 2,997 cached listings, every one with
+    /// the identical "Deepwater Knights -1000 / Gate Callers +1000 / Heretics -1000". The rule is
+    /// the null check on "faction", not a match on that triple, so <see cref="NpcDetail.FactionHits"/>
+    /// must read empty here even though the JSON itself carries three entries.
+    /// </summary>
+    [Fact]
+    public void AFactionlessListingCarriesNoFactionHitsWhateverTheFileSays()
+    {
+        var byId = NpcReferenceFormat.ParseShard(FactionlessShard);
+
+        Assert.Empty(byId[12011].FactionHits);
+        Assert.Equal(100, byId[12011].SpawnChance);
+    }
+
+    /// <summary>
+    /// A malformed factionHits entry — not an array, too few cells, a non-string name, an empty
+    /// name, a non-int delta — is skipped; the rest of the same listing's hits are kept, on the same
+    /// tolerant-skip posture as Loot.
+    /// </summary>
+    [Fact]
+    public void AMalformedFactionHitIsSkippedAndTheRestAreKept()
+    {
+        var byId = NpcReferenceFormat.ParseShard(FactionlessShard);
+
+        Assert.Equal(
+            [new NpcFactionHit("KOS_animal", -250), new NpcFactionHit("Real Faction", -10)],
+            byId[12012].FactionHits);
     }
 
     [Fact]

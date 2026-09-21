@@ -150,4 +150,61 @@ public class SlayerTests
         Assert.Equal("Pesticide", kill.Title);
         Assert.Empty(progress.Meta);
     }
+
+    [Fact]
+    public void ASingleTermIsOneTerm()
+    {
+        Assert.Equal(["Kobolds"], Slayer.TermsOf("Kobolds"));
+    }
+
+    [Fact]
+    public void CommaAndTrailingOxfordAndSplitIntoThreeTerms()
+    {
+        Assert.Equal(
+            ["Alligators", "Basilisks", "Crocodiles"],
+            Slayer.TermsOf("Alligators, Basilisks, and Crocodiles."));
+    }
+
+    [Fact]
+    public void PlainAndSplitsIntoTwoTerms()
+    {
+        Assert.Equal(["Orcs", "Wereorcs"], Slayer.TermsOf("Orcs and Wereorcs."));
+    }
+
+    [Fact]
+    public void APhraseWithNoDelimiterIsOneTerm()
+    {
+        Assert.Equal(["The playable races"], Slayer.TermsOf("The playable races."));
+    }
+
+    [Fact]
+    public void AndInsideAPhraseSplitsOnlyOnce()
+    {
+        Assert.Equal(
+            ["Iksars", "Kylong Iksars of Veksar"],
+            Slayer.TermsOf("Iksars and Kylong Iksars of Veksar."));
+    }
+
+    /// <summary>
+    /// The real Clockwork Conquest/Special/Skill component text (the owner's export, all three
+    /// tiers share it verbatim): a lead-in that must be prefixed to every one of the nine terms it
+    /// introduces, with an Oxford ", and" before the last one. Only "Clockwork Gnomeworks" has
+    /// anywhere to go in slayer-races.tsv — the other eight terms this produces are real Slayer
+    /// terms with no known location in this game, per ADR-023 Decision 3 — but TermsOf's job is the
+    /// split, not the join, so all nine come back regardless.
+    /// </summary>
+    [Fact]
+    public void TheLeadInIsStrippedAndPrefixedToEveryTermAfterIt()
+    {
+        var terms = Slayer.TermsOf(
+            "Clockwork: Beetles, Boars, Dragons, Rats, Snakes, Spiders, Gnomeworks, Copters, and Tin Soldiers.");
+
+        Assert.Equal(
+            [
+                "Clockwork Beetles", "Clockwork Boars", "Clockwork Dragons", "Clockwork Rats",
+                "Clockwork Snakes", "Clockwork Spiders", "Clockwork Gnomeworks", "Clockwork Copters",
+                "Clockwork Tin Soldiers",
+            ],
+            terms);
+    }
 }

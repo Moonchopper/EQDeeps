@@ -8,12 +8,21 @@ import {
   type SlayerReport,
 } from "../api";
 import { NAME_SORT, SortHeader, TableSearch, type SortState } from "../dashboards/tableTools";
+import type { BestiaryTarget, MapTarget } from "../trail";
+import { HuntDetail, type HuntSelection } from "./slayer/HuntDetail";
 
 // Kill counts are read against the game's own achievement window, which
 // prints them in full — so they are never rounded to K the way every damage
 // number in the app is (fmtNum). "570 / 1,000", not "570 / 1.0K": a player
 // thirty kills short of a Conquest wants to see thirty, not "5.0K / 5.0K".
-const fmtCount = (value: number): string => Math.round(value).toLocaleString("en-US");
+// Exported so the hunt detail (HuntDetail.tsx) reads the same rule for the
+// zone/faction numbers beside it — one count style on the page, not two.
+export const fmtCount = (value: number): string => Math.round(value).toLocaleString("en-US");
+
+// The open "Where to hunt" selection per session id, outliving the panel
+// (see where huntSel is declared for why). Module state, not storage: it
+// should not survive a restart.
+const lastHuntSelection = new Map<string, HuntSelection>();
 
 /**
  * The Slayer view (F35 slice 1, ADR-023): every "kill N of this creature
@@ -32,9 +41,25 @@ const fmtCount = (value: number): string => Math.round(value).toLocaleString("en
  *
  * <p>Unlike the Bestiary and the Map, this view carries no place of its own —
  * a kill achievement is not a zone or a mob — so it self-reports nothing to
- * the history and needs no crumb trail.</p>
+ * the history and needs no crumb trail. Its "Where to hunt" detail (slice 2,
+ * ADR-023 Decisions 4-7) does open the Map and the Bestiary — every zone and
+ * every mob it names is a door — but through plain callbacks rather than the
+ * shared crumb trail (see App.tsx's Slayer render site for why).</p>
  */
-export function SlayerPanel({ sessionId }: { sessionId: string | null }) {
+export function SlayerPanel({
+  sessionId,
+  referenceEnabled,
+  onShowOnMap,
+  onOpenMob,
+}: {
+  sessionId: string | null;
+  /** The client-side "Look mobs up online" switch (ADR-020); passed through to the hunt detail. */
+  referenceEnabled: boolean;
+  /** To the Map, from a zone door inside the hunt detail. */
+  onShowOnMap: (target: Omit<MapTarget, "seq">) => void;
+  /** To the Bestiary, from a mob chip inside the hunt detail. */
+  onOpenMob: (target: Omit<BestiaryTarget, "seq">) => void;
+}) {
   const [report, setReport] = useState<SlayerReport | null>(null);
   const [filter, setFilter] = useState<KillFilter>("open");
   const [tier, setTier] = useState("");
@@ -45,6 +70,26 @@ export function SlayerPanel({ sessionId }: { sessionId: string | null }) {
   const [highlightKey, setHighlightKey] = useState<string | null>(null);
   const [scrollTarget, setScrollTarget] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  // Which achievement (or, narrowed, which of its components) "Where to
+  // hunt" is open for; null when the table has the full width to itself.
+  //
+  // Remembered across this panel's unmount, per session: the panel's doors
+  // lead out to the Map and the Bestiary, and someone who goes to look at
+  // Nektulos and comes Back should find the list of zones they left, not a
+  // table they have to find their achievement in again. For the life of the
+  // window only — which achievement you were reading is not a setting.
+  const [huntSel, setHuntSelState] = useState<HuntSelection | null>(() =>
+    sessionId ? (lastHuntSelection.get(sessionId) ?? null) : null,
+  );
+  const setHuntSel = (next: HuntSelection | null | ((prev: HuntSelection | null) => HuntSelection | null)) =>
+    setHuntSelState((prev) => {
+      const value = typeof next === "function" ? next(prev) : next;
+      if (sessionId) {
+        if (value) lastHuntSelection.set(sessionId, value);
+        else lastHuntSelection.delete(sessionId);
+      }
+      return value;
+    });
   const rowRefs = useRef<Map<string, HTMLTableRowElement>>(new Map());
 
   // Fetch on mount, on Refresh, and every 15s while the tab is actually
@@ -142,6 +187,12 @@ export function SlayerPanel({ sessionId }: { sessionId: string | null }) {
       else next.add(key);
       return next;
     });
+  }
+
+  // Selecting the same achievement/component again closes the detail — a
+  // second door back out of it, alongside HuntDetail's own close button.
+  function selectHunt(key: string, component: number | null) {
+    setHuntSel((prev) => (prev && prev.key === key && prev.component === component ? null : { key, component }));
   }
 
   function jumpTo(targetKey: string) {
@@ -317,113 +368,184 @@ export function SlayerPanel({ sessionId }: { sessionId: string | null }) {
         )}
       </div>
 
-      <div className="panel table-panel slayer-table-panel">
-        <div className="table-search">
-          <div className="tabs">
-            {(["open", "complete", "all"] as const).map((f) => (
-              <button
-                key={f}
-                className={"tab" + (filter === f ? " on" : "")}
-                onClick={() => setFilter(f)}
-              >
-                {f === "open" ? "Open" : f === "complete" ? "Complete" : "All"}
-              </button>
-            ))}
-          </div>
-          {tiers.length > 1 && (
-            <select className="panel-select" value={tier} onChange={(e) => setTier(e.target.value)}>
-              <option value="">All tiers</option>
-              {tiers.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
+      <div className={"slayer-split" + (huntSel ? " split" : "")}>
+        <div className="panel table-panel slayer-table-panel">
+          <div className="table-search">
+            <div className="tabs">
+              {(["open", "complete", "all"] as const).map((f) => (
+                <button
+                  key={f}
+                  className={"tab" + (filter === f ? " on" : "")}
+                  onClick={() => setFilter(f)}
+                >
+                  {f === "open" ? "Open" : f === "complete" ? "Complete" : "All"}
+                </button>
               ))}
-            </select>
-          )}
-          <TableSearch
-            value={search}
-            onChange={setSearch}
-            placeholder="Filter by title or creature…"
-            shown={sortedRows.length}
-            total={kills.length}
-          />
-        </div>
-        <div className="table-scroll">
-          <table className="mob-table slayer-table">
-            <thead>
-              <tr>
-                <SortHeader label="Title" sortKey={NAME_SORT} sort={sort} onSort={setSort} />
-                <SortHeader label="Tier" sortKey="tier" sort={sort} onSort={setSort} />
-                <th>Creatures</th>
-                <th>Progress</th>
-                <SortHeader label="Remaining" sortKey="remaining" sort={sort} onSort={setSort} numeric />
-              </tr>
-            </thead>
-            <tbody>
-              {sortedRows.map((a) => {
-                const expandable = a.components.length > 1;
-                const expanded = expandable && openRows.has(a.key);
-                return (
-                  <Fragment key={a.key}>
-                    <tr
-                      ref={(el) => {
-                        if (el) rowRefs.current.set(a.key, el);
-                        else rowRefs.current.delete(a.key);
-                      }}
-                      className={
-                        "slayer-row" +
-                        (expandable ? " expandable" : "") +
-                        (highlightKey === a.key ? " highlight" : "")
-                      }
-                      onClick={expandable ? () => toggleRow(a.key) : undefined}
-                      title={expandable ? "Show each component on its own" : undefined}
-                    >
-                      <td className="mob-name">
-                        {expandable && <span className="expander">{expanded ? "▾" : "▸"}</span>}
-                        {a.title}
-                      </td>
-                      <td className="subtle">{a.tier}</td>
-                      <td className="subtle slayer-creatures">
-                        {a.components.map((c) => c.text).join("; ")}
-                      </td>
-                      <td className="slayer-progress">
-                        <Bar pct={a.fraction * 100} complete={a.complete} />
-                        <span className="slayer-progress-label">{killProgressLabel(a)}</span>
-                      </td>
-                      <td className="num subtle">{a.remaining != null ? fmtCount(a.remaining) : "—"}</td>
-                    </tr>
-                    {expanded &&
-                      a.components.map((c, i) => (
-                        <tr key={i} className="child-row">
-                          <td className="mob-name">
-                            <span className="expander-spacer" />
-                            {c.text}
-                            {c.optional && <span className="subtle"> optional</span>}
-                          </td>
-                          <td />
-                          <td />
-                          <td className="slayer-progress">
-                            <Bar pct={componentFraction(c) * 100} complete={c.complete} />
-                            <span className="slayer-progress-label">{componentLabel(c)}</span>
-                          </td>
-                          <td className="num subtle">
-                            {c.have != null && c.need != null ? fmtCount(Math.max(0, c.need - c.have)) : "—"}
-                          </td>
-                        </tr>
-                      ))}
-                  </Fragment>
-                );
-              })}
-              {sortedRows.length === 0 && (
+            </div>
+            {tiers.length > 1 && (
+              <select className="panel-select" value={tier} onChange={(e) => setTier(e.target.value)}>
+                <option value="">All tiers</option>
+                {tiers.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </select>
+            )}
+            <TableSearch
+              value={search}
+              onChange={setSearch}
+              placeholder="Filter by title or creature…"
+              shown={sortedRows.length}
+              total={kills.length}
+            />
+          </div>
+          <div className="table-scroll">
+            <table className="mob-table slayer-table">
+              <thead>
                 <tr>
-                  <td colSpan={5} className="empty">
-                    Nothing matches.
-                  </td>
+                  <SortHeader label="Title" sortKey={NAME_SORT} sort={sort} onSort={setSort} />
+                  <SortHeader label="Tier" sortKey="tier" sort={sort} onSort={setSort} />
+                  <th>Creatures</th>
+                  <th>Progress</th>
+                  <SortHeader label="Remaining" sortKey="remaining" sort={sort} onSort={setSort} numeric />
                 </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {sortedRows.map((a) => {
+                  const expandable = a.components.length > 1;
+                  const expanded = expandable && openRows.has(a.key);
+                  const selected = huntSel?.key === a.key && huntSel.component === null;
+                  return (
+                    <Fragment key={a.key}>
+                      <tr
+                        ref={(el) => {
+                          if (el) rowRefs.current.set(a.key, el);
+                          else rowRefs.current.delete(a.key);
+                        }}
+                        className={
+                          "slayer-row selectable" +
+                          (expandable ? " expandable" : "") +
+                          (highlightKey === a.key ? " highlight" : "") +
+                          (selected ? " selected" : "")
+                        }
+                        tabIndex={0}
+                        onClick={() => selectHunt(a.key, null)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            selectHunt(a.key, null);
+                          }
+                        }}
+                        title="Where to hunt this"
+                      >
+                        <td className="mob-name">
+                          {expandable && (
+                            // Its own control, not the row's: a click here toggles which
+                            // components are listed and must not also select the row — the
+                            // two questions ("show me the components" and "hunt for this
+                            // one") are different asks with the same row as their target.
+                            <span
+                              className="expander"
+                              tabIndex={0}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleRow(a.key);
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  toggleRow(a.key);
+                                }
+                              }}
+                              title="Show each component on its own"
+                            >
+                              {expanded ? "▾" : "▸"}
+                            </span>
+                          )}
+                          {a.title}
+                        </td>
+                        <td className="subtle">{a.tier}</td>
+                        <td className="subtle slayer-creatures">
+                          {/* A block of its own so the split view can clamp it
+                              (a table cell cannot be line-clamped); the title
+                              keeps the whole list one hover away. */}
+                          <div className="slayer-creatures-text" title={a.components.map((c) => c.text).join("; ")}>
+                            {a.components.map((c) => c.text).join("; ")}
+                          </div>
+                        </td>
+                        <td className="slayer-progress">
+                          <Bar pct={a.fraction * 100} complete={a.complete} />
+                          <span className="slayer-progress-label">{killProgressLabel(a)}</span>
+                        </td>
+                        <td className="num subtle">{a.remaining != null ? fmtCount(a.remaining) : "—"}</td>
+                      </tr>
+                      {expanded &&
+                        a.components.map((c, i) => {
+                          const componentSelected = huntSel?.key === a.key && huntSel.component === i;
+                          return (
+                            <tr
+                              key={i}
+                              className={"child-row selectable" + (componentSelected ? " selected" : "")}
+                              tabIndex={0}
+                              onClick={() => selectHunt(a.key, i)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.preventDefault();
+                                  selectHunt(a.key, i);
+                                }
+                              }}
+                              title="Where to hunt this"
+                            >
+                              <td className="mob-name">
+                                <span className="expander-spacer" />
+                                {c.text}
+                                {c.optional && <span className="subtle"> optional</span>}
+                              </td>
+                              <td />
+                              <td />
+                              <td className="slayer-progress">
+                                <Bar pct={componentFraction(c) * 100} complete={c.complete} />
+                                <span className="slayer-progress-label">{componentLabel(c)}</span>
+                              </td>
+                              <td className="num subtle">
+                                {c.have != null && c.need != null ? fmtCount(Math.max(0, c.need - c.have)) : "—"}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                    </Fragment>
+                  );
+                })}
+                {sortedRows.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="empty">
+                      Nothing matches.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
+
+        {huntSel && (
+          <HuntDetail
+            // A fresh key per selection remounts the detail rather than
+            // patching it in place — every piece of its state (the fetched
+            // report, the level cap, which zones have "other factions" open)
+            // starts over for a new achievement or component instead of
+            // carrying the previous selection's answers into this one.
+            key={`${huntSel.key}|${huntSel.component ?? "-"}`}
+            sessionId={sessionId}
+            selection={huntSel}
+            referenceEnabled={referenceEnabled}
+            onClose={() => setHuntSel(null)}
+            onShowOnMap={onShowOnMap}
+            onOpenMob={onOpenMob}
+          />
+        )}
       </div>
     </div>
   );
@@ -530,8 +652,12 @@ function absoluteTime(iso: string | null): string | undefined {
   return iso ? new Date(iso).toLocaleString() : undefined;
 }
 
-/** A thin fill track, shared by the meta strip and the achievement table. */
-function Bar({ pct, complete }: { pct: number; complete?: boolean }) {
+/**
+ * A thin fill track, shared by the meta strip and the achievement table —
+ * and, exported, by the hunt detail's atlas-progress bar (HuntDetail.tsx),
+ * so "12 of 79" reuses the one bar shape rather than growing a second.
+ */
+export function Bar({ pct, complete }: { pct: number; complete?: boolean }) {
   const clamped = Math.max(0, Math.min(100, pct));
   return (
     <span className="slayer-bar-track">

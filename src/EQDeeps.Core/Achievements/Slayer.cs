@@ -71,6 +71,19 @@ public static class Slayer
     // all case and trailing punctuation ("Catnipped in the bud." vs "Catnipped In the Bud").
     private static readonly char[] TitleTrim = ['.', '!', '?', ' ', '\t', '\r', '\n'];
 
+    // A lead-in is a short label followed by ": " — "Clockwork: Beetles, Boars, Dragons…" — and
+    // belongs to every term after it, not just the phrase it introduces (ADR-023 Decision 3): a
+    // player who reads "Clockwork Gnomeworks" and kills ordinary gnomeworks moves nothing. The
+    // character class excludes ':' and ',' by construction, so this can only ever capture the text
+    // up to the first colon — there is no need to guard against it eating the creature list too.
+    private static readonly Regex LeadIn = new(@"^(?<prefix>[A-Za-z][A-Za-z ]*): ", RegexOptions.Compiled);
+
+    // A comma, or the literal word " and " — matching whichever comes first means an Oxford
+    // "X, Y, and Z" produces an empty segment between the comma and the "and" rather than an extra
+    // split (the two delimiters sit back to back with nothing between them), and TermsOf drops that
+    // empty segment along with every other one in the same pass it trims with.
+    private static readonly Regex TermSplitter = new(@",| and ", RegexOptions.Compiled);
+
     public static SlayerProgress From(AchievementExportFile file)
     {
         var inScope = file.Achievements
@@ -189,5 +202,45 @@ public static class Slayer
             .Where(c => !c.Complete && !c.Optional && c.Have is not null && c.Need is not null)
             .ToList();
         return open.Count == 0 ? null : open.Sum(c => Math.Max(0, c.Need!.Value - c.Have!.Value));
+    }
+
+    /// <summary>
+    /// Splits a kill component's prose creature list into the terms <see cref="SlayerRaces"/>
+    /// joins to races (F35, ADR-023 Decision 3). Pure text splitting — no race lookup happens here,
+    /// because that join is a separate, fallible step this method's caller owns.
+    ///
+    /// <list type="number">
+    /// <item>Drop one trailing '.'.</item>
+    /// <item>A lead-in ("Clockwork: ") is removed and prefixed to every term that follows, because
+    /// the lead-in narrows what each of them means.</item>
+    /// <item>Split on ',' and on the word " and " (an Oxford ", and " is one split, not two).</item>
+    /// <item>Trim each piece; drop the empty ones.</item>
+    /// </list>
+    /// </summary>
+    public static IReadOnlyList<string> TermsOf(string componentText)
+    {
+        var text = componentText.EndsWith(".", StringComparison.Ordinal)
+            ? componentText[..^1]
+            : componentText;
+
+        var prefix = "";
+        var leadIn = LeadIn.Match(text);
+        if (leadIn.Success)
+        {
+            prefix = leadIn.Groups["prefix"].Value + " ";
+            text = text[leadIn.Length..];
+        }
+
+        var terms = new List<string>();
+        foreach (var part in TermSplitter.Split(text))
+        {
+            var trimmed = part.Trim();
+            if (trimmed.Length > 0)
+            {
+                terms.Add(prefix + trimmed);
+            }
+        }
+
+        return terms;
     }
 }

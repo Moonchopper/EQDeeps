@@ -59,9 +59,15 @@ export function screenKey(s: Screen): string {
   ].join("");
 }
 
-/** One step back: the view you were on and what to reopen there. */
+/**
+ * One step back: the view you were on and what to reopen there.
+ *
+ * `"raid-targets"` (F31) carries no target data of its own: unlike Bestiary
+ * and Map it has no place inside it to restore, so going back to it is just
+ * reselecting the view.
+ */
 export interface Crumb {
-  view: "bestiary" | "map";
+  view: "bestiary" | "map" | "raid-targets";
   label: string;
   bestiary?: Omit<BestiaryTarget, "seq">;
   map?: Omit<MapTarget, "seq">;

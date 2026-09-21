@@ -15,6 +15,7 @@ import {
   IconSettings,
   IconShield,
   IconBook,
+  IconSwords,
   IconTargetArrow,
   IconTrendingUp,
   IconUsersGroup,
@@ -26,6 +27,7 @@ import {
   HITS_VIEW,
   MAPS_VIEW,
   BESTIARY_VIEW,
+  RAID_TARGETS_VIEW,
   STANCES_VIEW_ID,
   SUMMARY_VIEW,
 } from "../dashboards/standardViews";
@@ -87,6 +89,10 @@ const RAIL_ENTRIES: Record<string, { name: string; title?: string }> = {
     title: "Every mob in the game, searchable — and what your own logs measured",
   },
   [MAPS_VIEW]: { name: "Map", title: "Your own zone maps, and how the world joins up" },
+  [RAID_TARGETS_VIEW]: {
+    name: "Raid targets",
+    title: "The named mobs this server's raids ask for, and which of them this log has killed",
+  },
 };
 
 /**
@@ -107,6 +113,7 @@ const RAIL_ICONS: Record<string, Icon> = {
   "preset-loot": IconDiamond,
   [BESTIARY_VIEW]: IconBook,
   [MAPS_VIEW]: IconMap2,
+  [RAID_TARGETS_VIEW]: IconSwords,
 };
 
 const ICON_SIZE = 16;

@@ -1,0 +1,51 @@
+# Raid targets — which mobs the Raid Targets view (F31, ADR-022) lists.
+#
+# Hand-authored. One row per target: name, aliases (| separated), zone, group.
+#
+#   name     As THE LOG prints it on the slain line — the log is the authority
+#            for matching, because that is the string a kill arrives as.
+#   aliases  Other spellings of the same mob: the reference site's where it
+#            differs (it drops the hyphen from Cazic-Thule and the title from
+#            Innoruuk), so the door to the Bestiary still opens.
+#   zone     Where it lives, as zones.tsv names the place — for the heading and
+#            the door to the map. Where a KILL happened comes from the record.
+#   group    The heading it is listed under.
+#
+# Matching is on the whole name under the article-stripped, case-folded key
+# the Bestiary uses, so "a thunder spirit princess" is "Thunder Spirit
+# Princess" and "Cleric of Innoruuk" is never Innoruuk.
+#
+# DRAFT (2026-09-20), awaiting the owner's review: built from the owner's own
+# kill records in these zones plus names the reference index lists. Which
+# named mobs count as raid targets on this server is the owner's call.
+name	aliases	zone	group
+Lord Nagafen		Nagafen's Lair	Dragons
+Lady Vox		The Permafrost Caverns	Dragons
+Phinigel Autropos		Kedge Keep	Dragons
+Master Yael		The Ruins of Old Paineel	Old Paineel
+Cazic-Thule	Cazic Thule	The Plane of Fear	Plane of Fear
+Dread		The Plane of Fear	Plane of Fear
+Fright		The Plane of Fear	Plane of Fear
+Terror		The Plane of Fear	Plane of Fear
+Innoruuk, the Prince of Hate	Innoruuk	The Plane of Hate	Plane of Hate
+Maestro of Rancor		The Plane of Hate	Plane of Hate
+Avatar of Abhorrence		The Plane of Hate	Plane of Hate
+Lord of Ire		The Plane of Hate	Plane of Hate
+Lord of Loathing		The Plane of Hate	Plane of Hate
+Master of Spite		The Plane of Hate	Plane of Hate
+Mistress of Scorn		The Plane of Hate	Plane of Hate
+Ashenbone Broodmaster		The Plane of Hate	Plane of Hate
+Grandmaster R`tal		The Plane of Hate	Plane of Hate
+High Priest M`kari		The Plane of Hate	Plane of Hate
+Magi P`tasa		The Plane of Hate	Plane of Hate
+Coercer T`vala		The Plane of Hate	Plane of Hate
+Thunder Spirit Princess		The Plane of Sky	Plane of Sky
+Noble Dojorn		The Plane of Sky	Plane of Sky
+Protector of Sky		The Plane of Sky	Plane of Sky
+Gorgalosk		The Plane of Sky	Plane of Sky
+Keeper of Souls		The Plane of Sky	Plane of Sky
+The Spiroc Lord		The Plane of Sky	Plane of Sky
+Bazzt Zzzt		The Plane of Sky	Plane of Sky
+Sister of the Spire		The Plane of Sky	Plane of Sky
+Overseer of Air		The Plane of Sky	Plane of Sky
+Eye of Veeshan		The Plane of Sky	Plane of Sky

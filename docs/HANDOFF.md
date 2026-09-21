@@ -79,12 +79,17 @@
 > (F33) and overlays (F34, behind a spike). ADR-021 is the record of what that
 > app does, why none of its code or data can be used, and where each
 > feature's data comes from instead; it also lifts two of vision.md's
-> non-goals. **F31 so far:** the zone line's `- Solo` / `- Group` marker is
+> non-goals. **F31 is built:** the zone line's `- Solo` / `- Group` marker is
 > parsed (a raid instance finds its map; mob health and incoming damage keep
 > solo and group apart under unchanged keys), and **zone and difficulty are
 > query dimensions** for every source, resolved by record order and free to
 > any query that does not mention them, with `credited`, `firstAt` and
-> `lastAt` on the deaths source. Left: the roster, its endpoint and the view.
+> `lastAt` on the deaths source; and a **Raid targets** page under World lays
+> a checked-in roster (`Core/Raids/raid-targets.tsv`, served by
+> `GET /api/raids/targets`) over an ordinary deaths query — nothing stored, no
+> raid-specific server code — showing which targets fell, how often, when, and
+> at which difficulties, beside the ones still standing. The roster is a draft
+> built from the owner's own kills and awaits their review; next is F32.
 >
 > **Releasing:** tags are single-use (GitHub immutable releases reserve a tag
 > name permanently, even after its release is deleted), so run the

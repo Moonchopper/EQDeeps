@@ -74,6 +74,15 @@ export const BESTIARY_VIEW = "bestiary";
  */
 export const MAPS_VIEW = "maps";
 
+/**
+ * Raid targets (F31): a checked-in roster laid over an ordinary deaths query.
+ * A rail entry for the same reason Bestiary and Map are — it reads no
+ * app-wide time frame at all (it lives in the World group, ADR-017 Decision
+ * 2) and its own query is built from scratch inside the panel, not stored as
+ * a QuerySpec anyone could edit.
+ */
+export const RAID_TARGETS_VIEW = "raid-targets";
+
 export interface MigrationResult {
   dashboards: DashboardDef[];
   changed: boolean;

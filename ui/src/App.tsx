@@ -17,6 +17,7 @@ import { UpdateNotice, type UpdateChoice } from "./components/UpdateNotice";
 import { SettingsDialog } from "./components/SettingsDialog";
 import { LogPicker, LogsDialog } from "./components/LogPicker";
 import { BestiaryPanel } from "./components/BestiaryPanel";
+import { RaidTargetsPanel } from "./components/RaidTargetsPanel";
 import { Trail } from "./components/Trail";
 import { screenKey, type BestiaryTarget, type Crumb, type MapTarget, type Screen } from "./trail";
 import { useReferenceEnabled } from "./lookup/lookupSettings";
@@ -46,6 +47,7 @@ import {
   HITS_VIEW,
   MAPS_VIEW,
   BESTIARY_VIEW,
+  RAID_TARGETS_VIEW,
   STANCES_VIEW_ID,
   SUMMARY_VIEW,
   cloneForCustomizing,
@@ -268,7 +270,8 @@ export default function App() {
     activeStdView ||
     stdView === BESTIARY_VIEW ||
     stdView === HITS_VIEW ||
-    stdView === MAPS_VIEW
+    stdView === MAPS_VIEW ||
+    stdView === RAID_TARGETS_VIEW
       ? stdView
       : SUMMARY_VIEW;
   // A selection made on one view is that view's, unless it was pinned:
@@ -470,6 +473,9 @@ export default function App() {
     } else if (crumb.view === "bestiary" && crumb.bestiary) {
       setBestiaryTarget({ ...crumb.bestiary, seq: ++trailSeq.current });
       selectStdView(BESTIARY_VIEW);
+    } else if (crumb.view === "raid-targets") {
+      // No target data to restore — the whole page is the place.
+      selectStdView(RAID_TARGETS_VIEW);
     }
   }
 
@@ -1203,6 +1209,8 @@ export default function App() {
                   onScreen={(zone) => reportScreen({ view: "overview", stdView: MAPS_VIEW, zone })}
                 />
               </div>
+            ) : view === "overview" && stdView === RAID_TARGETS_VIEW ? (
+              <RaidTargetsPanel sessionId={activeId} onOpenMob={openMob} />
             ) : view === "overview" && activeStdView ? (
               <DashboardView
                 dashboard={activeStdView}

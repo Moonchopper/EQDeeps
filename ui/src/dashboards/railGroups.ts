@@ -2,6 +2,7 @@ import {
   HITS_VIEW,
   MAPS_VIEW,
   BESTIARY_VIEW,
+  RAID_TARGETS_VIEW,
   STANCES_VIEW_ID,
   SUMMARY_VIEW,
 } from "./standardViews";
@@ -49,11 +50,13 @@ export const RAIL_GROUPS: RailGroup[] = [
   {
     // What this server's world is worth, learned across every log ever
     // opened on it. Nothing here reports over a time frame: the Bestiary
-    // reads a server-wide index and Map reads a folder on disk.
+    // reads a server-wide index, Map reads a folder on disk, and Raid
+    // targets reads the whole log itself rather than a selection of it
+    // (F31 — "have I ever killed this" is a lifetime question).
     key: "world",
     label: "World",
     framed: false,
-    ids: [BESTIARY_VIEW, MAPS_VIEW],
+    ids: [BESTIARY_VIEW, MAPS_VIEW, RAID_TARGETS_VIEW],
   },
 ];
 

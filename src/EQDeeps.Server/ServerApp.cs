@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using EQDeeps.Core.Maps;
 using EQDeeps.Core.Query;
+using EQDeeps.Core.Raids;
 using EQDeeps.Core.Reference;
 using EQDeeps.Server.Reference;
 using EQDeeps.Server.Updates;
@@ -382,6 +383,16 @@ public static class ServerApp
 
             return Results.Ok(ZoneMapDto.From(map, entry, chosen));
         });
+
+        // ---- raid targets (F31, ADR-022) -----------------------------------
+        // The hand-authored roster (RaidTargets.Default), served as-is: no
+        // session, no network, no store. Matching a death record to a target
+        // happens client-side, under the shared NpcIndex/mobKey key (Recon §4b
+        // of the F31-3 brief) — a `Values` filter here could not be trusted
+        // not to drop a legitimate row, since the deaths source keys by the
+        // victim string exactly as logged, whose case and leading article are
+        // not predictable.
+        app.MapGet("/api/raids/targets", () => Results.Ok(new { targets = RaidTargets.Default.Targets }));
 
         app.MapGet("/api/sessions", (SessionManager manager) => Results.Ok(manager.List()));
 

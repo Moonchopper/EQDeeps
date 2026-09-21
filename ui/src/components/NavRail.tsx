@@ -15,6 +15,7 @@ import {
   IconSettings,
   IconShield,
   IconBook,
+  IconSkull,
   IconTargetArrow,
   IconTrendingUp,
   IconUsersGroup,
@@ -26,6 +27,7 @@ import {
   HITS_VIEW,
   MAPS_VIEW,
   BESTIARY_VIEW,
+  SLAYER_VIEW,
   STANCES_VIEW_ID,
   SUMMARY_VIEW,
 } from "../dashboards/standardViews";
@@ -86,6 +88,7 @@ const RAIL_ENTRIES: Record<string, { name: string; title?: string }> = {
     name: "Bestiary",
     title: "Every mob in the game, searchable — and what your own logs measured",
   },
+  [SLAYER_VIEW]: { name: "Slayer", title: "Slayer achievements: what is left to kill" },
   [MAPS_VIEW]: { name: "Map", title: "Your own zone maps, and how the world joins up" },
 };
 
@@ -106,6 +109,7 @@ const RAIL_ICONS: Record<string, Icon> = {
   "preset-faction": IconUsersGroup,
   "preset-loot": IconDiamond,
   [BESTIARY_VIEW]: IconBook,
+  [SLAYER_VIEW]: IconSkull,
   [MAPS_VIEW]: IconMap2,
 };
 

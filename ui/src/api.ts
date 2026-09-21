@@ -389,6 +389,64 @@ export interface NpcLookupResult {
   detail?: NpcDetail;
 }
 
+// ---- Slayer achievements (F35, ADR-023) ------------------------------------
+// Read from the player's own `<Char>_<server>-Achievements.txt`, never
+// recomputed from the log: the game's own count is the only count the app
+// shows (ADR-023 Decision 1). Mirrors EQDeeps.Core.Achievements exactly —
+// same field names, same optionality.
+
+export interface SlayerKillComponent {
+  text: string;
+  complete: boolean;
+  optional: boolean;
+  /** Null for a completed component — the export drops its count once done. */
+  have: number | null;
+  need: number | null;
+}
+
+export interface SlayerKillAchievement {
+  key: string;
+  tier: string;
+  title: string;
+  complete: boolean;
+  components: SlayerKillComponent[];
+  /** 0..1, "how near done" — the view's default sort key. */
+  fraction: number;
+  /** Kills left over this achievement's open required counted components. */
+  remaining: number | null;
+}
+
+export interface SlayerMetaComponent {
+  title: string;
+  complete: boolean;
+  optional: boolean;
+  /** The kill achievement this reference resolves to, when it does (ADR-023 Decision 2). */
+  targetKey: string | null;
+}
+
+export interface SlayerMetaAchievement {
+  key: string;
+  title: string;
+  complete: boolean;
+  components: SlayerMetaComponent[];
+  requiredDone: number;
+  requiredTotal: number;
+}
+
+export interface SlayerReport {
+  found: boolean;
+  /** Where the export was looked for; null when there is no install root. */
+  path: string | null;
+  /** ISO, the file's last write time. */
+  exportedUtc: string | null;
+  command: string;
+  /** A sentence a player can act on, when something is wrong. */
+  problem: string | null;
+  meta: SlayerMetaAchievement[];
+  kills: SlayerKillAchievement[];
+  skippedLines: number;
+}
+
 export interface IncomingHit {
   at: string;
   attacker: string;
@@ -862,6 +920,12 @@ export const api = {
     if (response.status === 204 || !response.ok) return null;
     return (await response.json()) as NpcLookupResult;
   },
+
+  // ---- Slayer achievements (F35, ADR-023) -----------------------------------
+
+  /** The export's own progress, one session's character — 404 for an unknown session. */
+  slayer: (sessionId: string): Promise<SlayerReport> =>
+    fetch(`/api/sessions/${sessionId}/slayer`).then((r) => json(r)),
 
   // ---- item registry (F29) --------------------------------------------------
 

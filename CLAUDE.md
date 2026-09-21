@@ -38,6 +38,7 @@ special-case rendering path, check whether it should be a query first.
 | `src/EQDeeps.Core/Session/` | `Session`, `RecordStore`, `FightTracker`, `IdentityRegistry`. |
 | `src/EQDeeps.Core/Query/` | `QuerySpec`, `QueryEngine`, `MetricCatalog`, `CannedQueries`, the timelines. |
 | `src/EQDeeps.Core/Mobs/` | F25 learned mob health; F26 learned mob attacks + defender levels. |
+| `src/EQDeeps.Core/Achievements/` | F35: the grammar of the player's `/outputfile achievements` export (the whole file, every category) and the Slayer projection over it. Reads; writes nothing. |
 | `src/EQDeeps.Core/Maps/` | F27 zone maps: the EQ map-file grammar, the zone-name table (`zones.tsv`, with each zone's era and its client zone ids — the Bestiary addresses a zone's roster by them), the world graph. |
 | `src/EQDeeps.Server/` | Minimal-API host, SignalR hub, session lifecycle, WebView2 shell, persistence stores, updates. |
 | `src/EQDeeps.Server/wwwroot/` | **Build output** (gitignored). The SPA is built into here and embedded into the assembly. |
@@ -130,6 +131,19 @@ it there.
   use `;` + `if ($?)`, or the Bash tool.
 - Long commit messages: write to a file and `git commit -F`, rather than
   wrestling multi-line strings through the shell.
+- **A valueless switch eats the token after it.** .NET's command-line
+  configuration pairs `--key value` blindly, so `--no-browser --storeRoot X`
+  reads as `no-browser = "--storeRoot"` and the redirect never happens — the
+  app then writes to the real `%AppData%`, which is the one mistake the
+  redirect flags exist to prevent. The switches still *work* (they are read
+  with `args.Contains`), which is why this hides. **Put every valueless switch
+  (`--no-browser`, `--no-update-check`, `--no-reference`, `--no-spells`,
+  `--stay-alive`, `--browser`) after every `--key value` pair**, where the
+  last one has nothing to eat. Found by F35's wave when an odd run of switches
+  ate `--urls` and the app tried to bind the owner's everyday port.
+- `npm --prefix ui install` can answer `ENOENT … package.json` at the repo
+  root (npm 10.9 in a worktree: `run` honours `--prefix`, `install` did
+  not). Run `npm install` from inside `ui\` instead.
 
 ---
 

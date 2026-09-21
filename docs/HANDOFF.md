@@ -68,7 +68,13 @@
 > (ADR-020 decision 6, map format doc §3); and the World view now lays zones
 > out the way their own maps' exits point rather than an arbitrary circle,
 > so Blackburrow's neighbours sit where its own map draws them (ADR-016
-> decision 6, feature F27).
+> decision 6, feature F27); and a Slayer view that reads the game's own
+> `/outputfile achievements` export — every kill achievement with its
+> progress, nearest to done first — as the first slice of a planner that will
+> say where to hunt each creature type without costing a faction or sending
+> anyone into a city (ADR-023, feature F35: slice 1 of 5 built; the race
+> table, the zone atlas, the faction rule and the plan are designed and not
+> yet written).
 > Currently at **v0.16.0**. See `docs/product/features.md` for per-feature
 > status. The main open items: the release-gate invariants (CLAUDE.md §8 —
 > defined, not yet written), class detection from the client's spell files

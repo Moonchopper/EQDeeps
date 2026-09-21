@@ -647,7 +647,7 @@ Acceptance:
 - Open: item icons (the icon id is already in the data), and using the same
   index to seed F21's level-normalized DPS.
 
-### F35. Slayer — what is left to kill, and where to go and kill it — **in progress** ([ADR-023](../architecture/adr-023-slayer-planner.md))
+### F35. Slayer — what is left to kill, and where to go and kill it — **slice 1 of 5 built (2026-09-20)** ([ADR-023](../architecture/adr-023-slayer-planner.md))
 
 (F31–F34 are the companion-features programme, PR #98.)
 
@@ -679,7 +679,9 @@ Acceptance, by slice:
    kill achievement with its progress, nearest to done first, and the
    meta-achievements above them; with none, it says which command writes
    one. Re-exporting in game updates the view without a restart. Works with
-   `--no-reference`.
+   `--no-reference`. *(built 2026-09-20: on the owner's export, 118 kill
+   achievements, 20 complete, no line unread; counts are printed in full,
+   never rounded to K, because they are read against the game's own window.)*
 2. **Where to hunt** — picking an open achievement ranks its zones; no city
    appears; a zone costing a protected faction is marked and unranked; a
    listing with no primary faction contributes no faction cost; a creature

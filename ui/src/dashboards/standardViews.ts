@@ -74,6 +74,14 @@ export const BESTIARY_VIEW = "bestiary";
  */
 export const MAPS_VIEW = "maps";
 
+/**
+ * Slayer achievements (F35, ADR-023). The same shape again: achievements are
+ * not records in the record store, so there is no QuerySpec to write for them
+ * (ADR-023 Decision 9) — the "should this be a query?" test in CLAUDE.md §1
+ * answers no, same as it does for the Bestiary.
+ */
+export const SLAYER_VIEW = "slayer";
+
 export interface MigrationResult {
   dashboards: DashboardDef[];
   changed: boolean;

@@ -458,6 +458,16 @@ public static class ServerApp
         app.MapPost("/api/sessions/{id}/items/mentions", (string id, ItemMentionsRequest request, SessionManager manager) =>
             manager.Get(id) is { } host ? Results.Ok(host.ItemMentions(request)) : Results.NotFound());
 
+        // Slayer progress (F35, ADR-023 Decision 1): the export is one
+        // character's, the same as the inventory dump F29 already reads this
+        // way, so it hangs off the session rather than the server. Read and
+        // parsed fresh on every call — see SlayerReports for why there is no
+        // cache to keep in step with the file.
+        app.MapGet("/api/sessions/{id}/slayer", (string id, SessionManager manager) =>
+            manager.Get(id) is { } host
+                ? Results.Ok(SlayerReports.Build(host.Session.Path, host.Session.Character, host.Session.Server))
+                : Results.NotFound());
+
         // ---- NPC reference (F30, ADR-020) ----------------------------------
         // Someone else's data about the game, fetched on demand and cached
         // here. Every one of these can answer "I don't know" and the app is

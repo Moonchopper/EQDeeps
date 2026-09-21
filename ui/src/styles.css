@@ -3795,6 +3795,225 @@ tr:hover .lookup-btn,
 .bestiary-variant.con-yellow.on { background: var(--gold); border-color: var(--gold); color: var(--accent-ink); }
 .bestiary-variant.con-red.on { background: var(--danger); border-color: var(--danger); color: var(--accent-ink); }
 
+/* ---- slayer (F35, ADR-023) -------------------------------------------------
+   The export's own progress: a header with its age, the meta-achievements as
+   a compact strip, and the kill achievements as one sortable table. Reuses
+   the Bestiary/Incoming furniture (.panel, .mob-table, .mob-intro, .tabs,
+   .mini-btn) rather than inventing parallel classes for the same shapes. */
+
+/* .dashboard-main is a column flex box, and .panel sets min-height: 0 so a
+   panel with its own scroller (the table below) CAN shrink to fit. This panel
+   has no scroller — it is the header plus the meta strip — and without this
+   rule it shrinks anyway: the table panel's content pushes it down to its
+   title row alone, and the meta strip collapses to zero height, not merely
+   scrolls out of view. Fixed to its content's own height instead. */
+.slayer-head-panel {
+  flex: 0 0 auto;
+}
+
+.slayer-head-controls {
+  flex-wrap: wrap;
+  row-gap: 4px;
+}
+
+.slayer-cmd {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.slayer-cmd code {
+  padding: 1px 6px;
+  background: var(--page);
+  border: 1px solid var(--border);
+  border-radius: var(--r-chip);
+  color: var(--ink-2);
+  font-family: var(--font-mono);
+  font-size: var(--fs-tiny);
+}
+
+.slayer-refresh {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* The meta-achievements: a horizontally scrolling strip of small cards, since
+   the file can carry more of them than a row will ever hold comfortably. */
+.slayer-meta-strip {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 8px 12px;
+  border-top: 1px solid var(--grid);
+}
+
+.slayer-meta-card {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 160px;
+  max-width: 220px;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-inner);
+  background: var(--surface-2);
+  color: var(--ink-2);
+  text-align: left;
+}
+
+.slayer-meta-card:hover {
+  border-color: var(--accent);
+  color: var(--ink);
+}
+
+.slayer-meta-card.on {
+  border-color: var(--accent);
+  background: var(--selected);
+  color: var(--ink);
+}
+
+.slayer-meta-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ink);
+  font-weight: var(--w-bold);
+  font-size: var(--fs-small);
+}
+
+.slayer-meta-frac {
+  font-size: var(--fs-tiny);
+  font-variant-numeric: tabular-nums;
+}
+
+/* A meta achievement's components, opened by clicking its card. */
+.slayer-meta-components {
+  list-style: none;
+  margin: 0;
+  padding: 6px 12px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  border-top: 1px solid var(--grid);
+}
+
+.slayer-meta-component {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: var(--fs-small);
+}
+
+.slayer-mark {
+  flex: none;
+  width: 34px;
+  font-size: var(--fs-tiny);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.slayer-mark.done {
+  color: var(--live);
+}
+
+.slayer-mark.open {
+  color: var(--muted);
+}
+
+.slayer-meta-link {
+  color: var(--ink-2);
+  text-decoration: underline;
+  text-decoration-color: var(--border);
+}
+
+.slayer-meta-link:hover {
+  color: var(--accent);
+  text-decoration-color: var(--accent);
+}
+
+/* A reference the export names but this build cannot resolve — most often a
+   creature this game does not have yet. Plain text, not a broken link: it is
+   normal here, and must not read as an error (ADR-023 Decision 2). */
+.slayer-meta-unresolved {
+  color: var(--muted);
+}
+
+.slayer-table-panel {
+  min-height: 0;
+}
+
+/* Long by nature — one achievement's list can be fifteen races — so this
+   column wraps rather than forcing the table onto a horizontal scrollbar. */
+.slayer-creatures {
+  white-space: normal;
+  max-width: 420px;
+}
+
+.slayer-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 160px;
+  white-space: nowrap;
+}
+
+/* Sized to fill its container's width by default (right for the meta card,
+   a column flex context where a bare flex-grow would fight for HEIGHT
+   instead). Inside .slayer-progress — a row — it grows to share the cell
+   with the have/need label beside it. */
+.slayer-bar-track {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 6px;
+  border-radius: var(--r-pill);
+  background: var(--page);
+  overflow: hidden;
+}
+
+.slayer-progress > .slayer-bar-track {
+  flex: 1;
+  width: auto;
+}
+
+.slayer-bar-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--accent);
+  border-radius: var(--r-pill);
+}
+
+.slayer-bar-fill.complete {
+  background: var(--live);
+}
+
+.slayer-progress-label {
+  flex: none;
+  color: var(--muted-raised);
+  font-size: var(--fs-tiny);
+  font-variant-numeric: tabular-nums;
+}
+
+.slayer-row.expandable {
+  cursor: pointer;
+}
+
+.slayer-row.expandable:hover td {
+  color: var(--ink);
+}
+
+/* The meta strip's jump target, for a couple of seconds — long enough to
+   find, not so long it competes with the row you actually clicked next. */
+.slayer-row td {
+  transition: background-color 1s ease;
+}
+
+.slayer-row.highlight td {
+  background-color: var(--selected);
+}
+
 /* ---- the map's mobs tab (F30 × F27) --------------------------------------
    Who stands in the zone on screen, and where any mob stands. */
 .map-rail-tabs {

@@ -17,6 +17,7 @@ import { UpdateNotice, type UpdateChoice } from "./components/UpdateNotice";
 import { SettingsDialog } from "./components/SettingsDialog";
 import { LogPicker, LogsDialog } from "./components/LogPicker";
 import { BestiaryPanel } from "./components/BestiaryPanel";
+import { SlayerPanel } from "./components/SlayerPanel";
 import { Trail } from "./components/Trail";
 import { screenKey, type BestiaryTarget, type Crumb, type MapTarget, type Screen } from "./trail";
 import { useReferenceEnabled } from "./lookup/lookupSettings";
@@ -46,6 +47,7 @@ import {
   HITS_VIEW,
   MAPS_VIEW,
   BESTIARY_VIEW,
+  SLAYER_VIEW,
   STANCES_VIEW_ID,
   SUMMARY_VIEW,
   cloneForCustomizing,
@@ -268,7 +270,8 @@ export default function App() {
     activeStdView ||
     stdView === BESTIARY_VIEW ||
     stdView === HITS_VIEW ||
-    stdView === MAPS_VIEW
+    stdView === MAPS_VIEW ||
+    stdView === SLAYER_VIEW
       ? stdView
       : SUMMARY_VIEW;
   // A selection made on one view is that view's, unless it was pinned:
@@ -1161,9 +1164,9 @@ export default function App() {
             />
             {/* Three cases: a standard view, the hand-built Summary that
                 Overview opens on, or one of the user's own dashboards. The
-                Bestiary, Incoming and Map are checked first — they are rail
-                entries but not dashboards, so the standard-view lookup
-                resolves them to nothing. */}
+                Bestiary, Incoming, Slayer and Map are checked first — they
+                are rail entries but not dashboards, so the standard-view
+                lookup resolves them to nothing. */}
             {view === "overview" && stdView === BESTIARY_VIEW ? (
               <div className="trail-host">
                 <Trail crumbs={crumbs} onBack={backTo} />
@@ -1203,6 +1206,12 @@ export default function App() {
                   onScreen={(zone) => reportScreen({ view: "overview", stdView: MAPS_VIEW, zone })}
                 />
               </div>
+            ) : view === "overview" && stdView === SLAYER_VIEW ? (
+              // No place of its own to report — a kill achievement is not a
+              // zone or a mob — so unlike the Bestiary and the Map it takes no
+              // onScreen, and the effect that records every place-less rail
+              // entry in the history covers it.
+              <SlayerPanel sessionId={activeId} />
             ) : view === "overview" && activeStdView ? (
               <DashboardView
                 dashboard={activeStdView}

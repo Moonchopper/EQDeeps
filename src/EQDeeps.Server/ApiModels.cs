@@ -1,3 +1,4 @@
+using EQDeeps.Core.Achievements;
 using EQDeeps.Core.Items;
 using EQDeeps.Core.Reference;
 using EQDeeps.Core.Mobs;
@@ -121,6 +122,100 @@ public sealed record ItemMentionsRequest(QueryScope Scope, int? Limit = null);
 
 /// <summary>Everything the server's registry knows; <see cref="Numbered"/> is how many rows carry a game id.</summary>
 public sealed record ItemReport(string Server, IReadOnlyList<ItemRecord> Items, int Numbered);
+
+/// <summary>
+/// One character's Slayer progress (F35 / ADR-023 Decision 1): whatever
+/// <c>/outputfile achievements</c> last wrote to their install, read fresh on every request — the
+/// app keeps no count of its own, because the game counts kills by race id and nothing outside it
+/// does.
+/// </summary>
+/// <param name="Found">
+/// False either when there is nowhere to look (<see cref="Path"/> is null) or the export has not
+/// been written yet. Both are the ordinary case, not an error — <see cref="Problem"/> is null for
+/// the second one, because "run the command" is not a problem, it is the next step.
+/// </param>
+/// <param name="Path">
+/// Where the export would be, even if nothing is there yet — or null when the log is not under an
+/// install's <c>Logs\</c> folder at all, so there is no install to look in.
+/// </param>
+/// <param name="ExportedUtc">The export file's own last-write time, so the view can say how stale the numbers are.</param>
+/// <param name="Problem">
+/// Set only when something is actually wrong (no install to read from, or the file could not be
+/// read) — a sentence naming the trouble and, where there is one, the fix. Never set just because
+/// the export has not been written yet.
+/// </param>
+public sealed record SlayerReport(bool Found, string? Path, DateTime? ExportedUtc, string Command, string? Problem,
+    IReadOnlyList<SlayerMetaAchievement> Meta, IReadOnlyList<SlayerKillAchievement> Kills, int SkippedLines);
+
+/// <summary>
+/// Builds a <see cref="SlayerReport"/> from whatever is on disk right now. There is deliberately no
+/// cache and no store here (ADR-023): the export is 64 KB and a parse costs about a millisecond, and
+/// a player who just typed the command in game expects the very next refresh to show it, not the
+/// next time some background job gets around to it.
+/// </summary>
+public static class SlayerReports
+{
+    // Mirrors AchievementExport.Parse's own 4 MB cap. Parse would throw a file this large away
+    // anyway, so checking the length first (a FileInfo, not a read) skips reading it into a string
+    // only to discard it.
+    private const long MaxExportLength = 4 * 1024 * 1024;
+
+    public static SlayerReport Build(string logPath, string character, string server)
+    {
+        var installRoot = LogDiscovery.InstallRootOf(logPath);
+        if (installRoot is null)
+        {
+            return new SlayerReport(false, null, null, AchievementExport.Command,
+                "This log isn't inside an EverQuest install's Logs folder, so there's no " +
+                "achievements export to read. Open the log from its original install to track Slayer progress.",
+                [], [], 0);
+        }
+
+        var path = AchievementExport.PathFor(installRoot, character, server);
+        try
+        {
+            var info = new FileInfo(path);
+            if (!info.Exists)
+            {
+                // Not a problem — the player just hasn't run the command yet. Command carries the
+                // fix regardless of Found, so the view can offer it as the next step either way.
+                return new SlayerReport(false, path, null, AchievementExport.Command, null, [], [], 0);
+            }
+
+            if (info.Length > MaxExportLength)
+            {
+                // Parse would hand this file back empty, and an empty report with Found set draws
+                // as "0 of 0 complete" with no word of why. A real export is about 64 KB; whatever
+                // this is, it is not one, so say that — and the command that replaces it.
+                return new SlayerReport(false, path, null, AchievementExport.Command,
+                    "The achievements export is far larger than anything the game writes, so it wasn't read. " +
+                    $"Run {AchievementExport.Command} in game to write a fresh one.",
+                    [], [], 0);
+            }
+
+            string text;
+            // The game may hold the file open while it writes it — share everything, the posture
+            // ItemStore.Changed uses for the client's own files.
+            using (var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
+            using (var reader = new StreamReader(stream))
+            {
+                text = reader.ReadToEnd();
+            }
+
+            var parsed = AchievementExport.Parse(text);
+            var progress = Slayer.From(parsed);
+            return new SlayerReport(true, path, info.LastWriteTimeUtc, AchievementExport.Command, null,
+                progress.Meta, progress.Kills, parsed.SkippedLines);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or ArgumentException
+            or PathTooLongException or NotSupportedException)
+        {
+            return new SlayerReport(false, path, null, AchievementExport.Command,
+                "Couldn't read the achievements export just now — it may be open in the game; try again in a moment.",
+                [], [], 0);
+        }
+    }
+}
 
 public sealed record IncomingHitsRequest(
     QueryScope Scope,

@@ -176,10 +176,32 @@ something counts as a raid target on this server.
 ## Decision 5: nothing is stored, and the view is a query plus a list
 
 `GET /api/raids/targets` serves the roster. The view runs one deaths query —
-grouped by victim, zone and difficulty, filtered to the roster's names with
-the `Values` filter the spec already has — and lays the roster over the rows,
-so a target with no rows is drawn as not yet defeated. That is the shape the
+grouped by victim, then difficulty — and lays the roster over the rows, so a
+target with no rows is drawn as not yet defeated. That is the shape the
 Bestiary already has: someone's list, our measurements, joined on screen.
+
+**Two things this decision first said, and what was built instead
+(2026-09-20).** It said the query would be *filtered to the roster's names
+with the `Values` filter*. It is not filtered at all: that filter compares
+ordinally against the raw victim string the log printed, and a roster cannot
+predict that string's case or whether it carries an article ("a thunder spirit
+princess"), so any list of forms could silently drop a real kill. The query
+runs unfiltered and the join happens on screen, under the article-stripped,
+case-folded key the Bestiary already uses — one rule on both sides, no third
+key — with a target's rows under its name and under an alias summed into one.
+It also said the query would group by *zone* as well. It does not: the page
+wants "which difficulties has this fallen at", and two places sharing a
+difficulty label are one rung.
+
+**"Every death" is not the empty scope.** A deaths query with no scope
+aggregates over *fight* spans, and so silently drops a death whose victim
+this character never damaged — a boss watched from the floor. The only branch
+of scope resolution that walks the raw record stream is the look-back one, so
+the page asks for the last fifty years. It is a wart, it is tested (including
+against a log with no fights at all), and on the owner's 2.26-million-record
+log the page paints in a third of a second, a twentieth once the engine has
+cached it. The honest fix, if anyone wants one, is a scope that says "the
+whole log" directly.
 
 A row needs to say *when*: first and last kill. `QueryRow.Metrics` is numbers
 only, so the deaths source gains `firstAt` and `lastAt`.
@@ -199,9 +221,17 @@ Per target the view shows the name, where it lives, kills seen and credited,
 first and last kill, and a ladder of difficulty tiers with the defeated ones
 lit. Every name carries the lookup door (F29) and opens its Bestiary page
 (F30), per the owner's rule that an affordance goes wherever the name is. The
-view lives in the rail's **World** group. It reads the whole log by default,
-because "have I ever killed this" is a lifetime question; the app-wide time
-frame narrows it like any other view.
+view lives in the rail's **World** group and always reads the whole log,
+because "have I ever killed this" is a lifetime question. (This paragraph first
+added that the app-wide time frame would narrow it. It cannot: the World
+group's views have no time frame at all, ADR-017 Decision 2, and that is the
+right home for this one. "What have I killed since Tuesday" is a dashboard
+panel — deaths by player and difficulty, under whatever time frame is set.)
+
+The ladder's rungs are **data, not a tier table**: the union of difficulty
+labels seen on any roster target in this log, ordered open world first, then
+no mode, Solo, Group, then by tier. A tier the server adds appears as a rung
+the day someone kills something in it.
 
 No portraits (ADR-021 Decision 4). No sound, no celebration (triggers and
 audio remain out of scope).

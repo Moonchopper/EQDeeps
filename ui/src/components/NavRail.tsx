@@ -15,6 +15,7 @@ import {
   IconSettings,
   IconShield,
   IconBook,
+  IconSwords,
   IconSkull,
   IconTargetArrow,
   IconTrendingUp,
@@ -27,6 +28,7 @@ import {
   HITS_VIEW,
   MAPS_VIEW,
   BESTIARY_VIEW,
+  RAID_TARGETS_VIEW,
   SLAYER_VIEW,
   STANCES_VIEW_ID,
   SUMMARY_VIEW,
@@ -90,6 +92,10 @@ const RAIL_ENTRIES: Record<string, { name: string; title?: string }> = {
   },
   [SLAYER_VIEW]: { name: "Slayer", title: "Slayer achievements: what is left to kill" },
   [MAPS_VIEW]: { name: "Map", title: "Your own zone maps, and how the world joins up" },
+  [RAID_TARGETS_VIEW]: {
+    name: "Raid targets",
+    title: "The named mobs this server's raids ask for, and which of them this log has killed",
+  },
 };
 
 /**
@@ -111,6 +117,7 @@ const RAIL_ICONS: Record<string, Icon> = {
   [BESTIARY_VIEW]: IconBook,
   [SLAYER_VIEW]: IconSkull,
   [MAPS_VIEW]: IconMap2,
+  [RAID_TARGETS_VIEW]: IconSwords,
 };
 
 const ICON_SIZE = 16;

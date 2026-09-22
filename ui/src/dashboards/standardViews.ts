@@ -75,6 +75,15 @@ export const BESTIARY_VIEW = "bestiary";
 export const MAPS_VIEW = "maps";
 
 /**
+ * Raid targets (F31): a checked-in roster laid over an ordinary deaths query.
+ * A rail entry for the same reason Bestiary and Map are — it reads no
+ * app-wide time frame at all (it lives in the World group, ADR-017 Decision
+ * 2) and its own query is built from scratch inside the panel, not stored as
+ * a QuerySpec anyone could edit.
+ */
+export const RAID_TARGETS_VIEW = "raid-targets";
+
+/**
  * Slayer achievements (F35, ADR-023). The same shape again: achievements are
  * not records in the record store, so there is no QuerySpec to write for them
  * (ADR-023 Decision 9) — the "should this be a query?" test in CLAUDE.md §1

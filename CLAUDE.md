@@ -39,6 +39,7 @@ special-case rendering path, check whether it should be a query first.
 | `src/EQDeeps.Core/Query/` | `QuerySpec`, `QueryEngine`, `MetricCatalog`, `CannedQueries`, the timelines. |
 | `src/EQDeeps.Core/Mobs/` | F25 learned mob health; F26 learned mob attacks + defender levels. |
 | `src/EQDeeps.Core/Achievements/` | F35: the grammars of the player's `/outputfile achievements` and `/outputfile faction` exports, the Slayer projection, `slayer-races.tsv` (creature words → the reference's race labels, hand-authored — read its header before adding a row), and the pure atlas + zone ranking (ADR-023). Reads; writes nothing. |
+| `src/EQDeeps.Core/Raids/` | F31 raid-target roster: the checked-in `raid-targets.tsv` (names spelled as the *log* prints them) and its loader. Nothing is stored; the page is a deaths query with this list laid over it. |
 | `src/EQDeeps.Core/Maps/` | F27 zone maps: the EQ map-file grammar, the zone-name table (`zones.tsv`, with each zone's era, its client zone ids — the Bestiary addresses a zone's roster by them — and a hand-authored `city` flag the Slayer planner never recommends past), the world graph. |
 | `src/EQDeeps.Server/` | Minimal-API host, SignalR hub, session lifecycle, WebView2 shell, persistence stores, updates. |
 | `src/EQDeeps.Server/wwwroot/` | **Build output** (gitignored). The SPA is built into here and embedded into the assembly. |
@@ -470,7 +471,8 @@ Open, roughly in priority order:
   matches nothing until they are.
 - **Identity-registry disk persistence** — it is snapshot-serializable but still
   per-server-in-memory only.
-- **F31–F34, in that order** (ADR-021): raid targets (designed, ADR-022), the
-  Plane of Sky tracker, gear, overlays. Each gets its ADR when its turn
-  comes; overlays get a spike first.
+- **F32–F34, in that order** (ADR-021): the Plane of Sky tracker, gear,
+  overlays. Each gets its ADR when its turn comes; overlays get a spike
+  first. F31 (raid targets, ADR-022) is built; its roster awaits the owner's
+  review.
 - The P1/P2 backlog in `docs/product/features.md`.

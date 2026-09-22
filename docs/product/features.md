@@ -702,7 +702,7 @@ Acceptance, by slice:
    hand-computed toy world.
 4. **Since-the-export estimate** from the log — planned, not designed.
 
-## Planned — four features from a neighbouring app (2026-09-20)
+## Four features from a neighbouring app (2026-09-20)
 
 The owner uses [EQ Legends Companion](https://github.com/jmoyers/everquest-companion)
 beside this app and asked for four of its features here.
@@ -711,7 +711,7 @@ what that app does, what may not be borrowed from it (it is FSL-licensed, not
 MIT, and most of its data is a wiki's), where each feature's data comes from
 instead, and why they are built in this order. None blocks a release.
 
-### F31. Raid targets — **planned, next** ([ADR-022](../architecture/adr-022-raid-targets.md))
+### F31. Raid targets — **shipped (2026-09-20; the roster awaits the owner's review)** ([ADR-022](../architecture/adr-022-raid-targets.md))
 
 Which raid targets has this character killed, when, and at what difficulty —
 with the ones still standing beside the ones that fell. A roster laid over
@@ -726,29 +726,36 @@ Acceptance:
   ([log format](../domain/eq-log-format.md) §3.9b): "The Plane of Fear - Group
   3 (Fused)" is the Plane of Fear, with its map. Mob health (F25) and
   incoming damage (F26) measure exactly what they measured before.
+  *(shipped 2026-09-20)*
 - A kill is **credited** when an experience line claimed it; seen and
   credited are both shown. Two deaths in one second each take their own
   experience line; a death with none is seen and not credited.
   *(shipped 2026-09-20)*
 - The roster is checked-in data the owner has reviewed, matched on the whole
-  name — `Cleric of Innoruuk` is never Innoruuk.
+  name — `Cleric of Innoruuk` is never Innoruuk. *(shipped 2026-09-20 — the
+  roster itself is the owner's draft, awaiting review; matching against it is
+  built and tested)*
 - Per target: where it lives, kills seen and credited, first and last kill, a
   difficulty ladder with defeated tiers lit. Targets never killed are shown,
-  and counted ("N of M defeated").
+  and counted ("N of M defeated"). *(shipped 2026-09-20)*
 - Every target name carries the lookup door (F29) and opens its Bestiary page
-  (F30). The view sits in the rail's World group and obeys the app-wide time
-  frame, reading the whole log by default.
+  (F30), with a crumb back. The view sits in the rail's World group and
+  always reads the whole log — every death in it, including one whose victim
+  this character never damaged. *(shipped 2026-09-20. This bullet first said
+  the view would obey the app-wide time frame; the World group has none, and
+  "since Tuesday" is a dashboard panel over the same dimensions.)*
 - Metric values are tested against hand-computed numbers. *(shipped 2026-09-20,
-  for the zone/difficulty dimensions and the `credited`/`firstAt`/`lastAt`
-  metrics; the roster view itself is not built yet)*
+  for the zone/difficulty dimensions, the `credited`/`firstAt`/`lastAt`
+  metrics, and the roster view itself)*
 - The difficulty a kill is filed under includes the `Solo` / `Group` mode
   where the log printed one, since the mode rescales the instance as a tier
   does: a solo kill and a group kill at the same tier are two rungs.
   *(shipped 2026-09-20)*
 - Not included: portraits, sounds, celebrations, respawn timers — and **the
   weekly loot lockout**, left out at the owner's call (2026-09-20) to be
-  revisited only if its absence proves a problem. The time frame already
-  answers "what have I killed since Tuesday".
+  revisited only if its absence proves a problem. A dashboard panel — deaths
+  by player and difficulty, under the app-wide time frame — already answers
+  "what have I killed since Tuesday".
 
 ### F32. Plane of Sky tracker — **planned**
 

@@ -4508,3 +4508,93 @@ tr:hover .lookup-btn,
 .map-spawn-clear:hover {
   color: var(--ink);
 }
+
+/* ---- raid targets (F31) ----
+   A checked-in roster laid over an ordinary deaths query, grouped the way
+   the roster file itself is grouped — the Bestiary's own idiom (.mob-table,
+   .table-scroll, .empty, .table-search), just headed by group instead of
+   split into a search panel and a detail panel. */
+
+.raid-controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 14px;
+}
+
+.raid-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+/* A group heading is a full-width row inside the body, not a table of its
+   own — that is what let every group size its own columns independently
+   (send-back round 1). It overrides the plain `th` rule's sticky position
+   and surface background (a single class beats a bare element selector on
+   specificity alone) so it cannot fight the real header row for the same
+   sticky slot; `position: static` opts it out of stickiness entirely rather
+   than picking a second `top` offset to coordinate with the header's. */
+.raid-group-title {
+  position: static;
+  padding: 14px 10px 4px;
+  background: transparent;
+  color: var(--muted);
+  font-size: var(--fs-micro);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  font-weight: var(--w-bold);
+  border-bottom: none;
+  white-space: normal;
+}
+
+/* Room for several difficulty chips without the column collapsing to one per line. */
+.raid-table th:not(.raid-group-title):last-child,
+.raid-table td:last-child {
+  min-width: 160px;
+}
+
+.raid-target-name {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: var(--ink);
+  font-weight: var(--w-bold);
+  text-align: left;
+  cursor: pointer;
+}
+
+.raid-target-name:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+/* A target this log has not killed is the same row shape, quieter all over —
+   name, door and ladder alike — rather than singled out in a warning colour
+   it has not earned; it is simply not yet true. */
+.raid-row:not(.raid-row-defeated) {
+  opacity: 0.62;
+}
+
+.raid-ladder {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.raid-rung {
+  padding: 1px 6px;
+  border: 1px solid var(--grid);
+  border-radius: var(--r-pill);
+  color: var(--muted-raised);
+  font-size: var(--fs-micro);
+  white-space: nowrap;
+}
+
+.raid-rung.on {
+  border-color: var(--accent);
+  color: var(--accent);
+}

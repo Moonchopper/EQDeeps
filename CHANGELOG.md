@@ -10,6 +10,7 @@ being cut.
 
 ## Unreleased
 
+- **A new Raid targets page shows which named raid mobs you've killed.** Find it in the World section of the rail — grouped by content, with when you last downed each one and at what difficulty.
 - **Maps open for solo and group raid instances.** A fight in somewhere like "The Plane of Fear - Group" now finds the Plane of Fear's map instead of asking you to pick one.
 - **Mob and zone data now ships with the app** — nothing is asked of EQLBase unless you press Refresh, and the Bestiary works offline.
 - **Slayer now says where to hunt** — pick an achievement and it ranks the zones its creatures live in, never a city, with what each would cost your faction.

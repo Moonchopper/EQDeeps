@@ -17,6 +17,7 @@ import { UpdateNotice, type UpdateChoice } from "./components/UpdateNotice";
 import { SettingsDialog } from "./components/SettingsDialog";
 import { LogPicker, LogsDialog } from "./components/LogPicker";
 import { BestiaryPanel } from "./components/BestiaryPanel";
+import { RaidTargetsPanel } from "./components/RaidTargetsPanel";
 import { SlayerPanel } from "./components/SlayerPanel";
 import { Trail } from "./components/Trail";
 import { screenKey, type BestiaryTarget, type Crumb, type MapTarget, type Screen } from "./trail";
@@ -47,6 +48,7 @@ import {
   HITS_VIEW,
   MAPS_VIEW,
   BESTIARY_VIEW,
+  RAID_TARGETS_VIEW,
   SLAYER_VIEW,
   STANCES_VIEW_ID,
   SUMMARY_VIEW,
@@ -271,6 +273,7 @@ export default function App() {
     stdView === BESTIARY_VIEW ||
     stdView === HITS_VIEW ||
     stdView === MAPS_VIEW ||
+    stdView === RAID_TARGETS_VIEW ||
     stdView === SLAYER_VIEW
       ? stdView
       : SUMMARY_VIEW;
@@ -473,6 +476,9 @@ export default function App() {
     } else if (crumb.view === "bestiary" && crumb.bestiary) {
       setBestiaryTarget({ ...crumb.bestiary, seq: ++trailSeq.current });
       selectStdView(BESTIARY_VIEW);
+    } else if (crumb.view === "raid-targets") {
+      // No target data to restore — the whole page is the place.
+      selectStdView(RAID_TARGETS_VIEW);
     }
   }
 
@@ -1206,6 +1212,8 @@ export default function App() {
                   onScreen={(zone) => reportScreen({ view: "overview", stdView: MAPS_VIEW, zone })}
                 />
               </div>
+            ) : view === "overview" && stdView === RAID_TARGETS_VIEW ? (
+              <RaidTargetsPanel sessionId={activeId} onOpenMob={openMob} />
             ) : view === "overview" && stdView === SLAYER_VIEW ? (
               // No place of its own to report — a kill achievement is not a
               // zone or a mob — so unlike the Bestiary and the Map it takes no
@@ -1214,7 +1222,7 @@ export default function App() {
               //
               // Its "Where to hunt" doors open the Map/Bestiary directly
               // rather than through the shared crumb trail: trail.ts's Crumb
-              // is closed over "bestiary" | "map", so there is no way to
+              // is closed over the Bestiary, Map and Raid targets pages, so there is no way to
               // spell "back to a hunt panel" in it — a crumb built for one
               // would either sit inert or mislabel itself as a Bestiary/Map
               // page. Landing with no trail chip is honest; a chip that lies

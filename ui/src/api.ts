@@ -916,6 +916,28 @@ export interface UpdateState {
   error?: string;
 }
 
+// ---- raid targets (F31) -----------------------------------------------------
+
+/**
+ * One named mob the Raid targets view lists (ADR-022 Decision 4) — data, not
+ * a measurement. Matching a death record to one of these is done client-side
+ * under the same article-stripped, case-folded key `mobKey` gives everywhere
+ * else (see RaidTargetsPanel.tsx).
+ */
+export interface RaidTargetDto {
+  name: string;
+  /** Other spellings of the same mob — matched under the same key as `name`. Empty, never [""]. */
+  aliases: string[];
+  /** Where it lives, as zones.tsv names the place. Where a kill happened comes from the death record. */
+  zone: string;
+  /** The heading it is listed under. */
+  group: string;
+}
+
+export interface RaidTargetsResult {
+  targets: RaidTargetDto[];
+}
+
 export const api = {
   listSessions: (): Promise<SessionInfo[]> => fetch("/api/sessions").then((r) => json(r)),
 
@@ -1116,6 +1138,13 @@ export const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ scope, ...options }),
     }).then((r) => json(r)),
+
+  // ---- raid targets (F31) --------------------------------------------------
+  // Static, session-less, server-wide: no network and no store behind it —
+  // Results.Ok(RaidTargets.Default.Targets) straight off the embedded roster.
+
+  raidTargets: (): Promise<RaidTargetsResult> =>
+    fetch("/api/raids/targets").then((r) => json(r)),
 
   getContext: (id: string): Promise<ContextTimeline> =>
     fetch(`/api/sessions/${id}/context`).then((r) => json(r)),

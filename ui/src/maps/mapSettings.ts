@@ -53,16 +53,25 @@ export interface MapSettings extends InstallMapSettings {
 }
 
 /**
- * Strips an instance's difficulty suffix — "The Estate of Unrest 4 (Refined)"
- * is the same geometry as the open-world zone.
+ * Strips an instance's difficulty suffix and mode marker — "The Estate of
+ * Unrest 4 (Refined)" and "The Plane of Fear - Group 3 (Fused)" are both the
+ * same geometry as their open-world zone.
  *
- * <p>Mirrors <c>InstanceZone.Parse</c>: the number is capped at two digits and
- * the tier word at letters, so a zone legitimately ending in a parenthetical is
- * not mistaken for an instance.</p>
+ * <p>Mirrors <c>InstanceZone.Parse</c>'s <c>BaseName</c>: the tier suffix comes
+ * off first (its regex anchors on the end of the string, and the marker sits
+ * before the tier), then the " - Solo" / " - Group" marker comes off whatever
+ * that left. The tier number is capped at two digits and the tier word at
+ * letters, so a zone legitimately ending in a parenthetical is not mistaken
+ * for an instance; the marker is matched case-sensitively, exactly as logged,
+ * against the closed set the server has ever been observed to print.</p>
  */
 export function stripInstance(zone: string): string {
-  const match = /^(.+?) (\d{1,2}) \(([A-Za-z][A-Za-z ]*)\)$/.exec(zone.trim());
-  return match ? match[1] : zone.trim();
+  const trimmed = zone.trim();
+  const tierMatch = /^(.+?) (\d{1,2}) \(([A-Za-z][A-Za-z ]*)\)$/.exec(trimmed);
+  const baseAfterTier = tierMatch ? tierMatch[1] : trimmed;
+
+  const modeMatch = /^(.+?) - (Solo|Group)$/.exec(baseAfterTier);
+  return modeMatch ? modeMatch[1] : baseAfterTier;
 }
 
 /**

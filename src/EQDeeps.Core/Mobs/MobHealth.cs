@@ -12,6 +12,13 @@ namespace EQDeeps.Core.Mobs;
 /// the values. It is also the only form in which a bad estimate can be
 /// explained after the fact.</para>
 /// </summary>
+/// <param name="Zone">
+/// <see cref="Parsing.InstanceZone.KeyName"/>, not <c>BaseName</c> — the place
+/// plus the mode marker when the instance carried one, so a solo-scaled kill
+/// and a group-scaled kill of the same mob key apart. This is also exactly
+/// what every prior build wrote here, so a store that predates the mode
+/// marker keys identically under the new code.
+/// </param>
 /// <param name="Damage">Every player-side point that landed on it, not just this character's.</param>
 public sealed record KillSample(
     string Mob,
@@ -162,7 +169,7 @@ public sealed class MobHealthIndex
             }
 
             samples.Add(new KillSample(
-                fight.Name, zone.BaseName, zone.Difficulty, zone.TierName,
+                fight.Name, zone.KeyName, zone.Difficulty, zone.TierName,
                 fight.DamageTotal, fight.LastDamageTime));
         }
 

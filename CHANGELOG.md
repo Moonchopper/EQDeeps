@@ -10,6 +10,7 @@ being cut.
 
 ## Unreleased
 
+- **Maps open for solo and group raid instances.** A fight in somewhere like "The Plane of Fear - Group" now finds the Plane of Fear's map instead of asking you to pick one.
 - **Mob and zone data now ships with the app** — nothing is asked of EQLBase unless you press Refresh, and the Bestiary works offline.
 - **Slayer now says where to hunt** — pick an achievement and it ranks the zones its creatures live in, never a city, with what each would cost your faction.
 - **A Slayer view tracks every kill achievement** — run `/outputfile achievements` in game and it lists what is left of each, nearest to done first.

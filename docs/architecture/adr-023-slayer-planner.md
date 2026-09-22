@@ -291,6 +291,29 @@ one thing here worth the site author's blessing, it joins the ask ADR-021
 already owes them for items, and if the answer is no this decision is the
 one that changes.
 
+**"For now" lasted a day (2026-09-21): the bulk read is replaced by a
+snapshot that ships with the app.** Having seen what the atlas costs the site
+— the whole of it per install, then a revalidation pass a week — the owner
+asked for the data to be bundled instead, with Refresh as the player's
+option. That reverses ADR-020 Decision 1, and the reasoning, the architect's
+contrary recommendation and the conditions it was done under are recorded
+[there](adr-020-npc-reference.md), not repeated here. What it means for this
+decision:
+
+- **The walk above now reads from the bundle and sends nothing.** It finishes
+  at once, the "zone 12 of 79" progress is a relic a player will only see on
+  a build with the data folder removed, and the pause never fires.
+- **The weekly revalidation is gone** where a snapshot is present. It was a
+  day old and was the single largest source of requests this feature would
+  have made: 79 conditional GETs per install per week, for ever.
+- **Refresh is the only upstream path**, it is the player's button (in the
+  panel's footer and in Settings), and it is conditional per file on the
+  ETags the snapshot recorded — so against an unchanged site it costs eighty
+  headers and moves no data. The footer says how old the data is, because a
+  snapshot the player cannot date is a stale number wearing a current face.
+- With the folder deleted, everything in this decision as first written is
+  what the app does again. That is deliberate: it is the takedown path.
+
 ## Decision 8: the plan is greedy, explainable, and says what it ignores
 
 "Semi-optimal" is the owner's word and the right ambition. The structure

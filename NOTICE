@@ -93,9 +93,27 @@ THIRD-PARTY-NOTICES.txt.
 EQDeeps reads the player's own EverQuest install — spell files, map files,
 item data (see docs/domain/eq-client-files.md) — in place. None of it is
 copied into this repository or into a release, and `--no-spells` stops the app
-reading any of it. Mob detail fetched from EQLBase (ADR-020) is cached under
-%AppData% on the machine that asked for it and is never bundled; `--no-reference`
-switches that off.
+reading any of it.
+
+== Distributed, and NOT under this project's licence ==
+
+data/eqlbase/ — a snapshot of the NPC data published by EQLBase
+(https://eqlbase.com), a player-made reference for EverQuest Legends by
+Rex Saurus. It is embedded in the application so that the Bestiary and the
+Slayer planner need make no request to that site unless the player presses
+Refresh (ADR-020 Decision 1 as amended 2026-09-21; ADR-023 Decision 7).
+
+EQLBase states no licence. Its own position on the underlying material is that
+"game data and assets remain the property of their respective owners and are
+presented here for informational purposes under fair use". The snapshot is
+redistributed WITHOUT an explicit grant from EQLBase's author, for a
+non-commercial tool. The MIT licence in LICENSE covers EQDeeps' own code and its
+own data files; it does not extend to data/eqlbase/, and nothing here gives
+anyone permission to reuse that data. It will be removed at the request of
+EQLBase's author or a rights holder — open an issue on the repository.
+data/eqlbase/README.md says the same and records where and when each file was
+read. Every screen that shows this data names EQLBase and links to it.
+`--no-reference` switches the whole feature off.
 
 == Build tooling ==
 
@@ -106,4 +124,6 @@ setup engine is therefore present in the distributed EQDeeps-Setup executable;
 it is not part of the EQDeeps application itself.
 
 EverQuest is a registered trademark of Daybreak Game Company LLC. EQDeeps is
-an unaffiliated fan-made tool and includes no game assets.
+an unaffiliated fan-made tool and includes no game art, audio or client files.
+The reference data in data/eqlbase/ describes the game's NPCs; it is EQLBase's
+compilation, covered above, and is neither Daybreak's publication nor ours.

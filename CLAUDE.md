@@ -48,8 +48,9 @@ special-case rendering path, check whether it should be a query first.
 | `tests/EQDeeps.TestSupport/` | `SyntheticLogGenerator`, `SpinClock`. Shared by tests and benchmarks. |
 | `tools/EQDeeps.Bench/` | Log generator + backfill/latency benchmarks. |
 | `docs/` | The spec of record. See §7. |
+| `data/eqlbase/` | **Not ours and not MIT.** A snapshot of EQLBase's NPC data, embedded in the server so the app asks their site for nothing unless the player presses Refresh. Read its README before touching it; re-taken by hand with `scripts/snapshot-eqlbase.mjs`, never by a build. Deleting the folder is supported and is the takedown path. |
 | `installer/EQDeeps.iss` | Inno Setup script (per-user install by default). |
-| `scripts/` | `publish.ps1`, `screenshots.mjs`, `derive-zone-eras.mjs` (regenerates the era and zone-id columns of `zones.tsv` from a client's `ZoneNames.txt`, carrying the hand-authored `city` column through untouched), icon + signing setup. |
+| `scripts/` | `publish.ps1`, `screenshots.mjs`, `derive-zone-eras.mjs` (regenerates the era and zone-id columns of `zones.tsv` from a client's `ZoneNames.txt`, carrying the hand-authored `city` column through untouched), icon + signing setup, `snapshot-eqlbase.mjs` (re-takes the `data/eqlbase/` snapshot — by hand, after a patch; one conditional request at a time). |
 | `.github/workflows/` | `ci.yml`, `release.yml`, `verify-signing-key.yml`. |
 
 Solution: `EQDeeps.sln`. Shared MSBuild settings in `Directory.Build.props`
@@ -90,7 +91,8 @@ powershell -File scripts/publish.ps1 -Installer
 ```
 
 `--no-spells` stops the parser reading the player's spell files (F10a), and
-`--no-reference` stops the Bestiary fetching anything (ADR-020); both are for
+`--no-reference` switches the reference data off altogether — the bundled
+snapshot and Refresh both (ADR-020); both are for
 anyone who wants the app to touch nothing but the log.
 
 Useful server flags: `--browser` (default browser instead of the app window),
@@ -200,7 +202,7 @@ Invariants worth not breaking:
 | `recent-logs.json` | MRU log list | `--recentLogsRoot` | No |
 | `mobs\` | F25 learned mob health per *server* | `--mobRoot` | Yes — a cache. Corrupt file just relearns |
 | `attacks\` | F26 learned mob attacks per *server*, keyed by defender level too | `--attackRoot` | Yes — a cache, same deal |
-| `reference\` | F30 mob details fetched from EQLBase on demand — the name index and the id-sharded stat blocks, with their ETags (ADR-020). Never bundled, never fetched until asked. The Slayer planner reads *every* shard — one at a time, once, only when its panel is opened (ADR-023 Decision 7) — and a shard older than a week is revalidated, keeping the cached copy if that fails | `--referenceRoot` | Yes — a cache; `--no-reference` switches the whole feature off |
+| `reference\` | What a player's **Refresh** brought back from EQLBase — the name index and the id-sharded stat blocks, with their ETags. The baseline is the snapshot embedded in the server (`data/eqlbase/`, ADR-020 Decision 1 as amended); a file here wins only if it was written after that snapshot was taken. With a snapshot present the app makes **no request of its own**. Delete `data/eqlbase/` and the old behaviour returns: fetched on demand, one shard at a time, revalidated weekly | `--referenceRoot` | Yes — a cache; `--no-reference` switches the whole feature off |
 | `items\` | F29 item registry per *server*: every item the logs and the player's client files have named, with the game's id where a file gave one (ADR-019) | `--itemRoot` | Yes — a cache; the logs and the client's `userdata\LF_*.ini` still exist |
 | `cache\` | F28 parsed records per *log file* per *parser build* (`<hash of path>-<build>.eqdc`), so the next open resumes instead of re-parsing (ADR-018). Dev and installed builds keep separate files and never read each other's. Also `map-labels-<build>.json`: every map file's labels, so the World view's graph does not re-read 200 MB of maps per launch | `--cacheRoot` | Yes — a cache; validated against the log's own bytes and the parser build, rebuilt when either differs. Sweeps itself: gone logs, 60 days idle, all but the newest foreign build per log. Map labels validated per file by size + mtime |
 | update preferences, staged installer | ADR-010 | `--updateRoot` | Yes |
@@ -327,7 +329,7 @@ game and nobody else's to license.
 | What is a fight? How is DPS/sDPS/crit rate computed? What is the denominator? | `docs/domain/metrics-and-aggregation.md` |
 | Stack, component boundaries, QuerySpec model, persistence layout | `docs/architecture/system-overview.md` |
 | Why is ingestion built that way? | `docs/architecture/log-ingestion-brief.md` + `adr-002` |
-| Where does mob reference data come from, and what may we do with it? | `docs/architecture/adr-020-npc-reference.md` — measured coverage, licensing, and the fetch-not-bundle rule |
+| Where does mob reference data come from, and what may we do with it? | `docs/architecture/adr-020-npc-reference.md` — measured coverage, the licensing position, and the 2026-09-21 amendment that ships a snapshot of it; `data/eqlbase/README.md` says what that folder is and is not |
 | Why was decision D made? | `docs/architecture/adr-001…020` (parser, ingestion, session state, query engine, API/live, SPA, dashboards, packaging, windowed shell, auto-update, gear snapshots (withdrawn), mob health, incoming damage, navigation rail, visual language, zone maps, grouped rail, log cache, reference lookup, NPC reference) |
 | Build order, status, verification strategy | `docs/HANDOFF.md` |
 | Signing, release keys, what to do before tagging | `docs/release-signing.md` |

@@ -29,8 +29,15 @@ public static class ServerApp
     /// fake <see cref="IReferenceSource"/> in place of the real one that reaches eqlbase.com — every
     /// reference-touching test in this repo uses it (ADR-020: "a feature that reaches a third party
     /// has to be provable without one"). All nine pre-existing call sites keep compiling unchanged.
+    ///
+    /// <para><paramref name="snapshot"/> is the same idea for the shipped EQLBase snapshot (ADR-020
+    /// Decision 1's amendment). The default — <see cref="BundledReferenceSnapshot"/> when nobody
+    /// swapped <paramref name="reference"/>, <see cref="NoReferenceSnapshot"/> when they did — exists
+    /// so a test that fakes the network does not silently also get real data mixed in from the
+    /// bundle: a caller who owns the reference world by supplying a fake source owns all of it, and
+    /// must ask explicitly (by also passing a snapshot) for anything more than that fake answers.</para>
     /// </summary>
-    public static WebApplication Build(string[] args, IReferenceSource? reference = null)
+    public static WebApplication Build(string[] args, IReferenceSource? reference = null, IReferenceSnapshot? snapshot = null)
     {
         var builder = WebApplication.CreateBuilder(args);
         if (builder.Configuration["urls"] is null &&
@@ -85,10 +92,15 @@ public static class ServerApp
         // for anyone who wants an app that never speaks to a third party. It
         // fetches nothing until something asks it a question.
         builder.Services.AddSingleton<IReferenceSource>(_ => reference ?? new EqlBaseSource());
+        // The shipped snapshot (ADR-020 Decision 1's amendment): a caller who swapped the source for
+        // a fake owns the whole reference world and must not silently get 11 MB of real data mixed
+        // into it, so the bundle is the default only when nobody touched the source either.
+        var referenceSnapshot = snapshot ?? (reference is null ? new BundledReferenceSnapshot() : new NoReferenceSnapshot());
         builder.Services.AddSingleton(sp => new NpcReferenceStore(
             sp.GetRequiredService<IReferenceSource>(),
             builder.Configuration["referenceRoot"],
-            enabled: !args.Contains("--no-reference")));
+            enabled: !args.Contains("--no-reference"),
+            snapshot: referenceSnapshot));
         // --cacheRoot likewise redirects the parsed-record caches (tests) —
         // recomputable, but a few hundred megabytes per log, and a test that
         // wrote one into the real folder would leave it there.
@@ -514,6 +526,13 @@ public static class ServerApp
         // paced, so the hunting panel can rank races against zones. Never triggered implicitly.
         app.MapGet("/api/reference/atlas", (NpcReferenceStore reference) =>
             Results.Ok(reference.AtlasStatus()));
+
+        // Refresh (ADR-020 Decision 1's amendment): the only path this app has to eqlbase.com. Every
+        // other reference read answers from the shipped snapshot or the cache alone; this POST is the
+        // player's own ask, same shape as the atlas start below — fires the walk, returns at once,
+        // and the caller polls /api/reference/status for its progress.
+        app.MapPost("/api/reference/refresh", (NpcReferenceStore reference) =>
+            Results.Ok(reference.StartRefresh()));
 
         // This POST *is* the ask (ADR-020 Decision 2, as ADR-023 Decision 7 restates it for the
         // bulk read): the hunting panel sends it the moment the player opens the panel, and nothing

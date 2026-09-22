@@ -14,7 +14,7 @@ listings, level bands and expansion list are Legends'.
 
 ![EQDeeps Summary view on the bundled sample log](docs/media/overview.png)
 
-**Status:** v0.16.0 — pre-1.0, used daily on real logs. Left before a public
+**Status:** v0.17.0 — pre-1.0, used daily on real logs. Left before a public
 v1: the release-gate consistency checks (per-player damage summing to the fight
 total, every record landing in exactly one fight or none, lines-read
 accounting), class detection from the client's own spell files, identity

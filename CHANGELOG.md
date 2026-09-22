@@ -8,16 +8,17 @@ and the ADR. Newest first; a change lands under **Unreleased** with its pull
 request, and the release's Docs commit renames that heading to the version
 being cut.
 
-## Unreleased
+## v0.17.0 — 2026-09-22
 
-- **A new Raid targets page shows which named raid mobs you've killed.** Find it in the World section of the rail — grouped by content, with when you last downed each one and at what difficulty.
-- **Maps open for solo and group raid instances.** A fight in somewhere like "The Plane of Fear - Group" now finds the Plane of Fear's map instead of asking you to pick one.
-- **Mob and zone data now ships with the app** — nothing is asked of EQLBase unless you press Refresh, and the Bestiary works offline.
-- **Slayer now says where to hunt** — pick an achievement and it ranks the zones its creatures live in, never a city, with what each would cost your faction.
-- **A Slayer view tracks every kill achievement** — run `/outputfile achievements` in game and it lists what is left of each, nearest to done first.
-- **Every copy now carries the licences it is meant to.** The installer and the portable zip put EQDeeps' own MIT licence, the full licence text for everything bundled into the app, and the .NET runtime's own notices beside the program. Before this only a short attribution file shipped, and the portable zip carried no licence at all.
-- **Any table or chart can now be grouped by zone or by difficulty.** The query builder also offers "credited", "first", and "last" as columns wherever deaths are tracked.
+- **A new Slayer view tracks every kill achievement** — run `/outputfile achievements` in game and it lists what is left of each, nearest to done first, and picks up a fresh export on its own.
+- **Slayer says where to hunt** — pick an achievement and it ranks the zones its creatures live in, never a city, with what each would cost the factions you are building.
+- **A new Raid targets page shows which named raid mobs you've killed** — how often, when first and last, and at what difficulty, with the ones still standing listed beside them.
+- **Mob and zone data now ships with the app** — the Bestiary and Slayer work offline, and nothing is asked of EQLBase unless you press Refresh in Settings.
+- **Any table or chart can now be grouped or filtered by zone and by difficulty** — and wherever deaths are counted, Credited, First and Last are on offer as columns.
 - **The World map now lays zones out the way their exits point** — if a zone's map shows the way to Everfrost Peaks on its east side, Everfrost Peaks sits to its east in the World.
+- **Maps open for solo and group raid instances** — a fight in "The Plane of Fear - Group" now finds the Plane of Fear's map instead of asking you to pick one.
+- **Every copy now carries the licences it is meant to** — the installer and the portable zip put EQDeeps' own licence, the full text for everything bundled into the app, and the .NET runtime's notices beside the program.
+- **Fixed:** scrolling a table no longer draws its first column over the header.
 
 ## v0.16.0 — 2026-08-17
 

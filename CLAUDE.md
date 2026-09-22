@@ -38,7 +38,8 @@ special-case rendering path, check whether it should be a query first.
 | `src/EQDeeps.Core/Session/` | `Session`, `RecordStore`, `FightTracker`, `IdentityRegistry`. |
 | `src/EQDeeps.Core/Query/` | `QuerySpec`, `QueryEngine`, `MetricCatalog`, `CannedQueries`, the timelines. |
 | `src/EQDeeps.Core/Mobs/` | F25 learned mob health; F26 learned mob attacks + defender levels. |
-| `src/EQDeeps.Core/Maps/` | F27 zone maps: the EQ map-file grammar, the zone-name table (`zones.tsv`, with each zone's era and its client zone ids — the Bestiary addresses a zone's roster by them), the world graph. |
+| `src/EQDeeps.Core/Achievements/` | F35: the grammars of the player's `/outputfile achievements` and `/outputfile faction` exports, the Slayer projection, `slayer-races.tsv` (creature words → the reference's race labels, hand-authored — read its header before adding a row), and the pure atlas + zone ranking (ADR-023). Reads; writes nothing. |
+| `src/EQDeeps.Core/Maps/` | F27 zone maps: the EQ map-file grammar, the zone-name table (`zones.tsv`, with each zone's era, its client zone ids — the Bestiary addresses a zone's roster by them — and a hand-authored `city` flag the Slayer planner never recommends past), the world graph. |
 | `src/EQDeeps.Server/` | Minimal-API host, SignalR hub, session lifecycle, WebView2 shell, persistence stores, updates. |
 | `src/EQDeeps.Server/wwwroot/` | **Build output** (gitignored). The SPA is built into here and embedded into the assembly. |
 | `ui/` | React + TypeScript + Vite SPA. |
@@ -47,8 +48,9 @@ special-case rendering path, check whether it should be a query first.
 | `tests/EQDeeps.TestSupport/` | `SyntheticLogGenerator`, `SpinClock`. Shared by tests and benchmarks. |
 | `tools/EQDeeps.Bench/` | Log generator + backfill/latency benchmarks. |
 | `docs/` | The spec of record. See §7. |
+| `data/eqlbase/` | **Not ours and not MIT.** A snapshot of EQLBase's NPC data, embedded in the server so the app asks their site for nothing unless the player presses Refresh. Read its README before touching it; re-taken by hand with `scripts/snapshot-eqlbase.mjs`, never by a build. Deleting the folder is supported and is the takedown path. |
 | `installer/EQDeeps.iss` | Inno Setup script (per-user install by default). |
-| `scripts/` | `publish.ps1`, `screenshots.mjs`, `derive-zone-eras.mjs` (regenerates the era and zone-id columns of `zones.tsv` from a client's `ZoneNames.txt`), icon + signing setup. |
+| `scripts/` | `publish.ps1`, `screenshots.mjs`, `derive-zone-eras.mjs` (regenerates the era and zone-id columns of `zones.tsv` from a client's `ZoneNames.txt`, carrying the hand-authored `city` column through untouched), icon + signing setup, `snapshot-eqlbase.mjs` (re-takes the `data/eqlbase/` snapshot — by hand, after a patch; one conditional request at a time). |
 | `.github/workflows/` | `ci.yml`, `release.yml`, `verify-signing-key.yml`. |
 
 Solution: `EQDeeps.sln`. Shared MSBuild settings in `Directory.Build.props`
@@ -89,7 +91,8 @@ powershell -File scripts/publish.ps1 -Installer
 ```
 
 `--no-spells` stops the parser reading the player's spell files (F10a), and
-`--no-reference` stops the Bestiary fetching anything (ADR-020); both are for
+`--no-reference` switches the reference data off altogether — the bundled
+snapshot and Refresh both (ADR-020); both are for
 anyone who wants the app to touch nothing but the log.
 
 Useful server flags: `--browser` (default browser instead of the app window),
@@ -130,6 +133,19 @@ it there.
   use `;` + `if ($?)`, or the Bash tool.
 - Long commit messages: write to a file and `git commit -F`, rather than
   wrestling multi-line strings through the shell.
+- **A valueless switch eats the token after it.** .NET's command-line
+  configuration pairs `--key value` blindly, so `--no-browser --storeRoot X`
+  reads as `no-browser = "--storeRoot"` and the redirect never happens — the
+  app then writes to the real `%AppData%`, which is the one mistake the
+  redirect flags exist to prevent. The switches still *work* (they are read
+  with `args.Contains`), which is why this hides. **Put every valueless switch
+  (`--no-browser`, `--no-update-check`, `--no-reference`, `--no-spells`,
+  `--stay-alive`, `--browser`) after every `--key value` pair**, where the
+  last one has nothing to eat. Found by F35's wave when an odd run of switches
+  ate `--urls` and the app tried to bind the owner's everyday port.
+- `npm --prefix ui install` can answer `ENOENT … package.json` at the repo
+  root (npm 10.9 in a worktree: `run` honours `--prefix`, `install` did
+  not). Run `npm install` from inside `ui\` instead.
 
 ---
 
@@ -186,7 +202,7 @@ Invariants worth not breaking:
 | `recent-logs.json` | MRU log list | `--recentLogsRoot` | No |
 | `mobs\` | F25 learned mob health per *server* | `--mobRoot` | Yes — a cache. Corrupt file just relearns |
 | `attacks\` | F26 learned mob attacks per *server*, keyed by defender level too | `--attackRoot` | Yes — a cache, same deal |
-| `reference\` | F30 mob details fetched from EQLBase on demand — the name index and the id-sharded stat blocks, with their ETags (ADR-020). Never bundled, never fetched until asked | `--referenceRoot` | Yes — a cache; `--no-reference` switches the whole feature off |
+| `reference\` | What a player's **Refresh** brought back from EQLBase — the name index and the id-sharded stat blocks, with their ETags. The baseline is the snapshot embedded in the server (`data/eqlbase/`, ADR-020 Decision 1 as amended); a file here wins only if it was written after that snapshot was taken. With a snapshot present the app makes **no request of its own**. Delete `data/eqlbase/` and the old behaviour returns: fetched on demand, one shard at a time, revalidated weekly | `--referenceRoot` | Yes — a cache; `--no-reference` switches the whole feature off |
 | `items\` | F29 item registry per *server*: every item the logs and the player's client files have named, with the game's id where a file gave one (ADR-019) | `--itemRoot` | Yes — a cache; the logs and the client's `userdata\LF_*.ini` still exist |
 | `cache\` | F28 parsed records per *log file* per *parser build* (`<hash of path>-<build>.eqdc`), so the next open resumes instead of re-parsing (ADR-018). Dev and installed builds keep separate files and never read each other's. Also `map-labels-<build>.json`: every map file's labels, so the World view's graph does not re-read 200 MB of maps per launch | `--cacheRoot` | Yes — a cache; validated against the log's own bytes and the parser build, rebuilt when either differs. Sweeps itself: gone logs, 60 days idle, all but the newest foreign build per log. Map labels validated per file by size + mtime |
 | update preferences, staged installer | ADR-010 | `--updateRoot` | Yes |
@@ -225,6 +241,12 @@ change it on the other in the same commit.
   linked-highlight behaviour (point at one reading of an entity, light up the
   rest everywhere; click to keep it lit on this view, pin — the chip in the
   header — to keep it on every view and across restarts).
+- **"Look mobs up online" is enforced in the UI and nowhere else** — it lives in
+  `ui-settings.json` and never reaches the server. Any view that reads the
+  reference must check `useReferenceEnabled()` itself before it asks for
+  anything (the Bestiary, the Map's roster and the Slayer hunting panel do);
+  `--no-reference` is the server-side switch. Prove it both ways: no request
+  with it off, the expected one with it on.
 - `components/NavRail.tsx` + `dashboards/railGroups.ts` — the grouped,
   collapsible rail (ADR-017); `components/SettingsDialog.tsx` and
   `components/LogPicker.tsx` are the two utilities it opens.
@@ -294,8 +316,8 @@ points at our ADRs, never at its repository.
 - The domain docs are the **spec of record**. When reality disagrees with them,
   fix the doc in the same change.
 - Significant design choices get a short ADR in `docs/architecture/`
-  (`adr-0NN-topic.md`, numbered sequentially — 022 is the newest).
-- Features carry stable ids (F1…F34; F30 is the Bestiary, the newest shipped, and F31–F34 are planned) in `docs/product/features.md`; update the
+  (`adr-0NN-topic.md`, numbered sequentially — 023 is the newest).
+- Features carry stable ids (F1…F35; F30 is the Bestiary, F31–F34 are the planned companion-features programme, F35 is the Slayer planner) in `docs/product/features.md`; update the
   status line there when one ships, and reference the id in commits and comments.
 - `docs/HANDOFF.md` carries the rolling status paragraph. Keep it current.
 
@@ -315,9 +337,9 @@ points at our ADRs, never at its repository.
 | What is a fight? How is DPS/sDPS/crit rate computed? What is the denominator? | `docs/domain/metrics-and-aggregation.md` |
 | Stack, component boundaries, QuerySpec model, persistence layout | `docs/architecture/system-overview.md` |
 | Why is ingestion built that way? | `docs/architecture/log-ingestion-brief.md` + `adr-002` |
-| Where does mob reference data come from, and what may we do with it? | `docs/architecture/adr-020-npc-reference.md` — measured coverage, licensing, and the fetch-not-bundle rule |
+| Where does mob reference data come from, and what may we do with it? | `docs/architecture/adr-020-npc-reference.md` — measured coverage, the licensing position, and the 2026-09-21 amendment that ships a snapshot of it; `data/eqlbase/README.md` says what that folder is and is not |
 | Raid targets, the Sky tracker, gear, overlays — what is planned, what may not be borrowed, where the data comes from | `docs/architecture/adr-021-companion-features.md`, then the feature's own ADR (`adr-022-raid-targets.md` so far) |
-| Why was decision D made? | `docs/architecture/adr-001…022` (parser, ingestion, session state, query engine, API/live, SPA, dashboards, packaging, windowed shell, auto-update, gear snapshots (withdrawn), mob health, incoming damage, navigation rail, visual language, zone maps, grouped rail, log cache, reference lookup, NPC reference, companion features, raid targets) |
+| Why was decision D made? | `docs/architecture/adr-001…023` (parser, ingestion, session state, query engine, API/live, SPA, dashboards, packaging, windowed shell, auto-update, gear snapshots (withdrawn), mob health, incoming damage, navigation rail, visual language, zone maps, grouped rail, log cache, reference lookup, NPC reference, companion features, raid targets, Slayer planner) |
 | Build order, status, verification strategy | `docs/HANDOFF.md` |
 | Signing, release keys, what to do before tagging | `docs/release-signing.md` |
 | How do I run it / what do the flags do? | `README.md` |

@@ -24,7 +24,20 @@ public static class ServerApp
         options.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
     }
 
-    public static WebApplication Build(string[] args)
+    /// <summary>
+    /// <paramref name="reference"/> is an additive, optional, trailing seam so a test can inject a
+    /// fake <see cref="IReferenceSource"/> in place of the real one that reaches eqlbase.com — every
+    /// reference-touching test in this repo uses it (ADR-020: "a feature that reaches a third party
+    /// has to be provable without one"). All nine pre-existing call sites keep compiling unchanged.
+    ///
+    /// <para><paramref name="snapshot"/> is the same idea for the shipped EQLBase snapshot (ADR-020
+    /// Decision 1's amendment). The default — <see cref="BundledReferenceSnapshot"/> when nobody
+    /// swapped <paramref name="reference"/>, <see cref="NoReferenceSnapshot"/> when they did — exists
+    /// so a test that fakes the network does not silently also get real data mixed in from the
+    /// bundle: a caller who owns the reference world by supplying a fake source owns all of it, and
+    /// must ask explicitly (by also passing a snapshot) for anything more than that fake answers.</para>
+    /// </summary>
+    public static WebApplication Build(string[] args, IReferenceSource? reference = null, IReferenceSnapshot? snapshot = null)
     {
         var builder = WebApplication.CreateBuilder(args);
         if (builder.Configuration["urls"] is null &&
@@ -78,11 +91,16 @@ public static class ServerApp
         // like every other store; --no-reference switches the whole thing off,
         // for anyone who wants an app that never speaks to a third party. It
         // fetches nothing until something asks it a question.
-        builder.Services.AddSingleton<IReferenceSource>(_ => new EqlBaseSource());
+        builder.Services.AddSingleton<IReferenceSource>(_ => reference ?? new EqlBaseSource());
+        // The shipped snapshot (ADR-020 Decision 1's amendment): a caller who swapped the source for
+        // a fake owns the whole reference world and must not silently get 11 MB of real data mixed
+        // into it, so the bundle is the default only when nobody touched the source either.
+        var referenceSnapshot = snapshot ?? (reference is null ? new BundledReferenceSnapshot() : new NoReferenceSnapshot());
         builder.Services.AddSingleton(sp => new NpcReferenceStore(
             sp.GetRequiredService<IReferenceSource>(),
             builder.Configuration["referenceRoot"],
-            enabled: !args.Contains("--no-reference")));
+            enabled: !args.Contains("--no-reference"),
+            snapshot: referenceSnapshot));
         // --cacheRoot likewise redirects the parsed-record caches (tests) —
         // recomputable, but a few hundred megabytes per log, and a test that
         // wrote one into the real folder would leave it there.
@@ -458,6 +476,33 @@ public static class ServerApp
         app.MapPost("/api/sessions/{id}/items/mentions", (string id, ItemMentionsRequest request, SessionManager manager) =>
             manager.Get(id) is { } host ? Results.Ok(host.ItemMentions(request)) : Results.NotFound());
 
+        // Slayer progress (F35, ADR-023 Decision 1): the export is one
+        // character's, the same as the inventory dump F29 already reads this
+        // way, so it hangs off the session rather than the server. Read and
+        // parsed fresh on every call — see SlayerReports for why there is no
+        // cache to keep in step with the file.
+        app.MapGet("/api/sessions/{id}/slayer", (string id, SessionManager manager) =>
+            manager.Get(id) is { } host
+                ? Results.Ok(SlayerReports.Build(host.Session.Path, host.Session.Character, host.Session.Server))
+                : Results.NotFound());
+
+        // Where to hunt one Slayer achievement (F35, ADR-023 Decisions 4-7): both player exports
+        // read fresh, ranked against whatever the atlas has loaded so far — asking for a hunt never
+        // itself starts the walk. 404 for an unknown session or an unknown achievement key; there is
+        // nothing honest to rank for either.
+        app.MapGet("/api/sessions/{id}/slayer/hunt", async (
+            string id, string key, int? component, int? maxLevel,
+            SessionManager manager, NpcReferenceStore reference, CancellationToken ct) =>
+        {
+            if (manager.Get(id) is not { } host)
+            {
+                return Results.NotFound();
+            }
+
+            var report = await SlayerHuntReports.BuildAsync(host, reference, key, component, maxLevel, ct);
+            return report is null ? Results.NotFound() : Results.Ok(report);
+        });
+
         // ---- NPC reference (F30, ADR-020) ----------------------------------
         // Someone else's data about the game, fetched on demand and cached
         // here. Every one of these can answer "I don't know" and the app is
@@ -476,6 +521,25 @@ public static class ServerApp
 
             return Results.Ok(reference.Status());
         });
+
+        // The atlas walk (F35, ADR-023 Decision 7): every shard the index implies, read once,
+        // paced, so the hunting panel can rank races against zones. Never triggered implicitly.
+        app.MapGet("/api/reference/atlas", (NpcReferenceStore reference) =>
+            Results.Ok(reference.AtlasStatus()));
+
+        // Refresh (ADR-020 Decision 1's amendment): the only path this app has to eqlbase.com. Every
+        // other reference read answers from the shipped snapshot or the cache alone; this POST is the
+        // player's own ask, same shape as the atlas start below — fires the walk, returns at once,
+        // and the caller polls /api/reference/status for its progress.
+        app.MapPost("/api/reference/refresh", (NpcReferenceStore reference) =>
+            Results.Ok(reference.StartRefresh()));
+
+        // This POST *is* the ask (ADR-020 Decision 2, as ADR-023 Decision 7 restates it for the
+        // bulk read): the hunting panel sends it the moment the player opens the panel, and nothing
+        // else in the app ever starts the walk — a hunt built before it finishes just has fewer
+        // zones to rank, never zero for the wrong reason.
+        app.MapPost("/api/reference/atlas/start", (NpcReferenceStore reference) =>
+            Results.Ok(reference.StartAtlas()));
 
         // Browse the bestiary by name, by level band, or both — the Bestiary
         // view's search box and its landing chips. Each row carries the zones

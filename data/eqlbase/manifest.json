@@ -1,0 +1,486 @@
+{
+ "source": "https://eqlbase.com",
+ "snapshotUtc": "2026-09-21T23:41:14.880Z",
+ "files": {
+  "npcs-1.json": {
+   "path": "/data/npcs/1.json",
+   "etag": "W/\"f665d220e60855eb916b9767cf4fc699\"",
+   "fetchedUtc": "2026-09-21T23:39:13.170Z",
+   "bytes": 126605
+  },
+  "npcs-2.json": {
+   "path": "/data/npcs/2.json",
+   "etag": "W/\"513b694438384362d88c4dbb17ef464f\"",
+   "fetchedUtc": "2026-09-21T23:39:14.728Z",
+   "bytes": 95515
+  },
+  "npcs-3.json": {
+   "path": "/data/npcs/3.json",
+   "etag": "W/\"6c288b8bcccb367358814103370b7608\"",
+   "fetchedUtc": "2026-09-21T23:39:16.283Z",
+   "bytes": 37894
+  },
+  "npcs-4.json": {
+   "path": "/data/npcs/4.json",
+   "etag": "W/\"a938e1a62a4cba31f10b4bcc8d9a5b57\"",
+   "fetchedUtc": "2026-09-21T23:39:17.846Z",
+   "bytes": 93230
+  },
+  "npcs-5.json": {
+   "path": "/data/npcs/5.json",
+   "etag": "W/\"b7aec551718b5deb0bc880f186b1c604\"",
+   "fetchedUtc": "2026-09-21T23:39:19.399Z",
+   "bytes": 106866
+  },
+  "npcs-6.json": {
+   "path": "/data/npcs/6.json",
+   "etag": "W/\"79784c0dedeaeb143aef2d8d057ab054\"",
+   "fetchedUtc": "2026-09-21T23:39:20.963Z",
+   "bytes": 165551
+  },
+  "npcs-8.json": {
+   "path": "/data/npcs/8.json",
+   "etag": "W/\"d6d185c9fcd41ed11717d229dc7237ca\"",
+   "fetchedUtc": "2026-09-21T23:39:22.588Z",
+   "bytes": 82596
+  },
+  "npcs-9.json": {
+   "path": "/data/npcs/9.json",
+   "etag": "W/\"fdd446bb82268d524ef1e582036ae60d\"",
+   "fetchedUtc": "2026-09-21T23:39:24.156Z",
+   "bytes": 114223
+  },
+  "npcs-10.json": {
+   "path": "/data/npcs/10.json",
+   "etag": "W/\"35f7e9f9e603c35b1fe47fcc65a6b61e\"",
+   "fetchedUtc": "2026-09-21T23:39:25.713Z",
+   "bytes": 143972
+  },
+  "npcs-11.json": {
+   "path": "/data/npcs/11.json",
+   "etag": "W/\"2ee32650b1da2c4e3732c6558ccc9ad5\"",
+   "fetchedUtc": "2026-09-21T23:39:27.267Z",
+   "bytes": 177452
+  },
+  "npcs-12.json": {
+   "path": "/data/npcs/12.json",
+   "etag": "W/\"6cd66519a0c8add453c39c8412c1b560\"",
+   "fetchedUtc": "2026-09-21T23:39:28.821Z",
+   "bytes": 167406
+  },
+  "npcs-13.json": {
+   "path": "/data/npcs/13.json",
+   "etag": "W/\"dde33544ad106d2f688fcd2a2f89f1d7\"",
+   "fetchedUtc": "2026-09-21T23:39:30.382Z",
+   "bytes": 108747
+  },
+  "npcs-14.json": {
+   "path": "/data/npcs/14.json",
+   "etag": "W/\"db998e2aa565191819f245c4a9ffbd1b\"",
+   "fetchedUtc": "2026-09-21T23:39:31.935Z",
+   "bytes": 117669
+  },
+  "npcs-15.json": {
+   "path": "/data/npcs/15.json",
+   "etag": "W/\"5e85631c4f4f69216807f3e536e0f56e\"",
+   "fetchedUtc": "2026-09-21T23:39:33.490Z",
+   "bytes": 141228
+  },
+  "npcs-16.json": {
+   "path": "/data/npcs/16.json",
+   "etag": "W/\"de004cad6f8e49d5511df642dac8fbce\"",
+   "fetchedUtc": "2026-09-21T23:39:35.049Z",
+   "bytes": 58905
+  },
+  "npcs-17.json": {
+   "path": "/data/npcs/17.json",
+   "etag": "W/\"9b2ff674667f9d1c686c37b0d94d0b45\"",
+   "fetchedUtc": "2026-09-21T23:39:36.602Z",
+   "bytes": 103386
+  },
+  "npcs-19.json": {
+   "path": "/data/npcs/19.json",
+   "etag": "W/\"1e4fbb6841dac7b79d2fa27355a9020f\"",
+   "fetchedUtc": "2026-09-21T23:39:38.163Z",
+   "bytes": 112273
+  },
+  "npcs-20.json": {
+   "path": "/data/npcs/20.json",
+   "etag": "W/\"31d9a9ca4e41d78bad04a50030c3be0e\"",
+   "fetchedUtc": "2026-09-21T23:39:39.721Z",
+   "bytes": 176036
+  },
+  "npcs-21.json": {
+   "path": "/data/npcs/21.json",
+   "etag": "W/\"f823ea89d9c4864dee7f1df1db8b660c\"",
+   "fetchedUtc": "2026-09-21T23:39:41.275Z",
+   "bytes": 122159
+  },
+  "npcs-22.json": {
+   "path": "/data/npcs/22.json",
+   "etag": "W/\"c9a524dac98246f829b17bce5f851471\"",
+   "fetchedUtc": "2026-09-21T23:39:42.839Z",
+   "bytes": 156217
+  },
+  "npcs-23.json": {
+   "path": "/data/npcs/23.json",
+   "etag": "W/\"8c258cf0c3638002e329d7a736718378\"",
+   "fetchedUtc": "2026-09-21T23:39:44.392Z",
+   "bytes": 63071
+  },
+  "npcs-24.json": {
+   "path": "/data/npcs/24.json",
+   "etag": "W/\"3f02fd6bc8d19b61297cc0047b8de034\"",
+   "fetchedUtc": "2026-09-21T23:39:45.950Z",
+   "bytes": 78393
+  },
+  "npcs-25.json": {
+   "path": "/data/npcs/25.json",
+   "etag": "W/\"2a121c3e0877087cd29ac044321aa1de\"",
+   "fetchedUtc": "2026-09-21T23:39:47.514Z",
+   "bytes": 115082
+  },
+  "npcs-27.json": {
+   "path": "/data/npcs/27.json",
+   "etag": "W/\"7ee7ab6228a83cc7ae3ffe6eebe11e7a\"",
+   "fetchedUtc": "2026-09-21T23:39:49.068Z",
+   "bytes": 169662
+  },
+  "npcs-29.json": {
+   "path": "/data/npcs/29.json",
+   "etag": "W/\"d89263e1c083b7a64fe588be5defbba1\"",
+   "fetchedUtc": "2026-09-21T23:39:50.624Z",
+   "bytes": 70764
+  },
+  "npcs-30.json": {
+   "path": "/data/npcs/30.json",
+   "etag": "W/\"235ad51216ba3db51125e4a75e1c7629\"",
+   "fetchedUtc": "2026-09-21T23:39:52.174Z",
+   "bytes": 15267
+  },
+  "npcs-31.json": {
+   "path": "/data/npcs/31.json",
+   "etag": "W/\"362da654fd273846bb8e0106b0c4a9b7\"",
+   "fetchedUtc": "2026-09-21T23:39:53.738Z",
+   "bytes": 306791
+  },
+  "npcs-32.json": {
+   "path": "/data/npcs/32.json",
+   "etag": "W/\"166beba2f96b84a73c125fde1fd7b1ae\"",
+   "fetchedUtc": "2026-09-21T23:39:55.295Z",
+   "bytes": 148731
+  },
+  "npcs-33.json": {
+   "path": "/data/npcs/33.json",
+   "etag": "W/\"95a8f096044a6aaf0afc7a0f8fc46d17\"",
+   "fetchedUtc": "2026-09-21T23:39:56.857Z",
+   "bytes": 106220
+  },
+  "npcs-34.json": {
+   "path": "/data/npcs/34.json",
+   "etag": "W/\"d1987e7a60dbee7fc13afb820bc1b16a\"",
+   "fetchedUtc": "2026-09-21T23:39:58.406Z",
+   "bytes": 128429
+  },
+  "npcs-35.json": {
+   "path": "/data/npcs/35.json",
+   "etag": "W/\"d8e5dc3796f49f8a8627235f5959fa77\"",
+   "fetchedUtc": "2026-09-21T23:39:59.971Z",
+   "bytes": 156802
+  },
+  "npcs-36.json": {
+   "path": "/data/npcs/36.json",
+   "etag": "W/\"68c57434f61d80d4c29d46501b8e12ea\"",
+   "fetchedUtc": "2026-09-21T23:40:01.531Z",
+   "bytes": 163225
+  },
+  "npcs-37.json": {
+   "path": "/data/npcs/37.json",
+   "etag": "W/\"6d9fa6946b2f5169177c3aac9a80b458\"",
+   "fetchedUtc": "2026-09-21T23:40:03.127Z",
+   "bytes": 142148
+  },
+  "npcs-39.json": {
+   "path": "/data/npcs/39.json",
+   "etag": "W/\"9f378fd3fffe05d57b14eaf266e13fa6\"",
+   "fetchedUtc": "2026-09-21T23:40:04.690Z",
+   "bytes": 276214
+  },
+  "npcs-40.json": {
+   "path": "/data/npcs/40.json",
+   "etag": "W/\"67f688e8be62d9d65c0c61efe2f6c51f\"",
+   "fetchedUtc": "2026-09-21T23:40:06.262Z",
+   "bytes": 53366
+  },
+  "npcs-41.json": {
+   "path": "/data/npcs/41.json",
+   "etag": "W/\"e710c8fa8c94709285454809541deaed\"",
+   "fetchedUtc": "2026-09-21T23:40:07.825Z",
+   "bytes": 80819
+  },
+  "npcs-42.json": {
+   "path": "/data/npcs/42.json",
+   "etag": "W/\"1ced21ccc80f488eba68fbe3c40d25b4\"",
+   "fetchedUtc": "2026-09-21T23:40:09.392Z",
+   "bytes": 86237
+  },
+  "npcs-44.json": {
+   "path": "/data/npcs/44.json",
+   "etag": "W/\"20c1a40d7ef5756bbcc05a2ea9b475c1\"",
+   "fetchedUtc": "2026-09-21T23:40:10.955Z",
+   "bytes": 204896
+  },
+  "npcs-45.json": {
+   "path": "/data/npcs/45.json",
+   "etag": "W/\"bf3be18a6f544087cf6ab1adb2628224\"",
+   "fetchedUtc": "2026-09-21T23:40:12.512Z",
+   "bytes": 83845
+  },
+  "npcs-46.json": {
+   "path": "/data/npcs/46.json",
+   "etag": "W/\"e634fe98f365fbeacdb16195a8a5676b\"",
+   "fetchedUtc": "2026-09-21T23:40:14.061Z",
+   "bytes": 49915
+  },
+  "npcs-47.json": {
+   "path": "/data/npcs/47.json",
+   "etag": "W/\"d09a6358fcacceaa6f86a097d2d98a41\"",
+   "fetchedUtc": "2026-09-21T23:40:15.622Z",
+   "bytes": 244685
+  },
+  "npcs-48.json": {
+   "path": "/data/npcs/48.json",
+   "etag": "W/\"4bfc40c015b5b233b007d526f6bc1368\"",
+   "fetchedUtc": "2026-09-21T23:40:17.175Z",
+   "bytes": 239039
+  },
+  "npcs-49.json": {
+   "path": "/data/npcs/49.json",
+   "etag": "W/\"0ea55b69a7f2b2fb10eb0eca3e31aa04\"",
+   "fetchedUtc": "2026-09-21T23:40:18.729Z",
+   "bytes": 91022
+  },
+  "npcs-50.json": {
+   "path": "/data/npcs/50.json",
+   "etag": "W/\"2630edb1a57d1de72018d2aeda323d83\"",
+   "fetchedUtc": "2026-09-21T23:40:20.296Z",
+   "bytes": 302414
+  },
+  "npcs-51.json": {
+   "path": "/data/npcs/51.json",
+   "etag": "W/\"3d8c51a42b6c84bcd40a684c9727c6f3\"",
+   "fetchedUtc": "2026-09-21T23:40:21.856Z",
+   "bytes": 138648
+  },
+  "npcs-52.json": {
+   "path": "/data/npcs/52.json",
+   "etag": "W/\"fc0b5f9221c94e07fc57d64007113287\"",
+   "fetchedUtc": "2026-09-21T23:40:23.419Z",
+   "bytes": 71605
+  },
+  "npcs-54.json": {
+   "path": "/data/npcs/54.json",
+   "etag": "W/\"6ccaba71d3c90ffdf26e23e7efa6de1a\"",
+   "fetchedUtc": "2026-09-21T23:40:24.979Z",
+   "bytes": 213827
+  },
+  "npcs-55.json": {
+   "path": "/data/npcs/55.json",
+   "etag": "W/\"df6cfffa80d43083a4d6f7c32a05f496\"",
+   "fetchedUtc": "2026-09-21T23:40:26.542Z",
+   "bytes": 174997
+  },
+  "npcs-56.json": {
+   "path": "/data/npcs/56.json",
+   "etag": "W/\"3efaf8c4d83b06fd6499d39ce01be7bf\"",
+   "fetchedUtc": "2026-09-21T23:40:28.103Z",
+   "bytes": 129316
+  },
+  "npcs-57.json": {
+   "path": "/data/npcs/57.json",
+   "etag": "W/\"978a09e39fc8dfa07e2c156d306a1293\"",
+   "fetchedUtc": "2026-09-21T23:40:29.657Z",
+   "bytes": 113799
+  },
+  "npcs-58.json": {
+   "path": "/data/npcs/58.json",
+   "etag": "W/\"fe72c615c1b918683feafe5b623cb899\"",
+   "fetchedUtc": "2026-09-21T23:40:31.219Z",
+   "bytes": 105481
+  },
+  "npcs-59.json": {
+   "path": "/data/npcs/59.json",
+   "etag": "W/\"ece335319b606d0c2255dc2e8a4ec8a0\"",
+   "fetchedUtc": "2026-09-21T23:40:32.785Z",
+   "bytes": 356131
+  },
+  "npcs-60.json": {
+   "path": "/data/npcs/60.json",
+   "etag": "W/\"7f20dfb4d5c10534def63c74a6415c01\"",
+   "fetchedUtc": "2026-09-21T23:40:34.348Z",
+   "bytes": 51101
+  },
+  "npcs-61.json": {
+   "path": "/data/npcs/61.json",
+   "etag": "W/\"9787800ce52f62f77534dcc9342dc785\"",
+   "fetchedUtc": "2026-09-21T23:40:35.903Z",
+   "bytes": 74406
+  },
+  "npcs-62.json": {
+   "path": "/data/npcs/62.json",
+   "etag": "W/\"ad94df4d4e4011f6b04527beb2542b69\"",
+   "fetchedUtc": "2026-09-21T23:40:37.464Z",
+   "bytes": 32457
+  },
+  "npcs-63.json": {
+   "path": "/data/npcs/63.json",
+   "etag": "W/\"bfae31702a0962277fb073da4ac044da\"",
+   "fetchedUtc": "2026-09-21T23:40:39.025Z",
+   "bytes": 159249
+  },
+  "npcs-64.json": {
+   "path": "/data/npcs/64.json",
+   "etag": "W/\"65653e98ebaa66b055654ce6fcab8e76\"",
+   "fetchedUtc": "2026-09-21T23:40:40.573Z",
+   "bytes": 159278
+  },
+  "npcs-65.json": {
+   "path": "/data/npcs/65.json",
+   "etag": "W/\"5dabeed8311e7d9af8fed8e0694f5446\"",
+   "fetchedUtc": "2026-09-21T23:40:42.127Z",
+   "bytes": 255014
+  },
+  "npcs-66.json": {
+   "path": "/data/npcs/66.json",
+   "etag": "W/\"73e5b5dc9fa46e8cf8e90c2c0aa6e702\"",
+   "fetchedUtc": "2026-09-21T23:40:43.685Z",
+   "bytes": 391895
+  },
+  "npcs-67.json": {
+   "path": "/data/npcs/67.json",
+   "etag": "W/\"9b9bd9d5772b1249c5fa7b8dfb350491\"",
+   "fetchedUtc": "2026-09-21T23:40:45.250Z",
+   "bytes": 55946
+  },
+  "npcs-68.json": {
+   "path": "/data/npcs/68.json",
+   "etag": "W/\"7e34a693c67467dae52cfb6aba397319\"",
+   "fetchedUtc": "2026-09-21T23:40:46.811Z",
+   "bytes": 187539
+  },
+  "npcs-69.json": {
+   "path": "/data/npcs/69.json",
+   "etag": "W/\"da7612760ac30bce262e6345cddc21e2\"",
+   "fetchedUtc": "2026-09-21T23:40:48.374Z",
+   "bytes": 89331
+  },
+  "npcs-70.json": {
+   "path": "/data/npcs/70.json",
+   "etag": "W/\"3275e87ee59ae27764b47d3ebdc01d8e\"",
+   "fetchedUtc": "2026-09-21T23:40:49.930Z",
+   "bytes": 36074
+  },
+  "npcs-71.json": {
+   "path": "/data/npcs/71.json",
+   "etag": "W/\"df9e6dfd2ab68aa7cf4710febf70b61f\"",
+   "fetchedUtc": "2026-09-21T23:40:51.497Z",
+   "bytes": 85580
+  },
+  "npcs-72.json": {
+   "path": "/data/npcs/72.json",
+   "etag": "W/\"e89261f9437cb2f92482533d677ebcf2\"",
+   "fetchedUtc": "2026-09-21T23:40:53.062Z",
+   "bytes": 222463
+  },
+  "npcs-73.json": {
+   "path": "/data/npcs/73.json",
+   "etag": "W/\"97596607118d1fd42fa10658bce2525e\"",
+   "fetchedUtc": "2026-09-21T23:40:54.631Z",
+   "bytes": 246729
+  },
+  "npcs-74.json": {
+   "path": "/data/npcs/74.json",
+   "etag": "W/\"295f6d00bb179c499cbd4be04b357f71\"",
+   "fetchedUtc": "2026-09-21T23:40:56.192Z",
+   "bytes": 55175
+  },
+  "npcs-75.json": {
+   "path": "/data/npcs/75.json",
+   "etag": "W/\"75e7b8873cab585c71c550de32598723\"",
+   "fetchedUtc": "2026-09-21T23:40:57.757Z",
+   "bytes": 107607
+  },
+  "npcs-76.json": {
+   "path": "/data/npcs/76.json",
+   "etag": "W/\"c1061056ac1e5103b99e08e19e3e9e55\"",
+   "fetchedUtc": "2026-09-21T23:40:59.316Z",
+   "bytes": 40191
+  },
+  "npcs-77.json": {
+   "path": "/data/npcs/77.json",
+   "etag": "W/\"37aabcf1442aa364fea215d117efe982\"",
+   "fetchedUtc": "2026-09-21T23:41:00.873Z",
+   "bytes": 2675
+  },
+  "npcs-80.json": {
+   "path": "/data/npcs/80.json",
+   "etag": "W/\"77685b3b021a5c681b3cb26ff402f48c\"",
+   "fetchedUtc": "2026-09-21T23:41:02.420Z",
+   "bytes": 22631
+  },
+  "npcs-98.json": {
+   "path": "/data/npcs/98.json",
+   "etag": "W/\"1a0314ca80f90e14c8d1e398f2a1127b\"",
+   "fetchedUtc": "2026-09-21T23:41:03.969Z",
+   "bytes": 29902
+  },
+  "npcs-100.json": {
+   "path": "/data/npcs/100.json",
+   "etag": "W/\"6827ffb7949fe43b312bb720b61c7ddd\"",
+   "fetchedUtc": "2026-09-21T23:41:05.537Z",
+   "bytes": 251804
+  },
+  "npcs-101.json": {
+   "path": "/data/npcs/101.json",
+   "etag": "W/\"2508887404a176fef1e6e26273af7f35\"",
+   "fetchedUtc": "2026-09-21T23:41:07.094Z",
+   "bytes": 205827
+  },
+  "npcs-382.json": {
+   "path": "/data/npcs/382.json",
+   "etag": "W/\"382ab02e0e6af59a6a3144af853d545d\"",
+   "fetchedUtc": "2026-09-21T23:41:08.650Z",
+   "bytes": 641
+  },
+  "npcs-392.json": {
+   "path": "/data/npcs/392.json",
+   "etag": "W/\"3f6e59bd03c8544b6979b9d3aa751b97\"",
+   "fetchedUtc": "2026-09-21T23:41:10.211Z",
+   "bytes": 462
+  },
+  "npcs-407.json": {
+   "path": "/data/npcs/407.json",
+   "etag": "W/\"87750e1a6066ef26b755af8d92c5c7ac\"",
+   "fetchedUtc": "2026-09-21T23:41:11.772Z",
+   "bytes": 554
+  },
+  "npcs-414.json": {
+   "path": "/data/npcs/414.json",
+   "etag": "W/\"f447b447107e4ddbc950de8f77ffa061\"",
+   "fetchedUtc": "2026-09-21T23:41:13.332Z",
+   "bytes": 171180
+  },
+  "npcs-448.json": {
+   "path": "/data/npcs/448.json",
+   "etag": "W/\"3aef2b4baa563bfb7d29d851e4097974\"",
+   "fetchedUtc": "2026-09-21T23:41:14.880Z",
+   "bytes": 1141
+  },
+  "search-index.json": {
+   "path": "/data/search-index.json",
+   "etag": "W/\"7ad22f745a4dd6f715168b65be54c95e\"",
+   "fetchedUtc": "2026-09-21T23:39:11.603Z",
+   "rows": 9101
+  }
+ }
+}

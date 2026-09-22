@@ -16,6 +16,14 @@
 // them all; which one a given site uses is checked against content, never
 // assumed.
 //
+// THE CITY COLUMN. An eighth field, the literal `city` or empty (F35,
+// ADR-023 Decision 6), is hand-authored and this script never derives it —
+// it only has to carry column 7 through untouched, reading whatever is
+// already there before it rebuilds columns 3-5 and writing it straight back.
+// Dropping it silently on a regeneration would make the 23 flagged zones
+// vanish from every hunting recommendation with no diagnostic at all, which
+// is exactly the failure `--check` exists to catch.
+//
 // The install is otherwise taken from EQDEEPS_EQ or the usual Daybreak paths.
 //
 // WHY THIS IS A SCRIPT AND NOT RUNTIME CODE. Nothing in a log or a map file says
@@ -167,7 +175,11 @@ function derive(tableText, ids) {
       continue;
     }
 
-    const [shortName, display, source] = line.split("\t");
+    const cellsIn = line.split("\t");
+    const [shortName, display, source] = cellsIn;
+    // Column 7 (index 6) is the hand-authored city flag; this script does not
+    // derive it, only carries whatever is already there back out unchanged.
+    const city = cellsIn.length > 6 ? cellsIn[6] : "";
     const found = (ids.get(normalize(display)) ?? []).slice().sort((a, b) => a - b);
     let era = null;
     let eraSource = null;
@@ -199,9 +211,11 @@ function derive(tableText, ids) {
 
     // Trailing empty cells are dropped, so a row reads as short as its facts
     // allow: three columns when nothing is derived, five with an era, six with
-    // ids — and six with blank era cells for an id-only row, since the parser
-    // reads columns by position.
-    const cells = [shortName, display, source, era ?? "", eraSource ?? "", found.join(",")];
+    // ids, seven with a city flag — and six with blank era cells for an
+    // id-only row, since the parser reads columns by position. A row with no
+    // city keeps the same shape it always had; a city row gets its seventh
+    // column back because the trim stops the moment it hits "city".
+    const cells = [shortName, display, source, era ?? "", eraSource ?? "", found.join(","), city];
     while (cells.length > 3 && cells[cells.length - 1] === "") cells.pop();
     out.push(cells.join("\t"));
   }

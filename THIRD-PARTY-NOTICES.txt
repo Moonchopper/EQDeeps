@@ -17,6 +17,9 @@ Two things are deliberately not reproduced here:
     client's spell, map and item files. Those are read where they already sit
     and are never redistributed.
 
+One thing IS redistributed without a licence to reproduce: the EQLBase snapshot.
+It has its own section at the end of this file, and it says so plainly.
+
 Keeping it current: this file is maintained by hand from the licence text each
 component ships, and it moves with NOTICE in the same commit. The web list below
 is what the SPA build actually links, measured from a sourcemapped `vite build`
@@ -742,7 +745,31 @@ https://jrsoftware.org/
 TRADEMARKS
 ==============================================================================
 
+==============================================================================
+NO LICENCE: THE EQLBASE SNAPSHOT (data/eqlbase/)
+==============================================================================
+
+This is the one thing in the application that ships under no licence at all, and
+it is listed here so that nobody has to discover that for themselves.
+
+data/eqlbase/ is a snapshot of the NPC data published by EQLBase
+(https://eqlbase.com), by Rex Saurus. It is embedded in the application so the
+Bestiary and the Slayer planner make no request to that site unless the player
+presses Refresh. EQLBase states no licence; its own statement about the
+underlying material is that "game data and assets remain the property of their
+respective owners and are presented here for informational purposes under fair
+use". The snapshot is redistributed without an explicit grant from EQLBase's
+author, for a non-commercial tool - a decision recorded, with the argument
+against it, in docs/architecture/adr-020-npc-reference.md.
+
+There is therefore no licence text to reproduce. The MIT grant above does not
+extend to this data, nothing in this file gives anyone permission to reuse it,
+and it will be removed at the request of EQLBase's author or a rights holder.
+data/eqlbase/README.md records where and when each file was read.
+
 EverQuest is a registered trademark of Daybreak Game Company LLC. EQDeeps is an
 unaffiliated fan-made tool, is not endorsed by or associated with Daybreak, and
-includes no game assets. Other product and company names are the trademarks of
+includes no game art, audio or client files. It does carry reference data that
+describes the game's NPCs - the EQLBase snapshot above - which is neither
+Daybreak's publication nor ours. Other product and company names are the trademarks of
 their respective owners.

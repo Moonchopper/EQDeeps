@@ -880,6 +880,12 @@ button.update-pill {
   line-height: 1.4;
 }
 
+/* The reference row sits between two .settings-row entries, which each carry their own
+   padding: 5px 0 — without a bottom margin this crowds straight into "A click opens" below it. */
+.reference-refresh-row {
+  margin-bottom: 4px;
+}
+
 /* ---- rail foot: the utility cluster ---- */
 .rail-foot {
   margin-top: auto;
@@ -1408,6 +1414,11 @@ td {
 th {
   position: sticky;
   top: 0;
+  /* Above the body's first column, which is positioned for the row meter
+     (tbody td:first-child, below) and comes later in the tree — with both at
+     z-index auto it painted over the header, so a scrolled table showed a
+     row's name where the column's name should be. */
+  z-index: 1;
   background: var(--surface);
   color: var(--muted);
   font-weight: var(--w-bold);
@@ -1593,6 +1604,10 @@ th.num {
   color: var(--muted);
   width: 16px;
   display: inline-block;
+  /* Interactive everywhere it appears with its own click handler — the
+     Slayer table gives it one (F35 slice 2) so the chevron can toggle
+     independently of the row's own click, which now selects. */
+  cursor: pointer;
 }
 
 .expander-spacer {
@@ -3298,6 +3313,19 @@ tr:hover .lookup-btn,
   font-size: var(--fs-tiny);
 }
 
+/* Reference-snapshot facts and the Refresh button (ADR-020 Decision 1's amendment) — shared by
+   this footer and the Settings dialog's reference row (lookup/referenceRefresh.tsx). */
+.reference-refresh {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.reference-refresh-error {
+  color: var(--gold);
+}
+
 /* Which level of a name you are reading — a name can be listed at a dozen,
    and the difference is a different mob's numbers. */
 .bestiary-variants {
@@ -3794,6 +3822,457 @@ tr:hover .lookup-btn,
 .bestiary-variant.con-white.on { background: var(--ink); border-color: var(--ink); color: var(--accent-ink); }
 .bestiary-variant.con-yellow.on { background: var(--gold); border-color: var(--gold); color: var(--accent-ink); }
 .bestiary-variant.con-red.on { background: var(--danger); border-color: var(--danger); color: var(--accent-ink); }
+
+/* ---- slayer (F35, ADR-023) -------------------------------------------------
+   The export's own progress: a header with its age, the meta-achievements as
+   a compact strip, and the kill achievements as one sortable table. Reuses
+   the Bestiary/Incoming furniture (.panel, .mob-table, .mob-intro, .tabs,
+   .mini-btn) rather than inventing parallel classes for the same shapes. */
+
+/* .dashboard-main is a column flex box, and .panel sets min-height: 0 so a
+   panel with its own scroller (the table below) CAN shrink to fit. This panel
+   has no scroller — it is the header plus the meta strip — and without this
+   rule it shrinks anyway: the table panel's content pushes it down to its
+   title row alone, and the meta strip collapses to zero height, not merely
+   scrolls out of view. Fixed to its content's own height instead. */
+.slayer-head-panel {
+  flex: 0 0 auto;
+}
+
+.slayer-head-controls {
+  flex-wrap: wrap;
+  row-gap: 4px;
+}
+
+.slayer-cmd {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.slayer-cmd code {
+  padding: 1px 6px;
+  background: var(--page);
+  border: 1px solid var(--border);
+  border-radius: var(--r-chip);
+  color: var(--ink-2);
+  font-family: var(--font-mono);
+  font-size: var(--fs-tiny);
+}
+
+.slayer-refresh {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* The meta-achievements: a horizontally scrolling strip of small cards, since
+   the file can carry more of them than a row will ever hold comfortably. */
+.slayer-meta-strip {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 8px 12px;
+  border-top: 1px solid var(--grid);
+}
+
+.slayer-meta-card {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 160px;
+  max-width: 220px;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-inner);
+  background: var(--surface-2);
+  color: var(--ink-2);
+  text-align: left;
+}
+
+.slayer-meta-card:hover {
+  border-color: var(--accent);
+  color: var(--ink);
+}
+
+.slayer-meta-card.on {
+  border-color: var(--accent);
+  background: var(--selected);
+  color: var(--ink);
+}
+
+.slayer-meta-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ink);
+  font-weight: var(--w-bold);
+  font-size: var(--fs-small);
+}
+
+.slayer-meta-frac {
+  font-size: var(--fs-tiny);
+  font-variant-numeric: tabular-nums;
+}
+
+/* A meta achievement's components, opened by clicking its card. */
+.slayer-meta-components {
+  list-style: none;
+  margin: 0;
+  padding: 6px 12px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  border-top: 1px solid var(--grid);
+}
+
+.slayer-meta-component {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: var(--fs-small);
+}
+
+.slayer-mark {
+  flex: none;
+  width: 34px;
+  font-size: var(--fs-tiny);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.slayer-mark.done {
+  color: var(--live);
+}
+
+.slayer-mark.open {
+  color: var(--muted);
+}
+
+.slayer-meta-link {
+  color: var(--ink-2);
+  text-decoration: underline;
+  text-decoration-color: var(--border);
+}
+
+.slayer-meta-link:hover {
+  color: var(--accent);
+  text-decoration-color: var(--accent);
+}
+
+/* A reference the export names but this build cannot resolve — most often a
+   creature this game does not have yet. Plain text, not a broken link: it is
+   normal here, and must not read as an error (ADR-023 Decision 2). */
+.slayer-meta-unresolved {
+  color: var(--muted);
+}
+
+.slayer-table-panel {
+  min-height: 0;
+}
+
+/* Long by nature — one achievement's list can be fifteen races — so this
+   column wraps rather than forcing the table onto a horizontal scrollbar. */
+.slayer-creatures {
+  white-space: normal;
+  max-width: 420px;
+}
+
+.slayer-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 160px;
+  white-space: nowrap;
+}
+
+/* Sized to fill its container's width by default (right for the meta card,
+   a column flex context where a bare flex-grow would fight for HEIGHT
+   instead). Inside .slayer-progress — a row — it grows to share the cell
+   with the have/need label beside it. */
+.slayer-bar-track {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 6px;
+  border-radius: var(--r-pill);
+  background: var(--page);
+  overflow: hidden;
+}
+
+.slayer-progress > .slayer-bar-track {
+  flex: 1;
+  width: auto;
+}
+
+.slayer-bar-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--accent);
+  border-radius: var(--r-pill);
+}
+
+.slayer-bar-fill.complete {
+  background: var(--live);
+}
+
+.slayer-progress-label {
+  flex: none;
+  color: var(--muted-raised);
+  font-size: var(--fs-tiny);
+  font-variant-numeric: tabular-nums;
+}
+
+.slayer-row.expandable {
+  cursor: pointer;
+}
+
+.slayer-row.expandable:hover td {
+  color: var(--ink);
+}
+
+/* The meta strip's jump target, for a couple of seconds — long enough to
+   find, not so long it competes with the row you actually clicked next. */
+.slayer-row td {
+  transition: background-color 1s ease;
+}
+
+.slayer-row.highlight td {
+  background-color: var(--selected);
+}
+
+/* ---- slayer hunting: "Where to hunt" (F35 slice 2, ADR-023 Decisions 4-9)
+   Master-detail beside the kill table: every row (not only the expandable
+   ones, per the collision noted where the row's onClick is wired) opens a
+   detail selecting one achievement or one of its components. */
+
+.slayer-row.selectable,
+.child-row.selectable {
+  cursor: pointer;
+}
+
+.slayer-row.selected td,
+.child-row.selected td {
+  background-color: var(--selected);
+}
+
+.slayer-split {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  gap: 10px;
+}
+
+/* The split, open only once a row is selected. No media query: an intrinsic
+   grid reflows on its own, the idiom the Bestiary's hero cards already use
+   (~L3570 above) — two columns wide enough to read a zone row apiece on a
+   wide window, one column stacked once neither can get that much room.
+   align-items stays at its default (stretch, not "start"): the row's
+   height is set by CSS Grid's own align-content:stretch against
+   .slayer-split's bounded flex:1 height, and each column must be stretched
+   to match it or its own .table-scroll/.hunt-zone-scroll has nothing to
+   bound against — "start" was tried first and let both panels grow to
+   their full unclipped content height instead, scrolling the whole page. */
+.slayer-split.split {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+  gap: 10px;
+}
+
+/* With the detail open the table has half the window, and a Conquest's
+   creature list wrapped one row to 199 px — forty of ninety-eight rows stood
+   over 60, so the list stopped being scannable exactly when someone was
+   picking from it. The detail's own header spells the selected row's list
+   out in full, so here two lines are enough to recognise a row by, and the
+   rest is a hover away. */
+.slayer-split.split .slayer-creatures-text {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.hunt-detail {
+  min-height: 0;
+}
+
+.hunt-detail-body {
+  padding: 8px 12px 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.hunt-sub,
+.hunt-terms {
+  margin: 0;
+}
+
+.hunt-cap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: var(--fs-small);
+}
+
+.hunt-cap-input {
+  width: 64px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-chip);
+  color: var(--ink);
+  font-size: var(--fs-small);
+  padding: 2px 6px;
+}
+
+.hunt-cap-input:focus {
+  border-color: var(--accent);
+}
+
+.hunt-faction-note {
+  margin: 2px 0 0;
+}
+
+.hunt-atlas {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 2px;
+}
+
+.hunt-atlas-error {
+  margin: 2px 0 0;
+  color: var(--gold);
+  font-size: var(--fs-small);
+}
+
+.hunt-zone-scroll {
+  padding: 8px 12px 12px;
+}
+
+.hunt-zone-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.hunt-zone {
+  padding-top: 8px;
+  border-top: 1px solid var(--grid);
+}
+
+.hunt-zone:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.hunt-zone-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.hunt-zone-btn {
+  flex: 1 1 auto;
+  min-width: 180px;
+}
+
+.hunt-zone-go {
+  margin-left: auto;
+}
+
+.hunt-zone-stats {
+  flex: none;
+  font-size: var(--fs-tiny);
+  white-space: nowrap;
+}
+
+.hunt-zone-mobs {
+  padding-top: 6px;
+}
+
+/* "Costs a faction you are building" — the idiom this stylesheet already
+   uses for a divider (.slayer-meta-strip above): a rule, not a class of its
+   own furniture. */
+.hunt-divider {
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 1px solid var(--grid);
+  color: var(--muted);
+  font-size: var(--fs-micro);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  font-weight: var(--w-bold);
+}
+
+.hunt-fx-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: 6px;
+  font-size: var(--fs-tiny);
+}
+
+.hunt-fx {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  color: var(--ink-2);
+}
+
+.hunt-fx.muted {
+  color: var(--muted);
+}
+
+.hunt-fx-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hunt-fx-value {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Loss/gain read from the effect's own sign, not from a general "protected"
+   colour — a protected faction can rise too (see the Barbarous fixture, two
+   zones with a positive Guards of Qeynos effect), and that is worth showing
+   green rather than flattened to the same warning tone as every loss. */
+.hunt-fx.loss .hunt-fx-value {
+  color: var(--danger);
+}
+
+.hunt-fx.gain .hunt-fx-value {
+  color: var(--live);
+}
+
+.hunt-fx-standing {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.hunt-fx-unlock {
+  flex: none;
+}
+
+.hunt-fx-toggle {
+  align-self: flex-start;
+  margin-top: 2px;
+}
+
+.hunt-cities-note {
+  margin: 4px 0 0;
+}
 
 /* ---- the map's mobs tab (F30 × F27) --------------------------------------
    Who stands in the zone on screen, and where any mob stands. */

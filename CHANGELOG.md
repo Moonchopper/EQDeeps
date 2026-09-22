@@ -8,7 +8,7 @@ and the ADR. Newest first; a change lands under **Unreleased** with its pull
 request, and the release's Docs commit renames that heading to the version
 being cut.
 
-## Unreleased
+## v0.17.0 — 2026-09-22
 
 - **A new Slayer view tracks every kill achievement** — run `/outputfile achievements` in game and it lists what is left of each, nearest to done first, and picks up a fresh export on its own.
 - **Slayer says where to hunt** — pick an achievement and it ranks the zones its creatures live in, never a city, with what each would cost the factions you are building.

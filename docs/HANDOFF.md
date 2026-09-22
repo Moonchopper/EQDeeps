@@ -81,7 +81,7 @@
 > at a time, once, only when that panel is opened, and any shard older than a
 > week is revalidated; the plan across everything open is designed and not
 > yet written).
-> Currently at **v0.16.0**. See `docs/product/features.md` for per-feature
+> Currently at **v0.17.0**. See `docs/product/features.md` for per-feature
 > status. The main open items: the release-gate invariants (CLAUDE.md §8 —
 > defined, not yet written), class detection from the client's spell files
 > (the emote and duration halves shipped as F10a/F10b), identity-registry disk

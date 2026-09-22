@@ -103,9 +103,11 @@ slept tabs do **not** stop it.
 **World**
 
 - **Bestiary** — every mob the game has, searchable and browsable by level. A
-  mob's listed level, health, spawns and loot are fetched on demand from
-  EQLBase and cached on your machine — never bundled, never fetched until you
-  ask, switchable off — and shown beside what your own logs measured for the
+  mob's listed level, health, spawns and loot come from a snapshot of
+  [EQLBase](https://eqlbase.com) that ships with the app — theirs, not ours,
+  and not under this project's licence (see `data/eqlbase/README.md`) — so
+  nothing is asked of their site unless you press Refresh; switchable off —
+  and shown beside what your own logs measured for the
   same mob at each difficulty tier, which is the comparison no site can make
   for you. Measured health comes from what it took to kill one, keyed by
   instance difficulty because the same froglok is a different fight at tier 1
@@ -191,9 +193,9 @@ server listens only on `127.0.0.1`.
 - **Writes:** `%AppData%\EQDeeps` — dashboards, settings, the learned mob
   indexes, and the log cache.
 - **Network:** two things, both optional. The update check against GitHub
-  (`--no-update-check`, or "never check" in Settings), and the Bestiary's
-  lookups from EQLBase, fetched only when you open something that needs one
-  and cached after (`--no-reference`). Add `--no-spells`, which stops it
+  (`--no-update-check`, or "never check" in Settings), and a **Refresh** of
+  the bundled EQLBase data, which happens only when you press it and asks
+  only for what changed (`--no-reference` switches the feature off). Add `--no-spells`, which stops it
   reading the spell files, and it touches nothing but the log.
 
 Flags, for when you want them: `--browser` (your default browser instead of

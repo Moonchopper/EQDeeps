@@ -6,14 +6,21 @@ using EQDeeps.Core.Reference;
 namespace EQDeeps.Server.Reference;
 
 /// <summary>What the reference layer can currently answer, and why not when it cannot.</summary>
+/// <param name="SnapshotUtc">When the shipped snapshot was taken; null with no snapshot (ADR-020 Decision 1, reversed 2026-09-21).</param>
+/// <param name="RefreshedUtc">The newest on-disk cache write newer than the snapshot — what "refreshed 3 days ago" means on screen; null when there has been none.</param>
 public sealed record ReferenceStatus(
     bool Available,
     string Source,
     string HomeUrl,
     int Names,
     int Listings,
+    string? Error,
+    DateTime? SnapshotUtc,
     DateTime? RefreshedUtc,
-    string? Error);
+    RefreshStatus Refresh);
+
+/// <summary>Where a player-pressed Refresh stands (ADR-020 Decision 1's amendment): the only path this store has to the network.</summary>
+public sealed record RefreshStatus(bool Running, int FilesTotal, int FilesChecked, int FilesChanged, DateTime? FinishedUtc, string? Error);
 
 /// <summary>
 /// Where the atlas walk stands (F35, ADR-023 Decision 7): a background read of every shard the
@@ -65,6 +72,13 @@ public sealed record ZoneRoster(
 /// <see cref="ReferenceStatus.Error"/> rather than thrown — which is also why
 /// the cache is under <c>reference\</c> with its own redirect flag and can be
 /// deleted at any time.</para>
+///
+/// <para><b>With a shipped snapshot (ADR-020 Decision 1, reversed 2026-09-21):</b> every read here —
+/// the index, a shard, a roster, the atlas walk — answers from memory, then a cache file only when a
+/// Refresh actually wrote it after the snapshot was taken, then the snapshot itself, and reaches the
+/// network for none of it. <see cref="StartRefresh"/>, the player's own button, is the only path
+/// upstream from this point on; everything above this paragraph describes the store's behaviour with
+/// no snapshot, which is unchanged and still exactly what every pre-existing test here exercises.</para>
 /// </summary>
 public sealed class NpcReferenceStore
 {
@@ -79,6 +93,7 @@ public sealed class NpcReferenceStore
     private static readonly TimeSpan ShardMaxAge = TimeSpan.FromDays(7);
 
     private readonly IReferenceSource _source;
+    private readonly IReferenceSnapshot _snapshot;
     private readonly string _root;
     private readonly bool _enabled;
     private readonly TimeSpan _atlasPause;
@@ -102,11 +117,26 @@ public sealed class NpcReferenceStore
     private SlayerAtlas? _atlas;
     private int _atlasBuiltFrom = -1;
 
-    public NpcReferenceStore(IReferenceSource source, string? root = null, bool enabled = true, TimeSpan? atlasPause = null)
+    // Refresh's own state — the only path to the network once a snapshot ships. _refreshStarted
+    // doubles as the CAS guard and the "running" flag: unlike the atlas walk, which runs once ever
+    // per store, a Refresh is a button the player can press again once the last one finished, so
+    // this resets to 0 in the walk's own finally block rather than staying 1 forever.
+    private int _refreshStarted;
+    private Task? _refreshTask;
+    private volatile int _refreshFilesTotal;
+    private volatile int _refreshFilesChecked;
+    private volatile int _refreshFilesChanged;
+    private DateTime? _refreshFinishedUtc;
+    private string? _refreshError;
+
+    public NpcReferenceStore(
+        IReferenceSource source, string? root = null, bool enabled = true, TimeSpan? atlasPause = null,
+        IReferenceSnapshot? snapshot = null)
     {
         _source = source;
         _enabled = enabled;
         _atlasPause = atlasPause ?? TimeSpan.FromSeconds(1.5);
+        _snapshot = snapshot ?? new NoReferenceSnapshot();
         _root = Path.Combine(
             root ?? Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "EQDeeps"),
@@ -123,8 +153,10 @@ public sealed class NpcReferenceStore
         _source.HomeUrl,
         _index?.NameCount ?? 0,
         _index?.EntryCount ?? 0,
-        _refreshedUtc,
-        _enabled ? _error : "reference lookups are switched off (--no-reference)");
+        _enabled ? _error : "reference lookups are switched off (--no-reference)",
+        _snapshot.SnapshotUtc,
+        DiskRefreshedUtc(),
+        new RefreshStatus(_refreshStarted == 1, _refreshFilesTotal, _refreshFilesChecked, _refreshFilesChanged, _refreshFinishedUtc, _refreshError));
 
     /// <summary>
     /// Where the walk stands right now. <see cref="AtlasStatus.ZonesTotal"/> reads 0 until the walk
@@ -176,19 +208,19 @@ public sealed class NpcReferenceStore
     /// zone must not silently narrow every hunt built on top of the atlas. Never throws (Gotcha 1):
     /// nothing awaits this task, so an exception here would otherwise vanish into an unobserved
     /// fault.
+    ///
+    /// <para>With a snapshot shipped, every <see cref="ShardAsync"/> call below answers from memory,
+    /// cache or the bundle and never reaches the network (<see cref="ShardLoad.Network"/> stays
+    /// false throughout), so this walk runs to completion with no pause and no request at all — the
+    /// pacing exists for the network case, and there is none to pace (ADR-020 Decision 1's
+    /// amendment).</para>
     /// </summary>
     private async Task WalkAsync()
     {
         try
         {
             var index = await IndexAsync().ConfigureAwait(false);
-            var shards = index is null
-                ? new List<int>()
-                : index.Entries
-                    .Select(e => NpcReferenceFormat.ShardOf(e.Id))
-                    .Distinct()
-                    .OrderBy(s => s)
-                    .ToList();
+            var shards = ShardsOf(index);
 
             _atlasZonesTotal = shards.Count;
 
@@ -226,6 +258,12 @@ public sealed class NpcReferenceStore
             _atlasComplete = true;
         }
     }
+
+    /// <summary>Every shard the index implies, in ascending order — shared by the atlas walk and Refresh, both of which read exactly the set of zones the index currently names.</summary>
+    private static List<int> ShardsOf(NpcIndex? index) =>
+        index is null
+            ? []
+            : index.Entries.Select(e => NpcReferenceFormat.ShardOf(e.Id)).Distinct().OrderBy(s => s).ToList();
 
     /// <summary>
     /// The atlas built from whatever shards are loaded right now (F35, ADR-023 Decision 7) — never
@@ -268,10 +306,21 @@ public sealed class NpcReferenceStore
         try
         {
             var path = CachePath("search-index.json");
-            if (_index is null && ReadCached(path) is { } cached)
+            var hadIndex = _index is not null;
+            EnsureIndexLoaded();
+            if (!hadIndex && _index is not null && CacheIsAuthoritative(path))
             {
-                _index = new NpcIndex(NpcReferenceFormat.ParseIndex(cached), NpcReferenceFormat.ParseIndexZones(cached));
                 _refreshedUtc = File.GetLastWriteTimeUtc(path);
+            }
+
+            // A snapshot shipped: memory, then a cache file only when it is newer than the
+            // snapshot, then the snapshot itself — all local, all above. Nothing past this point
+            // ever reaches the network; only StartRefresh does (ADR-020 Decision 1's amendment).
+            // The daily revalidation below is a no-snapshot idea — the whole reason the snapshot
+            // exists is so an install does not need it.
+            if (_snapshot.SnapshotUtc is not null)
+            {
+                return _index;
             }
 
             // One revalidation per run, and only when the copy is a day old:
@@ -319,6 +368,45 @@ public sealed class NpcReferenceStore
             _gate.Release();
         }
     }
+
+    /// <summary>
+    /// Loads <see cref="_index"/> from whichever local copy is current — memory (a no-op if it is
+    /// already set), else the cache file when <see cref="CacheIsAuthoritative"/>, else the shipped
+    /// snapshot. Never touches the network: this is the read side of the load order S1/S2 describe,
+    /// shared by <see cref="IndexAsync"/> and Refresh's own bookkeeping (which needs to know the
+    /// current shard set before it can walk them, even when the index fetch itself only came back a
+    /// 304). Caller holds <see cref="_gate"/>.
+    /// </summary>
+    private void EnsureIndexLoaded()
+    {
+        if (_index is not null)
+        {
+            return;
+        }
+
+        var path = CachePath("search-index.json");
+        if (LoadFromCacheOrSnapshot(path, "search-index.json") is { } text)
+        {
+            _index = new NpcIndex(NpcReferenceFormat.ParseIndex(text), NpcReferenceFormat.ParseIndexZones(text));
+        }
+    }
+
+    /// <summary>
+    /// One file's current text, read locally only: the cache copy when <see cref="CacheIsAuthoritative"/>,
+    /// else the shipped snapshot's copy, else null — "not known" (ADR-020 Decision 1's amendment).
+    /// </summary>
+    private string? LoadFromCacheOrSnapshot(string path, string file) =>
+        (CacheIsAuthoritative(path) ? ReadCached(path) : null) ?? _snapshot.Read(file);
+
+    /// <summary>
+    /// Whether the on-disk cache copy of a file should be trusted over the shipped snapshot: it
+    /// exists, and — when a snapshot is shipped — was written strictly after the snapshot was taken,
+    /// which is to say a Refresh put it there (S2: a cache file no newer than the snapshot is
+    /// ignored, not deleted — it simply loses to the bundle). With no snapshot, existing on disk is
+    /// the whole test, which is this store's behaviour from before the snapshot existed.
+    /// </summary>
+    private bool CacheIsAuthoritative(string path) =>
+        File.Exists(path) && (_snapshot.SnapshotUtc is not { } snap || File.GetLastWriteTimeUtc(path) > snap);
 
     /// <summary>The stat block for one listing, fetching its shard the first time it is wanted.</summary>
     public async Task<NpcDetail?> DetailAsync(int id, CancellationToken ct = default)
@@ -392,13 +480,16 @@ public sealed class NpcReferenceStore
     private readonly record struct ShardLoad(IReadOnlyDictionary<int, NpcDetail>? Data, bool Network, string? Error = null);
 
     /// <summary>
-    /// One shard: from memory, then a disk copy younger than <see cref="ShardMaxAge"/> with no
-    /// request at all, then a conditional GET carrying its stored ETag — the same shape as
-    /// <see cref="IndexAsync"/>'s own daily check, but weekly (F35, ADR-023 Decision 7). A 304 keeps
-    /// the cached copy and freshens its write time so it is not due again for another
-    /// <see cref="ShardMaxAge"/>; a failure of any kind — a timeout, an empty body, a body that no
-    /// longer parses — keeps the cached copy too. Never load-bearing, never replaced by emptiness,
-    /// the same rule <see cref="IndexAsync"/> follows for its own copy.
+    /// One shard: from memory, then — with a snapshot shipped — a cache file only when it is newer
+    /// than the snapshot, then the snapshot's own copy, then an empty shard, memoised for the run,
+    /// meaning "not known" rather than "not fetched yet"; never the network (ADR-020 Decision 1's
+    /// amendment). With no snapshot, today's behaviour is unchanged below: a disk copy younger than
+    /// <see cref="ShardMaxAge"/> with no request at all, then a conditional GET carrying its stored
+    /// ETag — the same shape as <see cref="IndexAsync"/>'s own daily check, but weekly (F35, ADR-023
+    /// Decision 7). A 304 keeps the cached copy and freshens its write time so it is not due again
+    /// for another <see cref="ShardMaxAge"/>; a failure of any kind — a timeout, an empty body, a
+    /// body that no longer parses — keeps the cached copy too. Never load-bearing, never replaced by
+    /// emptiness, the same rule <see cref="IndexAsync"/> follows for its own copy.
     /// </summary>
     private async Task<ShardLoad> ShardAsync(int shard, CancellationToken ct)
     {
@@ -417,6 +508,17 @@ public sealed class NpcReferenceStore
 
             var file = $"npcs-{shard}.json";
             var path = CachePath(file);
+
+            if (_snapshot.SnapshotUtc is not null)
+            {
+                var text = LoadFromCacheOrSnapshot(path, file);
+                var loadedShard = text is not null
+                    ? NpcReferenceFormat.ParseShard(text)
+                    : new Dictionary<int, NpcDetail>();
+                _shards[shard] = loadedShard;
+                return new ShardLoad(loadedShard, false);
+            }
+
             IReadOnlyDictionary<int, NpcDetail>? cached = null;
             if (ReadCached(path) is { } cachedText)
             {
@@ -497,6 +599,262 @@ public sealed class NpcReferenceStore
         {
             _gate.Release();
         }
+    }
+
+    // ---- Refresh (ADR-020 Decision 1's amendment): the only path to the network -----------------
+
+    /// <summary>
+    /// Starts a Refresh: the index, then every shard the (possibly new) index names, one at a time,
+    /// each conditional on the ETag of whichever copy is currently in use. Idempotent while one is
+    /// already running (a double click starts nothing extra); a no-op when disabled, because a
+    /// server started with <c>--no-reference</c> must not put a request on the wire for any button.
+    /// Unlike <see cref="StartAtlas"/>, this is meant to be pressed again: <see cref="_refreshStarted"/>
+    /// resets once the walk finishes, so a later press starts a fresh one.
+    /// </summary>
+    public ReferenceStatus StartRefresh()
+    {
+        if (_enabled && Interlocked.CompareExchange(ref _refreshStarted, 1, 0) == 0)
+        {
+            _refreshFilesTotal = 0;
+            _refreshFilesChecked = 0;
+            _refreshFilesChanged = 0;
+            _refreshFinishedUtc = null;
+            _refreshError = null;
+            _refreshTask = Task.Run(RefreshWalkAsync);
+        }
+
+        return Status();
+    }
+
+    /// <summary>Test seam, matching <see cref="AtlasTask"/>: await this instead of polling <see cref="Status"/> in a loop.</summary>
+    internal Task? RefreshTask => _refreshTask;
+
+    private async Task RefreshWalkAsync()
+    {
+        try
+        {
+            _refreshFilesTotal = 1; // the index; a shard count follows once it is read
+            await RefreshIndexAsync(CancellationToken.None).ConfigureAwait(false);
+
+            List<int> shards;
+            await _gate.WaitAsync().ConfigureAwait(false);
+            try
+            {
+                // Whatever the index refresh just wrote, or — on a 304, a failure, or a first-ever
+                // Refresh nobody has read anything through yet — whatever the local load order
+                // (memory, then cache, then the snapshot) already has. Never a fetch of its own.
+                EnsureIndexLoaded();
+                shards = ShardsOf(_index);
+            }
+            finally
+            {
+                _gate.Release();
+            }
+
+            _refreshFilesTotal = 1 + shards.Count;
+
+            for (var i = 0; i < shards.Count; i++)
+            {
+                await RefreshShardAsync(shards[i], CancellationToken.None).ConfigureAwait(false);
+
+                // A pause "between them", not after the last one — same reasoning as the atlas
+                // walk's own (WalkAsync): the final file's completion must not wait on a gap
+                // nobody sees the other side of.
+                if (i < shards.Count - 1)
+                {
+                    await Task.Delay(_atlasPause).ConfigureAwait(false);
+                }
+            }
+        }
+        catch (Exception e)
+        {
+            // Never throws out of a fire-and-forget background task (same rule WalkAsync follows,
+            // Gotcha 1): nothing awaits this except the test seam above.
+            _refreshError = e.Message;
+        }
+        finally
+        {
+            // A shard's *content* can change without its *count* changing, so AtlasAsync's own
+            // memoisation (keyed on _shards.Count) would not notice — force it to rebuild.
+            _atlasBuiltFrom = -1;
+            _refreshFinishedUtc = DateTime.UtcNow;
+            Interlocked.Exchange(ref _refreshStarted, 0);
+        }
+    }
+
+    /// <summary>The ETag to carry for a file's conditional GET: the cache sidecar's when the cache copy is in use, else the snapshot's own (S4).</summary>
+    private string? RefreshEtagFor(string path, string file) =>
+        CacheIsAuthoritative(path) ? EtagFor(file) : _snapshot.EtagFor(file);
+
+    /// <summary>The text of the copy a Refresh would replace — cache when it is in use, else the snapshot's — so a 200 can be checked against it.</summary>
+    private string? TextInUse(string path, string file) =>
+        CacheIsAuthoritative(path) ? ReadCached(path) : _snapshot.Read(file);
+
+    // A 200 whose body is the copy already in use is not a change. The site's validator is not
+    // to be trusted for this: measured on 2026-09-22, thirty-five minutes after the snapshot was
+    // taken, a Refresh got a 200 for eleven of eighty files whose bytes had not moved at all —
+    // and re-sending one of those its own current ETag still got a 200, while other files
+    // answered 304 to the same request. Without this check every Refresh would rewrite those
+    // files, stamp the cache as "refreshed just now", and report changes that did not happen.
+    private static bool SameBytes(string? inUse, string fetched) =>
+        inUse is not null && string.Equals(inUse, fetched, StringComparison.Ordinal);
+
+    private static bool SameIndex(IReadOnlyList<NpcIndexEntry> a, IReadOnlyList<NpcIndexEntry> b) =>
+        a.Count == b.Count && a.Zip(b).All(pair => pair.First == pair.Second);
+
+    private async Task RefreshIndexAsync(CancellationToken ct)
+    {
+        const string file = "search-index.json";
+        var path = CachePath(file);
+
+        await _gate.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            var fetch = await _source
+                .GetAsync(NpcReferenceFormat.IndexPath, RefreshEtagFor(path, file), ct)
+                .ConfigureAwait(false);
+            _refreshFilesChecked++;
+
+            if (fetch.Failed)
+            {
+                _refreshError = fetch.Error;
+                return;
+            }
+
+            if (!fetch.Modified)
+            {
+                return; // 304: whichever copy is in use is still current. Nothing written.
+            }
+
+            if (fetch.Content is { Length: > 0 })
+            {
+                var entries = NpcReferenceFormat.ParseIndex(fetch.Content);
+                if (entries.Count > 0)
+                {
+                    // The bundled index is trimmed to the rows the app reads and the site's is
+                    // whole, so bytes cannot say whether it moved; the parsed rows can.
+                    var inUse = TextInUse(path, file);
+                    if (inUse is not null && SameIndex(NpcReferenceFormat.ParseIndex(inUse), entries))
+                    {
+                        return; // a 200 that changed nothing; see SameBytes
+                    }
+
+                    _index = new NpcIndex(entries, NpcReferenceFormat.ParseIndexZones(fetch.Content));
+                    Write(path, fetch.Content, file, fetch.ETag);
+                    _refreshFilesChanged++;
+                }
+                else
+                {
+                    // Their shape moved. Keep whatever is in use rather than replacing it with
+                    // emptiness — the same rule the no-snapshot fetch path follows.
+                    _refreshError = "the index could not be read";
+                }
+            }
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    private async Task RefreshShardAsync(int shard, CancellationToken ct)
+    {
+        var file = $"npcs-{shard}.json";
+        var path = CachePath(file);
+
+        await _gate.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            var fetch = await _source
+                .GetAsync(NpcReferenceFormat.ShardPath(shard * 1000), RefreshEtagFor(path, file), ct)
+                .ConfigureAwait(false);
+            _refreshFilesChecked++;
+
+            if (fetch.Missing)
+            {
+                return; // the site still has nothing here — not an error, same as ShardAsync's own reading of a 404.
+            }
+
+            if (fetch.Failed)
+            {
+                _refreshError = fetch.Error;
+                return;
+            }
+
+            if (!fetch.Modified)
+            {
+                return; // 304
+            }
+
+            if (fetch.Content is { Length: > 0 })
+            {
+                if (SameBytes(TextInUse(path, file), fetch.Content))
+                {
+                    return; // a 200 that changed nothing; see SameBytes
+                }
+
+                var parsed = NpcReferenceFormat.ParseShard(fetch.Content);
+                if (parsed.Count > 0)
+                {
+                    _shards[shard] = parsed;
+                    Write(path, fetch.Content, file, fetch.ETag);
+                    _refreshFilesChanged++;
+                }
+                else
+                {
+                    _refreshError = "a shard could not be read";
+                }
+            }
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    /// <summary>
+    /// What "refreshed 3 days ago" means on screen (S4/S7): the newest write time among the cache
+    /// files on disk that are newer than the snapshot, read straight off the filesystem rather than
+    /// tracked in memory, so it survives a restart the same way the cache itself does. With no
+    /// snapshot every cache file counts, since there is no floor to compare against.
+    /// </summary>
+    private DateTime? DiskRefreshedUtc()
+    {
+        if (!Directory.Exists(_root))
+        {
+            return null;
+        }
+
+        DateTime? newest = null;
+        try
+        {
+            foreach (var file in Directory.EnumerateFiles(_root, "*.json"))
+            {
+                if (Path.GetFileName(file).Equals("etags.json", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue; // bookkeeping, not a data file
+                }
+
+                var written = File.GetLastWriteTimeUtc(file);
+                if (_snapshot.SnapshotUtc is { } snap && written <= snap)
+                {
+                    continue;
+                }
+
+                if (newest is null || written > newest)
+                {
+                    newest = written;
+                }
+            }
+        }
+        catch (IOException)
+        {
+        }
+        catch (UnauthorizedAccessException)
+        {
+        }
+
+        return newest;
     }
 
     private string CachePath(string file) => Path.Combine(_root, file);

@@ -607,8 +607,11 @@ Acceptance:
   Settings → "Look mobs up online" and `--no-reference` switch it off
   entirely. *(shipped; 2026-08-17 moved the index load from first search to
   open, which is what fixed a header that said "loading…" over nothing)*
-- Data is never bundled — EQLBase states no licence — and every screen showing
-  it names and links the source. *(shipped)*
+- Every screen showing the data names and links the source. *(shipped)* It
+  was never bundled — EQLBase states no licence — until 2026-09-21, when the
+  owner reversed that: a snapshot now ships in `data/eqlbase/`, outside the
+  MIT grant, so the app asks the site for nothing unless the player presses
+  Refresh (ADR-020 Decision 1, as amended).
 - The view opens on something: the mobs this server's logs have killed, most
   killed first, and level bands to browse the rest of the world; the page for
   a mob leads with listed health beside measured damage-to-kill and listed
@@ -719,4 +722,4 @@ Acceptance, by slice:
 - **Backfill throughput:** historical load should saturate disk read, not parser — target ≥ 100 MB/s on typical hardware; a 1 GB log's last raid night loads in seconds. (Old app parses a full file in minutes on large logs.)
 - **Scale:** 54-player raids, hundreds of combat lines/second burst, logs up to several GB, fights lasting 10+ minutes, sessions monitoring 3+ characters.
 - **Correctness:** parsing fidelity against the fixture corpus (see HANDOFF.md verification section) is a release gate.
-- **Licensing:** all dependencies MIT/Apache-2.0/BSD-compatible, each listed in `NOTICE` with its licence text in `THIRD-PARTY-NOTICES.txt`; the publish lays both beside the binary, because those licences ask for the text and not just the credit. The fixture corpus is derived from EQLogParser's parser tests (Apache 2.0) and **its attribution is an obligation, not a courtesy** — it stays as long as those fixtures do. No data files have been copied from it and none are wanted: reference data comes from the player's own game install (`docs/domain/eq-client-files.md`) or is fetched at their request and attributed on screen (ADR-020).
+- **Licensing:** all dependencies MIT/Apache-2.0/BSD-compatible, each listed in `NOTICE` with its licence text in `THIRD-PARTY-NOTICES.txt`; the publish lays both beside the binary, because those licences ask for the text and not just the credit. The fixture corpus is derived from EQLogParser's parser tests (Apache 2.0) and **its attribution is an obligation, not a courtesy** — it stays as long as those fixtures do. No data files have been copied from it and none are wanted: reference data comes from the player's own game install (`docs/domain/eq-client-files.md`) — with **one exception that is under no licence at all**: the EQLBase snapshot in `data/eqlbase/`, shipped at the owner's decision, outside the MIT grant, attributed on screen and removable in one step (ADR-020 Decision 1, as amended 2026-09-21).

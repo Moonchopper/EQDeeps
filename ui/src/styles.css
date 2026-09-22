@@ -880,6 +880,12 @@ button.update-pill {
   line-height: 1.4;
 }
 
+/* The reference row sits between two .settings-row entries, which each carry their own
+   padding: 5px 0 — without a bottom margin this crowds straight into "A click opens" below it. */
+.reference-refresh-row {
+  margin-bottom: 4px;
+}
+
 /* ---- rail foot: the utility cluster ---- */
 .rail-foot {
   margin-top: auto;
@@ -3305,6 +3311,19 @@ tr:hover .lookup-btn,
   border-top: 1px solid var(--grid);
   color: var(--muted);
   font-size: var(--fs-tiny);
+}
+
+/* Reference-snapshot facts and the Refresh button (ADR-020 Decision 1's amendment) — shared by
+   this footer and the Settings dialog's reference row (lookup/referenceRefresh.tsx). */
+.reference-refresh {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.reference-refresh-error {
+  color: var(--gold);
 }
 
 /* Which level of a name you are reading — a name can be listed at a dozen,

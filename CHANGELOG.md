@@ -10,6 +10,7 @@ being cut.
 
 ## Unreleased
 
+- **Mob and zone data now ships with the app** — nothing is asked of EQLBase unless you press Refresh, and the Bestiary works offline.
 - **Slayer now says where to hunt** — pick an achievement and it ranks the zones its creatures live in, never a city, with what each would cost your faction.
 - **A Slayer view tracks every kill achievement** — run `/outputfile achievements` in game and it lists what is left of each, nearest to done first.
 - **Every copy now carries the licences it is meant to.** The installer and the portable zip put EQDeeps' own MIT licence, the full licence text for everything bundled into the app, and the .NET runtime's own notices beside the program. Before this only a short attribution file shipped, and the portable zip carried no licence at all.

@@ -7,6 +7,7 @@ import {
   type HuntZone,
   type SlayerHuntReport,
 } from "../../api";
+import { ReferenceRefreshFacts, useReferenceStatus } from "../../lookup/referenceRefresh";
 import type { BestiaryTarget, MapTarget } from "../../trail";
 import { Bar, fmtCount } from "../SlayerPanel";
 
@@ -59,6 +60,10 @@ export function HuntDetail({
   const pollTimer = useRef<number | undefined>(undefined);
   const atlasStarted = useRef(false);
   const defaultApplied = useRef(false);
+  // The snapshot/Refresh facts for the footer (ADR-020 Decision 1's amendment): one shared poll,
+  // also shared with SettingsDialog's reference row — see lookup/referenceRefresh.tsx.
+  const { status: referenceStatus, error: referenceStatusError, refresh: refreshReference } =
+    useReferenceStatus(referenceEnabled);
 
   // The typed cap settles for 300ms before it drives a fetch — the same
   // debounce the Bestiary's search box uses, and for the same reason: every
@@ -127,9 +132,19 @@ export function HuntDetail({
     };
     // levelCapDirty/levelCapText are read for the one-time default, not
     // re-run on every keystroke — committedCap is the debounced value that
-    // actually drives a new fetch.
+    // actually drives a new fetch. referenceStatus?.refresh.finishedUtc is
+    // read only to re-run this on a completed Refresh (ADR-020 Decision 1's
+    // amendment) — a changed shard is otherwise invisible until the next
+    // unrelated re-fetch.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionId, selection.key, selection.component, referenceEnabled, committedCap]);
+  }, [
+    sessionId,
+    selection.key,
+    selection.component,
+    referenceEnabled,
+    committedCap,
+    referenceStatus?.refresh.finishedUtc,
+  ]);
 
   async function copyCommand(command: string) {
     try {
@@ -299,7 +314,18 @@ export function HuntDetail({
           <a href={report.atlas.homeUrl} target="_blank" rel="noreferrer">
             {report.atlas.source}
           </a>
-          , cached on this machine.
+          {referenceStatus?.snapshotUtc || referenceStatus?.refreshedUtc ? (
+            <>
+              {" · "}
+              <ReferenceRefreshFacts
+                status={referenceStatus}
+                error={referenceStatusError}
+                onRefresh={refreshReference}
+              />
+            </>
+          ) : (
+            ", cached on this machine."
+          )}
         </p>
       </div>
     </>,

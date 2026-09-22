@@ -227,6 +227,20 @@ export interface ItemMentionsResult {
   knownNames: number;
 }
 
+/**
+ * Where a player-pressed Refresh stands (ADR-020 Decision 1's amendment) — the only thing that ever
+ * asks EQLBase for anything once a snapshot ships. `finishedUtc` absent means still running or never
+ * started; poll `ReferenceStatus.refresh` to watch it.
+ */
+export interface RefreshStatus {
+  running: boolean;
+  filesTotal: number;
+  filesChecked: number;
+  filesChanged: number;
+  finishedUtc?: string;
+  error?: string;
+}
+
 /** What the reference layer can answer right now, and why not when it cannot. */
 export interface ReferenceStatus {
   available: boolean;
@@ -234,8 +248,12 @@ export interface ReferenceStatus {
   homeUrl: string;
   names: number;
   listings: number;
-  refreshedUtc?: string;
   error?: string;
+  /** When the shipped snapshot was taken; absent with no snapshot (a build without data/eqlbase/, or a test). */
+  snapshotUtc?: string;
+  /** The newest cache write newer than the snapshot — "refreshed 3 days ago"; absent when there has been none. */
+  refreshedUtc?: string;
+  refresh: RefreshStatus;
 }
 
 /** One NPC as the reference site lists it. */
@@ -990,6 +1008,14 @@ export const api = {
   /** The same, after loading the index — the Bestiary's opening move, since opening it is the ask. */
   warmReference: (): Promise<ReferenceStatus> =>
     fetch("/api/reference/status?warm=true").then((r) => json(r)),
+
+  /**
+   * The only call in this app that reaches EQLBase on its own initiative (ADR-020 Decision 1's
+   * amendment) — a player pressing Refresh. Starts the walk and returns at once; poll
+   * `referenceStatus` for its progress.
+   */
+  startRefresh: (): Promise<ReferenceStatus> =>
+    fetch("/api/reference/refresh", { method: "POST" }).then((r) => json(r)),
 
   /** By name, by level band, or both; the band alone browses the whole index. */
   searchNpcs: (

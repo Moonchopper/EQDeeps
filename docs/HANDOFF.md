@@ -49,8 +49,10 @@
 > named in chat, newest first, with a door on each (F29; also fixed the loot
 > grammar dropping `an` and stack counts, and parsed merchant sales).
 > and a Bestiary: every mob the game has, searchable, with its listed level,
-> health, loot and spawns fetched from EQLBase on demand and cached here —
-> never bundled, never fetched until asked, switchable off — shown beside what
+> health, loot and spawns read from a snapshot of EQLBase that ships with the
+> app (theirs, under no licence, outside the MIT grant — ADR-020 Decision 1 as
+> amended 2026-09-21), refreshed only when the player asks, switchable off —
+> shown beside what
 > your own logs measured for the same mob (ADR-020, feature F30, issue #51),
 > and the spell emotes a buff prints when it lands or fades resolved against
 > the player's own `spells_us*.txt`, read from their install — 94k lines of the

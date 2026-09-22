@@ -49,13 +49,23 @@ public enum ZoneNameSource
 /// <c>scripts/derive-zone-eras.mjs</c>; the reference layer (ADR-020) uses
 /// them as addresses, and checks what it finds at one against content.
 /// </param>
+/// <param name="City">
+/// Whether this is one of the 23 player cities (F35, ADR-023 Decision 6) —
+/// hand-authored like the rest of the row, because nothing in a map or a log
+/// says a zone is a city. A flagged zone contributes to no hunting supply and
+/// is never recommended, because the game's own instinct against being sent
+/// to kill snakes in North Qeynos is right: a hunting zone that merely
+/// contains a town (Highpass Hold, Kerra Isle) is deliberately left
+/// unflagged — that is Decision 5's job, not this column's.
+/// </param>
 public sealed record ZoneEntry(
     string ShortName,
     string DisplayName,
     ZoneNameSource Source,
     string? Era = null,
     ZoneEraSource? EraSource = null,
-    IReadOnlyList<int>? Ids = null)
+    IReadOnlyList<int>? Ids = null,
+    bool City = false)
 {
     public IReadOnlyList<int> Ids { get; init; } = Ids ?? Array.Empty<int>();
 }
@@ -99,6 +109,13 @@ public sealed record ZoneEntry(
 /// and checked in as data, so the app never reads the player's install for
 /// them; see <see cref="ZoneEras"/> for what an era means and the map format
 /// doc §5.3 for the id bands and their evidence.</para>
+///
+/// <para><b>Cities.</b> An eighth-in-spirit, seventh-in-position column
+/// (F35, ADR-023 Decision 6) flags the 23 rows that are a player city — hand
+/// agreed with the owner, never derived, because nothing on disk says a zone
+/// is a city. A hunting-supply reader (the Slayer planner) skips a flagged
+/// zone entirely; a zone that merely contains a town (Highpass Hold, Kerra
+/// Isle) is deliberately left unflagged.</para>
 /// </summary>
 public sealed class ZoneTable
 {
@@ -187,12 +204,14 @@ public sealed class ZoneTable
 
     /// <summary>
     /// Reads the TSV form:
-    /// <c>shortname\tdisplay\tsource[\tera\terasource[\tids]]</c>. Blank lines
-    /// and <c>#</c> comments are skipped; a row that does not parse is skipped
-    /// rather than thrown, on the same principle as the log parser. An era code
-    /// this build does not recognise is read as no era — shown, not hidden — for
-    /// the same reason, and an id that is not a number is dropped from the list
-    /// rather than sinking the row.
+    /// <c>shortname\tdisplay\tsource[\tera\terasource[\tids[\tcity]]]</c>. Blank
+    /// lines and <c>#</c> comments are skipped; a row that does not parse is
+    /// skipped rather than thrown, on the same principle as the log parser. An
+    /// era code this build does not recognise is read as no era — shown, not
+    /// hidden — for the same reason, and an id that is not a number is dropped
+    /// from the list rather than sinking the row. The seventh column is the
+    /// literal <c>city</c> or empty (F35, ADR-023 Decision 6); anything else
+    /// there reads as "not a city" rather than failing the row.
     /// </summary>
     public static ZoneTable Parse(string tsv)
     {
@@ -247,7 +266,9 @@ public sealed class ZoneTable
                     .ToArray()
                 : Array.Empty<int>();
 
-            entries.Add(new ZoneEntry(shortName, display, source, era, eraSource, ids));
+            var city = cells.Length > 6 && cells[6].Trim() == "city";
+
+            entries.Add(new ZoneEntry(shortName, display, source, era, eraSource, ids, city));
         }
 
         return new ZoneTable(entries);

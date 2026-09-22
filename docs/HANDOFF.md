@@ -49,8 +49,10 @@
 > named in chat, newest first, with a door on each (F29; also fixed the loot
 > grammar dropping `an` and stack counts, and parsed merchant sales).
 > and a Bestiary: every mob the game has, searchable, with its listed level,
-> health, loot and spawns fetched from EQLBase on demand and cached here —
-> never bundled, never fetched until asked, switchable off — shown beside what
+> health, loot and spawns read from a snapshot of EQLBase that ships with the
+> app (theirs, under no licence, outside the MIT grant — ADR-020 Decision 1 as
+> amended 2026-09-21), refreshed only when the player asks, switchable off —
+> shown beside what
 > your own logs measured for the same mob (ADR-020, feature F30, issue #51),
 > and the spell emotes a buff prints when it lands or fades resolved against
 > the player's own `spells_us*.txt`, read from their install — 94k lines of the
@@ -68,7 +70,17 @@
 > (ADR-020 decision 6, map format doc §3); and the World view now lays zones
 > out the way their own maps' exits point rather than an arbitrary circle,
 > so Blackburrow's neighbours sit where its own map draws them (ADR-016
-> decision 6, feature F27).
+> decision 6, feature F27); and a Slayer view that reads the game's own
+> `/outputfile achievements` export — every kill achievement with its
+> progress, nearest to done first — as the first slice of a planner that will
+> say where to hunt each creature type without costing a faction or sending
+> anyone into a city (ADR-023, feature F35: slices 1 and 2 of 4 built — picking an open
+> achievement now ranks the zones its creatures stand in by respawn supply,
+> with each zone's faction cost shown against the player's real standings
+> from `/outputfile faction`; the reference shards it reads are fetched one
+> at a time, once, only when that panel is opened, and any shard older than a
+> week is revalidated; the plan across everything open is designed and not
+> yet written).
 > Currently at **v0.16.0**. See `docs/product/features.md` for per-feature
 > status. The main open items: the release-gate invariants (CLAUDE.md §8 —
 > defined, not yet written), class detection from the client's spell files

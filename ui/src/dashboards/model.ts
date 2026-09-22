@@ -128,6 +128,9 @@ export const METRIC_LABELS: Record<string, string> = {
   raidSeconds: "Elapsed",
   stanceDps: "Per s held",
   stanceUptime: "Uptime %",
+  credited: "Credited",
+  firstAt: "First",
+  lastAt: "Last",
 };
 
 export const RATE_METRICS = new Set([
@@ -143,6 +146,8 @@ export const DIMENSIONS: { value: Dimension; label: string }[] = [
   { value: "damageType", label: "damage type" },
   { value: "character", label: "character" },
   { value: "stance", label: "your stance" },
+  { value: "zone", label: "zone" },
+  { value: "difficulty", label: "difficulty" },
 ];
 
 export const VALIDITY_FLAGS: { value: string; label: string }[] = [

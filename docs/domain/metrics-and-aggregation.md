@@ -79,6 +79,20 @@ Formatting conventions: large numbers abbreviate K/M/B with one decimal (`126.2K
 
 **Every avoidance denominator is short by the ripostes.** A swing the defender riposted is written as the defender's own counter-attack line and the attempt records nothing at all ([log format §3](eq-log-format.md)), so `MeleeAttempts` counts the swings the *log accounted for*, not the swings thrown. This affects melee hit rate, melee accuracy, undefended % and F26's incoming rates alike. It is a property of what EverQuest writes down, not a parser choice, and the honest phrasing everywhere is "of the swings the log accounted for".
 
+## 5a. Zone and difficulty dimensions; kill credit (ADR-022, F31)
+
+Two dimensions, available to every `QuerySource` as a group-by or a filter, resolved from the record stream in order (a named `You have entered …` line opens a zone, a nameless one — a load screen, a login — closes it without opening anything) and never wound at all unless a spec actually mentions them:
+
+- **Zone** — the place alone, `InstanceZone.BaseName`. "The Estate of Unrest" is one row at every tier; "The Plane of Fear" is one row whether it was entered solo, group, or open world.
+- **Difficulty** — everything the log printed after the place, verbatim: `1 (Awakened)`, `Solo`, `Group 3 (Fused)`. The mode (`Solo`/`Group`) rides in this label rather than being a dimension of its own, because it rescales the instance the way a tier does — a solo kill and a group kill at the same tier are two rows, not one. No suffix at all reads as `Open world`.
+- A record with no known zone — before the log's first zone line, or between a load screen and the next entry — keys to `(unknown)` on **both** dimensions, never guessed from the zone on either side.
+
+**`credited`** (deaths source): a kill your log witnessed is not the same as a kill you were part of. Walking the records in order, an `ExperienceEvent` is *pending* until the next `DeathEvent` claims it within **two seconds**; one experience line credits at most one death, so two mobs dying in the same second each take their own. A pending line older than two seconds — or one no death ever claims — is dropped rather than carried forward to some later kill. **Known blind spot:** a character who gains no experience for a kill (dead at the moment it happened, in a group not credited for damage, etc.) is never credited, even though the death was seen. `deaths` and `credited` are shown side by side for exactly this reason — credit is a lower bound on participation, not the whole answer.
+
+**`firstAt`, `lastAt`** (available on every source, for free — see below): the first and last record in the row, to the log's own one-second resolution. Encoded as **seconds since the Unix epoch, with the log's wall clock read as if it were UTC** — `(timestamp - DateTime.UnixEpoch).TotalSeconds`, reversed in the UI by `new Date(value * 1000).toISOString().slice(0, 19)` into the same clock formatter a fight's begin time uses. **This is a wall-clock value, not a real UTC instant** — log timestamps are `DateTimeKind.Unspecified` local time with no zone in the first place ([log format §2](eq-log-format.md)), and inventing an offset for this encoding would be a claim about the player's timezone the log never made. Do not "fix" it with a timezone conversion later. A row with no records in scope reads `0`, which the UI renders as no data rather than as an epoch date.
+
+Implementation note: `firstAt`/`lastAt` fall out of the active-time bookkeeping every row already does (§4) — the merged segments' first begin and last end are exactly the row's first and last record — so nothing extra is built to offer them, on any source, and restricting them to deaths would have been the contortion.
+
 ## 6. Pet attribution
 
 - Every damage/heal record carries optional `owner` when the actor is a mapped pet.

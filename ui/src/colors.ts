@@ -55,9 +55,14 @@ const ENTITY_SOURCES = new Set<QuerySource>([
  * the progression sources the very same dimensions name something else
  * entirely — a faction, a corpse, a conned mob — so they get a pool of their
  * own rather than competing for the palette that players are using.
+ *
+ * `zone`/`difficulty` are never entities (ADR-022 Decision 1/F31): a place or
+ * a tier is not a person, so they get their own pool too rather than falling
+ * into `ENTITY_POOL` on a combat source — the same reason `deaths` needs this
+ * carve-out for `stance`.
  */
 export function colorPoolFor(source: QuerySource, dim: Dimension | undefined): string {
-  if (dim === "spell" || dim === "damageType" || dim === "stance") {
+  if (dim === "spell" || dim === "damageType" || dim === "stance" || dim === "zone" || dim === "difficulty") {
     return dim;
   }
 

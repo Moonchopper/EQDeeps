@@ -39,6 +39,21 @@ public enum Dimension
     /// <see cref="StanceTimeline"/>.
     /// </summary>
     Stance,
+
+    /// <summary>
+    /// The place the record happened in — <see cref="Parsing.InstanceZone.BaseName"/>
+    /// of whatever zone line most recently opened, in record order. A record
+    /// in no known zone keys to <see cref="ZoneTimeline.Unknown"/> — see
+    /// <see cref="ZoneTimeline"/> and ADR-022 Decision 1.
+    /// </summary>
+    Zone,
+
+    /// <summary>
+    /// Everything the log printed after the place, verbatim — see
+    /// <see cref="Parsing.InstanceZone.DifficultyLabel"/>. Available on every
+    /// source, alongside <see cref="Zone"/>.
+    /// </summary>
+    Difficulty,
 }
 
 /// <summary>Damage-validity categories users toggle in and out of parses (metrics doc §7).</summary>

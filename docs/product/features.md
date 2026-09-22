@@ -721,7 +721,7 @@ Acceptance:
 - **Zone and difficulty are query dimensions**, usable by every source, and
   cost nothing to a query that does not mention them. A record in a load
   screen or before the log's first zone line keys to `(unknown)`, never to a
-  neighbouring zone.
+  neighbouring zone. *(shipped 2026-09-20)*
 - The zone line's `- Solo` / `- Group` marker is parsed
   ([log format](../domain/eq-log-format.md) §3.9b): "The Plane of Fear - Group
   3 (Fused)" is the Plane of Fear, with its map. Mob health (F25) and
@@ -729,6 +729,7 @@ Acceptance:
 - A kill is **credited** when an experience line claimed it; seen and
   credited are both shown. Two deaths in one second each take their own
   experience line; a death with none is seen and not credited.
+  *(shipped 2026-09-20)*
 - The roster is checked-in data the owner has reviewed, matched on the whole
   name — `Cleric of Innoruuk` is never Innoruuk.
 - Per target: where it lives, kills seen and credited, first and last kill, a
@@ -737,10 +738,13 @@ Acceptance:
 - Every target name carries the lookup door (F29) and opens its Bestiary page
   (F30). The view sits in the rail's World group and obeys the app-wide time
   frame, reading the whole log by default.
-- Metric values are tested against hand-computed numbers.
+- Metric values are tested against hand-computed numbers. *(shipped 2026-09-20,
+  for the zone/difficulty dimensions and the `credited`/`firstAt`/`lastAt`
+  metrics; the roster view itself is not built yet)*
 - The difficulty a kill is filed under includes the `Solo` / `Group` mode
   where the log printed one, since the mode rescales the instance as a tier
   does: a solo kill and a group kill at the same tier are two rungs.
+  *(shipped 2026-09-20)*
 - Not included: portraits, sounds, celebrations, respawn timers — and **the
   weekly loot lockout**, left out at the owner's call (2026-09-20) to be
   revisited only if its absence proves a problem. The time frame already

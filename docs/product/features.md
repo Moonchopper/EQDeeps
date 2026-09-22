@@ -1,6 +1,6 @@
 # EQDeeps — Feature Specification
 
-Priorities: **P0** = first working pass, **P1** = v1 public release, **P2** = later. Each feature has acceptance criteria (AC). The feature inventory is informed by the reference implementation (EQLogParser); v1 deliberately drops its overlay/trigger/audio subsystems.
+Priorities: **P0** = first working pass, **P1** = v1 public release, **P2** = later. Each feature has acceptance criteria (AC). The feature inventory is informed by the reference implementation (EQLogParser); v1 deliberately drops its trigger and audio subsystems. (It dropped overlays too until 2026-09-20 — see F34.)
 
 **Implementation status (2026-08-02):** ✅ shipped — F1, F2, F3, F4, F5, F6, F7,
 F8, F14. Beyond spec: log autodetection (running process/registry/known paths),
@@ -652,8 +652,6 @@ Acceptance:
 
 ### F35. Slayer — what is left to kill, and where to go and kill it — **slices 1 and 2 of 4 built (2026-09-21)** ([ADR-023](../architecture/adr-023-slayer-planner.md))
 
-(F31–F34 are the companion-features programme, PR #98.)
-
 The Slayer achievements count kills by creature type — 100 kobolds, then
 1,000, then 5,000 — and finishing them means knowing, for each type still
 open, a zone where it stands thick, at a level worth fighting, that does not
@@ -703,6 +701,106 @@ Acceptance, by slice:
    what it finishes, what else it feeds and what it costs; the walk matches a
    hand-computed toy world.
 4. **Since-the-export estimate** from the log — planned, not designed.
+
+## Planned — four features from a neighbouring app (2026-09-20)
+
+The owner uses [EQ Legends Companion](https://github.com/jmoyers/everquest-companion)
+beside this app and asked for four of its features here.
+[ADR-021](../architecture/adr-021-companion-features.md) is the record of
+what that app does, what may not be borrowed from it (it is FSL-licensed, not
+MIT, and most of its data is a wiki's), where each feature's data comes from
+instead, and why they are built in this order. None blocks a release.
+
+### F31. Raid targets — **planned, next** ([ADR-022](../architecture/adr-022-raid-targets.md))
+
+Which raid targets has this character killed, when, and at what difficulty —
+with the ones still standing beside the ones that fell. A roster laid over
+the death records the log already yields; nothing is stored.
+
+Acceptance:
+- **Zone and difficulty are query dimensions**, usable by every source, and
+  cost nothing to a query that does not mention them. A record in a load
+  screen or before the log's first zone line keys to `(unknown)`, never to a
+  neighbouring zone.
+- The zone line's `- Solo` / `- Group` marker is parsed
+  ([log format](../domain/eq-log-format.md) §3.9b): "The Plane of Fear - Group
+  3 (Fused)" is the Plane of Fear, with its map. Mob health (F25) and
+  incoming damage (F26) measure exactly what they measured before.
+- A kill is **credited** when an experience line claimed it; seen and
+  credited are both shown. Two deaths in one second each take their own
+  experience line; a death with none is seen and not credited.
+- The roster is checked-in data the owner has reviewed, matched on the whole
+  name — `Cleric of Innoruuk` is never Innoruuk.
+- Per target: where it lives, kills seen and credited, first and last kill, a
+  difficulty ladder with defeated tiers lit. Targets never killed are shown,
+  and counted ("N of M defeated").
+- Every target name carries the lookup door (F29) and opens its Bestiary page
+  (F30). The view sits in the rail's World group and obeys the app-wide time
+  frame, reading the whole log by default.
+- Metric values are tested against hand-computed numbers.
+- The difficulty a kill is filed under includes the `Solo` / `Group` mode
+  where the log printed one, since the mode rescales the instance as a tier
+  does: a solo kill and a group kill at the same tier are two rungs.
+- Not included: portraits, sounds, celebrations, respawn timers — and **the
+  weekly loot lockout**, left out at the owner's call (2026-09-20) to be
+  revisited only if its absence proves a problem. The time frame already
+  answers "what have I killed since Tuesday".
+
+### F32. Plane of Sky tracker — **planned**
+
+Every class's Tests in the Plane of Sky, what each wants, what you hold
+toward it, and which are ready to hand in. Its ADR is written when F31 ships.
+**One thing is deliberately not settled** — where the quest table comes from:
+
+- The quest table — giver, items wanted, reward. ADR-021 *recommends*
+  hand-authoring it as checked-in data, like `zones.tsv`: no site publishes
+  it in a form this app may take, and the one reference site that lists the
+  steps marks its own as unconfirmed for Legends. **The owner has left the
+  choice until F32 starts** (2026-09-20); nothing before then depends on it.
+
+What is settled (ADR-021):
+
+- What you hold is reconciled from four witnesses: loot lines, the
+  `/outputfile inventory` dump, item turn-ins, and items destroyed. **Turn-ins
+  and destroys are new grammars** — `You offered N <item> to <npc>.` closed by
+  `You complete the trade with <npc>.`, and `You successfully destroyed N
+  <item>.`; the owner's log has 1,188, 854 and 338 of them. Both get fixtures.
+- A hand-in the log witnessed takes the items back out, so a finished Test
+  reads 0 of N again rather than "ready".
+- Item stats and which mob drops what are **fetched from the reference site
+  on demand**, under every rule ADR-020 set for mobs: nothing until the view
+  is opened, cached, attributed, switched off by `--no-reference`, never
+  load-bearing.
+- A count the user states by hand outranks every witness, for the item that
+  was traded away or lost where no log saw it.
+
+### F33. Gear — **planned** (reopens [ADR-011](../architecture/adr-011-gear-snapshots.md))
+
+Search every equippable item by slot, class and stat; compare one against
+what you are wearing. Settled so far (ADR-021 Decisions 4 and 5):
+
+- What is worn comes from the `/outputfile inventory` dump, which is still
+  the only source there is. **The dump's age is on screen wherever anything
+  derived from it appears**, and with no dump the comparison is absent.
+- **Nothing from the dump reaches a parse** — no gear marks on charts, no
+  per-set DPS, no gear dimension. That is what F24 was withdrawn for.
+- No stat weights and no best-in-slot advice.
+- Browsing the whole item corpus is a bulk read of the reference site's
+  dataset, so **its author is asked first**. Without a yes, the browser covers
+  the items this server's logs and the player's files have named (F29).
+
+### F34. Overlays — **planned, behind a spike**
+
+Small always-on-top windows over the game. The design to aim for is that an
+overlay is **any dashboard panel, popped out** into a chromeless window on a
+route of the same SPA, fed by the live connection that already exists — no
+overlay-specific data path. Not yet a decision, because one thing under it is
+unverified: whether a WebView2 in this shell can be seen through, per pixel,
+onto the game. A throwaway window answers that; the owner sees the result —
+true transparency, or the whole-window-opacity fallback — before an ADR is
+written. ADR-021 Decision 6 lists the window-handling traps the neighbouring
+app already paid for.
+
 
 ## P2 — Later
 

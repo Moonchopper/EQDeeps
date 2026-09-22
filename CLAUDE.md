@@ -303,13 +303,21 @@ game client ships its own spell database and the app reads it from the player's
 install (`docs/domain/eq-client-files.md`), which is both better data for this
 game and nobody else's to license.
 
+**A second neighbour, under a stricter rule.**
+[EQ Legends Companion](https://github.com/jmoyers/everquest-companion) is the
+closest prior art for F31–F34 and is **FSL-1.1-MIT, not MIT**: a behaviour
+authority like EQLogParser, but *nothing* may be taken from it — not code, and
+not the data it bundles, most of which is scraped from a wiki that states no
+licence. Read ADR-021 rather than its source; a brief for those features
+points at our ADRs, never at its repository.
+
 **Documentation discipline** — this is the part that keeps future sessions cheap:
 
 - The domain docs are the **spec of record**. When reality disagrees with them,
   fix the doc in the same change.
 - Significant design choices get a short ADR in `docs/architecture/`
-  (`adr-0NN-topic.md`, numbered sequentially — 020 is the newest).
-- Features carry stable ids (F1…F30, F30 being the Bestiary) in `docs/product/features.md`; update the
+  (`adr-0NN-topic.md`, numbered sequentially — 023 is the newest).
+- Features carry stable ids (F1…F35; F30 is the Bestiary, F31–F34 are the planned companion-features programme, F35 is the Slayer planner) in `docs/product/features.md`; update the
   status line there when one ships, and reference the id in commits and comments.
 - `docs/HANDOFF.md` carries the rolling status paragraph. Keep it current.
 
@@ -330,7 +338,8 @@ game and nobody else's to license.
 | Stack, component boundaries, QuerySpec model, persistence layout | `docs/architecture/system-overview.md` |
 | Why is ingestion built that way? | `docs/architecture/log-ingestion-brief.md` + `adr-002` |
 | Where does mob reference data come from, and what may we do with it? | `docs/architecture/adr-020-npc-reference.md` — measured coverage, the licensing position, and the 2026-09-21 amendment that ships a snapshot of it; `data/eqlbase/README.md` says what that folder is and is not |
-| Why was decision D made? | `docs/architecture/adr-001…020` (parser, ingestion, session state, query engine, API/live, SPA, dashboards, packaging, windowed shell, auto-update, gear snapshots (withdrawn), mob health, incoming damage, navigation rail, visual language, zone maps, grouped rail, log cache, reference lookup, NPC reference) |
+| Raid targets, the Sky tracker, gear, overlays — what is planned, what may not be borrowed, where the data comes from | `docs/architecture/adr-021-companion-features.md`, then the feature's own ADR (`adr-022-raid-targets.md` so far) |
+| Why was decision D made? | `docs/architecture/adr-001…023` (parser, ingestion, session state, query engine, API/live, SPA, dashboards, packaging, windowed shell, auto-update, gear snapshots (withdrawn), mob health, incoming damage, navigation rail, visual language, zone maps, grouped rail, log cache, reference lookup, NPC reference, companion features, raid targets, Slayer planner) |
 | Build order, status, verification strategy | `docs/HANDOFF.md` |
 | Signing, release keys, what to do before tagging | `docs/release-signing.md` |
 | How do I run it / what do the flags do? | `README.md` |
@@ -461,4 +470,7 @@ Open, roughly in priority order:
   matches nothing until they are.
 - **Identity-registry disk persistence** — it is snapshot-serializable but still
   per-server-in-memory only.
+- **F31–F34, in that order** (ADR-021): raid targets (designed, ADR-022), the
+  Plane of Sky tracker, gear, overlays. Each gets its ADR when its turn
+  comes; overlays get a spike first.
 - The P1/P2 backlog in `docs/product/features.md`.

@@ -340,6 +340,14 @@ of Hate - Group". A row has one display name, so the second name resolves to
 nothing and the user is asked to pick. Known gap; the fix is a many-to-many
 table, not more curated rows.
 
+The Legends half of that example turned out to be something else
+(2026-09-20): `- Group` and `- Solo` are a marker the zone line carries on
+some instances, not part of a second zone's name — see
+[log format](eq-log-format.md) §3.9b. Stripping it with the rest of the
+instance suffix is part of F31 (ADR-022 Decision 2), after which those
+entries resolve to the ordinary map with no table change. The renamed
+event copies ("Reinforced Clan Crushbone") remain the real case.
+
 ### 5.2 Instances
 
 The log names an instance with its difficulty attached: `The Estate of Unrest 4

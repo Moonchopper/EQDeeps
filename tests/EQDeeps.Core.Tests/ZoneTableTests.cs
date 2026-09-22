@@ -8,7 +8,7 @@ public class ZoneTableTests
     private static ZoneTable Sample => ZoneTable.Parse(
         """
         # comment
-        unrest	The Estate of Unrest	curated	classic	id	63
+        unrest	The Estate of Unrest	curated	classic	id	63	city
         freportw	West Freeport	name
         freeportwest	West Freeport	curated	classic	id	9,383
         gukbottom	The Ruins of Old Guk	graph	classic	curated
@@ -168,6 +168,43 @@ public class ZoneTableTests
         Assert.True(table.Entries.Count > 200, $"Only {table.Entries.Count} zones loaded.");
         Assert.Equal(new[] { "unrest" }, table.MapsFor("The Estate of Unrest"));
         Assert.Equal("The Plane of Knowledge", table.DisplayFor("poknowledge"));
+    }
+
+    /// <summary>
+    /// The seventh column is optional; a row that doesn't carry it reads as "not a city" rather
+    /// than failing to parse.
+    /// </summary>
+    [Fact]
+    public void ReadsTheCityColumn()
+    {
+        Assert.True(Sample.EntryFor("unrest")!.City);
+        Assert.False(Sample.EntryFor("freportw")!.City); // no seventh column at all
+        Assert.False(Sample.EntryFor("newsebexp")!.City);
+    }
+
+    /// <summary>
+    /// The 23 player cities the owner agreed on (F35, ADR-023 Decision 6) — exactly these are
+    /// flagged, and nothing else. Kithicor, Highpass and Kerra Isle are hunting zones with a town in
+    /// them, and Greater Faydark holds Kelethin without being wholly a city — all three are
+    /// deliberately left unflagged, per the decision's own list of what does not count.
+    /// </summary>
+    [Fact]
+    public void ExactlyThe23NamedCitiesAreFlagged()
+    {
+        var table = ZoneTable.Default;
+        string[] cities =
+        [
+            "akanon", "erudnext", "erudnint", "felwithea", "felwitheb", "freeporteast", "freeportwest",
+            "freporte", "freportn", "freportw", "grobb", "halas", "kaladima", "kaladimb", "neriaka",
+            "neriakb", "neriakc", "oggok", "paineel", "qeynos", "qeynos2", "qrg", "rivervale",
+        ];
+
+        Assert.Equal(23, cities.Length);
+        Assert.All(cities, c => Assert.True(table.EntryFor(c)!.City, $"{c} should be a city"));
+        Assert.Equal(23, table.Entries.Count(e => e.City));
+
+        string[] notCities = ["kithicor", "highpass", "kerraridge", "gfaydark"];
+        Assert.All(notCities, c => Assert.False(table.EntryFor(c)!.City, $"{c} should not be a city"));
     }
 
     [Fact]

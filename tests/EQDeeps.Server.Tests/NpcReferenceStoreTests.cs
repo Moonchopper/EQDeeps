@@ -1,3 +1,4 @@
+using System.Text.Json;
 using EQDeeps.Server.Reference;
 using Xunit;
 
@@ -35,13 +36,24 @@ public sealed class NpcReferenceStoreTests : IDisposable
         }
     }
 
-    /// <summary>Answers from memory, counts what was asked, and can be told to fail or to 304.</summary>
+    /// <summary>
+    /// Answers from memory, counts what was asked, and can be told to fail (everywhere, or on one
+    /// path only) or to always 304. Also tracks the etag each request carried and how many requests
+    /// were ever in flight at once, for the atlas walk's own tests (C1): a real <c>await
+    /// Task.Delay</c> gap between recording "in flight" and answering means the walk's "never two
+    /// shards at once" claim (Gotcha 2) is actually exercised, not trivially true because this fake
+    /// never yielded.
+    /// </summary>
     private sealed class FakeSource : IReferenceSource
     {
         public readonly List<string> Requested = [];
         public readonly Dictionary<string, string> Bodies = new(StringComparer.Ordinal);
+        public readonly Dictionary<string, string?> LastEtag = new(StringComparer.Ordinal);
+        public readonly HashSet<string> FailPaths = [];
         public string? Failure;
         public bool AlwaysNotModified;
+        private int _inFlight;
+        public int MaxConcurrent;
 
         public string Name => "FakeBase";
 
@@ -49,22 +61,34 @@ public sealed class NpcReferenceStoreTests : IDisposable
 
         public string NpcUrl(int id) => $"https://example.invalid/npcs/{id}/";
 
-        public Task<ReferenceFetch> GetAsync(string path, string? etag, CancellationToken ct)
+        public async Task<ReferenceFetch> GetAsync(string path, string? etag, CancellationToken ct)
         {
             Requested.Add(path);
-            if (Failure is not null)
+            LastEtag[path] = etag;
+            var now = Interlocked.Increment(ref _inFlight);
+            MaxConcurrent = Math.Max(MaxConcurrent, now);
+            try
             {
-                return Task.FromResult(ReferenceFetch.Failure(Failure));
-            }
+                await Task.Delay(2, ct).ConfigureAwait(false);
 
-            if (AlwaysNotModified)
+                if (Failure is not null || FailPaths.Contains(path))
+                {
+                    return ReferenceFetch.Failure(Failure ?? "fake failure: " + path);
+                }
+
+                if (AlwaysNotModified)
+                {
+                    return ReferenceFetch.NotModified(etag);
+                }
+
+                return Bodies.TryGetValue(path, out var body)
+                    ? ReferenceFetch.Fetched(body, "\"etag-" + path.GetHashCode() + "\"")
+                    : ReferenceFetch.NotFound();
+            }
+            finally
             {
-                return Task.FromResult(ReferenceFetch.NotModified(etag));
+                Interlocked.Decrement(ref _inFlight);
             }
-
-            return Task.FromResult(Bodies.TryGetValue(path, out var body)
-                ? ReferenceFetch.Fetched(body, "\"etag-" + path.GetHashCode() + "\"")
-                : ReferenceFetch.NotFound());
         }
     }
 
@@ -226,5 +250,123 @@ public sealed class NpcReferenceStoreTests : IDisposable
         var again = Source();
         Assert.NotNull(await new NpcReferenceStore(again, _dir).IndexAsync());
         Assert.Contains("/data/search-index.json", again.Requested);
+    }
+
+    // ---- the atlas walk (F35, ADR-023 Decision 7) --------------------------
+
+    [Fact]
+    public async Task TheAtlasWalksEveryShardOnceInSequenceAndSkipsAFailingOne()
+    {
+        var source = new FakeSource
+        {
+            Bodies =
+            {
+                ["/data/search-index.json"] = """
+                    [["a gnoll (5)","n",1001],["a kobold (6)","n",2001],["a bat (3)","n",3001]]
+                    """,
+                ["/data/npcs/1.json"] = """
+                    {"1001":{"id":1001,"name":"a gnoll","level":5,"race":"Gnoll","respawn":300,
+                      "zones":[{"zone":"blackburrow","longName":"Blackburrow","spawnPoints":4,"locs":[[0,0,0]]}]}}
+                    """,
+                ["/data/npcs/3.json"] = """
+                    {"3001":{"id":3001,"name":"a bat","level":3,"race":"Bat","respawn":300,
+                      "zones":[{"zone":"kithicor","longName":"Kithicor Forest","spawnPoints":2,"locs":[[0,0,0]]}]}}
+                    """,
+            },
+        };
+        source.FailPaths.Add("/data/npcs/2.json"); // shard 2 (the kobold) never answers
+
+        var store = new NpcReferenceStore(source, _dir, atlasPause: TimeSpan.Zero);
+
+        // _atlasStarted flips synchronously inside StartAtlas, before Task.Run's work has had any
+        // chance to run on the thread pool, so the very next line reliably observes the walk mid
+        // flight — "status goes Running" is not just narrative.
+        var justStarted = store.StartAtlas();
+        Assert.True(justStarted.Running);
+        Assert.False(justStarted.Complete);
+
+        // A second call back to back: the compare-and-swap guard (not timing) is what proves it
+        // starts nothing (Gotcha 2), so this needs no race to be meaningful.
+        store.StartAtlas();
+        await (store.AtlasTask ?? Task.CompletedTask);
+
+        var status = store.AtlasStatus();
+        Assert.True(status.Enabled);
+        Assert.True(status.Complete);
+        Assert.False(status.Running);
+        Assert.Equal(3, status.ZonesTotal);
+        Assert.Equal(3, status.ZonesRead);
+        Assert.NotNull(status.Error);
+
+        // Every shard requested exactly once, in ascending order — a second StartAtlas call left
+        // no trace, and the index was read only once too.
+        Assert.Equal(
+            ["/data/search-index.json", "/data/npcs/1.json", "/data/npcs/2.json", "/data/npcs/3.json"],
+            source.Requested);
+        Assert.Equal(1, source.MaxConcurrent);
+
+        // The failing shard contributed nothing, but the other two still made it into the atlas.
+        var atlas = await store.AtlasAsync();
+        Assert.Equal(2, atlas.Zones.Count);
+        Assert.Contains(atlas.Zones, z => z.ShortName == "blackburrow");
+        Assert.Contains(atlas.Zones, z => z.ShortName == "kithicor");
+    }
+
+    [Fact]
+    public void ADisabledStoresAtlasWalkMakesNoRequests()
+    {
+        var source = Source();
+        var store = new NpcReferenceStore(source, _dir, enabled: false, atlasPause: TimeSpan.Zero);
+
+        var status = store.StartAtlas();
+
+        Assert.False(status.Enabled);
+        Assert.False(status.Running);
+        Assert.False(status.Complete);
+        Assert.Empty(source.Requested);
+    }
+
+    // ---- shard revalidation (F35, ADR-023 Decision 7) -----------------------
+
+    [Fact]
+    public async Task AFreshShardCostsNothing_AStaleOneRevalidatesOnItsEtag_AndAFailureKeepsWhatItHad()
+    {
+        var first = Source();
+        var store = new NpcReferenceStore(first, _dir);
+        Assert.Equal(75, (await store.DetailAsync(2119))!.Hp);
+
+        var shardPath = Path.Combine(_dir, "reference", "npcs-2.json");
+        Assert.True(File.Exists(shardPath));
+
+        // Fresh (just written): a brand-new store instance still asks nothing.
+        var second = Source();
+        var reopened = new NpcReferenceStore(second, _dir);
+        Assert.Equal(75, (await reopened.DetailAsync(2119))!.Hp);
+        Assert.Empty(second.Requested);
+
+        // Aged past ShardMaxAge (7 days): exactly one conditional GET, carrying the ETag the first
+        // fetch stored — read back from etags.json itself, not assumed (Gotcha 3).
+        Age(shardPath, TimeSpan.FromDays(8));
+        var storedEtag = JsonSerializer.Deserialize<Dictionary<string, string>>(
+            File.ReadAllText(Path.Combine(_dir, "reference", "etags.json")))!["npcs-2.json"];
+
+        var third = Source();
+        third.AlwaysNotModified = true;
+        var stale = new NpcReferenceStore(third, _dir);
+        var beforeTouch = File.GetLastWriteTimeUtc(shardPath);
+        Assert.Equal(75, (await stale.DetailAsync(2119))!.Hp);
+        Assert.Equal(["/data/npcs/2.json"], third.Requested);
+        Assert.Equal(storedEtag, third.LastEtag["/data/npcs/2.json"]);
+
+        // A 304 keeps the cached data and freshens the write time.
+        Assert.True(File.GetLastWriteTimeUtc(shardPath) > beforeTouch);
+
+        // Aged again, and this time the revalidation fails outright: the cached copy still answers.
+        Age(shardPath, TimeSpan.FromDays(8));
+        var fourth = Source();
+        fourth.Failure = "no network";
+        var failing = new NpcReferenceStore(fourth, _dir);
+        Assert.Equal(75, (await failing.DetailAsync(2119))!.Hp);
+        Assert.Equal(["/data/npcs/2.json"], fourth.Requested);
     }
 }

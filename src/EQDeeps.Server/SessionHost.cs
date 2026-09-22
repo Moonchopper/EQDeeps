@@ -219,26 +219,31 @@ public sealed class SessionHost : IAsyncDisposable
     {
         var estimates = _attacks?.Estimates(Session.Server) ?? [];
 
-        // The character's level right now decides which rows the panel opens
-        // on: a level-58 reading a level-40's numbers would be reading someone
-        // else's fight. Null when the log has not said yet, which the panel
-        // reports rather than papering over.
-        int? level;
+        return new MobAttackReport(
+            Session.Server,
+            Session.Character,
+            CharacterLevel(),
+            estimates,
+            estimates.Sum(e => e.Landed),
+            estimates.Any(e => e.Difficulty is not null));
+    }
+
+    /// <summary>
+    /// The level the log has last established for this character, right now. Shared by
+    /// <see cref="MobAttacks"/> and the Slayer hunt report (F35, <c>SlayerHuntReports.BuildAsync</c>)
+    /// — a level-58 character must not be shown a level-40's rows in one report and a level-40's
+    /// cap in the other, whichever report happens to be asking. Null when the log has not said yet,
+    /// which each caller reports rather than papers over.
+    /// </summary>
+    public int? CharacterLevel()
+    {
         lock (Session.Gate)
         {
-            level = Session.Records.Count == 0
+            return Session.Records.Count == 0
                 ? null
                 : LevelsLocked().LevelOf(
                     Session.Character, Session.Records[Session.Records.Count - 1].Timestamp);
         }
-
-        return new MobAttackReport(
-            Session.Server,
-            Session.Character,
-            level,
-            estimates,
-            estimates.Sum(e => e.Landed),
-            estimates.Any(e => e.Difficulty is not null));
     }
 
     /// <summary>The tail of the incoming-damage stream over a scope (F26).</summary>

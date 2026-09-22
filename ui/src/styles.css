@@ -1408,6 +1408,11 @@ td {
 th {
   position: sticky;
   top: 0;
+  /* Above the body's first column, which is positioned for the row meter
+     (tbody td:first-child, below) and comes later in the tree — with both at
+     z-index auto it painted over the header, so a scrolled table showed a
+     row's name where the column's name should be. */
+  z-index: 1;
   background: var(--surface);
   color: var(--muted);
   font-weight: var(--w-bold);
@@ -1593,6 +1598,10 @@ th.num {
   color: var(--muted);
   width: 16px;
   display: inline-block;
+  /* Interactive everywhere it appears with its own click handler — the
+     Slayer table gives it one (F35 slice 2) so the chevron can toggle
+     independently of the row's own click, which now selects. */
+  cursor: pointer;
 }
 
 .expander-spacer {
@@ -4012,6 +4021,238 @@ tr:hover .lookup-btn,
 
 .slayer-row.highlight td {
   background-color: var(--selected);
+}
+
+/* ---- slayer hunting: "Where to hunt" (F35 slice 2, ADR-023 Decisions 4-9)
+   Master-detail beside the kill table: every row (not only the expandable
+   ones, per the collision noted where the row's onClick is wired) opens a
+   detail selecting one achievement or one of its components. */
+
+.slayer-row.selectable,
+.child-row.selectable {
+  cursor: pointer;
+}
+
+.slayer-row.selected td,
+.child-row.selected td {
+  background-color: var(--selected);
+}
+
+.slayer-split {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  gap: 10px;
+}
+
+/* The split, open only once a row is selected. No media query: an intrinsic
+   grid reflows on its own, the idiom the Bestiary's hero cards already use
+   (~L3570 above) — two columns wide enough to read a zone row apiece on a
+   wide window, one column stacked once neither can get that much room.
+   align-items stays at its default (stretch, not "start"): the row's
+   height is set by CSS Grid's own align-content:stretch against
+   .slayer-split's bounded flex:1 height, and each column must be stretched
+   to match it or its own .table-scroll/.hunt-zone-scroll has nothing to
+   bound against — "start" was tried first and let both panels grow to
+   their full unclipped content height instead, scrolling the whole page. */
+.slayer-split.split {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+  gap: 10px;
+}
+
+/* With the detail open the table has half the window, and a Conquest's
+   creature list wrapped one row to 199 px — forty of ninety-eight rows stood
+   over 60, so the list stopped being scannable exactly when someone was
+   picking from it. The detail's own header spells the selected row's list
+   out in full, so here two lines are enough to recognise a row by, and the
+   rest is a hover away. */
+.slayer-split.split .slayer-creatures-text {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.hunt-detail {
+  min-height: 0;
+}
+
+.hunt-detail-body {
+  padding: 8px 12px 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.hunt-sub,
+.hunt-terms {
+  margin: 0;
+}
+
+.hunt-cap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: var(--fs-small);
+}
+
+.hunt-cap-input {
+  width: 64px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-chip);
+  color: var(--ink);
+  font-size: var(--fs-small);
+  padding: 2px 6px;
+}
+
+.hunt-cap-input:focus {
+  border-color: var(--accent);
+}
+
+.hunt-faction-note {
+  margin: 2px 0 0;
+}
+
+.hunt-atlas {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 2px;
+}
+
+.hunt-atlas-error {
+  margin: 2px 0 0;
+  color: var(--gold);
+  font-size: var(--fs-small);
+}
+
+.hunt-zone-scroll {
+  padding: 8px 12px 12px;
+}
+
+.hunt-zone-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.hunt-zone {
+  padding-top: 8px;
+  border-top: 1px solid var(--grid);
+}
+
+.hunt-zone:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.hunt-zone-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.hunt-zone-btn {
+  flex: 1 1 auto;
+  min-width: 180px;
+}
+
+.hunt-zone-go {
+  margin-left: auto;
+}
+
+.hunt-zone-stats {
+  flex: none;
+  font-size: var(--fs-tiny);
+  white-space: nowrap;
+}
+
+.hunt-zone-mobs {
+  padding-top: 6px;
+}
+
+/* "Costs a faction you are building" — the idiom this stylesheet already
+   uses for a divider (.slayer-meta-strip above): a rule, not a class of its
+   own furniture. */
+.hunt-divider {
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 1px solid var(--grid);
+  color: var(--muted);
+  font-size: var(--fs-micro);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  font-weight: var(--w-bold);
+}
+
+.hunt-fx-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: 6px;
+  font-size: var(--fs-tiny);
+}
+
+.hunt-fx {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  color: var(--ink-2);
+}
+
+.hunt-fx.muted {
+  color: var(--muted);
+}
+
+.hunt-fx-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hunt-fx-value {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Loss/gain read from the effect's own sign, not from a general "protected"
+   colour — a protected faction can rise too (see the Barbarous fixture, two
+   zones with a positive Guards of Qeynos effect), and that is worth showing
+   green rather than flattened to the same warning tone as every loss. */
+.hunt-fx.loss .hunt-fx-value {
+  color: var(--danger);
+}
+
+.hunt-fx.gain .hunt-fx-value {
+  color: var(--live);
+}
+
+.hunt-fx-standing {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.hunt-fx-unlock {
+  flex: none;
+}
+
+.hunt-fx-toggle {
+  align-self: flex-start;
+  margin-top: 2px;
+}
+
+.hunt-cities-note {
+  margin: 4px 0 0;
 }
 
 /* ---- the map's mobs tab (F30 × F27) --------------------------------------

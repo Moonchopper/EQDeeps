@@ -30,7 +30,7 @@ what is here is what *any* Daybreak client of the same vintage carries.
 | NPC lore blurbs | 306 famous ones (Overseer agent cards) | `dbstr_us.txt` types 52/53/61 |
 | Faction id → name | Yes, complete, 2,048 rows | `dbstr_us.txt` type 45; ripple table in `Resources\Faction\FactionAssociations.txt` |
 | The player's **achievement progress**, with kill counts | Yes, when the player asks the game for it | `<Char>_<server>-Achievements.txt` (`/outputfile achievements`) — grammar below. The client's own `Resources\Achievements\*` defines the achievements but carries neither progress nor the counts required |
-| The player's **faction standings** | Presumably — the command exists, no sample has been read yet | `/outputfile faction` (`eqstr` 3487 lists it beside `achievements` and `inventory`) |
+| The player's **faction standings**, as numbers | Yes, when the player asks the game for it | `<Char>_<server>-<CLASS>-Factions.txt` (`/outputfile faction`) — one per class loadout; grammar below |
 | Race id → name, singular and plural | Yes, 997 of each | `dbstr_us.txt` types 11 and 12 (`39^11^Gnoll`, `39^12^Gnolls`) |
 | Spell **durations** | Yes — `spells_us.txt` **column 107 = duration formula, column 108 = cap in ticks** (1 tick = 6 s). Identified, not guessed: see below | same file |
 | Spell database | **Yes, complete**: 73,963 spells, 173 columns; cast messages; descriptions | `spells_us.txt`, `spells_us_str.txt` (headed: `#SPELLINDEX^CASTERMETXT^CASTEROTHERTXT^CASTEDMETXT^CASTEDOTHERTXT^SPELLGONE^`), `dbstr_us.txt` type 6 |
@@ -203,6 +203,43 @@ What is true of it, each checked against the whole file:
 Like every file here it is the player's own, read from their install and
 never copied; like every input it is hostile until parsed — bounded size,
 no throw on a malformed line, unknown shapes counted and skipped.
+
+### The faction export — `<Char>_<server>-<CLASS>-Factions.txt`
+
+Written by `/outputfile faction` (the command is singular, the file plural).
+Measured on the reference install (2026-09-20): 187 lines, 5.6 KB, ASCII,
+CRLF — a header row and then one row per faction the character has met:
+
+```
+ID⇥Name⇥StandingValue⇥PointsToMax
+221⇥Bloodsabers⇥1090⇥910
+218⇥Allize Taeew⇥-2000⇥4000
+223⇥Circle of Unseen Hands⇥2000⇥0
+```
+
+- **The file name carries the class** — `Moonchopper_qeynos-SHD-Factions.txt`
+  — because on Legends a character is three class loadouts
+  ([loadouts doc](eq-legends-loadouts.md)) and this export is one loadout's.
+  It is the only per-loadout file the app reads. Several can sit side by
+  side; the newest is the one the player just wrote.
+- **`ID` and `Name` are the client's own** — all 186 rows match `dbstr` type
+  45 exactly, id and spelling both. So this file is the authority on how a
+  faction's name is spelled, which matters because nothing else agrees: the
+  achievements export says `Coalition of Tradesfolk`, this says `Coalition
+  of Tradefolk`; `Da Bashers` / `DaBashers`; `Freeport Militia` / `The
+  Freeport Militia`; `Corrupt Qeynos Guard` / `…Guards`.
+- **`StandingValue` runs −2,000 to +2,000 and `PointsToMax` is always
+  `2000 − StandingValue`** (186 of 186), so the second column is derivable
+  and only the first is read.
+- **Only factions the character has touched appear** — 186 of the client's
+  2,048 — and 107 of those sit at exactly 0. A faction missing from the file
+  is "never met", not "zero", though the two read the same in a projection.
+- **It does not agree with the achievements export about "maximum"**, and is
+  not supposed to: six factions whose `Get maximum faction with X.` is
+  complete stand below 2,000 here, four of them at 0 — a component can
+  complete some other way (the race the character was created as completes
+  its whole unlock), and one earned by standing stays earned after the
+  standing falls. ADR-023 Decision 5 is built on that difference.
 
 ### `maps\`
 

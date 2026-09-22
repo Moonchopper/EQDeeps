@@ -13,5 +13,9 @@
          portable unzip cannot lose it, and kept as TSV rather than generated
          C# so a correction is a one-line diff a non-programmer can read. -->
     <EmbeddedResource Include="Maps\zones.tsv" />
+
+    <!-- The Slayer creature-word table (F35, ADR-023 Decision 3). Same reasoning as zones.tsv:
+         embedded so a portable unzip cannot lose it, TSV so a correction stays a one-line diff. -->
+    <EmbeddedResource Include="Achievements\slayer-races.tsv" />
   </ItemGroup>
 </Project>

@@ -72,8 +72,12 @@
 > `/outputfile achievements` export — every kill achievement with its
 > progress, nearest to done first — as the first slice of a planner that will
 > say where to hunt each creature type without costing a faction or sending
-> anyone into a city (ADR-023, feature F35: slice 1 of 5 built; the race
-> table, the zone atlas, the faction rule and the plan are designed and not
+> anyone into a city (ADR-023, feature F35: slices 1 and 2 of 4 built — picking an open
+> achievement now ranks the zones its creatures stand in by respawn supply,
+> with each zone's faction cost shown against the player's real standings
+> from `/outputfile faction`; the reference shards it reads are fetched one
+> at a time, once, only when that panel is opened, and any shard older than a
+> week is revalidated; the plan across everything open is designed and not
 > yet written).
 > Currently at **v0.16.0**. See `docs/product/features.md` for per-feature
 > status. The main open items: the release-gate invariants (CLAUDE.md §8 —

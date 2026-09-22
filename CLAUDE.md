@@ -38,8 +38,8 @@ special-case rendering path, check whether it should be a query first.
 | `src/EQDeeps.Core/Session/` | `Session`, `RecordStore`, `FightTracker`, `IdentityRegistry`. |
 | `src/EQDeeps.Core/Query/` | `QuerySpec`, `QueryEngine`, `MetricCatalog`, `CannedQueries`, the timelines. |
 | `src/EQDeeps.Core/Mobs/` | F25 learned mob health; F26 learned mob attacks + defender levels. |
-| `src/EQDeeps.Core/Achievements/` | F35: the grammar of the player's `/outputfile achievements` export (the whole file, every category) and the Slayer projection over it. Reads; writes nothing. |
-| `src/EQDeeps.Core/Maps/` | F27 zone maps: the EQ map-file grammar, the zone-name table (`zones.tsv`, with each zone's era and its client zone ids — the Bestiary addresses a zone's roster by them), the world graph. |
+| `src/EQDeeps.Core/Achievements/` | F35: the grammars of the player's `/outputfile achievements` and `/outputfile faction` exports, the Slayer projection, `slayer-races.tsv` (creature words → the reference's race labels, hand-authored — read its header before adding a row), and the pure atlas + zone ranking (ADR-023). Reads; writes nothing. |
+| `src/EQDeeps.Core/Maps/` | F27 zone maps: the EQ map-file grammar, the zone-name table (`zones.tsv`, with each zone's era, its client zone ids — the Bestiary addresses a zone's roster by them — and a hand-authored `city` flag the Slayer planner never recommends past), the world graph. |
 | `src/EQDeeps.Server/` | Minimal-API host, SignalR hub, session lifecycle, WebView2 shell, persistence stores, updates. |
 | `src/EQDeeps.Server/wwwroot/` | **Build output** (gitignored). The SPA is built into here and embedded into the assembly. |
 | `ui/` | React + TypeScript + Vite SPA. |
@@ -49,7 +49,7 @@ special-case rendering path, check whether it should be a query first.
 | `tools/EQDeeps.Bench/` | Log generator + backfill/latency benchmarks. |
 | `docs/` | The spec of record. See §7. |
 | `installer/EQDeeps.iss` | Inno Setup script (per-user install by default). |
-| `scripts/` | `publish.ps1`, `screenshots.mjs`, `derive-zone-eras.mjs` (regenerates the era and zone-id columns of `zones.tsv` from a client's `ZoneNames.txt`), icon + signing setup. |
+| `scripts/` | `publish.ps1`, `screenshots.mjs`, `derive-zone-eras.mjs` (regenerates the era and zone-id columns of `zones.tsv` from a client's `ZoneNames.txt`, carrying the hand-authored `city` column through untouched), icon + signing setup. |
 | `.github/workflows/` | `ci.yml`, `release.yml`, `verify-signing-key.yml`. |
 
 Solution: `EQDeeps.sln`. Shared MSBuild settings in `Directory.Build.props`
@@ -200,7 +200,7 @@ Invariants worth not breaking:
 | `recent-logs.json` | MRU log list | `--recentLogsRoot` | No |
 | `mobs\` | F25 learned mob health per *server* | `--mobRoot` | Yes — a cache. Corrupt file just relearns |
 | `attacks\` | F26 learned mob attacks per *server*, keyed by defender level too | `--attackRoot` | Yes — a cache, same deal |
-| `reference\` | F30 mob details fetched from EQLBase on demand — the name index and the id-sharded stat blocks, with their ETags (ADR-020). Never bundled, never fetched until asked | `--referenceRoot` | Yes — a cache; `--no-reference` switches the whole feature off |
+| `reference\` | F30 mob details fetched from EQLBase on demand — the name index and the id-sharded stat blocks, with their ETags (ADR-020). Never bundled, never fetched until asked. The Slayer planner reads *every* shard — one at a time, once, only when its panel is opened (ADR-023 Decision 7) — and a shard older than a week is revalidated, keeping the cached copy if that fails | `--referenceRoot` | Yes — a cache; `--no-reference` switches the whole feature off |
 | `items\` | F29 item registry per *server*: every item the logs and the player's client files have named, with the game's id where a file gave one (ADR-019) | `--itemRoot` | Yes — a cache; the logs and the client's `userdata\LF_*.ini` still exist |
 | `cache\` | F28 parsed records per *log file* per *parser build* (`<hash of path>-<build>.eqdc`), so the next open resumes instead of re-parsing (ADR-018). Dev and installed builds keep separate files and never read each other's. Also `map-labels-<build>.json`: every map file's labels, so the World view's graph does not re-read 200 MB of maps per launch | `--cacheRoot` | Yes — a cache; validated against the log's own bytes and the parser build, rebuilt when either differs. Sweeps itself: gone logs, 60 days idle, all but the newest foreign build per log. Map labels validated per file by size + mtime |
 | update preferences, staged installer | ADR-010 | `--updateRoot` | Yes |
@@ -239,6 +239,12 @@ change it on the other in the same commit.
   linked-highlight behaviour (point at one reading of an entity, light up the
   rest everywhere; click to keep it lit on this view, pin — the chip in the
   header — to keep it on every view and across restarts).
+- **"Look mobs up online" is enforced in the UI and nowhere else** — it lives in
+  `ui-settings.json` and never reaches the server. Any view that reads the
+  reference must check `useReferenceEnabled()` itself before it asks for
+  anything (the Bestiary, the Map's roster and the Slayer hunting panel do);
+  `--no-reference` is the server-side switch. Prove it both ways: no request
+  with it off, the expected one with it on.
 - `components/NavRail.tsx` + `dashboards/railGroups.ts` — the grouped,
   collapsible rail (ADR-017); `components/SettingsDialog.tsx` and
   `components/LogPicker.tsx` are the two utilities it opens.

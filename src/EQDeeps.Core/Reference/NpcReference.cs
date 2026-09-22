@@ -14,12 +14,27 @@ public sealed record NpcLootLine(int ItemId, string Item, double DropPercent, in
 /// <summary>Where a listed NPC spawns: the zone, and the points it is placed at.</summary>
 public sealed record NpcSpawnZone(string ShortName, string LongName, int SpawnPoints, IReadOnlyList<double[]> Locations);
 
+/// <summary>One faction a kill moves, and by how much — a listing's own <c>factionHits</c> row.</summary>
+public sealed record NpcFactionHit(string Faction, int Delta);
+
 /// <summary>
 /// Everything a reference site lists about one NPC. Every field is optional
 /// on purpose: this is someone else's data, read from a site that says of
 /// itself that it is in early alpha, and a missing number must read as
 /// "not listed" rather than as a zero.
 /// </summary>
+/// <param name="SpawnChance">
+/// The percent chance this listing's spawn point holds this NPC rather than
+/// another on the same table, or null when the site does not say (F35,
+/// ADR-023 Decision 4 — a zone's kill supply is spawn points weighted by
+/// this and by respawn time).
+/// </param>
+/// <param name="FactionHits">
+/// What a kill moves on the factions it hits. Never null — an absent field
+/// reads as no hits, matching <see cref="Specials"/>/<see cref="Loot"/>/
+/// <see cref="Zones"/> — but see <see cref="NpcReferenceFormat.ReadFactionHits"/>
+/// for the one case where a *present* field is still read as none.
+/// </param>
 public sealed record NpcDetail(
     int Id,
     string Name,
@@ -35,7 +50,12 @@ public sealed record NpcDetail(
     int? MaxDamage,
     IReadOnlyList<string> Specials,
     IReadOnlyList<NpcLootLine> Loot,
-    IReadOnlyList<NpcSpawnZone> Zones);
+    IReadOnlyList<NpcSpawnZone> Zones,
+    int? SpawnChance = null,
+    IReadOnlyList<NpcFactionHit>? FactionHits = null)
+{
+    public IReadOnlyList<NpcFactionHit> FactionHits { get; init; } = FactionHits ?? Array.Empty<NpcFactionHit>();
+}
 
 /// <summary>
 /// Reads the shapes EQLBase publishes (ADR-020). Two files:
@@ -240,7 +260,56 @@ public static class NpcReferenceFormat
             Int(e, "maxDmg"),
             Strings(e, "specials"),
             Loot(e),
-            Zones(e));
+            Zones(e),
+            Int(e, "spawnChance"),
+            ReadFactionHits(e));
+    }
+
+    /// <summary>
+    /// A listing's <c>factionHits</c> — except when it has no primary faction, in which case this
+    /// returns none regardless of what the field says (F35, ADR-023 Decision 5). 299 of 2,997
+    /// listings measured with <c>"faction": null</c> all carried the identical placeholder triple
+    /// "Deepwater Knights -1000 / Gate Callers +1000 / Heretics -1000" — a level-1 sewer rat and a
+    /// level-65 named alike — which is the site's bookkeeping row, not data about this NPC. The
+    /// rule is the null check on <c>faction</c>, not a match on that triple, so it keeps working if
+    /// the site ever changes its placeholder.
+    /// </summary>
+    private static IReadOnlyList<NpcFactionHit> ReadFactionHits(JsonElement e)
+    {
+        if (Str(e, "faction") is null)
+        {
+            return [];
+        }
+
+        if (!e.TryGetProperty("factionHits", out var hits) || hits.ValueKind != JsonValueKind.Array)
+        {
+            return [];
+        }
+
+        var list = new List<NpcFactionHit>();
+        foreach (var row in hits.EnumerateArray())
+        {
+            // [name, delta] — same tolerant-skip posture as Loot above: a malformed entry is
+            // dropped and the rest of this listing's hits are kept.
+            if (row.ValueKind != JsonValueKind.Array || row.GetArrayLength() < 2)
+            {
+                continue;
+            }
+
+            if (row[0].ValueKind != JsonValueKind.String || row[0].GetString() is not { Length: > 0 } faction)
+            {
+                continue;
+            }
+
+            if (!TryInt(row[1], out var delta))
+            {
+                continue;
+            }
+
+            list.Add(new NpcFactionHit(faction, delta));
+        }
+
+        return list;
     }
 
     private static IReadOnlyList<NpcLootLine> Loot(JsonElement e)

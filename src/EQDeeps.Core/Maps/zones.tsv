@@ -1,7 +1,7 @@
 abysmal	The Abysmal Sea	curated	god	id	279
 acrylia	Acrylia Caverns	curated	luclin	id	154
 airplane	The Plane of Sky	curated	classic	id	71
-akanon	Ak'Anon	name	classic	id	55
+akanon	Ak'Anon	name	classic	id	55	city
 akheva	The Akheva Ruins	curated	luclin	id	179
 alkabormare	Al'Kabor's Nightmare	curated	hot	id	709
 arena	The Arena	name	classic	id	77,388
@@ -66,30 +66,30 @@ eastwastes	Eastern Wastes	curated	velious	id	116,616,824
 echo	Echo Caverns	graph	luclin	id	153
 ecommons	East Commonlands	curated	classic	id	22
 emeraldjungle	The Emerald Jungle	name	kunark	id	94
-erudnext	Erudin	curated	classic	id	24
-erudnint	Erudin Palace	curated	classic	id	23
+erudnext	Erudin	curated	classic	id	24	city
+erudnint	Erudin Palace	curated	classic	id	23	city
 erudsxing	Erud's Crossing	curated	classic	curated	98,598
 erudsxing2	Erud's Crossing	curated	classic	curated	98,598
 ethernere	Ethernere Tainted West Karana	graph	cotf	id	772
 everfrost	Everfrost Peaks	graph	classic	id	30,531
 fearplane	The Plane of Fear	curated	classic	id	72,572
 feerrott	The Feerrott	name	classic	id	47,700
-felwithea	Northern Felwithe	curated	classic	id	61
-felwitheb	Southern Felwithe	curated	classic	id	62
+felwithea	Northern Felwithe	curated	classic	id	61	city
+felwitheb	Southern Felwithe	curated	classic	id	62	city
 fieldofbone	The Field of Bone	name	kunark	id	78
 firefallpass	Firefall Pass	name	ls	id	857
 firiona	Firiona Vie	graph	kunark	id	84,503
 foundation	The Foundation	name	uf	id	486
 freeportacademy	Academy of Arcane Sciences	curated	por	id	385
 freeportcityhall	City Hall	curated	por	id	389
-freeporteast	East Freeport	curated	classic	id	10,382
+freeporteast	East Freeport	curated	classic	id	10,382	city
 freeporthall	Hall of Truth	curated	por	id	391
 freeportmilitia	Freeport Militia House	curated	por	id	387
 freeportsewers	Freeport Sewers	name	por	id	384
-freeportwest	West Freeport	curated	classic	id	9,383
-freporte	East Freeport	curated	classic	id	10,382
-freportn	North Freeport	curated	classic	id	8
-freportw	West Freeport	curated	classic	id	9,383
+freeportwest	West Freeport	curated	classic	id	9,383	city
+freporte	East Freeport	curated	classic	id	10,382	city
+freportn	North Freeport	curated	classic	id	8	city
+freportw	West Freeport	curated	classic	id	9,383	city
 frontiermtns	Frontier Mountains	graph	kunark	id	92,791
 frontiermtnsb	The Skyfire Mountains	graph	kunark	id	91,814
 fungalforest	Fungal Forest	name	uf	id	481
@@ -99,12 +99,12 @@ gorowyn	Gorowyn	name	ros	curated	792
 greatdivide	The Great Divide	name	velious	id	118,618,827
 griegsend	Grieg's End	name	luclin	id	163
 grimling	Grimling Forest	curated	luclin	id	167,809
-grobb	Grobb	name	classic	id	52
+grobb	Grobb	name	classic	id	52	city
 guildhall	Guild Hall	name	don	id	345
 guildlobby	Guild Lobby	name	don	id	344
 gukbottom	The Ruins of Old Guk	curated	classic	id	66
 guktop	The City of Guk	curated	classic	id	65
-halas	Halas	name	classic	id	29
+halas	Halas	name	classic	id	29	city
 harbingers	Harbinger's Spire	curated	oow	id	335
 hateplane	The Plane of Hate	curated	classic	id	76,186,586
 hateplaneb	The Plane of Hate	curated	classic	id	76,186,586
@@ -124,8 +124,8 @@ innothuleb	Gukta, Outpost of Marr	curated	tbm	id	806
 jardelshook	Jardel's Hook	name	tbs	id	424
 kael	Kael Drakkel	curated	velious	id	113,829
 kaesora	Kaesora	name	kunark	id	88
-kaladima	North Kaladim	curated	classic	id	67
-kaladimb	South Kaladim	curated	classic	id	60
+kaladima	North Kaladim	curated	classic	id	67	city
+kaladimb	South Kaladim	curated	classic	id	60	city
 karnor	Karnor's Castle	curated	kunark	id	102
 katta	Katta Castellum	curated	luclin	id	160
 kattacastrum	Katta Castrum	name	tbs	id	416
@@ -157,9 +157,9 @@ necropolis	Dragon Necropolis	curated	velious	id	123,832
 neighborhood	Sunrise Hills	curated	hot	id	712
 nektropos	Nektropos	name	classic	id	28
 nektulos	Nektulos Forest	curated	classic	id	25,525
-neriaka	Neriak - Foreign Quarter	curated	classic	id	40,808
-neriakb	Neriak - Commons	curated	classic	id	41
-neriakc	Neriak - Third Gate	curated	classic	id	42
+neriaka	Neriak - Foreign Quarter	curated	classic	id	40,808	city
+neriakb	Neriak - Commons	curated	classic	id	41	city
+neriakc	Neriak - Third Gate	curated	classic	id	42	city
 neriakd	Neriak - Fourth Gate	curated	cotf	curated	43
 newsebexp	New Sebilis Expedition	curated			99
 nexus	The Nexus	name	luclin	id	152
@@ -171,12 +171,12 @@ oasis	The Oasis of Marr	curated	classic	id	37,537
 oceangreenhills	Oceangreen Hills	name	sod	id	466
 oceangreenvillage	Oceangreen Village	name	sod	id	467
 oceanoftears	The Ocean of Tears	name	classic	id	69,409,569
-oggok	Oggok	name	classic	id	49
+oggok	Oggok	name	classic	id	49	city
 oldkaesoraa	Kaesora Library	curated	sod	id	453
 oot	The Ocean of Tears	curated	classic	id	69,409,569
 overthere	The Overthere	name	kunark	id	93,815
 overtheretwo	The Temple of Droga	graph	kunark	id	81,581,788
-paineel	Paineel	name	classic	id	75
+paineel	Paineel	name	classic	id	75	city
 pallomen	Pal'Lomen	name	ls	id	861
 paludal	Paludal Caverns	curated	luclin	id	156
 paw	The Lair of the Splitpaw	curated	classic	id	18
@@ -196,12 +196,12 @@ precipiceofwar	Precipice of War	name	sod	id	473
 provinggrounds	Proving Grounds	name	oow	id	304,305,306,307,308,309
 qcat	The Qeynos Aqueduct System	curated	classic	id	45
 qey2hh1	The Western Plains of Karana	curated	classic	id	12
-qeynos	South Qeynos	curated	classic	id	1
-qeynos2	North Qeynos	curated	classic	id	2,502
+qeynos	South Qeynos	curated	classic	id	1	city
+qeynos2	North Qeynos	curated	classic	id	2,502	city
 qeytoqrg	Qeynos Hills	curated	classic	id	4,904
-qrg	Surefall Glade	curated	classic	id	3
+qrg	Surefall Glade	curated	classic	id	3	city
 rathemtn	The Rathe Mountains	curated	classic	id	50,551
-rivervale	Rivervale	name	classic	id	19
+rivervale	Rivervale	name	classic	id	19	city
 runnyeye	The Liberated Citadel of Runnyeye	curated	classic	id	11
 scarlet	The Scarlet Desert	graph	luclin	id	175
 scorchedwoods	The Scorched Woods	name	eok	curated	790

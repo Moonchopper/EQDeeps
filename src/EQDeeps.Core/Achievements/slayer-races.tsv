@@ -1,0 +1,130 @@
+# Slayer creature-type words -> the reference's race labels (F35, ADR-023 Decision 3).
+#
+#   term <TAB> race[|race...] <TAB> why (blank when the term is simply the label's plural)
+#
+# The achievements export names creature types in prose ("Sporalis", "Animated Hands"); the F30
+# reference labels each listing with a race ("Fungusman", "Reanimated Hand"). Neither states a race
+# id, so nothing joins them but this table, which is OURS: written by hand against the full
+# reference vocabulary (111 labels, 2026-09-20) and the owner's own progress, which proves a term
+# is satisfiable in this game whenever its count is above zero.
+#
+# A term that is NOT here has no known location, and the view says so rather than guessing — most
+# are creatures this game has not opened zones for (Shissar, Vah Shir, Drakkin). Add a row only
+# when the reference really lists the creature; do not invent one to make a row look complete.
+#
+# The labels are the reference's, MISTAKES INCLUDED: it files pandas under "Ulthork", werebats
+# under "Kobold" and mummies under "Zombie". This table maps to what the file says, because that
+# is what the atlas is grouped by; the view names the mobs so the player can see what they would
+# actually be killing.
+#
+# Terms under a lead-in carry it: "Clockwork: Beetles, Boars, ..." is "Clockwork Beetles",
+# "Clockwork Boars" - NOT ordinary beetles. Matching is exact, ignoring case.
+Alligators	Alligator	
+Amygdalans	Amygdalan	
+Animated Hands	Reanimated Hand	the reference's label (a reanimated hand, a frightfinger)
+Apes	Gorilla	as Cubes: the Skill tier's 'Gorillas' is the Conquest tier's 'Apes'
+Armadillos	Armadillo	
+Aviaks	Aviak	
+Barbarians	Barbarian	
+Basilisks	Basilisk	
+Bats	Bat	
+Bears	Bear	
+Beetles	Beetle	
+Bixies	Bixie	
+Brownies	Brownie	
+Centaurs	Centaur	
+Clockwork Gnomeworks	Clockwork Gnome|Gnomework	the 'Clockwork: ' lead-in applies to every term after it; the CWG models of Ak'Anon and Steamfont
+Crocodiles	Alligator	the reference files crocodiles under Alligator (18 of 19 of them)
+Cubes	Gelatinous Cube	the Conquest tier names loosely what the Skill tier names exactly (Cubic: Gelatinous Cubes)
+Dark Elves	Dark Elf	
+Dervishes	Dervish	
+Djinns	Djinn	
+Dragons	Dragon	
+Drakes	Drake	
+Drixies	Drixie	
+Dwarves	Dwarf	
+Efreetis	Efreeti	
+Elementals	Elemental|Earth Elemental	the reference splits the earth ones out
+Elephants	Mammoth	the reference files elephants under Mammoth (an elephant calf)
+Erudites	Erudite	
+Evil Eyes	Evil Eye	
+Eyes	Evil Eye|Eye	as Cubes: the Skill tier's 'Evil Eyes' is the Conquest tier's 'Eyes'
+Fairies	Fairy	
+Fay Drakes	Fae Drake	the reference's spelling
+Fishes	Fish	
+Frogloks	Froglok	
+Gargoyles	Gargoyle	
+Gelatinous Cubes	Gelatinous Cube	
+Ghosts	Ghost	
+Ghouls	Ghoul	
+Giants	Giant	
+Gnolls	Gnoll	
+Gnomes	Gnome	
+Goblins	Goblin	
+Golems	Golem	
+Goos	Goo	
+Gorgons	Gorgon	
+Gorillas	Gorilla	
+Griffins	Griffin	
+Half Elves	Half Elf	
+Halflings	Halfling	
+Harpies	Harpy	
+High Elves	High Elf	
+Humans	Human	
+Iksars	Iksar	
+Imps	Imp	
+Kedge	Kedge	
+Kerran	Kerran	
+Kerrans	Kerran	
+Kobolds	Kobold	
+Kodiaks	Bear	the reference files kodiaks under Bear (a young kodiak)
+Lions	Lion	
+Lizard Men	Lizard Man	
+Mammoths	Mammoth	
+Mermaids	Mermaid	
+Mimics	Mimic	
+Minotaurs	Minotaur	
+Mosquitoes	Mosquito	irregular plural
+Mystical Horses	Pegasus|Unicorn	the Special tier spells the group out: Kirins, Nightmares, Pegasus, and Unicorns
+Nightmares	Unicorn	the reference files nightmares under Unicorn (a lesser nightmare)
+Ogres	Ogre	
+Orcs	Orc	
+Pandas	Ulthork	MISLABEL in the reference: every panda (a panda cub, a mature panda) is filed under the race it calls Ulthork
+Pegasus	Pegasus	
+Piranhas	Piranha	
+Pixies	Pixie	
+Pumas	Puma	
+Rabbits	Snow Rabbit	the only rabbit race the reference lists
+Raptors	Raptor	
+Ratmen	Ratman	
+Rats	Rat	
+Sabertooths	Saber-toothed Cat	the reference's label
+Scarecrows	Scarecrow	
+Seahorses	Seahorse	
+Shades	Shade	
+Sharks	Shark	
+Sirens	Mermaid	the reference files sirens under Mermaid (an alluring siren)
+Skeletons	Skeleton	
+Skunks	Skunk	
+Snakes	Snake	
+Spectres	Spectre	
+Sphinxes	Sphinx	
+Spiders	Spider	
+Sporalis	Fungusman	the reference's label for the Sporali (a Sporali Defender, a Sporali Miner)
+Swordfishes	Swordfish	
+Tadpoles	Tadpole	
+Tentacle Terrors	Tentacle Terror	
+The avatar of a deity	Cazic-Thule|Innoruuk	the two gods the reference lists as races of their own; the owner's 13 kills are consistent with it, not proof
+The playable races	Human|Barbarian|Erudite|Wood Elf|High Elf|Dark Elf|Half Elf|Dwarf|Halfling|Gnome|Troll|Ogre|Iksar|Froglok|Kerran	the fifteen races 'I'm a People Person!' lists one by one
+Tigers	Tiger	
+Treants	Treant	
+Trolls	Troll	
+True Dragons	Dragon	the only dragon race the reference lists
+Unicorns	Unicorn	
+Vampires	Vampire	
+Wasps	Wasp	
+Werewolves	Werewolf	
+Wisps	Will-O-Wisp	the reference's label
+Wolves	Wolf	
+Wood Elves	Wood Elf	
+Zombies	Zombie	

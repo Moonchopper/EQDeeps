@@ -37,6 +37,17 @@
     <Content Remove="wwwroot\**" />
     <None Include="wwwroot\**" CopyToOutputDirectory="Never" />
   </ItemGroup>
+  <!-- The EQLBase snapshot (ADR-020 Decision 1, reversed 2026-09-21; see data/eqlbase/README.md).
+       Conditional on manifest.json existing, so the README's takedown path (delete the folder) still
+       builds — BundledReferenceSnapshot then finds no "eqlbase/manifest.json" resource and reads as
+       no snapshot, exactly as it did before this folder existed. A stable LogicalName rather than the
+       default (which would mangle the ..\..\ escape into the resource name) is what lets
+       BundledReferenceSnapshot address a file by its plain name. -->
+  <ItemGroup Condition="Exists('$(MSBuildThisFileDirectory)..\..\data\eqlbase\manifest.json')">
+    <EmbeddedResource Include="$(MSBuildThisFileDirectory)..\..\data\eqlbase\*.json">
+      <LogicalName>eqlbase/%(Filename)%(Extension)</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
   <!-- Licence text has to ship with the binary, not just sit in the repo.
        A self-contained publish lays the whole .NET runtime down beside the app
        and copies none of its licence files, and the MIT/Apache/OFL components

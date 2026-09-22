@@ -18,5 +18,9 @@
          hand-authored list is a one-line diff the owner can read and make
          without touching C#. -->
     <EmbeddedResource Include="Raids\raid-targets.tsv" />
+
+    <!-- The Slayer creature-word table (F35, ADR-023 Decision 3). Same reasoning as zones.tsv:
+         embedded so a portable unzip cannot lose it, TSV so a correction stays a one-line diff. -->
+    <EmbeddedResource Include="Achievements\slayer-races.tsv" />
   </ItemGroup>
 </Project>

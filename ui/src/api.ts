@@ -227,6 +227,20 @@ export interface ItemMentionsResult {
   knownNames: number;
 }
 
+/**
+ * Where a player-pressed Refresh stands (ADR-020 Decision 1's amendment) — the only thing that ever
+ * asks EQLBase for anything once a snapshot ships. `finishedUtc` absent means still running or never
+ * started; poll `ReferenceStatus.refresh` to watch it.
+ */
+export interface RefreshStatus {
+  running: boolean;
+  filesTotal: number;
+  filesChecked: number;
+  filesChanged: number;
+  finishedUtc?: string;
+  error?: string;
+}
+
 /** What the reference layer can answer right now, and why not when it cannot. */
 export interface ReferenceStatus {
   available: boolean;
@@ -234,8 +248,12 @@ export interface ReferenceStatus {
   homeUrl: string;
   names: number;
   listings: number;
-  refreshedUtc?: string;
   error?: string;
+  /** When the shipped snapshot was taken; absent with no snapshot (a build without data/eqlbase/, or a test). */
+  snapshotUtc?: string;
+  /** The newest cache write newer than the snapshot — "refreshed 3 days ago"; absent when there has been none. */
+  refreshedUtc?: string;
+  refresh: RefreshStatus;
 }
 
 /** One NPC as the reference site lists it. */
@@ -387,6 +405,169 @@ export interface NpcLookupResult {
   exact: boolean;
   observedLevels: number[];
   detail?: NpcDetail;
+}
+
+// ---- Slayer achievements (F35, ADR-023) ------------------------------------
+// Read from the player's own `<Char>_<server>-Achievements.txt`, never
+// recomputed from the log: the game's own count is the only count the app
+// shows (ADR-023 Decision 1). Mirrors EQDeeps.Core.Achievements exactly —
+// same field names, same optionality.
+
+export interface SlayerKillComponent {
+  text: string;
+  complete: boolean;
+  optional: boolean;
+  /** Null for a completed component — the export drops its count once done. */
+  have: number | null;
+  need: number | null;
+}
+
+export interface SlayerKillAchievement {
+  key: string;
+  tier: string;
+  title: string;
+  complete: boolean;
+  components: SlayerKillComponent[];
+  /** 0..1, "how near done" — the view's default sort key. */
+  fraction: number;
+  /** Kills left over this achievement's open required counted components. */
+  remaining: number | null;
+}
+
+export interface SlayerMetaComponent {
+  title: string;
+  complete: boolean;
+  optional: boolean;
+  /** The kill achievement this reference resolves to, when it does (ADR-023 Decision 2). */
+  targetKey: string | null;
+}
+
+export interface SlayerMetaAchievement {
+  key: string;
+  title: string;
+  complete: boolean;
+  components: SlayerMetaComponent[];
+  requiredDone: number;
+  requiredTotal: number;
+}
+
+export interface SlayerReport {
+  found: boolean;
+  /** Where the export was looked for; null when there is no install root. */
+  path: string | null;
+  /** ISO, the file's last write time. */
+  exportedUtc: string | null;
+  command: string;
+  /** A sentence a player can act on, when something is wrong. */
+  problem: string | null;
+  meta: SlayerMetaAchievement[];
+  kills: SlayerKillAchievement[];
+  skippedLines: number;
+}
+
+// ---- Slayer hunting (F35, ADR-023 Decisions 4-7) ---------------------------
+// "Where to hunt": a zone atlas built from the reference layer, ranked against
+// one achievement's races and the player's own faction standings. Mirrors
+// EQDeeps.Server's ApiModels.cs / NpcReferenceStore.cs and EQDeeps.Core's
+// Achievements/SlayerHunting.cs exactly.
+
+/**
+ * Where the background atlas walk stands (ADR-023 Decision 7): every shard
+ * the reference index implies, read once, paced. `complete` means the walk
+ * finished, not that every shard succeeded.
+ */
+export interface AtlasStatus {
+  enabled: boolean;
+  zonesTotal: number;
+  zonesRead: number;
+  running: boolean;
+  complete: boolean;
+  source: string;
+  homeUrl: string;
+  error?: string;
+}
+
+/**
+ * One term a Slayer achievement's creature list split into, and the races it
+ * names (ADR-023 Decision 3). Empty `races` means "no known location" — the
+ * term is still shown, never silently dropped, because the table is a claim.
+ */
+export interface SlayerTerm {
+  term: string;
+  races: string[];
+}
+
+/** The newest `/outputfile faction` export found for this character (ADR-023 Decision 5). */
+export interface FactionFileInfo {
+  found: boolean;
+  path?: string;
+  classCode?: string;
+  /** ISO, the file's last write time. */
+  exportedUtc?: string;
+  command: string;
+}
+
+/** One counted mob's contribution to its zone's supply. */
+export interface HuntMob {
+  id: number;
+  name: string;
+  race: string;
+  level?: number;
+  maxLevel?: number;
+  spawnPoints: number;
+  respawnSeconds: number;
+  perHour: number;
+}
+
+/**
+ * What hunting a zone does to one faction, supply-weighted across every
+ * counted mob that hits it — a mob nobody can reach in an hour barely moves
+ * this even if its own hit is large.
+ */
+export interface HuntFactionEffect {
+  faction: string;
+  perKill: number;
+  protected: boolean;
+  /** Not the same claim as "this faction is safe" — see ADR-023 Decision 5. */
+  unlockEarned: boolean;
+  standing?: number;
+  /** Where `standing` would land after the achievement's remaining kills, clamped to +-2000. */
+  projected?: number;
+}
+
+/** One zone's verdict: what it is worth, what it costs, and whether it is safe to send someone. */
+export interface HuntZone {
+  shortName: string;
+  name: string;
+  perHour: number;
+  spawnPoints: number;
+  minLevel?: number;
+  maxLevel?: number;
+  recommended: boolean;
+  protectedLossPerKill: number;
+  mobs: HuntMob[];
+  factions: HuntFactionEffect[];
+}
+
+/**
+ * Where to hunt one Slayer achievement (ADR-023 Decisions 4-7): the ranked
+ * zones, what each costs in faction, and everything the ranking was built
+ * from, so the view can show its work rather than a bare number.
+ */
+export interface SlayerHuntReport {
+  key: string;
+  title: string;
+  creatures: string;
+  remaining: number;
+  terms: SlayerTerm[];
+  atlas: AtlasStatus;
+  factions: FactionFileInfo;
+  characterLevel?: number;
+  /** Echoes the cap the query asked for, null included — the server applies no default. */
+  maxLevel?: number;
+  zones: HuntZone[];
+  /** How many player cities had a countable mob and were left off `zones` anyway (Decision 6). */
+  citiesLeftOut: number;
 }
 
 export interface IncomingHit {
@@ -851,6 +1032,14 @@ export const api = {
   warmReference: (): Promise<ReferenceStatus> =>
     fetch("/api/reference/status?warm=true").then((r) => json(r)),
 
+  /**
+   * The only call in this app that reaches EQLBase on its own initiative (ADR-020 Decision 1's
+   * amendment) — a player pressing Refresh. Starts the walk and returns at once; poll
+   * `referenceStatus` for its progress.
+   */
+  startRefresh: (): Promise<ReferenceStatus> =>
+    fetch("/api/reference/refresh", { method: "POST" }).then((r) => json(r)),
+
   /** By name, by level band, or both; the band alone browses the whole index. */
   searchNpcs: (
     q: string,
@@ -884,6 +1073,33 @@ export const api = {
     );
     if (response.status === 204 || !response.ok) return null;
     return (await response.json()) as NpcLookupResult;
+  },
+
+  // ---- Slayer achievements (F35, ADR-023) -----------------------------------
+
+  /** The export's own progress, one session's character — 404 for an unknown session. */
+  slayer: (sessionId: string): Promise<SlayerReport> =>
+    fetch(`/api/sessions/${sessionId}/slayer`).then((r) => json(r)),
+
+  // ---- Slayer hunting (F35, ADR-023 Decisions 4-7) --------------------------
+
+  /** Where the atlas walk stands; poll this while it runs. */
+  atlasStatus: (): Promise<AtlasStatus> => fetch("/api/reference/atlas").then((r) => json(r)),
+
+  /** This *is* the ask (ADR-020 Decision 2): nothing else in the app ever starts the walk. */
+  startAtlas: (): Promise<AtlasStatus> =>
+    fetch("/api/reference/atlas/start", { method: "POST" }).then((r) => json(r)),
+
+  /** Ranked zones for one Slayer achievement, optionally narrowed to one of its components. 404 for an unknown session or key. */
+  slayerHunt: (
+    sessionId: string,
+    key: string,
+    opts: { component?: number; maxLevel?: number } = {},
+  ): Promise<SlayerHuntReport> => {
+    const params = new URLSearchParams({ key });
+    if (opts.component !== undefined) params.set("component", String(opts.component));
+    if (opts.maxLevel !== undefined) params.set("maxLevel", String(opts.maxLevel));
+    return fetch(`/api/sessions/${sessionId}/slayer/hunt?${params}`).then((r) => json(r));
   },
 
   // ---- item registry (F29) --------------------------------------------------

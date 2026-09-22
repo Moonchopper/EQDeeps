@@ -10,6 +10,7 @@ import {
   useLookupWorld,
   useReferenceEnabled,
 } from "../lookup/lookupSettings";
+import { ReferenceRefreshFacts, useReferenceStatus } from "../lookup/referenceRefresh";
 
 interface Props {
   onClose: () => void;
@@ -80,6 +81,11 @@ export function SettingsDialog({
   const lookup = useLookupWorld();
   const install = lookup.install;
   const reference = useReferenceEnabled();
+  // The shipped snapshot's own facts and its Refresh button (ADR-020 Decision 1's amendment) — the
+  // same hook HuntDetail's footer uses, so the polling exists in exactly one place. Gated on the
+  // switch above: off means off, and this row offers no way around that (CLAUDE.md §5).
+  const { status: referenceStatus, error: referenceStatusError, refresh: refreshReference } =
+    useReferenceStatus(reference.enabled);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -150,7 +156,7 @@ export function SettingsDialog({
           </Row>
           <Row
             label="Look mobs up online"
-            hint={`Lets the Bestiary fetch mob levels, health, spawns and loot from ${lookup.world.providers[0]?.name ?? "a reference site"} and cache them here. The request carries nothing about you or your character, and nothing is fetched until you open the Bestiary and type. Off means this app never speaks to anyone but you.`}
+            hint="Lets the Bestiary and the Slayer planner show mob levels, health, spawns, loot and faction from EQLBase's data. A snapshot of it ships with the app, so nothing is asked of their site unless you press Refresh below — and a Refresh carries nothing about you or your character. Off means this app never speaks to anyone but you."
           >
             <input
               type="checkbox"
@@ -159,6 +165,18 @@ export function SettingsDialog({
               disabled={!reference.ready}
             />
           </Row>
+          {reference.enabled && referenceStatus && (
+            <div className="settings-foot reference-refresh-row">
+              <span className="settings-note">Reference data:</span>{" "}
+              <ReferenceRefreshFacts
+                status={referenceStatus}
+                error={referenceStatusError}
+                onRefresh={refreshReference}
+                buttonLabel="Refresh from EQLBase"
+                snapshotSuffix="shipped with the app"
+              />
+            </div>
+          )}
           <Row
             label="A click opens"
             hint={`Which of ${lookup.world.name}'s sites the arrow goes to on a plain click; right-click the arrow for the others. A site that needs the game's id (EQLBase) falls back to the first that takes a name until the id is known.`}

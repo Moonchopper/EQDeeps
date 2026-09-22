@@ -3,6 +3,7 @@ import {
   MAPS_VIEW,
   BESTIARY_VIEW,
   RAID_TARGETS_VIEW,
+  SLAYER_VIEW,
   STANCES_VIEW_ID,
   SUMMARY_VIEW,
 } from "./standardViews";
@@ -50,13 +51,14 @@ export const RAIL_GROUPS: RailGroup[] = [
   {
     // What this server's world is worth, learned across every log ever
     // opened on it. Nothing here reports over a time frame: the Bestiary
-    // reads a server-wide index, Map reads a folder on disk, and Raid
-    // targets reads the whole log itself rather than a selection of it
-    // (F31 — "have I ever killed this" is a lifetime question).
+    // reads a server-wide index, Map reads a folder on disk, Slayer reads a
+    // file the game itself wrote, and Raid targets reads the whole log rather
+    // than a selection of it (F31 — "have I ever killed this" is a lifetime
+    // question). None of the four is a QuerySpec.
     key: "world",
     label: "World",
     framed: false,
-    ids: [BESTIARY_VIEW, MAPS_VIEW, RAID_TARGETS_VIEW],
+    ids: [BESTIARY_VIEW, SLAYER_VIEW, MAPS_VIEW, RAID_TARGETS_VIEW],
   },
 ];
 

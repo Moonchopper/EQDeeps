@@ -1,6 +1,9 @@
-# ADR-020: Mob details are fetched from a reference site, never bundled, and never load-bearing
+# ADR-020: Mob details come from a reference site, attributed on screen, and are never load-bearing
 
-Status: accepted (2026-08-16). Scope: issue #51 (F30, the Bestiary) — the
+Status: accepted (2026-08-16); **Decision 1 reversed by the owner on
+2026-09-21 — the data now ships with the app. Read the amendment under
+Decision 1 before anything else here; "never bundled" in the text below is
+history, kept because the reasoning still matters.** Scope: issue #51 (F30, the Bestiary) — the
 `EQDeeps.Core.Reference` parsers, `NpcReferenceStore`, the
 `/api/reference/*` endpoints, the Bestiary view, and the Settings switch that
 turns the whole thing off. Follows [ADR-019](adr-019-reference-lookup.md),
@@ -61,6 +64,60 @@ Every screen showing this data names the source and links to the page it came
 from, and `NOTICE` records it. If the site's author later grants permission,
 bundling becomes a one-line change to where the index comes from; the ask is
 worth making, and this ADR should be amended when it is answered.
+
+### Amendment, 2026-09-21: the owner reversed this — a snapshot ships with the app
+
+**What changed the question.** F35's planner (ADR-023 Decision 7) has to know
+where every creature type stands, the index carries no race, and so every
+install was going to read all 79 zone files, about 11 MB. Fetch-on-demand
+had meant "one zone when someone looks at it"; it had quietly become "the
+whole site, once per install, plus a revalidation pass every week". The owner
+asked for the opposite trade: **ship one snapshot, and let nothing go
+upstream unless the player presses Refresh** — fewer requests to a hobby
+site, and an app that still works on a day the site does not.
+
+**What was decided, and by whom.** The architect's recommendation was *not*
+to bundle, for the reason this decision gives above: the site states no
+licence, its own position is that the material "remain[s] the property of
+their respective owners", and this repository is public, so committing the
+data publishes it to everyone and cannot be taken back from forks and caches.
+The recommended alternative was read-once-and-keep plus a Refresh button,
+which at the app's real scale — the owner and a few friends — costs the site
+about 55 MB in total, ever. The owner, told the repository is public, chose
+to bundle: the tool is non-commercial and used by a handful of people. It is
+their repository and their call; it is recorded here as made knowingly, and
+without the permission this section said was worth asking for.
+
+**What keeps it honest.**
+
+- The data lives in `data/eqlbase/`, **outside the MIT grant**, under a
+  README that says whose it is, that no licence was given, and that nobody
+  should read its presence in an MIT repository as permission to reuse it.
+  `NOTICE` and `THIRD-PARTY-NOTICES.txt` say the same, so the statement
+  travels with the binary.
+- **Less is taken than is published.** The index is trimmed to its NPC and
+  zone rows, the only ones the app parses; their items, spells, recipes and
+  quests are not carried.
+- **Removal is one step.** Delete the folder and the build still succeeds,
+  the snapshot reads as absent, and the store behaves exactly as this ADR
+  first described — one zone at a time, only when asked. A request from the
+  site's author or a rights holder is answered by that deletion.
+- **The snapshot is taken by hand** (`scripts/snapshot-eqlbase.mjs`), never
+  by a build or CI: one request at a time with a pause, each conditional on
+  the ETag the last snapshot recorded, so a re-run over unchanged data
+  transfers nothing. Verified: a conditional GET for an unchanged shard
+  returns `304` with an empty body.
+
+**What it does to the other decisions.** Decision 2's promise gets
+*stronger*, not weaker: with a snapshot present the app makes **no request of
+its own, ever** — no daily index check, no weekly shard check, no fetch on a
+miss. `StartRefresh` is the only path upstream, it is the player's button,
+and it is conditional per file (the ETags ship in the manifest), so an
+unchanged site costs a Refresh eighty headers. A cache file wins over the
+bundle only when it was written after the snapshot was taken, which is to
+say only when a Refresh put it there. Decisions 3–6 stand unchanged: nothing
+measured depends on this data, tests never touch the network, and every
+screen still names the source.
 
 ## Decision 2: nothing leaves the machine until someone asks, and a switch turns it off
 

@@ -607,8 +607,11 @@ Acceptance:
   Settings → "Look mobs up online" and `--no-reference` switch it off
   entirely. *(shipped; 2026-08-17 moved the index load from first search to
   open, which is what fixed a header that said "loading…" over nothing)*
-- Data is never bundled — EQLBase states no licence — and every screen showing
-  it names and links the source. *(shipped)*
+- Every screen showing the data names and links the source. *(shipped)* It
+  was never bundled — EQLBase states no licence — until 2026-09-21, when the
+  owner reversed that: a snapshot now ships in `data/eqlbase/`, outside the
+  MIT grant, so the app asks the site for nothing unless the player presses
+  Refresh (ADR-020 Decision 1, as amended).
 - The view opens on something: the mobs this server's logs have killed, most
   killed first, and level bands to browse the rest of the world; the page for
   a mob leads with listed health beside measured damage-to-kill and listed
@@ -647,7 +650,59 @@ Acceptance:
 - Open: item icons (the icon id is already in the data), and using the same
   index to seed F21's level-normalized DPS.
 
-## Planned — four features from a neighbouring app (2026-09-20)
+### F35. Slayer — what is left to kill, and where to go and kill it — **slices 1 and 2 of 4 built (2026-09-21)** ([ADR-023](../architecture/adr-023-slayer-planner.md))
+
+The Slayer achievements count kills by creature type — 100 kobolds, then
+1,000, then 5,000 — and finishing them means knowing, for each type still
+open, a zone where it stands thick, at a level worth fighting, that does not
+cost a faction the player is building, and is not a city. Owner request,
+2026-09-20: that is an evening of wiki tabs per achievement, and the app
+already holds every input.
+
+- **The count is the game's.** `/outputfile achievements` writes every
+  achievement and its `have/need` to the install; the app reads it, shows its
+  age, and names the command that refreshes it. The app never counts a kill
+  toward an achievement itself — the log does not say what race a corpse was.
+- **Where to hunt** comes from the F30 reference: race, spawn points,
+  respawn and faction hits per listing, per zone. Ranked by respawn supply,
+  shown with the facts behind the rank.
+- **Faction is a cost, against the factions the export names** — its unlock
+  achievements list the forty standings the player is working on. A zone that
+  loses one is shown, never recommended.
+- **Never a city.** `zones.tsv` says which zones are.
+- **The plan** walks everything still open, greedily: a kill is worth most
+  to the achievement it nearly finishes, and a zone that feeds six creature
+  types at once beats six camps.
+
+Acceptance, by slice:
+
+1. **Tracker** — with an export in the install, the Slayer view lists every
+   kill achievement with its progress, nearest to done first, and the
+   meta-achievements above them; with none, it says which command writes
+   one. Re-exporting in game updates the view without a restart. Works with
+   `--no-reference`. *(built 2026-09-20: on the owner's export, 118 kill
+   achievements, 20 complete, no line unread; counts are printed in full,
+   never rounded to K, because they are read against the game's own window.)*
+2. **Where to hunt** — picking an open achievement ranks its zones; no city
+   appears; a zone costing a protected faction is marked and unranked; a
+   listing with no primary faction contributes no faction cost; a creature
+   type that joins to no race says so. With a `/outputfile faction` export in
+   the install, every faction effect shows the standing now and the standing
+   the remaining kills would leave; without one it shows the hit per kill
+   and names the command. The zone data is read once, one file at a time,
+   with progress on screen, only after the player opens it, and not at all
+   with `--no-reference` or with "Look mobs up online" switched off.
+   *(built 2026-09-21: on the owner's files, bears lead with Nektulos Forest
+   at 177 spawn points and nothing lost; barbarians have twelve clean zones,
+   all thin, and every rich one is shown under the divider with where it
+   would leave Halas's or Qeynos's standing; five cities are counted out and
+   Halas never appears; no placeholder faction row reaches the screen.)*
+3. **The plan** — the next ten stops across everything open, each saying
+   what it finishes, what else it feeds and what it costs; the walk matches a
+   hand-computed toy world.
+4. **Since-the-export estimate** from the log — planned, not designed.
+
+## Four features from a neighbouring app (2026-09-20)
 
 The owner uses [EQ Legends Companion](https://github.com/jmoyers/everquest-companion)
 beside this app and asked for four of its features here.
@@ -757,6 +812,7 @@ true transparency, or the whole-window-opacity fallback — before an ADR is
 written. ADR-021 Decision 6 lists the window-handling traps the neighbouring
 app already paid for.
 
+
 ## P2 — Later
 
 - **F15. Chat archive & search** — persist chat by channel/player with full-text search and date ranges.
@@ -775,4 +831,4 @@ app already paid for.
 - **Backfill throughput:** historical load should saturate disk read, not parser — target ≥ 100 MB/s on typical hardware; a 1 GB log's last raid night loads in seconds. (Old app parses a full file in minutes on large logs.)
 - **Scale:** 54-player raids, hundreds of combat lines/second burst, logs up to several GB, fights lasting 10+ minutes, sessions monitoring 3+ characters.
 - **Correctness:** parsing fidelity against the fixture corpus (see HANDOFF.md verification section) is a release gate.
-- **Licensing:** all dependencies MIT/Apache-2.0/BSD-compatible, each listed in `NOTICE` with its licence text in `THIRD-PARTY-NOTICES.txt`; the publish lays both beside the binary, because those licences ask for the text and not just the credit. The fixture corpus is derived from EQLogParser's parser tests (Apache 2.0) and **its attribution is an obligation, not a courtesy** — it stays as long as those fixtures do. No data files have been copied from it and none are wanted: reference data comes from the player's own game install (`docs/domain/eq-client-files.md`) or is fetched at their request and attributed on screen (ADR-020).
+- **Licensing:** all dependencies MIT/Apache-2.0/BSD-compatible, each listed in `NOTICE` with its licence text in `THIRD-PARTY-NOTICES.txt`; the publish lays both beside the binary, because those licences ask for the text and not just the credit. The fixture corpus is derived from EQLogParser's parser tests (Apache 2.0) and **its attribution is an obligation, not a courtesy** — it stays as long as those fixtures do. No data files have been copied from it and none are wanted: reference data comes from the player's own game install (`docs/domain/eq-client-files.md`) — with **one exception that is under no licence at all**: the EQLBase snapshot in `data/eqlbase/`, shipped at the owner's decision, outside the MIT grant, attributed on screen and removable in one step (ADR-020 Decision 1, as amended 2026-09-21).

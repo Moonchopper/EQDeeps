@@ -328,6 +328,7 @@ points at our ADRs, never at its repository.
 
 | Question | Read |
 |---|---|
+| How should something look or read? | ADR-015 (visual language) first; then Austin's cross-project taste, the `studio-taste` skill (source: fieldlight-dev/fieldlight-branding `core/taste/`) |
 | What is this, who is it for, what is deliberately out of scope? | `docs/product/vision.md` |
 | Is feature X shipped? What are its acceptance criteria? | `docs/product/features.md` |
 | **What does this log line mean? How do I parse it?** | `docs/domain/eq-log-format.md` — the crown jewels |
